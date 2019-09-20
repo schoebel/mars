@@ -5839,8 +5839,8 @@ name "sec:Local-vs-Centralized"
 \end_layout
 
 \begin_layout Standard
-There is some old-fashioned belief that only centralized storage systems,
- as typically sold by commercial storage vendors, could achieve a high degree
+There is some historical belief that only centralized storage systems, as
+ typically sold by commercial storage vendors, could achieve a high degree
  of reliability, while local storage were inferior by far.
  In the following, we will see that this is only true for an 
 \series bold
@@ -5893,10 +5893,10 @@ Redundancy at control heads / management interfaces.
 \end_layout
 
 \begin_layout Standard
-What about local hardware RAID controllers? Many people think that these
+What about local hardware RAID controllers? Some people think that these
  relatively cheap units were massively inferior at practically each of these
  points.
- However, please take a 
+ Please take a 
 \emph on
 really deep
 \emph default
@@ -5947,8 +5947,11 @@ If you compare typical prices for both competing systems, you will notice
  a huge difference.
  See also section 
 \begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Cost-Arguments-from"
+LatexCommand nameref
+reference "subsec:Cost-Arguments-from-Technology"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -5976,7 +5979,6 @@ pled pair of RAID controllers via several types of SAS busses.
 fraction
 \emph default
  of the price.
- 
 \end_layout
 
 \begin_layout Standard
@@ -6049,13 +6051,11 @@ average(!)
  No, this isn't a typo.
  It is not 70,000 IOPS.
  It is only 70 IOPS.
- 
 \end_layout
 
 \begin_layout Standard
-Linux kernel experts know why I am not kidding.
- The standard Linux kernel has two main caches, the Page Cache for file
- content, and the Dentry Cache (plus Inode slave cache) for metadata.
+Reason: the standard Linux kernel has two main caches, the Page Cache for
+ file content, and the Dentry Cache (plus Inode slave cache) for metadata.
  Both caches are residing in 
 \series bold
 RAM
@@ -6065,18 +6065,60 @@ RAM
 fastest
 \emph default
  type of cache you can get.
+ Some more details are in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
 Nowadays, typical servers have several hundreds of gigabytes of RAM, sometimes
  even up to terabytes, resulting in an incredible caching behaviour which
- can be measured by those people who know how to do it (caution: it can
- be easily done wrongly).
+ can be measured
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Caution: this requires 
+\emph on
+extremely solid
+\emph default
+ expert knowledge and experience.
+ It can be easily done wrongly.
+ When managers are believing 
+\series bold
+fake results
+\series default
+, whether produced by accident from people stuck to 
+\series bold
+second-order ignorance
+\series default
+, or whether produced for some 
+\series bold
+political reasons
+\series default
+: This can be 
+\series bold
+dangerous for companies
+\series default
+.
+\end_layout
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
-Many people are neglecting these caches, sometimes not knowing of their
- existence, and are falsely assuming that 1 application r
+Many people appear to neglect these caches, sometimes not knowing of their
+ existence, and erronously assuming that 1 application r
 \family typewriter
 ead()
 \family default
@@ -6117,8 +6159,7 @@ using NFS, which has extremely poor filesystem caching behaviour because
  the Linux nfs client implementation does not take full advantage of the
  dentry cache.
  Sometimes people know this, sometimes not.
- It seems that few people have read an important paper on the Linux implementati
-on of nfs.
+ Please read an important paper on the Linux implementation of nfs.
  Please search the internet for 
 \begin_inset Quotes eld
 \end_inset
@@ -6204,14 +6245,30 @@ over-engineering
 ).
 \end_layout
 
+\begin_layout Itemize
+
+\series bold
+political interest
+\series default
+, often supported by storage vendors.
+\end_layout
+
 \begin_layout Standard
 Anyway, local storage can be augmented with various types of local caches
  with various dimensioning.
 \end_layout
 
 \begin_layout Standard
-However, there is no point in accessing the fastest possible type of RAM
- cache remotely over a network.
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ There is no point in accessing the fastest possible type of RAM cache remotely
+ over a network.
  Even expensive hardware-based RDMA (e.g.
  over Infiniband) cannot deliver the same performance as 
 \series bold
@@ -6420,8 +6477,8 @@ The laws of information transfer are telling us: with increasing distance,
  both latencies (laws of Einstein) and throughput (laws of energy needed
  for compensation of SNR = signal to noise ratio) are becoming worse.
  Distance matters.
- And the number of intermediate components, like routers / switches and
- their 
+ The number of intermediate components, like routers / switches and their
+ 
 \series bold
 queuing
 \series default
@@ -6429,11 +6486,22 @@ queuing
 \end_layout
 
 \begin_layout Standard
-This means that local storage has 
+Consequently, local storage has 
 \emph on
 always
 \emph default
- an advantage in front of any attachment via network.
+ an architectural
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In order to be fair, an architectural comparison must be made under the
+ assumption of comparable low-level technologies.
+\end_layout
+
+\end_inset
+
+ advantage in front of any attachment via network.
  Centralized storages are bound to some network, and thus suffer from disadvanta
 ges in terms of latencies and throughput.
 \end_layout
@@ -6557,7 +6625,6 @@ It is difficult to compare the space density of contemporary SSDs in a fair
 \begin_layout Standard
 In other words: centralized storages are no good idea yet, and will likely
  become an even worse idea in the future.
- 
 \end_layout
 
 \begin_layout Standard
@@ -6612,8 +6679,8 @@ try
 
  architecture called SLED = Single Large Expensive Disk was propagated with
  huge marketing noise and effort, but its historic fate was predictable
- for real experts not bound to particular interests: SLED finally lost against
- their contemporary RAID competition.
+ for neutral experts not bound to particular interests: SLED finally lost
+ against their contemporary RAID competition.
  Nowadays, many people don't even remember the term SLED.
 \end_layout
 
@@ -6672,7 +6739,7 @@ nevertheless
 
 \begin_layout Standard
 Some people are incorrectly arguing with redundancy.
- However, the problem is that 
+ The problem is that 
 \emph on
 any
 \emph default
@@ -6746,7 +6813,7 @@ What is the difference from the viewpoint of customers of the services?
 \end_layout
 
 \begin_layout Standard
-When a CentralStorage fails fatally, a 
+When a CentralStorage is failing fatally, a 
 \emph on
 huge
 \emph default
@@ -6763,7 +6830,11 @@ reference "subsec:Latencies-and-Throughput"
 
 ).
  Reason: restore from backup will take extremely long because huge masses
- of data have to be restored.
+ of data have to be restored = 
+\series bold
+copied
+\series default
+ over a network.
  MTBF = Mean Time Between Failures is (hopefully) longer thanks to redundancy,
  but MTTR = Mean Time To Repair is also very long.
 \end_layout
@@ -7140,7 +7211,7 @@ stock exchange compatible
 
 \begin_layout Standard
 \noindent
-Summary: CentralStorage is something for 
+Conclusions: CentralStorage is something for
 \end_layout
 
 \begin_layout Itemize
