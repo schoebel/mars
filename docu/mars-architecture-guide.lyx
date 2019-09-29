@@ -3053,6 +3053,1711 @@ Cloud Product
 \end_layout
 
 \begin_layout Section
+Layering Rules and their Importance
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Layering-Rules"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Complex systems are composed of several layers.
+ In this section, we will learn how to organize them (close to) 
+\series bold
+optimally
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Non-optimal layering is a major cause of 
+\series bold
+financial losses
+\series default
+, decreased reliability / 
+\series bold
+increased risk
+\series default
+, 
+\series bold
+worse scalability
+\series default
+, etc.
+\end_layout
+
+\begin_layout Standard
+Well-designed systems can be recognized as roughly following Dijkstra's
+ famous 
+\series bold
+layering rules,
+\series default
+ originating from his pioneer THE project.
+ Wikipedia article 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/THE_multiprogramming_system
+\end_layout
+
+\end_inset
+
+ is mentioning an important principle behind Dijkstra's layers, in section
+ 
+\begin_inset Quotes eld
+\end_inset
+
+Design
+\begin_inset Quotes erd
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Quotation
+
+\series bold
+higher layers only depend on lower layers
+\end_layout
+
+\begin_layout Standard
+The original article 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://www.cs.utexas.edu/users/EWD/ewd01xx/EWD196.PDF
+\end_layout
+
+\end_inset
+
+ resp 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://dl.acm.org/citation.cfm?doid=363095.363143
+\end_layout
+
+\end_inset
+
+ contains very interesting information, and is a highly recommended reading.
+ The introduction and the progress report is relevant for today's managers,
+ optionally the 
+\begin_inset Quotes eld
+\end_inset
+
+design experience
+\begin_inset Quotes erd
+\end_inset
+
+, and certainly the conclusions.
+ The section 
+\begin_inset Quotes eld
+\end_inset
+
+System hierarchy
+\begin_inset Quotes erd
+\end_inset
+
+ is relevant for today's system architects, while the rest is mostly of
+ historical interest for OS and kernel specialists.
+ Reading the relevant parts after more than 50 years is extremely well-invested
+ time.
+ Dijkstra provides solutions for 
+\series bold
+invariant problems
+\series default
+ which are facing us today with the same boring ignorance, even after 50
+ years.
+ The heart of his conclusions is 
+\series bold
+timeless
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+Dijkstra's methodology has been intensively discussed
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+An important contribution is from Haberman, by clarifying that there exist
+ serveral types of hierarchies.
+\end_layout
+
+\end_inset
+
+ by the scientific OS community, and has been generalized in various ways
+ to what folklore calls 
+\begin_inset Quotes eld
+\end_inset
+
+Dijkstra's layering rules
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Here is a condensed summary of its essence:
+\end_layout
+
+\begin_layout Itemize
+Layers should be viewed as 
+\series bold
+abstractions
+\series default
+.
+\end_layout
+
+\begin_layout Itemize
+Higher layers should only depend on lower layers.
+\end_layout
+
+\begin_layout Itemize
+Each layer should 
+\series bold
+add
+\series default
+ some 
+\series bold
+new
+\series default
+ functionality.
+\end_layout
+
+\begin_layout Itemize
+Trivial conclusion by reversing this: 
+\series bold
+Regressions
+\series default
+ should be avoided.
+ A regression is when some functionality is 
+\emph on
+lost
+\emph default
+ at a higher layer, although it was present at a lower layer.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ This sounds very simple.
+ However, on a closer look, there are numerous violations of these rules
+ in modern system designs.
+ Some examples will follow.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ The term 
+\begin_inset Quotes eld
+\end_inset
+
+
+\series bold
+functionality
+\series default
+
+\begin_inset Quotes erd
+\end_inset
+
+ is very abstract, and deliberately not very specific
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Elder schools of software engineering know that 
+\series bold
+design processes
+\series default
+ must 
+\emph on
+necessarily
+\emph default
+ start with unspecific terms, in order to start to bridge the so-called
+ 
+\series bold
+semantic gap
+\series default
+.
+\end_layout
+
+\end_inset
+
+.
+ It is independent from any implementations, programming languages, or programmi
+ng / user interfaces.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ The same functionality may be accessible via 
+\emph on
+multiple
+\emph default
+ different 
+\series bold
+interfaces
+\series default
+.
+ Thus a different interface does 
+\emph on
+not
+\emph default
+ imply that functionality is (fundamentally) different.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Nevertheless, people are often confusing functionality with interfaces.
+ They think that a different interface must provide a different functionality.
+ As explained, this is not correct in general.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Confusion of interfaces with functionality is exploited by so-called marketing
+ drones and other types of advertising (e.g.
+ aquisition of 
+\series bold
+venture capital
+\series default
+), in order to 
+\series bold
+open your money pocket
+\series default
+.
+ As a responsible manager, you should always check the 
+\emph on
+functionality
+\emph default
+ behind a certain product and its interfaces: what is 
+\emph on
+really
+\emph default
+ behind the scenes?
+\end_layout
+
+\begin_layout Subsection
+Negative Example: object store implementations mis-used as backend for block
+ devices / POSIX filesystems
+\begin_inset CommandInset label
+LatexCommand label
+name "par:Negative-Example:-object"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Several object store implementations are following the client-server paradigm,
+ where servers and clients are interconnected via some 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ storage network (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Distributed-vs-Local:"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+We start by looking at the 
+\emph on
+internal
+\emph default
+ architecture of certain OSD = Object Storage Device (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Object_storage
+\end_layout
+
+\end_inset
+
+) implementations.
+ Some publications are treating them more or less as black boxes (e.g.
+ as abstract interfaces).
+ Certain people are selling this as an advantage.
+\end_layout
+
+\begin_layout Standard
+However, we will check this here.
+ Thus we need to take a closer look at the 
+\emph on
+internal
+\emph default
+ sub-architecture of certain OSD implementations:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/ceph-layering-server.fig
+	scale 50
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The crucial point is: several OSD implementations are internally using 
+\series bold
+filesystems
+\series default
+ for creating the object abstraction.
+ For implementors, this seems to be a very tempting
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Linux kernel implementations of filesystems need typically at least 10 years,
+ if not 20 years to be considered 
+\begin_inset Quotes eld
+\end_inset
+
+mature
+\begin_inset Quotes erd
+\end_inset
+
+ enough for mass production on billions of inodes.
+\end_layout
+
+\end_inset
+
+ shortcut strategy.
+ Instead of implementing their own object store functionality on top of
+ block devices, which could easily take some years or decades until mature
+ enough for production use, existing kernel-level filesystem implementations
+ are just re-used.
+ They seem to be already there, 
+\begin_inset Quotes eld
+\end_inset
+
+for free
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+However, at architectural level, they are 
+\emph on
+not
+\emph default
+ for free.
+ They are violating Dijkstra's layering rules by causing 
+\emph on
+regressions
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+At abstract functionality level: passive objects, and even some associated
+ 
+\emph on
+rich metadata
+\emph default
+, are more or less nothing else but 
+\series bold
+restricted files
+\series default
+, optionally augmented with POSIX EAs = Extended Attributes
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Posix EAs = Extended Attributes implementations as provided by classical
+ filesystems are providing roughly the same functionalities as 
+\emph on
+passive
+\emph default
+ augmented object metadata.
+ Even active metadata is possible, e.g.
+ by separate processes present in 
+\family typewriter
+Akonadi
+\family default
+ or 
+\family typewriter
+miner
+\family default
+.
+ With such a standard addendum, classical filesystems can also be used for
+ providing active functionality.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+Object IDs can be 
+\series bold
+trivially mapped
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Example: random hex key 
+\family typewriter
+0123456789ABCDEF
+\family default
+ can be trivially mapped to a path 
+\family typewriter
+/objectstore/0123/4567/89ABCDEF
+\family default
+ in an easily reversible way (bijective mapping)
+\end_layout
+
+\end_inset
+
+ to filenames / pathnames.
+ At 
+\emph on
+abstract functionality
+\emph default
+ level, there is almost no difference between pathnames and object IDs,
+ with the exception that pathnames are 
+\emph on
+more general
+\emph default
+, e.g.
+ by allowing deep nesting into subfolders.
+\end_layout
+
+\begin_layout Itemize
+Newer versions of certain Linux-based filesystems can even automatically
+ generate random object keys, and even atomically (= free of race conditions
+ when executed concurrently).
+ Example: supply the option 
+\family typewriter
+O_TMPFILE
+\family default
+ to 
+\family typewriter
+open()
+\family default
+, followed by 
+\family typewriter
+linkat()
+\family default
+.
+\end_layout
+
+\begin_layout Itemize
+While filesystems are translating file IDs = pathnames into 
+\series bold
+file handles
+\series default
+ before further operations can be carried out, object stores are typically
+ skipping this intermediate step from a user's viewpoint.
+ The user needs to supply the object ID for 
+\emph on
+any
+\emph default
+ operation.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In the implementation, this can lead to considerable 
+\series bold
+runtime overhead
+\series default
+, because ID lookup functionality similar to 
+\family typewriter
+open()
+\family default
+ has to be re-executed for each operation.
+ In contrast, valid file handles are 
+\emph on
+directly
+\emph default
+ referring to the relevant kernel objects, without need to search for a
+ filename again.
+ Extreme example: consider the total runtime overhead by repeatedly appending
+ 1 byte to an object in a loop.
+\end_layout
+
+\begin_layout Itemize
+Consequently, certain file operations associated with file handles are missing
+ in pure object stores, such as 
+\family typewriter
+lseek()
+\family default
+, as well as many other operations.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Concurrency
+\series default
+ functionality of a POSIX-compliant
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+POSIX requires 
+\series bold
+strict consistency
+\series default
+ for many operations, while weaker consistency models are often 
+\emph on
+sufficient
+\emph default
+ (but not required) for object stores.
+\end_layout
+
+\end_inset
+
+ filesystem is much more elaborated than actually needed by an object store.
+ Examples: fine-grained locking operations like 
+\family typewriter
+flock()
+\family default
+ are typically not needed in pure object stores.
+ The 
+\family typewriter
+rename()
+\family default
+ operation, including its side effects onto concurrency, would even 
+\emph on
+contradict
+\emph default
+ to the fundamental idea of immutable object IDs.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Shared memory
+\series default
+ functionality.
+ Filesystems need to support 
+\family typewriter
+mmap()
+\family default
+ and relatives.
+ This is 
+\emph on
+inevitable
+\emph default
+ in modern kernels like Linux, for hardware MMU-supported 
+\series bold
+execution of processes
+\series default
+, employing the COW = Copy On Write strategy.
+ See 
+\family typewriter
+fork()
+\family default
+ and 
+\family typewriter
+execve()
+\family default
+ syscalls, and their relatives.
+ In general, shared memory can be used by several processes concurrently,
+ and on 
+\series bold
+sparse files
+\series default
+.
+ Filesystem implementors need to spend a considerable fraction of their
+ total effort on this.
+ Concurrency on shared memory, togther with SMP scalability to a contemporary
+ degree, is what makes it really hard, and why there are only relatively
+ few people in the world mastering this art.
+ As a manager, compare with Dijkstra's remarks on required 
+\series bold
+skill levels
+\series default
+ for serious OS work..
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Object stores are typically lacking shared memory functionalities completely.
+ Thus they are not suited as a 
+\emph on
+core component
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Years ago, certain advocates of object stores have claimed that filesystems
+ would be superseded by object stores / OSDs in future.
+ This is unrealistic, due to the lack of mentioned basic functionalities.
+ When missing functionality would be added to object stores, they would
+ turn into filesystems, or into so-called 
+\begin_inset Quotes eld
+\end_inset
+
+hybrid systems
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Consequently, there is no clue in claiming that object stores are forming
+ a fundamental base for operating systems.
+ They are essentially just a special case, optionally augmented with some
+ active functionality, which in turn should be attributed to a 
+\emph on
+separate
+\emph default
+ layer, independently from filesystems or object stores.
+\end_layout
+
+\end_inset
+
+ of a modern OS.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In comparison, creating a different interface for an already existing sub-funct
+ionality, and optionally adding some metadata harvesters and filters, is
+ requiring much lower
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Roughly, computer science students should be able to do that after a 1 semester
+ OS course.
+\end_layout
+
+\end_inset
+
+ skills and effort.
+\end_layout
+
+\begin_layout Itemize
+Several less-used functionalities, like 
+\series bold
+hardlinks
+\series default
+ etc.
+\end_layout
+
+\begin_layout Standard
+Obviously, these functionalities are 
+\emph on
+lost
+\emph default
+ at the object layer and/or latest at the exports interface.
+ Thus we have identified a Dijkstra regression.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ As already explained: 
+\series bold
+trivial differences
+\series default
+ in an interface, such as usage of intermediate file handles / or not, or
+ near-trivial 
+\series bold
+representation
+\series default
+ variants like pathnames vs object IDs, are no valid
+\emph on
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Arguing with (trivial) syscall combinations or trivial parameter passing
+ can be observed sometimes.
+ As a responsible manager, you should draw another conclusion: someone arguing
+ this way is either fighting for a particular 
+\series bold
+political interest
+\series default
+ in an 
+\series bold
+unfair
+\series default
+ manner, and/or in reality he demonstrates nothing but an extremely 
+\series bold
+poor skill level
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ arguments for claiming differences in the 
+\emph on
+abstract functionality
+\emph default
+ in the sense of Dijkstra.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Conclusion: 
+\emph on
+passive
+\emph default
+ object stores are approximately nothing else but a 
+\series bold
+special case
+\series default
+ of fileystems.
+\end_layout
+
+\begin_layout Standard
+Now let us look at some 
+\emph on
+active
+\emph default
+ functionality of some object stores, such as automatic collection of 
+\series bold
+rich metadata
+\series default
+, or filtering functionality on top of them: are suchalike functionalities
+ really specific for object stores?
+\end_layout
+
+\begin_layout Standard
+There is a clear answer: NO.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ For example, 
+\family typewriter
+Akonadi
+\family default
+, 
+\family typewriter
+miner
+\family default
+, and similar standard Linux tools are indexing the EXIF metadata of images,
+ or metadata of mp3 songs, videos, etc, residing in a classical filesystem.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not draw wrong conclusions from the fact that the classical Unix Philosophy
+ (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Unix_philosophy
+\end_layout
+
+\end_inset
+
+) has a long tradition of 
+\series bold
+decomposing
+\series default
+ functionality into 
+\series bold
+separate layers
+\series default
+, such as the distinction between passive filesystems and active metadata
+ indexing.
+ When some object advocates are merging these separate layers into one,
+ this is 
+\emph on
+not
+\emph default
+ an advantage.
+ In contrary, there are disadvantages like 
+\emph on
+hidden cartesian products
+\emph default
+ occurring at architecture level, and possibly also in implementations.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ As a manager: when certain advocates are claiming that suchalike functionality
+ mergers are constituting some new product, be cautious.
+ It is about 
+\emph on
+your
+\emph default
+ money, or about your company's money.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ When augmented metadata functionality is present (whether actively or passively
+), it should 
+\emph on
+not
+\emph default
+ be viewed as an integral part of object stores, but as an 
+\emph on
+optional addendum
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Reason: 
+\series bold
+rich metadata is 
+\emph on
+conceptually independent
+\series default
+\emph default
+ from both filesystems and object stores.
+\end_layout
+
+\begin_layout Standard
+You may wonder what is the 
+\emph on
+damage
+\emph default
+ caused by Dijkstra regressions at object stores.
+\end_layout
+
+\begin_layout Standard
+We now look at a 
+\emph on
+mis-use
+\emph default
+ of object stores, which has been unfortunately advocated by object store
+ advocates several years ago.
+ Some advocates appear to have learned from bad experiences with suchalike
+ setups (see examples in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), no longer propagating suchalike mis-uses anymore, but to focus on more
+ appropriate use cases for 
+\emph on
+native
+\emph default
+ object stores instead.
+\end_layout
+
+\begin_layout Standard
+We continue by looking at the client part of distributed block devices /
+ distributed filesystems on top of OSDs.
+ The following example requires POSIX compliance
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+1&1 Ionos has made the experience that a near POSIX-compliant filesystem
+ called 
+\family typewriter
+nfs
+\family default
+ did not work correctly, causing customer complaints, because it is 
+\emph on
+not fully
+\emph default
+ POSIX-compliant.
+\end_layout
+
+\end_inset
+
+ for toplevel application Apache webhosting with 
+\family typewriter
+ssh
+\family default
+ access:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/ceph-layering-client.fig
+	scale 50
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+It should catch your eyes that both block-device and filesystem functionality
+ is re-appearing once again, although it had been already implemented at
+ OSD level.
+ Obviously, there are two more Dijkstra regressions.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not over-stress the fact that now we are creating 
+\emph on
+distributed
+\emph default
+ block-devices, or 
+\emph on
+distributed
+\emph default
+ filesystems in place of local ones.
+ This does 
+\emph on
+not
+\emph default
+ imply that a 
+\family typewriter
+BigCluster
+\family default
+ architecture is needed on top an 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ storage network, or that 
+\series bold
+random replication
+\series default
+ inducing further problems and serious reliability problems (see section
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) is needed.
+ There are near-trivial alternatives at architecture level, see 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Variants-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ There is another (fourth) Dijkstra regression.
+ Distributed block devices are typically storing 4k sectors or similar
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Mapping of multiple 4k sectors onto a smaller number of bigger objects (e.g.
+ 128k) opens up another 
+\series bold
+tradeoff
+\series default
+, called 
+\series bold
+false sharing
+\series default
+.
+ This can lead to serious performance degradation of highly random workloads.
+\end_layout
+
+\end_inset
+
+ 
+\series bold
+fixed-size
+\series default
+ entities in the object store, although objects are capable of 
+\series bold
+varying sizes
+\series default
+.
+ Thus objects and their 
+\emph on
+dynamic key indirection mechanisms
+\emph default
+ are 
+\begin_inset Quotes eld
+\end_inset
+
+misused
+\begin_inset Quotes erd
+\end_inset
+
+ for a restricted use case where array-like virtual data structures would
+ be sufficient.
+ When some petabytes of block device data are created in such a way, a 
+\series bold
+massive overhead
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+For example, an 
+\family typewriter
+xfs
+\family default
+ inode has a typical size of 256 bytes.
+ When each 4k sector of a distributed block device is stored as 1 object
+ in an 
+\family typewriter
+xfs
+\family default
+ filesystem consuming 1 inode, there is not only noticable space overhead.
+ In addition, random access by large application workingsets will need at
+ least two seeks in total (inode + sector content).
+ Without caching, this just doubles the needed worst-case IOPS.
+ When taking the lookup fuctionality into account, the picture will worsen
+ once again.
+\end_layout
+
+\end_inset
+
+
+\series default
+ is induced.
+\end_layout
+
+\begin_layout Standard
+Some damages caused (or at least 
+\emph on
+supported
+\emph default
+) by suchalike Dijkstra regressions:
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Increased invest
+\series default
+.
+ Further reasons like doubled effort are explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Cost-Arguments-from-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Increased operational cost
+\series default
+, both manpower and electrical power.
+ Example: certain Ceph OSD implementations have been estimated as roughly
+ consuming 1 GHz CPU power and 1 GB RAM per spindle.
+ Even when newer versions are implemented somewhat more efficiently, there
+ remains architectural Dijkstra overhead as explained above.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Decreased reliability
+\series default
+ / 
+\series bold
+increased risk
+\series default
+, simply caused by 
+\series bold
+additional complexity
+\series default
+ introduced by Dijkstra regressions.
+ Further reasons are explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Decreased total performance
+\series default
+, simply induced by regression overhead.
+ Some more reasons can be found in sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Limited scalability
+\series default
+ as explained in sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Scalability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ is further worsened by Dijkstra regressions.
+\end_layout
+
+\begin_layout Subsection
+Positive Example: ShaHoLin storage + application stack
+\begin_inset CommandInset label
+LatexCommand label
+name "par:Positive-Example:-ShaHoLin"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+ShaHoLin = Shared Hosting Linux at 1&1 Ionos.
+ It is a 
+\series bold
+managed product
+\series default
+, i.e.
+ the sysadmins can login anywhere as 
+\family typewriter
+root
+\family default
+.
+ Notice that this has some influence at the architecture.
+ In general, unmanaged products need to be constructed somewhat differently.
+\end_layout
+
+\begin_layout Standard
+ShaHoLin's architecture does not suffer from Dijkstra regressions, since
+ each layer is adding new functionality, which is also available at, or
+ at least functionally influences, any of the higher layers.
+\end_layout
+
+\begin_layout Standard
+Because of this, and by using a scalability principle called Sharding (see
+ sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Definition-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Variants-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), architectural properties are 
+\series bold
+close to optimal
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+The following bottom-up description explains some granularity considerations
+ at each layer:
+\end_layout
+
+\begin_layout Enumerate
+Hardware-based RAID-6, with an internal sub-architecture based on SAS networking
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Certain advocates are overlooking the fact that SAS busses are a small network,
+ just using the SAS protocol in place of TCP/IP.
+ When necessary, the SAS network can be dynamically extended, e.g.
+ by addition of external enclosures.
+\end_layout
+
+\end_inset
+
+.
+ The newest LSI-based chip generation supports 8 GB fast BBU cache, which
+ has RAM speed.
+ Depending on the number of disks, this creates one big block device per
+ RAID set.
+ Current dimensioning (2019) is between 
+\begin_inset Formula $\approx$
+\end_inset
+
+15 TB on 10 fast spindles in a small pizza box, and 48 large-capacity slower
+ spindles with a total capacity of 
+\begin_inset Formula $\approx$
+\end_inset
+
+300 TB, spread over 3 RAID sets.
+ This is somewhat conservative; with current technology higher capacity
+ would be possible, at the cost of lower IOPS.
+\end_layout
+
+\begin_layout Enumerate
+LVM = Logical Volume Management.
+ This is provided by the dm = device mapper infrastructure of the Linux
+ kernel, and by the standard LVM2 userspace tools.
+ It is sub-divided into the following sub-layers:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+PV = Physical Volumes, one per RAID set, with practically the same size
+ / granularity.
+\end_layout
+
+\begin_layout Enumerate
+VG = Volume Group.
+ All PVs 
+\begin_inset Formula $\cong$
+\end_inset
+
+ RAID sets are merged into one local storage pool.
+ Typical sizes are between 15 and 300 TB, depending on hardware class.
+ Very old hardware may have only 
+\begin_inset Formula $\approx$
+\end_inset
+
+3 TB, but these machines should go EOL soon.
+\end_layout
+
+\begin_layout Enumerate
+LV = Logical Volumes, one per VM 
+\begin_inset Formula $\cong$
+\end_inset
+
+ LXC container instance.
+ Typical sizes are between 
+\begin_inset Formula $\approx$
+\end_inset
+
+300 GB and 
+\begin_inset Formula $\approx$
+\end_inset
+
+40 TB.
+ When necessary, the size can be dynamically increased during runtime.
+ Typical number of LVs per physical machine (also called 
+\series bold
+hypervisor
+\series default
+) is between 3 and 14 (or exceptionally only 1 on very small old hardware).
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ The number of LVs per hypervisor can change during operations by moving
+ around some LVs 
+\begin_inset Formula $\cong$
+\end_inset
+
+ VMs 
+\begin_inset Formula $\cong$
+\end_inset
+
+ LXC containers via Football (see 
+\family typewriter
+football-user-manual.pdf
+\family default
+).
+ This is used for multiple purposes, such as decommissioning of old hardware,
+ or load balancing, or for physical reorganizations, e.g.
+ defragmentation of racks in some of the datacenters.
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+Replication layer, using MARS.
+ Each LV can be switched over individually (ability for butterfly, see 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ In addition to geo-redundancy, MARS provides the base for Football.
+ LV sizes / granularities are not modified by MARS.
+\end_layout
+
+\begin_layout Enumerate
+Filesystem layer, typically 
+\family typewriter
+xfs
+\family default
+ mounted locally
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Only on a few old machines, which are shortly before EOL, 
+\family typewriter
+/dev/mars/vm_name
+\family default
+ is exported via iSCSI and imported into some near-diskless clients.
+ This is an old architectural model, showing worse reliability (more components
+ which can fail), and higher cost (more hardware, more power, more rackspace,
+ etc).
+ Due to iSCSI, IOPS are much worse than with pure 
+\family typewriter
+LocalStorage
+\family default
+.
+ Contrary to some old belief, it is 
+\emph on
+not
+\emph default
+ much more flexible.
+ The ability for butterfly is already sufficient for rare exceptional overload
+ situations, or for sporadic hardware failures.
+ Since Football also works on the old iSCSI-based architecture, load balancing
+ etc does not need to be done via iSCSI.
+\end_layout
+
+\end_inset
+
+.
+ This layer is extremely important for getting the granularities right:
+ typically, each xfs instance contains several millions of customer inodes
+ and/or files.
+ In some cases, the number can climb up to several tenths of millions.
+ Reason: shared webhosting has to deal with myriads of extremely small customer
+ files, intermixed with a lower number of bigger files, up to terabytes
+ in a handful of scarce corner cases.
+\end_layout
+
+\begin_layout Enumerate
+LXC containers 
+\begin_inset Formula $\cong$
+\end_inset
+
+ VMs.
+ Each of them has a publicly visible customer IP address, which is shared
+ by all of its customers (typically a few hundrets up to several tenthousands
+ per container).
+ Upon primary handover / failover, this IP is handed over to the sister
+ datacenter via BGP = Border Gateway Protocol.
+ Upon Football migrations, this IP is also retained, but just automatically
+ routed to a different physical network segment.
+\end_layout
+
+\begin_layout Enumerate
+Application layer.
+ Here are only some important highlights:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Apache, spawning PHP via suexec.
+ One Apache instance per LXC container is typically sufficient for serving
+ thousands or tenthousands of customers.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Some surprising detail: 
+\family typewriter
+fastcgi
+\family default
+ is deliberately 
+\emph on
+not
+\emph default
+ used at the moment, because security / 
+\series bold
+user isolation
+\series default
+ is considered much more important than a few 
+\emph on
+permille(!)
+\emph default
+ of performance gain by saving a few 
+\family typewriter
+fork()
+\family default
+ + 
+\family typewriter
+execve()
+\family default
+ system calls.
+ While the Linux kernel is highly optimized for them, typical PHP applications
+ like Wordpress are poorly optimized, for example by clueless runtime inclusion
+ of 
+\begin_inset Formula $\approx$
+\end_inset
+
+120 PHP include files, cluelessly repeated for each and every PHP request.
+ Even when 
+\family typewriter
+OpCache
+\family default
+ is enabled, this costs much more than any potential savings by 
+\family typewriter
+fastcgi
+\family default
+.
+\end_layout
+
+\begin_layout Enumerate
+EhB = Enhanced Backup.
+ This is a 1&1-specific proprietary solution, supporting a grand total of
+ 
+\begin_inset Formula $\approx$
+\end_inset
+
+10 billions of inodes.
+ It is also organized via the Sharding principle, but based on a different
+ granularity.
+ In order to parallelize daily incremental-forever backups, several measures
+ are taken.
+ Among others, customer homedirectories are grouped into 49 subdirectories
+ called 
+\emph on
+hashes
+\emph default
+ in 1&1-slang.
+ Both backups and restores may run in parallel, independently for each hash,
+ and distributed over multiple shards.
+ Hashes are thus forming an 
+\series bold
+intermediate granularity
+\series default
+ between xfs instances, and a grand total of 
+\begin_inset Formula $\approx$
+\end_inset
+
+9 millions of customer home directories.
+\end_layout
+
+\end_deeper
+\begin_layout Section
 Granularity at Architecture
 \begin_inset CommandInset label
 LatexCommand label
@@ -3061,6 +4766,88 @@ name "sec:Granularity-at-Architecture"
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+There are several alternative implementation technologies for (cloud) storage
+ systems.
+ They can be classified according to the granularity of their basic transfer
+ units.
+\end_layout
+
+\begin_layout Subsection
+Granularities for Achieving Strict Consistency
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Granularities-for-Strict"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+End users are 
+\emph on
+always
+\emph default
+ expecting 
+\series bold
+strict consistency
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+For an overview of consisteny models, see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Consistency_model
+\end_layout
+
+\end_inset
+
+.
+ While strict consistency is the most 
+\begin_inset Quotes eld
+\end_inset
+
+natural
+\begin_inset Quotes erd
+\end_inset
+
+ one as expected by humans, most other models are only of academic interest.
+\end_layout
+
+\end_inset
+
+ from a storage system.
+ Whenever they are 
+\begin_inset Quotes eld
+\end_inset
+
+saving
+\begin_inset Quotes erd
+\end_inset
+
+ several 
+\begin_inset Quotes eld
+\end_inset
+
+things
+\begin_inset Quotes erd
+\end_inset
+
+ to a (cloud) storage system in a particular order, they are expecting to
+ always retrieve the 
+\emph on
+newest
+\emph default
+ version of each of them, afterwards.
 \end_layout
 
 \begin_layout Standard
@@ -3076,7 +4863,7 @@ want to cover comparable use cases
 \noindent
 \align center
 \begin_inset Tabular
-<lyxtabular version="3" rows="13" columns="3">
+<lyxtabular version="3" rows="14" columns="3">
 <features tabularvalignment="middle">
 <column alignment="left" valignment="top">
 <column alignment="center" valignment="top">
@@ -3165,6 +4952,39 @@ very high
 
 \begin_layout Plain Layout
 low to medium
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\emph on
+Native
+\emph default
+ consistency model
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+weak
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+strict
 \end_layout
 
 \end_inset
@@ -3508,6 +5328,45 @@ eventually consistent
  due to their inherent nature.
 \end_layout
 
+\begin_layout Subsection
+Granularity for Achieving Eventually Consistent
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Granularity-for-Eventually"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This section is 
+\emph on
+not
+\emph default
+ about expectations from users.
+ It is about implementation-specific 
+\series bold
+weak consistency models
+\series default
+, such as 
+\series bold
+eventually consistent
+\series default
+., see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Consistency_model#Eventual_consistency
+\end_layout
+
+\end_inset
+
+, or several other weak consistency models and their variants.
+\end_layout
+
 \begin_layout Standard
 The following table reflects use cases for 
 \begin_inset Quotes eld
@@ -3517,11 +5376,8 @@ native
 \begin_inset Quotes erd
 \end_inset
 
- object storage, where 
-\series bold
-eventually consistent
-\series default
- is sufficient:
+ object storage, where eventually consistent (or similar) is sufficient,
+ or at least claimed to be sufficient:
 \end_layout
 
 \begin_layout Standard
@@ -4963,7 +6819,7 @@ risk reducer
 
 \begin_layout Standard
 In order to really get it implemented in its best form, CTOs should clearly
- require 
+ require
 \end_layout
 
 \begin_layout Standard
@@ -16048,12 +17904,17 @@ themselves
 \emph default
  can act as game changers with respect to performance, parallelism degree,
  reliability, etc.
- This does not mean that you have to avoid them at all.
+ This does not mean that you have to avoid them generally.
+ Layering violations just create an additional 
+\emph on
+risk
+\emph default
+, which need not always materialize, and need not always be fatal.
  However, be sure to 
 \series bold
 check their influence
 \series default
-, and don't forget their 
+, and don't forget to measure their 
 \emph on
 workingset
 \emph default
