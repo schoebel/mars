@@ -7141,7 +7141,7 @@ yes
 \begin_inset Text
 
 \begin_layout Plain Layout
-Replication parallelism (per gran.) 
+Replication parallelism (per gran.)
 \end_layout
 
 \end_inset
@@ -7506,18 +7506,101 @@ The last item means that ZFS by itself does not protect against amok-running
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In simple words: the 
+\series bold
+ability for butterfly
+\series default
+ is non-trivial to achieve.
+ It can easily turn into a nightmare, if you would try to establish it on
+ top of larger 
+\family typewriter
+zfs
+\family default
+ installations.
+ Although termed 
+\begin_inset Quotes eld
+\end_inset
+
+replication
+\begin_inset Quotes erd
+\end_inset
+
+, it is more similar to 
+\begin_inset Quotes eld
+\end_inset
+
+backup
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Known 
+\family typewriter
+zfs
+\family default
+ replication setups at sisters of 1&1 are lacking the butterfly ability,
+ likely due to these difficulties.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
 \end_inset
 
-Notice that zfs snapshots can be combined with DRBD or MARS, because zfs
+ 
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ 
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Notice that 
+\family typewriter
+zfs
+\family default
+ snapshots can be 
+\series bold
+easily combined
+\series default
+ with DRBD or MARS, because 
+\family typewriter
+zfs
+\family default
  snapshots are residing at 
 \emph on
 filesystem
 \emph default
- layer, while DRBD / MARS replicas are located at 
+ layer, while DRBD / MARS replicas are located at the lower 
 \emph on
 block
 \emph default
@@ -7526,11 +7609,43 @@ block
 \emph on
 top
 \emph default
- of DRBD or MARS virtual devices, and import / export them 
+ of DRBD or MARS virtual devices, and use 
+\family typewriter
+zpool import
+\family default
+ / 
+\family typewriter
+export
+\family default
+ 
 \emph on
 individually
 \emph default
- upon handover / failover of each LV.
+ at handover / failover of each LV.
+ A relatively easy way for implemention is the 
+\family typewriter
+systemd
+\family default
+ interface of MARS (see the according section in 
+\family typewriter
+mars-user-manual.pdf
+\family default
+).
+ You just need to write 
+\emph on
+once
+\emph default
+ a small unit template file, containing a few 
+\family typewriter
+zpool
+\family default
+ commands.
+ This small template will then be automatically instantiated for each resource
+ by the 
+\family typewriter
+marsadm
+\family default
+ macro processor, as often as needed.
 \end_layout
 
 \begin_layout Standard
@@ -7546,17 +7661,15 @@ individually
 \series bold
 \emph on
 fundamental
-\series default
 \emph default
- difference between zpools and classical RAID / LVM stacked architectures.
+ difference
+\series default
+ between zpools and classical RAID / LVM stacked architectures.
  Some zfs advocates are propagating zpools as a replacement for both RAID
  and LVM.
- However, there is a 
-\series bold
-massive difference
-\series default
- in architecture, as explained in the following example (10 logical resources
- over 48 physical spindles), achieving practically the 
+ However, there is a massive difference in architecture, as illustrated
+ in the following example (10 logical resources over 48 physical spindles),
+ achieving practically the 
 \series bold
 \emph on
 same
@@ -7643,8 +7756,12 @@ monolithic
 status open
 
 \begin_layout Plain Layout
-Some sysadmins acting as zfs advocates are reclaiming this as an advantage,
- because they need to understand only a single tool for managing 
+Some sysadmins acting as 
+\family typewriter
+zfs
+\family default
+ advocates are reclaiming this as an advantage, because they need to understand
+ only a single tool for managing 
 \begin_inset Quotes eld
 \end_inset
 
@@ -7667,18 +7784,53 @@ true
  architecture
 \series default
  as seen from outside.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
  This violates the classical 
 \emph on
 layering rules
 \emph default
- from Dijkstra.
- In contrast, classical LVM-based configurations are 
+ from Dijkstra (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Layering-Rules"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ In contrast, classical LVM-based configurations (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Positive-Example:-ShaHoLin"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ or the example setup in 
+\family typewriter
+mars-user-manual.pdf
+\family default
+) are 
 \series bold
 component oriented
 \series default
 , according to the 
 \series bold
-Unix philosophy
+Unix Philosophy
 \series default
 .
 \end_layout
