@@ -12520,7 +12520,10 @@ name "sec:Reliability-Arguments-from"
 \end_layout
 
 \begin_layout Standard
-A contemporary common belief is that big clusters and their random replication
+A contemporary common belief is that big clusters and their 
+\series bold
+random replication
+\series default
  methods would provide better reliability than anything else.
  There are some practical observations at 1&1 and its daughter companies
  which cannot confirm this.
@@ -12562,11 +12565,21 @@ almost guaranteed
 \end_layout
 
 \begin_layout Standard
-Stimulated by our practical experiences even in truly less disastrous scenarios
+Stimulated by practical experiences from truly less disastrous scenarios
  than mass power outage, theoretical explanations were sought.
- Surprisingly, they show that LocalSharding is superior to true big clusters
+ Surprisingly, they clearly show by mathematical arguments that 
+\family typewriter
+LocalSharding
+\family default
+ is superior to 
+\family typewriter
+BigCluster
+\family default
  under practically important preconditions.
- Here is an intutitive explanation.
+\end_layout
+
+\begin_layout Standard
+We start with an intutitive explanation.
  A detailed mathematical description of the model can be found in appendix
  
 \begin_inset CommandInset ref
@@ -12583,12 +12596,19 @@ Storage Server Node Failures
 \end_layout
 
 \begin_layout Subsubsection
-Simple intuitive explanation
+Simple Intuitive Explanation in a Nutshell
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Simple-intuitive-explanation"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-Block-level replication systems like DRBD are constructed for failover in
- local redundancy scenarios.
+Block-level replication systems like DRBD are constructed for LV or disk
+ failover in local redundancy scenarios.
  Or, when using MARS, even for geo-redundant failover scenarios.
  They are traditionally dealing with 
 \series bold
@@ -12605,8 +12625,11 @@ shard
 \series default
  in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "par:Definition-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -12618,8 +12641,12 @@ at the same time
 \end_layout
 
 \begin_layout Standard
-In contrast, big clusters are conceptually spreading their objects over
- a huge number of nodes 
+In contrast, the 
+\series bold
+random replication
+\series default
+ concept of big clusters is spreading huge masses of objects over a huge
+ number of nodes 
 \begin_inset Formula $O(n)$
 \end_inset
 
@@ -12627,7 +12654,7 @@ In contrast, big clusters are conceptually spreading their objects over
 \begin_inset Formula $k$
 \end_inset
 
- denoting the number of replicas.
+ denoting the number of object replicas.
  As a consequence, 
 \emph on
 any
@@ -12640,7 +12667,11 @@ any
 \begin_inset Formula $O(n)$
 \end_inset
 
- will produce an incident.
+ will make 
+\emph on
+some
+\emph default
+ objects inaccessible, and thus produce an incident.
  For example, when 
 \begin_inset Formula $k=2$
 \end_inset
@@ -12671,8 +12702,11 @@ any
 
 \begin_layout Standard
 \noindent
-Intuitively, it is easy to see that hitting both members of the same pair
- at the same time is less likely than hitting 
+Intuitively, it is easy to see that hitting both members of the 
+\emph on
+same
+\emph default
+ sharding pair at the same time is less likely than hitting 
 \emph on
 any
 \emph default
@@ -12680,11 +12714,45 @@ any
 \end_layout
 
 \begin_layout Standard
-If you are curious about some concrete numbers, read on.
+In addition: even when 
+\begin_inset Formula $1$
+\end_inset
+
+ shard out of 
+\begin_inset Formula $n$
+\end_inset
+
+ shards has an incident, the other 
+\begin_inset Formula $n-1$
+\end_inset
+
+ shards will continue to run.
+ In contrast, when a 
+\family typewriter
+BigCluster
+\family default
+ has an incident, 
+\emph on
+all
+\emph default
+ application instances are affected, due to 
+\emph on
+uniform
+\emph default
+ object distribution.
+\end_layout
+
+\begin_layout Standard
+If you are curious about some more details and more concrete behaviour,
+ read on.
 \end_layout
 
 \begin_layout Subsubsection
-Detailed explanation
+Detailed Explanation of 
+\family typewriter
+BigCluster
+\family default
+ Reliability
 \begin_inset CommandInset label
 LatexCommand label
 name "sub:Detailed-explanation"
@@ -12695,8 +12763,40 @@ name "sub:Detailed-explanation"
 \end_layout
 
 \begin_layout Standard
-For the sake of simplicity, the following more detailed explanation is based
- on the following assumptions:
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ The following analysis shows up some parallels to the well-known reliability
+ loss caused by RAID striping.
+ The main difference is granularity: variable-sized objects are used in
+ place of fixed-size blocks.
+ Therefore, this section is in reality about a 
+\series bold
+fundamental property of data distribution / striping
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+It is only formulated in terms of 
+\family typewriter
+BigCluster
+\family default
+ and random replication for didactic reasons, because in the context of
+ this architecture guide we need to compare with 
+\family typewriter
+LocalSharding
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+For the sake of simplicity, the following more detailed model is based on
+ the following assumptions:
 \end_layout
 
 \begin_layout Itemize
@@ -12705,6 +12805,8 @@ We are looking at
 storage node
 \series default
  failures only.
+ As observed from practice, this is the most important failure granularity
+ for causing incidents.
 \end_layout
 
 \begin_layout Itemize
@@ -12724,14 +12826,19 @@ data replication
 \end_inset
 
 .
- CRC methods are not used across storage nodes, but may be present 
+ CRC methods are not modeled across storage nodes, but may be present 
 \emph on
 internally
 \emph default
  at some storage nodes, e.g.
- RAID-5 or RAID-6 or similar methods.
- Notice that CRC methods generally involve very high overhead, and even
- won't work in realtime across long distances (geo-redundancy).
+ RAID-5 or RAID-6 or similar methods, or may be present internally in some
+ hardware devices, like SSDs or HDDs.
+ Notice that 
+\emph on
+distributed
+\emph default
+ CRC methods generally involve very high overhead, and won't work in realtime
+ across long distances (geo-redundancy).
 \end_layout
 
 \begin_layout Itemize
@@ -12740,8 +12847,8 @@ We restrict ourselves to temporary /
 transient
 \series default
  failures, without regarding permanent data loss.
- Otherwise, the differences between local-storage sharding architectures
- and big clusters would become even worse.
+ Otherwise, the following differences between local-storage sharding architectur
+es and big clusters would become even worse.
  When loosing some physical storage nodes forever in a big cluster, it is
  typically all else but easy to determine which data of which application
  instances / customers have been affected, and which will need a restore
@@ -12749,10 +12856,13 @@ transient
 \end_layout
 
 \begin_layout Itemize
-Storage network failures (as a whole) are ignored.
+Storage network failures (parts, or as a whole) are ignored.
  Otherwise a fair comparison between the architectures would become difficult.
- If they were taken into account, the advantages of LocalSharding would
- become even bigger.
+ If they were taken into account, the advantages of 
+\family typewriter
+LocalSharding
+\family default
+ would become even bigger.
 \end_layout
 
 \begin_layout Itemize
@@ -12762,17 +12872,44 @@ We assume that the storage network (when present) forms no bottleneck.
 \end_layout
 
 \begin_layout Itemize
-Software failures / bugs are also ignored.
- We only compare 
+Software failures / bugs are also ignored
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+When assuming that the probability of bugs is increased by increased architectur
+al complexity, a 
+\family typewriter
+LocalSharding
+\family default
+ model would likely win here also.
+ However, such an assumption is difficult to justify, and might be wrong,
+ depending on many (unknown) factors.
+\end_layout
+
+\end_inset
+
+.
+ We are only comparing 
 \emph on
 architectures
 \emph default
- here, not their various implementations.
+ here, not their various implementations (see 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Itemize
 The x axis shows the number of basic storage units 
-\begin_inset Formula $n$
+\begin_inset Formula $n=x$
 \end_inset
 
  from an 
@@ -12803,6 +12940,39 @@ net amount of storage
 \end_inset
 
  replicas.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Stated simply, this means that there is exactly 1 LV = 1 PV per each applicatio
+n unit present at the x axis.
+ So we have a total of exactly 
+\begin_inset Formula $x$
+\end_inset
+
+ LVs.
+ Of course, you might create a more elaborate model by introduction of some
+ constant 
+\begin_inset Formula $l\geq1$
+\end_inset
+
+ for a grand total of 
+\begin_inset Formula $l\cdot x$
+\end_inset
+
+ LVs on top of 
+\begin_inset Formula $x=n$
+\end_inset
+
+ PVs, but we don't want to complexify our model unnecessarily.
+ 
 \begin_inset Newline newline
 \end_inset
 
@@ -12873,23 +13043,37 @@ infinite amount of money
 \end_layout
 
 \begin_layout Itemize
-We assume that the number of application instances is linearly scaling with
- 
+As already stated, we assume that the number of application instances is
+ linearly scaling with 
 \begin_inset Formula $n$
 \end_inset
 
 .
  For simplicity, we assume that the number of applications running on the
- whole pool is exactly 
+ whole pool is 
+\emph on
+exactly
+\emph default
+ 
 \begin_inset Formula $n$
 \end_inset
 
 .
+ Of course, you might also introduce some 
+\emph on
+coupling constant
+\emph default
+ here, but don't complexify the model unnecessarily.
 \end_layout
 
 \begin_layout Itemize
 We assume that the storage nodes are (almost completely) filled with data
- (sectors with RAID, and/or objects with BigCluster).
+ (sectors with RAID, and/or objects with 
+\family typewriter
+BigCluster
+\family default
+).
+ Otherwise, the game would be pointless on empty clusters / shards.
 \end_layout
 
 \begin_layout Itemize
@@ -12909,24 +13093,55 @@ very large
 \end_layout
 
 \begin_layout Itemize
-For the BigCluster architecture, we assume that all objects are always distribut
-ed to 
+For the 
+\family typewriter
+BigCluster
+\family default
+ architecture, we assume that all objects are always distributed to 
 \begin_inset Formula $O(n)$
 \end_inset
 
  nodes.
- For simiplicy of the model, we assume a distribution via a 
+ We will later discuss some variants where it is distributed to 
+\emph on
+less
+\emph default
+ nodes.
+ This assumption is only for explaining the 
+\series bold
+principal behaviour of data distribution / striping
+\series default
+, and also for one of its variants called 
+\series bold
+random replication
+\series default
+.
+ For simplicity of the model, we assume a distribution via a 
 \emph on
 uniform
 \emph default
  hash function.
- When other hash functions were used (e.g.
- distributing only to a constant number of nodes), it would no longer be
- a big cluster architecture in our sense.
+ In general, the principal behaviour would also work for many other distribution
+ functions, such as RAID striping, or even certain non-uniform hash functions
+ over 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ nodes.
+ As discussed later, totally different hash functions (e.g.
+ distributing only to a constant number of nodes) would no longer model
+ a 
+\family typewriter
+BigCluster
+\family default
+ architecture in our sense.
 \begin_inset Newline newline
 \end_inset
 
-In the following example, we assume a uniform object distribution to exactly
+In the below example, we assume a uniform object distribution to 
+\emph on
+exactly
+\emph default
  
 \begin_inset Formula $n$
 \end_inset
@@ -13035,6 +13250,38 @@ single
 \emph on
 total
 \emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Mathematical probabilties are always about a huge number of 
+\emph on
+repetitions
+\emph default
+ of a certain experiment.
+ Even when a single 
+\begin_inset Quotes eld
+\end_inset
+
+failure experiment
+\begin_inset Quotes erd
+\end_inset
+
+ does 
+\emph on
+not always
+\emph default
+ lead to an incident from a customer's perspective, it can contribute to
+ the overall incident probability, when there is a 
+\emph on
+chance
+\emph default
+, even when the chance is very low.
+\end_layout
+
+\end_inset
+
  incident probability of the 
 \emph on
 whole
@@ -13052,7 +13299,7 @@ number
 \begin_inset Formula $O(\binom{k\cdot n}{k})=O((k\cdot n)!)$
 \end_inset
 
-.
+, which is even worse than an exponential growth.
  So, don't forget to sum up 
 \emph on
 all
@@ -13069,8 +13316,8 @@ neglectible
 \end_layout
 
 \begin_layout Itemize
-For the LocalSharding (DRBDorMARS) architecture, we assume that only local
- storage is used.
+For the LocalSharding architecture, called DRBDorMARS in the following graphics,
+ we assume that only local storage is used.
  For higher replication degrees 
 \begin_inset Formula $k=2,\ldots$
 \end_inset
@@ -13080,13 +13327,45 @@ For the LocalSharding (DRBDorMARS) architecture, we assume that only local
 among
 \emph default
  the pairs / triples / and so on (shards), but no communication to other
- shards is necessary.
+ shards is necessary (cf 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Definition-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+The following assumptions are not part of the model, but are simplifying
+ the below 
+\emph on
+example
+\emph default
+ graphics.
+ You may choose other parameter values than the following ones, without
+ changing the principal behaviour of the model, but then the 
+\emph on
+example
+\emph default
+ would become less intuitive for 
+\series bold
+humans
+\series default
+.
 \end_layout
 
 \begin_layout Itemize
-For simplicity of the example, we assume that any single storage server
- node used in either architecture, including all of its local disks, has
- a reliability of 99.99% (four nines).
+For simplicity of the 
+\emph on
+example
+\emph default
+, we assume that any single storage server node used in either architecture,
+ including all of its local disks, has a reliability of 99.99% (four nines).
  This means, the probability of a storage node failure is uniformly assumed
  as 
 \begin_inset Formula $p=0.0001$
@@ -13103,8 +13382,23 @@ This means, during an observation period of
  operation hours, we will have a total downtime of 1 hour per server in
  statistical average.
  For simplicity, we assume that the failure probability of a single server
- does neither depend on previous failures nor on the operating conditions
- of any other server.
+ does neither depend on previous
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Mathematically, we are using some Poisson process model here.
+ Of course, it would be possible to use more sophisticated models, but this
+ might turn out as a 
+\emph on
+major
+\emph default
+ research undertakement.
+\end_layout
+
+\end_inset
+
+ failures nor on the operating conditions of any other server.
  It is known that this is not true in general, but otherwise our model would
  become extremely complex.
 \end_layout
@@ -13128,8 +13422,8 @@ average
 \emph on
 almost always
 \emph default
- one node which is failed.
- This is like a 
+ one node which is failed at the moment.
+ The overall behaviour is like a 
 \begin_inset Quotes eld
 \end_inset
 
@@ -13166,7 +13460,7 @@ average behaviour
 \begin_inset Quotes erd
 \end_inset
 
-, so we use it here just for the sake of ease of understanding.
+, so we use it here just for ease of understanding.
 \end_layout
 
 \end_inset
@@ -13197,9 +13491,8 @@ Now we apply the corner case of
 \begin_inset Formula $k=1$
 \end_inset
 
- replicas to both architectures, i.e.
- also to BigCluster, in order to shed some spotlight at the fundamental
- properties of the architectures.
+ replicas to both competing architectures, in order to shed some spotlight
+ at the fundamental properties of the architectures.
 \end_layout
 
 \begin_layout Standard
@@ -13207,7 +13500,11 @@ Under the precondition of
 \begin_inset Formula $k=1$
 \end_inset
 
- replicas, an incident of each one of the 
+ replicas, a failure at 
+\emph on
+any one
+\emph default
+ of the 
 \begin_inset Formula $n$
 \end_inset
 
@@ -13216,21 +13513,21 @@ Under the precondition of
 \end_layout
 
 \begin_layout Enumerate
-Downtime of 1 storage node only influences 1 application unit depending
- on 1 basic storage unit.
+LocalSharding (DRBDorMARS): downtime of 1 storage node only influences 1
+ application unit depending on 1 basic storage unit.
  This is the case with the DRBDorMARS model, because there is no communication
  between shards, and we assumed that 1 storage server unit also carries
  exactly 1 application unit.
 \end_layout
 
 \begin_layout Enumerate
-Downtime of 1 storage node will 
+BigCluster: here the downtime of 1 storage node will 
 \series bold
 tear down more
 \series default
  than 1 application unit, because any of the application units have spread
- their storage to more than 1 storage node via uniform hashing, as is the
- case at BigCluster.
+ their storage to more than 1 storage node via uniform hashing (see assumptions
+ above).
 \end_layout
 
 \begin_layout Standard
@@ -13377,7 +13674,7 @@ hfill
 
 \end_inset
 
-  
+ 
 \begin_inset Tabular
 <lyxtabular version="3" rows="3" columns="3">
 <features tabularvalignment="middle">
@@ -13497,9 +13794,9 @@ hfill
 
 \begin_layout Standard
 \noindent
-What is the heart of the difference? While a node failure at LocalSharding
- (DRBDorMARS) will tear down only the local application, the teardown produced
- by BigCluster will spread to 
+What is the heart of the difference? While a single node failure at LocalShardin
+g (DRBDorMARS) will tear down only the local application, the teardown produced
+ at BigCluster will spread to 
 \emph on
 all
 \emph default
@@ -13528,6 +13825,23 @@ Would it help to increase both
 \end_layout
 
 \begin_layout Standard
+Let us first stay at 
+\begin_inset Formula $k=1$
+\end_inset
+
+, looking at the behaviour when 
+\begin_inset Formula $n\rightarrow\infty$
+\end_inset
+
+.
+ The generalization to bigger redundancy degrees 
+\begin_inset Formula $k$
+\end_inset
+
+ will follow later.
+\end_layout
+
+\begin_layout Standard
 In the following graphics, the thick red line shows the behaviour for 
 \begin_inset Formula $k=1$
 \end_inset
@@ -13549,7 +13863,7 @@ In the following graphics, the thick red line shows the behaviour for
 \begin_inset Formula $k\in[1,4]$
 \end_inset
 
- are also displayed.
+ are also displayed in different colors, but we will discuss them later.
  All lines corresponding to the same 
 \begin_inset Formula $k$
 \end_inset
@@ -13573,40 +13887,206 @@ In the following graphics, the thick red line shows the behaviour for
 
 \begin_layout Standard
 \noindent
-When you look at the thin solid BigCluster lines for 
-\begin_inset Formula $k=2,\ldots$
-\end_inset
-
- drawn in different colors, you may wonder why they are alltogether converging
- to the thin red BigCluster line, which corresponds to 
+First, we look at the red lines, corresponding to 
 \begin_inset Formula $k=1$
 \end_inset
 
- BigCluster.
- And they also converge against the grey dotted topmost line indicating
- the total possible uptime of all applications (depending on x).
- It can be explained as follows: 
+.
+ The behaviour of the thick red line should be rather clear in double logscale:
+ with increasing number of servers at the x axis, the total downtime y is
+ also increasing.
+ This forms a straight line in double logscale, where the slope is 1 (proportion
+al to 
+\begin_inset Formula $n$
+\end_inset
+
+), and the distances between the start of the other colored lines are multiples
+ of 
+\begin_inset Formula $1/p$
+\end_inset
+
+ for the given incident probability 
+\begin_inset Formula $p$
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
-The x axis shows the number of basic storage units.
- When you have to create 10,000 storage units with a replication degree
- of 
+Next, we are looking at the thin solid red line for 
+\family typewriter
+BigCluster
+\family default
+ 
+\begin_inset Formula $k=1$
+\end_inset
+
+.
+ Why is it converging against the dotted grey line around 
+\begin_inset Formula $n=10000$
+\end_inset
+
+?
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ At 
+\begin_inset Formula $n\geq10000$
+\end_inset
+
+ servers, there is a 
+\begin_inset Quotes eld
+\end_inset
+
+permanent incident
+\begin_inset Quotes erd
+\end_inset
+
+.
+ In statistical average, there is approximately 
+\emph on
+always
+\emph default
+ some server down.
+ Due to 
+\begin_inset Formula $k=1$
+\end_inset
+
+ replica, the whole cluster will then be down from a user's perspective.
+ The thin dotted grey line denotes the total number of operation hours to
+ be executed for each 
+\begin_inset Formula $n$
+\end_inset
+
+, so this is the limes line we are converging against for big enough 
+\begin_inset Formula $n$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+This does not look nice from a user's perspective.
+ Can we heal the problem by deploying more replicas 
+\begin_inset Formula $k$
+\end_inset
+
+?
+\end_layout
+
+\begin_layout Standard
+Let us look at the green solid lines, correponding to 
 \begin_inset Formula $k=2$
 \end_inset
 
- replicas, then you will have to deploy 
-\begin_inset Formula $k*10,000=20,000$
+ replicas.
+ Why is the thin green BigCluster line also converging against the same
+ dotted limes? And why is this happening around the same point, around 
+\begin_inset Formula $n\approx10000$
 \end_inset
 
- servers in total.
- When operating a pool of 20,000 servers, in statistical average 2 servers
- of them will be down at any given point in time.
- However, 2 is the same number as the replication degree 
-\begin_inset Formula $k.$
+?
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
 \end_inset
 
- Because our BigCluster model as defined above will distribute 
+ When you want to operate 
+\begin_inset Formula $n=10000$
+\end_inset
+
+ application instances with a replication degree of 
+\begin_inset Formula $k=2$
+\end_inset
+
+ replicas, then you will need to deploy 
+\begin_inset Formula $k\cdot n=20000$
+\end_inset
+
+ storage servers.
+ When you have 20000 storage servers, in statistical average about 
+\begin_inset Formula $2$
+\end_inset
+
+ of them will be down at the same time.
+ When 
+\begin_inset Formula $k=2$
+\end_inset
+
+ servers are down at the same time, again the whole cluster will be down
+ from a user's perspective.
+ Thus the green line is also converging against the grey dotted limes line,
+ roughly also around 
+\begin_inset Formula $n\approx10000$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Why is the green thicker DRBDorMARS line much better?
+\end_layout
+
+\begin_layout Standard
+In double logscale plot, it forms a 
+\emph on
+parallel
+\emph default
+ line to the corresponding red line.
+ The distance is conforming to 
+\begin_inset Formula $1/p$
+\end_inset
+
+.
+ This means that the incident probability for hitting 
+\emph on
+both
+\emph default
+ members of the 
+\emph on
+same
+\emph default
+ shard is 
+\emph on
+improved
+\emph default
+ by a factor of 10,000.
+\end_layout
+
+\begin_layout Standard
+Finally, we look at all the other solid lines in any color.
+ All the thin solid 
+\family typewriter
+BigCluster
+\family default
+ lines are converging against the same limes line, regardless of replication
+ degree 
+\begin_inset Formula $k$
+\end_inset
+
+, and around the same 
+\begin_inset Formula $n\approx10000$
+\end_inset
+
+.
+ Why is this the case?
+\end_layout
+
+\begin_layout Standard
+Because our BigCluster model as defined above will distribute 
 \emph on
 all
 \emph default
@@ -13618,7 +14098,8 @@ all
 \emph on
 exist
 \emph default
- some objects for which no replica is available at any given point in time.
+ some objects for which no replica is available at almost any given point
+ in time.
  This means, you will almost always have a 
 \series bold
 permanent incident
@@ -13632,17 +14113,17 @@ permanent incident
 some
 \emph default
  of your objects will not be accessible at all.
- This means, at 
+ This means, at around 
 \begin_inset Formula $x=10,000$
 \end_inset
 
- storage units you will loose almost any advantage from increasing the number
- of replicas.
+ application units you will loose almost any advantage from increasing the
+ number of replicas.
  Adding more replicas will no longer help at 
 \begin_inset Formula $x\geq10,000$
 \end_inset
 
- storage units.
+ application units.
 \end_layout
 
 \begin_layout Standard
@@ -13698,7 +14179,7 @@ responsible
 \begin_layout Itemize
 When your application, e.g.
  a smartphone app, consists of accessing only 1 object at all during a reasonabl
-y long timeframe, you can safely 
+y long timeframe (say once per day), you can safely 
 \series bold
 assume that there is no interdependency
 \series default
@@ -13706,12 +14187,60 @@ assume that there is no interdependency
  In addition, you have to assume (and you should check) that your cluster
  operating software as a whole does not introduce any further 
 \series bold
-hidden / internal interdependencies
+hidden / internal
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Several distributed filesystems are separating their metadata from application
+ data.
+ Advocates are selling this as an advantage.
+ However, in terms of 
+\series bold
+reliability
+\series default
+ this is clearly a 
+\series bold
+disadvantage
+\series default
+.
+ It increases the 
+\emph on
+breakdown surface
+\emph default
+.
+ Some distributed filesystems are even 
+\emph on
+centralizing
+\emph default
+ their metadata, sometimes via an ordinary database system, creating a SPOF
+ = Single Point Of Failure.
+ In case of inconsistencies between data and metadata, e.g.
+ resulting from an incident or from a software bug, you will need the equivalent
+ of a 
+\series bold
+distributed 
+\family typewriter
+fsck
+\family default
+\series default
+.
+ Suchalike can easily turn into 
+\series bold
+data loss
+\series default
+ and other nightmares, such as node failures during the consistency check,
+ for example when your hardware is flaky and produces intermitting errors.
+\end_layout
+
+\end_inset
+
+ interdependencies
 \series default
 .
  Only in this case, and only then, you can take the dashed lines arguing
- with the number of inaccessible objects instead of with the number of basic
- storage units.
+ with the number of inaccessible objects instead of with the number of distorted
+ application units.
 \end_layout
 
 \begin_layout Itemize
@@ -13719,8 +14248,21 @@ Whenever your application uses
 \series bold
 bigger structured logical objects
 \series default
-, such as filesystems or block devices or whole VMs / containers, then you
- likely will get 
+, such as filesystems or block devices (cf section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Negative-Example:-object"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), and/or whole VMs / containers requiring 
+\series bold
+strict consistency
+\series default
+, then you will get 
 \series bold
 interdependent objects
 \series default
@@ -13742,7 +14284,7 @@ ext4
 \family typewriter
 fsck
 \family default
-), which is a major incident for the affected filesystem instances.
+), which is a major incident for the affected filesystem instance.
 \begin_inset Newline newline
 \end_inset
 
@@ -13774,7 +14316,11 @@ system hangs
 
 \end_inset
 
- Blindly taking the dashed lines will expose you to a high risk of error.
+ Blindly taking the dashed lines will expose you to a high 
+\series bold
+risk
+\series default
+ of error.
  Practical experience shows that there are often 
 \series bold
 hidden dependencies
@@ -13813,7 +14359,7 @@ undecidable
 \emph on
 any
 \emph default
- unaccessible object may halt your application, might be too strong for
+ unaccessible object will halt your application, might be too strong for
  
 \emph on
 some
@@ -13822,6 +14368,8 @@ some
  Therefore, some practical behaviour may be inbetween the solid thin lines
  and the dashed lines of some given color.
  Be extremely careful when constructing such an intermediate case.
+ Remember that the plot is in logscale, where constant factors will not
+ make a huge difference.
  The above example of a loss rate of 1/1,000,000 of sectors in a classical
  filesystem should not be extended to lower values like 1/1,000,000,000
  without knowing exactly how the filesystem works, and how it will react
@@ -13829,34 +14377,6 @@ some
 \emph on
 in detail
 \emph default
-
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-In general, it is insufficient to analyze the logical dependencies inside
- of a filesystem instance, such as which inode contains some pointers to
- which other filesystem objects, etc.
- There exist further 
-\series bold
-runtime dependencies
-\series default
-, such as 
-\family typewriter
-nr_requests
-\family default
- block-layer restrictions on IO queue depths, and/or capabilities / limitiations
- of the hardware, and so on.
- Trying to model all of these influences in a reasonable way could be a
- 
-\emph on
-major
-\emph default
- research undertakement outside the scope of this MARS manual.
-\end_layout
-
-\end_inset
-
 .
  The grey zone between the extreme cases thin solid vs dashed is a 
 \series bold
@@ -13874,7 +14394,7 @@ dangerous zone
 
 \end_inset
 
-If you want to stay at the 
+ As a manager, if you want to stay at the 
 \series bold
 safe side
 \series default
@@ -13903,6 +14423,13 @@ Another argument could be: don't distribute the BigCluster objects to exactly
 \end_layout
 
 \begin_layout Standard
+Actually, several BigCluster implementation are doing similar measures,
+ in order to workaround the problems analyzed here.
+ There are various terms for suchalike measures, like copysets, spread factors,
+ buckets, etc.
+\end_layout
+
+\begin_layout Standard
 When distributing to 
 \begin_inset Formula $O(k')$
 \end_inset
@@ -13912,7 +14439,7 @@ When distributing to
 \end_inset
 
 , we have no longer a BigCluster architecture, but a mixed BigClusterSharding
- form.
+ form in our terminology.
 \end_layout
 
 \begin_layout Standard
@@ -13989,6 +14516,276 @@ The above sentence is formulating a
 fundamental law of storage systems
 \series default
 .
+ An intuitive formulation for humans:
+\end_layout
+
+\begin_layout Quote
+
+\series bold
+\size large
+Spread your per-application data to as less nodes as possible.
+\end_layout
+
+\begin_layout Standard
+This is intuitive: the more nodes are involved for storing the 
+\emph on
+same
+\emph default
+ data belonging to the 
+\emph on
+same
+\emph default
+ application instance (i.e.
+ belonging to the same LV), the higher the 
+\series bold
+risk
+\series default
+ that 
+\emph on
+any
+\emph default
+ of them can fail.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Consequence: the 
+\series bold
+\emph on
+concept
+\emph default
+ of random replication
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+A very picky argument might be: random distribution could be viewed as 
+\emph on
+orthogonal
+\emph default
+ to random replication, by separating the concept 
+\begin_inset Quotes eld
+\end_inset
+
+distribution
+\begin_inset Quotes erd
+\end_inset
+
+ from the concept 
+\begin_inset Quotes eld
+\end_inset
+
+replication
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Then the above sentence should be re-formulated, using 
+\begin_inset Quotes eld
+\end_inset
+
+random distribution
+\begin_inset Quotes erd
+\end_inset
+
+ instead.
+ However notice than 
+\emph on
+random
+\emph default
+ replication + distribution on exactly 
+\begin_inset Formula $n\cdot k$
+\end_inset
+
+ nodes would degenerate, since it no longer is really 
+\begin_inset Quotes eld
+\end_inset
+
+random
+\begin_inset Quotes erd
+\end_inset
+
+, but only has the freedom degree of a 
+\begin_inset Quotes eld
+\end_inset
+
+permutation
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+ tries to do the 
+\emph on
+opposite
+\emph default
+ of this, by its very nature.
+ Thus the 
+\emph on
+concept
+\emph default
+ 
+\series bold
+does not work as expected
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ This does not imply that random replication does not generally work at
+ all.
+ Section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ mentions a few use cases where it appears to work in practice.
+ However, after 
+\series bold
+investing a lot
+\series default
+ of effort / energy / money into a very complicated architecture and several
+ implementations, the outcome is 
+\series bold
+worse = non-optimal
+\series default
+ in the dimension of reliability.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ There exist some 
+\emph on
+workarounds
+\emph default
+ as discussed in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Similarities-and-differences"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ These can only patch the most urgent problems, such that operation remains
+ 
+\emph on
+bearable
+\emph default
+ in practice.
+ However, the above plot explains why even the workarounds are 
+\series bold
+far from optimal
+\series default
+ for a given fixed
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+As explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Cost-Arguments-from-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, several 
+\family typewriter
+BigCluster
+\family default
+ best practices are typically requiring 
+\begin_inset Formula $k=3$
+\end_inset
+
+ replicas.
+ Some advocates have taken this as granted.
+ For a 
+\series bold
+fair comparison
+\series default
+ with Sharding, they will need to compare with 
+\begin_inset Formula $k=3$
+\end_inset
+
+ LV replicas.
+\end_layout
+
+\end_inset
+
+ redundancy degree 
+\begin_inset Formula $k$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Summary from a management viewpoint: under comparable conditions for big
+ installations, random replication is requiring 
+\series bold
+more invest
+\series default
+ than Sharding (e.g.
+ more client/server hardware and an 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ realtime storage network), in order to get a 
+\series bold
+\emph on
+worse result
+\series default
+\emph default
+ in the 
+\series bold
+risk dimension
+\series default
+.
 \end_layout
 
 \begin_layout Subsection
@@ -14003,13 +14800,65 @@ name "subsec:Error-Propagation-to"
 \end_layout
 
 \begin_layout Standard
-The following is only applicable when filesystems (or their objectstore
- counterparts) are exported over a storage network, in order to be mounted
+This section deals with a 
+\emph on
+pathological
+\emph default
+ setup.
+ Best practice is to avoid such pathologies.
+\end_layout
+
+\begin_layout Standard
+The following is only applicable when 
+\series bold
+filesystems
+\series default
+ or whole 
+\series bold
+object pools
+\series default
+ (buckets) are exported over a storage network, in order to be 
+\series bold
+mounted
+\series default
  in parallel at 
 \begin_inset Formula $O(n)$
 \end_inset
 
- mountpoints each.
+ mountpoints 
+\emph on
+each
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+In other words: somebody is trying to make 
+\emph on
+all
+\emph default
+ server data available at 
+\emph on
+all
+\emph default
+ clients.
+ In spirit, this is also some BigCluster-like 
+\series bold
+way of thinking
+\series default
+.
+ It just relates to the filesystem layer, c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -14022,7 +14871,33 @@ In such a scenario, any problem / incident inside of your storage pool for
 \begin_inset Formula $O(n)$
 \end_inset
 
- when measured in number of affected mountpoints:
+ when measured in 
+\series bold
+number of affected mountpoints
+\series default
+.
+ Notice that this is different from the number of clients.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Notice the 
+\series bold
+slopes
+\series default
+ in the following plot.
+ Some are correponding to 
+\begin_inset Formula $n^{2},$
+\end_inset
+
+ and thus are even worse than in the previous plot:
 \end_layout
 
 \begin_layout Standard
@@ -14040,16 +14915,69 @@ In such a scenario, any problem / incident inside of your storage pool for
 
 \begin_layout Standard
 \noindent
-As a results, we now have a total of 
+As a result, we now have a total of 
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
- mountpoints = our new basic application units.
- Such 
+ mountpoints = our new basic application units
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+If you like, please create another mathematical model in terms of number
+ of clients, instead of the number of mountpoints.
+ Though the plot curves will be different, and certainly will explain an
+ interesting behaviour, the management conclusions will not change too much.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ The problem is much worse than explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, or in 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ where a disaster already occurred at 
+\begin_inset Formula $n=6$
+\end_inset
+
+.
+ Suchalike 
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
- architectures are quickly becoming even worse than before.
+ architectures are simply 
+\series bold
+hazardous
+\series default
+.
  Thus a clear warning: don't try to build systems in such a way.
 \end_layout
 
@@ -14112,7 +15040,15 @@ https://www.usenix.org/system/files/conference/atc13/atc13-cidon.pdf
 
 \end_inset
 
-) relates to the Sharding model in the following way:
+) relates to our analysis of 
+\family typewriter
+BigCluster
+\family default
+ vs 
+\family typewriter
+Sharding
+\family default
+ in the following way:
 \end_layout
 
 \begin_layout Paragraph
@@ -14120,12 +15056,22 @@ Similarities
 \end_layout
 
 \begin_layout Standard
-The concept of Random Replication of the storage data to large number of
- machines will reduce reliability.
+Both are concluding: the concept of Random Replication of the storage data
+ to large number of machines will reduce reliability.
  When chosing too big sets of storage machines, then the storage system
  as a whole will become practically unusable.
- This is common sense between the USENIX paper and the Sharding Approach
- as propagated here.
+ This is common sense between the USENIX paper and the analysis from section
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sub:Detailed-explanation"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Paragraph
@@ -14173,12 +15119,68 @@ This changes the
 \emph on
 timely granularity
 \emph default
- of data access: many real-time accesses are 
+ of data access: while BigCluster is transferring 
+\emph on
+each
+\emph default
+ IO request over the storage network in 
+\emph on
+realtime
+\emph default
+, nothing is transferred over an external network at LocalSharding, provided
+ that no migration is necessary.
+ Typically, migrations are a 
+\series bold
+rare exception
+\series default
+.
+ Normally, the data is already 
+\series bold
+close to the consumer
+\series default
+.
+ Only in rare situations when migration is needed, local IO transfers are
+ 
 \emph on
 shifted over
 \emph default
- to migration processes, which in turn are weakening the requirements to
- the network.
+ to external migration processes.
+ The outcome of a successful migration is that local IO is then sufficient
+ again.
+\end_layout
+
+\begin_layout Standard
+In essence, Football is an 
+\series bold
+optimizer for data proximity
+\series default
+: always try to keep the data as close
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+When the many local SAS busses are also viewed as a network, and when these
+ are logically united with the replication network to a bigger 
+\emph on
+logical
+\emph default
+ network which is 
+\emph on
+heterogenous
+\emph default
+ at physical level: Football does nothing else but trying to 
+\series bold
+offload
+\series default
+ all IO requests to the local SAS networks, instead of overloading the wide-area
+ IP network.
+ In essence, this is a specialized traffic scheduling strategy for a two-level
+ network.
+\end_layout
+
+\end_inset
+
+ to the consumers as possible.
 \end_layout
 
 \begin_layout Standard
@@ -14239,7 +15241,7 @@ server
 \begin_inset Quotes eld
 \end_inset
 
-client
+client machine
 \begin_inset Quotes erd
 \end_inset
 
@@ -14247,16 +15249,46 @@ client
 \begin_inset Quotes eld
 \end_inset
 
-server
+server machine
 \begin_inset Quotes erd
 \end_inset
 
 .
  
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In contrast, MARS uses the client-server paradigm at a different granularity:
+ each machine can act in client role and/or in server role 
+\emph on
+at the same time
+\emph default
+, and 
+\emph on
+individually
+\emph default
+ for each LV.
+ Thus it is possible to use local storage.
 \end_layout
 
 \begin_layout Itemize
-We don't disallow this in variants like RemoteSharding or FlexibleSharding
+We don't disallow conventional network-centric client-server machines in
+ variants like 
+\family typewriter
+RemoteSharding
+\family default
+ or 
+\family typewriter
+FlexibleSharding
+\family default
  and so on, but we gave some arguments why we are trying to 
 \emph on
 avoid
@@ -14275,8 +15307,8 @@ each chunk
 \end_inset
 
 .
- In contrast, the Sharding Approach typically relates to LVs (logical volumes),
- which could however be viewed as a special case of 
+ In contrast, the Sharding Approach typically relates to LVs = Logical Volumes.
+ Probably, LVs could be viewed as a special case of 
 \begin_inset Quotes eld
 \end_inset
 
@@ -14297,21 +15329,34 @@ chunk
  where it is the basic transfer unit.
  An LV has the fundamental property that small-granularity 
 \series bold
-update in place
+updates in place
 \series default
  (at any offset inside the LV) can be executed.
 \end_layout
 
 \begin_layout Itemize
-Notice: we do not preclude further fine-grained distribution of LV data,
- but this is something which should be 
+Notice: we do not preclude further fine-grained distribution of LV data
+ at lower levels, such at LVM level and/or below, but this is something
+ which should be 
 \emph on
 avoided
 \emph default
- if not absolutely necessary.
+ if not absolutely necessary (see 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Optimum-Reliability-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
  Preferred method in typical practical use cases: some storage servers may
  have some spare RAID slots to be populated later, by resizing the PVs =
  Physical Volumes before resizing LVs.
+ Another alternative is dynamic runtime extension of SAS busses, by addition
+ of external enclosures.
 \end_layout
 
 \begin_layout Itemize
@@ -14339,46 +15384,6 @@ Commodity Hardware
 \end_layout
 
 \begin_layout Itemize
-Future variants of the Sharding Approach might extend this already present
- locally Distributed System to a somewhat wider one.
- For example, creation of a local LV (called 
-\begin_inset Quotes eld
-\end_inset
-
-disk
-\begin_inset Quotes erd
-\end_inset
-
- in MARS terminology) could be implemented by a subordinate DRBD instance
- implementing a future RAID-10 mode over local Infiniband or crossover Ethernet
- cables, avoiding local switches.
- While DRBD would essentially create the 
-\begin_inset Quotes eld
-\end_inset
-
-local
-\begin_inset Quotes erd
-\end_inset
-
- LV, the higher-level MARS instance would then be responsible for its wide-dista
-nce replication.
- See chapter 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "chap:Use-Cases-for"
-
-\end_inset
-
- about use cases of MARS vs DRBD.
- Potential future use cases could be 
-\emph on
-extremely huge
-\emph default
- LVs where external SAS disk shelves are no longer sufficient to get the
- desired capacity.
-\end_layout
-
-\begin_layout Itemize
 The USENIX paper needs to treat the following parameters as more or less
  fixed (or only slowly changable) 
 \series bold
@@ -14402,12 +15407,12 @@ constants
 \series bold
 dynamically changed
 \series default
- at runtime on a per-LV basis.
+ at runtime at per-LV granularity.
  For example, during background migration via MARS the command 
 \family typewriter
 marsadm join-resource
 \family default
- is used for creating additional per-LV replicas.
+ is used for dynamic creating additional per-LV replicas.
  However notice: this freedom is limited by the total number of deployed
  hardware nodes.
  If you want 
@@ -14427,7 +15432,7 @@ whole
 
 \begin_layout Itemize
 The USENIX paper defines its copysets on a per-chunk basis.
- Similarly to before, we can transfer this definition to a Sharding Approach
+ Similarly to before, we might transfer this definition to a Sharding Approach
  by relating it to a per-LV basis.
  As a side effect, a copyset can then trivially become identical to 
 \begin_inset Formula $S$
@@ -14461,7 +15466,11 @@ Neglecting the mentioned differences, we see our typical use case (LocalSharding
 \end_layout
 
 \begin_layout Itemize
-This means: we try to minimize the 
+This means: LocalSharding tries to 
+\emph on
+minimize
+\emph default
+ the 
 \emph on
 size
 \emph default
@@ -14476,19 +15485,133 @@ size
 , which will lead to the best possible reliability (under the conditions
  described in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sub:Detailed-explanation"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
 ) as has been shown in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "subsec:Optimum-Reliability-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Another parallel comes to mind: classical RAID striping has introduced
+ the concept of 
+\series bold
+RAID sets
+\series default
+ since decades.
+ Similarly to random replication, RAID striping is motivated by 
+\emph on
+load distribution
+\emph default
+.
+ Similarly to our previous discussion, this induces some 
+\series bold
+cost
+\series default
+.
+ This is not only about RAID-0 vs RAID-10 by introduction of some more replicas
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Random replication is be more like RAID-01: first 
+\emph on
+all
+\emph default
+ the physical disks are striped, then replicas are created 
+\emph on
+on top
+\emph default
+ of it.
+ Reversing this order would be more similar to RAID-10, and could lead to
+ an improvement of random replication.
+ However, this would contradict to a basic idea of BigCluster, that you
+ can add 
+\emph on
+any
+\emph default
+ number of storage nodes at any time.
+ Instead of adding an 
+\emph on
+odd
+\emph default
+ number of OSDs, each potentially of different size, now an 
+\emph on
+even
+\emph default
+ number needs to be added for 
+\begin_inset Formula $k=2$
+\end_inset
+
+ replicas, or equal-sized triples for 
+\begin_inset Formula $k=3,$
+\end_inset
+
+etc.
+\end_layout
+
+\end_inset
+
+.
+ It is a general problem caused by too high stripe spreading.
+ When a single striped RAID set would grow too big, reliability would suffer
+ too much.
+ Thus multiple smaller RAID sets are traditionally used in place of a single
+ big one
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Practical example from experience: for RAID-60, a typical RAID-6 sub-set
+ should not exceed 12 to 15 spindles.
+\end_layout
+
+\end_inset
+
+.
+ This is somewhat similar to copysets, when taking the spread factor 
+\begin_inset Formula $S$
+\end_inset
+
+ as analog to the RAID set size, by using objects in place of sector stripes,
+ and a few other differences like using some well-known 
+\emph on
+stripe distribution function
+\emph default
+ in place of random replication.
+ Compare with section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Optimum-Reliability-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+: RAID sets are just another example workaround for consequences from the
+ fundamental law of storage systems.
 \end_layout
 
 \begin_layout Section
