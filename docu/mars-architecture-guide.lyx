@@ -11327,7 +11327,10 @@ commodity hardware
 \end_inset
 
 .
- While this is very often true for the 
+\end_layout
+
+\begin_layout Standard
+While this is very often true for the 
 \begin_inset Quotes eld
 \end_inset
 
@@ -11335,7 +11338,11 @@ commodity hardware
 \begin_inset Quotes erd
 \end_inset
 
- part, it is often not true for the 
+ part, it is often 
+\emph on
+not
+\emph default
+ true for the 
 \begin_inset Quotes eld
 \end_inset
 
@@ -11344,7 +11351,7 @@ big cluster
 \end_inset
 
  part.
- But let us first look at the 
+ Let us first look at the 
 \begin_inset Quotes eld
 \end_inset
 
@@ -11616,6 +11623,17 @@ You can see that any self-built and self-administered storage (whose price
  always cheaper than commercial one, even if additional manpower is needed
  for commissioning and operating.
  You don't have to pay the shareholders of the storage provider.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
  Here we just assume that the storage is needed permanently for at least
  5 years, as is the case in web hosting, databases, backup / archival systems,
  and many other application areas.
@@ -11623,7 +11641,7 @@ You can see that any self-built and self-administered storage (whose price
 
 \begin_layout Standard
 Commercial offerings of cloud storage are way too much hyped.
- Some people apparently don't know that the generic term 
+ Apparently some people don't seem to know that the generic term 
 \begin_inset Quotes eld
 \end_inset
 
@@ -11635,13 +11653,26 @@ Cloud Storage
 \emph on
 storage class
 \emph default
-, not to a particular 
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Requirements-for-Cloud"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), not to a particular 
 \emph on
 instance
 \emph default
  like original Amazon S3, and that it is possible to build and operate almost
  any instance of any storage class yourself.
- From a commercial perspective, 
+\end_layout
+
+\begin_layout Standard
+From a commercial perspective, 
 \series bold
 outsourcing
 \series default
@@ -11656,7 +11687,7 @@ only when
 \series default
  your storage demands are either 
 \emph on
-relatively low
+relatively moderate
 \emph default
 , or are 
 \emph on
@@ -12036,9 +12067,10 @@ reference "sec:Reliability-Arguments-from"
 
 \end_inset
 
-, two replicas are typically not sufficient for BigCluster.
- Even addicts of BigCluster are typically recommending 3 replicas in some
- so-called 
+, and as recommended by several advocates, two replicas are typically not
+ sufficient for BigCluster.
+ Even addicts of BigCluster are typically recommending 3 replicas in so-called
+ 
 \begin_inset Quotes eld
 \end_inset
 
@@ -12354,7 +12386,44 @@ The crucial point is not only the number of extra servers needed for dedicated
 \emph on
 theoretically
 \emph default
- use some erasure encoding for avoiding full object replicas, their 
+ use some erasure encoding
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There is a reason why erasure encoding is not practical for many 
+\family typewriter
+BigCluster
+\family default
+ use cases.
+ The number of total IO requests sent to the internal disks is much higher
+ than the number of IO requests sent to the storage by your application,
+ in order to update additional redundancy information.
+ Like RAID-6, this is typically by 
+\emph on
+factors
+\emph default
+.
+ While RAID-6 is 
+\series bold
+offloading
+\series default
+ this additional workload to a small 
+\emph on
+specialized
+\emph default
+ and realtime-capable network called SAS bus, 
+\family typewriter
+BigCluster
+\family default
+ is typically spreading this workload over an unreliable IP network with
+ packet loss, spanning much larger distances, and involving more switches
+ / routers.
+\end_layout
+
+\end_inset
+
+ for avoiding full object replicas, their 
 \emph on
 practice
 \emph default
@@ -12434,8 +12503,9 @@ not
 \end_layout
 
 \begin_layout Standard
-In any case, a MARS-based geo-redundant sharding pool is cheaper than using
- commercial storage appliances which are much more expensive by their nature.
+In any case, a MARS-based geo-redundant sharding pool with a reasonable
+ size is cheaper than using commercial storage appliances, which are much
+ more expensive by their nature.
 \end_layout
 
 \begin_layout Section
