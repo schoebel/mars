@@ -19501,6 +19501,347 @@ noprefix "false"
 \end_layout
 
 \begin_layout Section
+Maturity Considerations for Managers
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Maturity-Considerations"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Maturity of Architectures
+\end_layout
+
+\begin_layout Standard
+Instances of storage system 
+\emph on
+architectures
+\emph default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) typically have a 
+\series bold
+lifetime
+\series default
+ of 
+\series bold
+decades
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+While implementations / components / storage vendors etc can often be exchanged
+ or updated more frequently (typically lifecycles of 3 to 5 years for CAPEX
+ reasons), 
+\series bold
+fundamental architectures
+\series default
+ are much less flexible to change, and thus are 
+\emph on
+forcing
+\emph default
+ you into a 
+\series bold
+long-term strategy
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+In contrast, certain hardware technologies have a much lower lifetime, typically
+ between 1 and 2 years.
+ New server hardware / new disks / SSDs etc are hitting their market all
+ the time, like waves in the ocean.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+System software
+\emph default
+ technologies (OS layer) typically have a lifetime inbetween hardware and
+ architecture lifetimes.
+ Although their update cycles / minor release cycles are typically even
+ faster than hardware releases, their 
+\emph on
+fundamental product appearance points 
+\emph default
+are rather stable
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Appearance of certain technologies may occur in 
+\series bold
+hype cycles
+\series default
+, caused by 
+\emph on
+social
+\emph default
+ effects.
+ While there are founding wa ves for (sometimes similar) product classes,
+ other solution appearancesare more evenly spread over the decades.
+ For example, appearance of many Unix clones / descendants appears to rather
+ smoothly distributed over half a century.
+\end_layout
+
+\end_inset
+
+.
+ For example, the Linux kernel is now more than 20 years old, while its
+ 
+\emph on
+fundamental architecture
+\emph default
+ has been copied from Unix and is now almost 50 years old.
+\end_layout
+
+\begin_layout Standard
+Certain advocates are arguing with the 
+\emph on
+current
+\emph default
+ status of maturity of 
+\emph on
+components
+\emph default
+.
+ In a long-term business operated by professionals, there is an observable
+ long-term trend:
+\end_layout
+
+\begin_layout Quote
+
+\series bold
+\size large
+Maturity of components is (almost) always improving over the years.
+\end_layout
+
+\begin_layout Standard
+Of course, maturity is important.
+ In sensible areas, so-called 
+\begin_inset Quotes eld
+\end_inset
+
+banana software
+\begin_inset Quotes erd
+\end_inset
+
+ may even kill you.
+ In such a situation, the 
+\emph on
+current
+\emph default
+ maturity status is important.
+ However, once an implementation is 
+\emph on
+mature enough
+\emph default
+, and/or once only some nice-to-have features are deservable, the long-term
+ maturity trend / forecast of implementations / components is more important
+ than the current status.
+ You can influence this with your 
+\series bold
+long-term investment decisions
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+There exists something which is even more important:
+\end_layout
+
+\begin_layout Quote
+
+\series bold
+\size large
+Maturity of fundamental architectures is most important, because they 
+\emph on
+cannot
+\emph default
+ improve.
+ Architectures need to be 
+\uuline on
+right from scratch
+\uuline default
+.
+\end_layout
+
+\begin_layout Standard
+This is similar to mathematics: Pythagoras' theorem or Einstein's laws cannot
+ be improved.
+ They will last forever.
+ At most, they can get old-fashioned or otherwise 
+\series bold
+outdated
+\series default
+ / obsoleted.
+ However, there are other chances and 
+\series bold
+opportunities
+\series default
+:
+\end_layout
+
+\begin_layout Itemize
+New / better architetures may appear (rarely).
+\end_layout
+
+\begin_layout Itemize
+Implementations of architectures should evolve slowly over time.
+\end_layout
+
+\begin_layout Itemize
+Implementations may slowly migrate to other architectures, or even support
+ multiple architectures at the same time (convergence properties).
+\end_layout
+
+\begin_layout Standard
+As a manger, there is a clear consequence:
+\end_layout
+
+\begin_layout Quote
+
+\series bold
+\size large
+Pay more attention to fundamental architectures.
+ Develop a 
+\uuline on
+long-term strategy
+\uuline default
+ for maturity of components and implementations.
+\end_layout
+
+\begin_layout Subsection
+Maturity of MARS
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Maturity-of-MARS"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Notice that MARS itself is just a component.
+ For a fully functional system, you will need some more infrastructure at
+ several layers.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+MARS
+\series default
+ itself is in production since 2013, and on mass data (several petabytes)
+ since 2014.
+ MARS itself is 
+\emph on
+generic
+\emph default
+, and can be used for a multitude of Linux application stacks.
+\end_layout
+
+\begin_layout Itemize
+A 
+\series bold
+cluster manager
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+1&1 Ionos ShaHoLin uses a self-built proprietray cluster manager called
+ 
+\family typewriter
+cm3
+\family default
+.
+ It works only with the internal 1&1 database infrastructure, and is not
+ generic.
+\end_layout
+
+\end_inset
+
+ is typically also needed for mass installations.
+ You can use the 
+\family typewriter
+systemd
+\family default
+ template engine of 
+\family typewriter
+marsadm
+\family default
+, see 
+\family typewriter
+mars-user-manual.pdf
+\family default
+, which is easily configurable by Linux sysadmins.
+\end_layout
+
+\begin_layout Itemize
+Tpically, 
+\series bold
+monitoring
+\series default
+ is anyway specific for each application stack.
+ Adding some simple Icinga scripts or similar should be no problem for professio
+nal Linux admins.
+\end_layout
+
+\begin_layout Itemize
+Automatic 
+\series bold
+mass deployment
+\series default
+: this is anyway specific for the deployment system used for your system
+ plus application stack.
+ At the moment, plugins for generic solutions like OpenStack etc are missing.
+ This is an opportunity for other OpenSource projects!
+\end_layout
+
+\begin_layout Itemize
+The 
+\series bold
+Football framework
+\series default
+ is in mass production at 1&1 Ionos ShaHoLin since 2018.
+ It has some plugin for driving the 
+\family typewriter
+systemd
+\family default
+ cluster manager.
+ Its plugin architecture should allow easy adaptation to other system and
+ application stacks.
+\end_layout
+
+\begin_layout Itemize
+Another opportunity for OpenSource projects: some web-based point-and-click
+ 
+\series bold
+dashboard
+\series default
+ similar to the Ceph Dashboard, but displaying and controlling sharded LVM
+ pools which are replicated via MARS, and also controlling Football, would
+ be a highly appreciated addendum.
+\end_layout
+
+\begin_layout Section
 Recommendations for Design and Operation of  Storage Systems
 \begin_inset CommandInset label
 LatexCommand label
