@@ -1152,6 +1152,141 @@ reach
 \end_layout
 
 \begin_layout Section
+What is HA = High Availability
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:What-is-HA"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+HA is defined by a single number, denoting the 
+\emph on
+minimum percentage of uptime
+\emph default
+ of a certain system from a user's perspective.
+ Some examples:
+\end_layout
+
+\begin_layout Itemize
+99% availability: a total downtime of more than 87.6 hours per year is not
+ acceptable.
+\end_layout
+
+\begin_layout Itemize
+99.9% availability: a total downtime of more than 8.76 hours per year is not
+ acceptable.
+\end_layout
+
+\begin_layout Itemize
+99.99% availability: a total downtime of more than 52.56 minutes per year
+ is not acceptable.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ HA is a 
+\series bold
+requirement
+\series default
+.
+ Requirements are characterizations of the 
+\series bold
+problem space
+\series default
+.
+ In software engineering, requirements are 
+\emph on
+strictly separated
+\emph default
+ from any measures, how a requirement can be met (solution space).
+ In general, there may be 
+\emph on
+several
+\emph default
+ solutions for achieving a certain HA percentage.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Hint for managers: some of the potential solutions for the same HA percentage
+ may be much more 
+\series bold
+expensive
+\series default
+ than others, sometimes by 
+\emph on
+factors
+\emph default
+.
+ We will see some examples later.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Some people are arguing 
+\emph on
+incorrectly
+\emph default
+, by claiming that 
+\emph on
+any
+\emph default
+ HA solution needs to be built up by 
+\emph on
+redundancy of each and every single component
+\emph default
+.
+ This confuses requirements with solutions.
+ It is wrong in general, because even a certain degree of redundancy cannot
+ guarantee a certain HA percentage, for example when certain components
+ are not reliable enough.
+ See also section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sub:Detailed-explanation"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ for a counter-example, where addition of more redundancy does not help.
+ Of course, higher degrees of HA are 
+\emph on
+typically
+\emph default
+ built using certain types and degrees of redundancy, including variants
+ like geo-redundancy.
+ In general, however, there might be other means for achieving HA, like
+ extremely quick automatic repair methods, self-healing systems, etc.
+\end_layout
+
+\begin_layout Section
 What is 
 \emph on
 Cloud Storage
