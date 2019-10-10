@@ -1287,6 +1287,184 @@ typically
 \end_layout
 
 \begin_layout Section
+What is Geo-Redundancy
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:What-is-Geo-Redundancy"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+From the technical viewpoint of HA, geo-redundancy belongs to the 
+\emph on
+solution space
+\emph default
+.
+ From the viewpoint of 
+\series bold
+government authorities
+\series default
+, and/or from 
+\series bold
+owners
+\series default
+ of a company / rating agencies determining the 
+\series bold
+business risk
+\series default
+ and the 
+\series bold
+stock exchange value
+\series default
+ of a company, it is also a 
+\emph on
+requirement
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Geo-redundancy means that the 
+\series bold
+risk
+\series default
+ of certain types of geo-localized 
+\series bold
+physical impacts
+\series default
+, such as earthquakes, floods, terrorist attacks, mass power outage, etc,
+ must be 
+\series bold
+compensated
+\series default
+ by being able to run at least the 
+\series bold
+core business
+\series default
+ from another geo-location within some reasonable timeframe.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice that requirements can be solved differently.
+ This guide explains ways for both 
+\series bold
+cost reduction
+\series default
+ and 
+\series bold
+risk reduction
+\series default
+ at the same time, by 
+\emph on
+combining
+\emph default
+ HA requirements with geo-redundancy requirements in a clever way, such
+ that the combined solution will meet both at the same time.
+ A resulting combined solution is called 
+\series bold
+Football on top of MARS
+\series default
+.
+ It provides additional operational value, such as load balancing via the
+ 
+\series bold
+ability for butterfly
+\series default
+, see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+There are some ongoing political discussions about detail requirements for
+ geo-redundancy.
+ The mimimum distance requirement between suitable geo-locations is seen
+ differently by different interest groups, and even differently in different
+ countries.
+ Background are the 
+\series bold
+enormous cost
+\series default
+ for setup of a datacenter.
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+sloppy 
+\end_layout
+
+\end_inset
+
+While some NGOs = Non-Governmental Organizations are fighting for a minimum
+ distance of only 5 km, the German government authority BSI recommends a
+ minimum distance of 200 km between datacenters for 
+\series bold
+critical infrastructures.
+ 
+\series default
+See 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Sicherheitsberatung/Standort-Kr
+iterien_HV-RZ/Standort-Kriterien_HV-RZ.pdf?__blob=publicationFile&v=5
+\end_layout
+
+\end_inset
+
+.
+ Although this is only a 
+\begin_inset Quotes eld
+\end_inset
+
+recommendation
+\begin_inset Quotes erd
+\end_inset
+
+ officially, certain sectors like 
+\series bold
+banking
+\series default
+ are actually forced to treat this more or less like a requirement.
+\end_layout
+
+\begin_layout Standard
+For an observer, it could be interesting how 
+\emph on
+international requirements
+\emph default
+ will evolve, and how rating agencies will change their rules during the
+ course of the next decades.
+\end_layout
+
+\begin_layout Section
 What is 
 \emph on
 Cloud Storage
