@@ -1957,8 +1957,18 @@ geo-redundancy
 \series bold
 survial of geo-disasters
 \series default
- like earthquakes or floods is added to (2) as an additional requirement,
- some 
+ like earthquakes or floods is added to (2) as an additional requirement
+ (see also section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), some 
 \emph on
 further consequences
 \emph default
@@ -7176,7 +7186,17 @@ name "subsec:Example:-ZFS-Replication"
 \begin_layout Standard
 Some ZFS advocates believe that ZFS snapshots, which were originally designed
  for backup-like use cases, are also appropriate solutions for achieving
- geo-redundancy.
+ geo-redundancy (cf section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
  The basic idea is to run incremental ZFS snapshots in an endless loop,
  e.g.
  via some simple scripts, and expediting to another host where the snapshots
@@ -10109,9 +10129,19 @@ When
 \series bold
 geo-redundancy
 \series default
- is required, the total effort may easily double another time because in
- cases of disasters like terrorist attacks the backup datacenter must be
- prepared for taking over for multiple days or weeks.
+ is required (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), the total effort may easily double another time because in cases of disasters
+ like terrorist attacks the backup datacenter must be prepared for taking
+ over for multiple days or weeks.
 \begin_inset Newline newline
 \end_inset
 
@@ -12794,7 +12824,17 @@ reference "sec:Reliability-Arguments-from"
 \end_layout
 
 \begin_layout Standard
-Notice that geo-redundancy implies by definition that an unforeseeable 
+Notice that geo-redundancy implies by definition (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) that an unforeseeable 
 \series bold
 full datacenter loss
 \series default
