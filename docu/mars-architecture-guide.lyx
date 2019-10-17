@@ -35,7 +35,7 @@ tcolorbox
 \use_dash_ligatures false
 \graphics default
 \default_output_format default
-\output_sync 0
+\output_sync 1
 \bibtex_command default
 \index_command default
 \paperfontsize 10
@@ -164,7 +164,11 @@ In addition to technical discussion,
 \series bold
 cost and risks
 \series default
- are treated as well, addressing some management needs up to CTO level.
+ are treated as well, addressing some 
+\series bold
+management needs
+\series default
+ up to CTO level.
 \end_layout
 
 \begin_layout Standard
@@ -305,7 +309,7 @@ How to use this document
 \end_layout
 
 \begin_layout Standard
-Managers should start with the 
+Managers should start with chapter 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "chap:Management-Summary"
@@ -315,29 +319,109 @@ noprefix "false"
 
 \end_inset
 
- (
+.
+ Then read the short chapter 
 \begin_inset CommandInset ref
-LatexCommand vref
-reference "chap:Management-Summary"
+LatexCommand nameref
+reference "chap:Important-Concepts"
 plural "false"
 caps "false"
 noprefix "false"
 
 \end_inset
 
-).
- When more details are needed, just follow the internal links within this
- document.
+.
+ For details, just follow the internal links within this document.
+ In any case, the last chapter 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Recommendations-for-Managers"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ is highly recommended.
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+These boxes are something you definitely should read as a manager.
+ It explains 
+\series bold
+important key items
+\series default
+ in a nutshell.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 All others should read chapter 1 and 2 sequentially, and proceed to the
- other chapters only when interested.
+ other chapters when interested.
 \end_layout
 
 \begin_layout Standard
 When MARS is already in use (or planned to be used), reading all of the
- chapters may pay off for avoidance of some pitfalls.
+ chapters may pay off for 
+\series bold
+avoidance of pitfalls
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+Examples are marked with boxes like this.
+ They can be skipped if you don't have much time.
+ Examples will however help for understanding of complex material.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+Detail explanations are marked like this.
+ They are recommended for system architects for more elaborate methodology,
+ and for deeper understanding of fundamentals.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 4
+status open
+
+\begin_layout Plain Layout
+This document is no scientific work in a strong sense.
+ However, it is based on scientific background.
+ In a few places, hints like this could be fruitful for spawning research
+ activity.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section*
@@ -393,10 +477,10 @@ TBD
 \end_layout
 
 \begin_layout Chapter
-Architectures of Cloud Storage / Software Defined Storage / Big Data
+Important Concepts
 \begin_inset CommandInset label
 LatexCommand label
-name "chap:Cloud-Storage"
+name "chap:Important-Concepts"
 
 \end_inset
 
@@ -404,109 +488,85 @@ name "chap:Cloud-Storage"
 \end_layout
 
 \begin_layout Standard
-Datacenter architects have no easy job.
- Building up some petabytes of data in the wrong way can easily endanger
- a company, as will be shown later.
- There are some architectural laws to know and some rules to follow.
+This chapter is 
+\emph on
+very short
+\emph default
+.
+ Recommended reading for 
+\emph on
+everyone
+\emph default
+ is 
+\emph on
+each
+\emph default
+ of the definitions in 
+\emph on
+each
+\emph default
+ section, even if you think that you already know what each concept means.
 \end_layout
 
 \begin_layout Standard
-As a responsible manager, you will make architectural decisions, even if
- you are 
-\emph on
-not aware
-\emph default
- of them.
- Bad decisions, even if you are not aware of its consequences, can endanger
- major products, and increase cost by 
-\emph on
-factors
-\emph default
-.
- Once you have commited to a certain architecture, it will be 
-\emph on
-extremely cumbersome
-\emph default
- to modify it later.
- Thus you need to get it right from start.
- Typically, you will have 
+In case you 
 \series bold
-only one shot
+notice a difference
 \series default
-.
-\end_layout
-
-\begin_layout Standard
-First, we need to take a look at the most general possibilities how storage
- can be architecturally designed:
+ between your former opinion about a concept and what you are reading here,
+ then 
+\series bold
+don't skip the rest
+\series default
+ of the corresponding section.
 \end_layout
 
 \begin_layout Standard
 \noindent
-\align center
 \begin_inset Graphics
-	filename images/storage-classification.fig
-	width 80col%
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
 
 \end_inset
 
-
+ Skipping anything in this chapter exposes you to serious risks:
 \end_layout
 
-\begin_layout Standard
-\noindent
-The topmost question is: do we always need to access bigger masses of (typically
- unstructured) data over a network?
-\end_layout
+\begin_layout Itemize
 
-\begin_layout Standard
-There is a common belief that both reliability and scalability could be
- only achieved this way.
- In the past, local storage has often been viewed as 
-\begin_inset Quotes eld
-\end_inset
-
-too simple
-\begin_inset Quotes erd
-\end_inset
-
- to provide enterprise grade reliability, and scalability, and maintainability.
- In the past, this was sometimes true.
-\end_layout
-
-\begin_layout Standard
-However, this picture has changed with the advent of a new 
 \series bold
-load balancing
+Misunderstanding
 \series default
- method called 
+ of following important parts.
+ This may become 
 \series bold
-LV Football
+expensive
 \series default
-, see 
-\family typewriter
-football-user-manual.pdf
-\family default
 .
- When Football is combined with a 
-\family typewriter
-FlexibleSharding
-\family default
- architecture (see section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:FlexibleSharding"
-plural "false"
-caps "false"
-noprefix "false"
+ This guide is about investments and follow-up cost in the range of 
+\series bold
+millions
+\series default
+ of €.
+\end_layout
 
-\end_inset
+\begin_layout Itemize
 
-), practically the same flexibility as promised by 
-\family typewriter
-BigCluster
-\family default
- is possible.
+\series bold
+Second-order ignorance
+\series default
+: you probably don't know what you don't know.
+ This is not only risky in 
+\series bold
+enterprise-critical
+\series default
+ areas.
+ You can also risk your 
+\series bold
+carreer
+\series default
+.
 \end_layout
 
 \begin_layout Section
@@ -709,6 +769,11 @@ as early as possible
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -716,7 +781,7 @@ as early as possible
 
 \end_inset
 
- Motivation: the biggest 
+ The biggest 
 \series bold
 potential for good solutions
 \series default
@@ -724,6 +789,11 @@ potential for good solutions
  Exchanging a single component or a technology is typically much easier
  than changing a whole architecture, once it has been implemented.
  Often, changing an architecture is close to impossible.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -832,6 +902,11 @@ complexity
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -884,7 +959,7 @@ concept
  should be treated by further iterations, restarting top-down again.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -905,7 +980,7 @@ compatibility
  (no conflicts caused by restrictions, etc).
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -936,7 +1011,7 @@ set of
  solutions / technologies.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -987,7 +1062,7 @@ https://en.wikipedia.org/wiki/Spiral_model
 .
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -1117,6 +1192,11 @@ rework of architecture as early as possible
  methods.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
@@ -1220,6 +1300,11 @@ several
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -1227,8 +1312,8 @@ several
 
 \end_inset
 
- Hint for managers: some of the potential solutions for the same HA percentage
- may be much more 
+ Some of the potential solutions for the same HA percentage may be much
+ more 
 \series bold
 expensive
 \series default
@@ -1238,6 +1323,11 @@ factors
 \emph default
 .
  We will see some examples later.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -1257,15 +1347,25 @@ incorrectly
 \emph on
 any
 \emph default
- HA solution needs to be built up by 
+ HA solution would 
 \emph on
-redundancy of each and every single component
+need
 \emph default
-.
+ to be built up by 
+\emph on
+hardware redundancy.
+ 
+\emph default
+Some people even believe that redundancy would be needed at
+\emph on
+ each and every single hardware component
+\emph default
+, otherwise it would not be HA.
  This confuses requirements with solutions.
- It is wrong in general, because even a certain degree of redundancy cannot
- guarantee a certain HA percentage, for example when certain components
- are not reliable enough.
+ It is wrong in general, because even a certain degree of hardware redundancy
+ cannot guarantee a certain overall hard+software HA percentage in general,
+ for example when certain components such as failover software are not reliable
+ enough.
  See also section 
 \begin_inset CommandInset ref
 LatexCommand nameref
@@ -1276,15 +1376,33 @@ noprefix "false"
 
 \end_inset
 
- for a counter-example, where addition of more redundancy does not help.
+ for a counter-example, where addition of more redundancy 
+\begin_inset Formula $>k$
+\end_inset
+
+ does not help.
  Of course, higher degrees of HA are 
 \emph on
-typically
+typically(!)
 \emph default
  built using certain types and degrees of redundancy, including variants
  like geo-redundancy.
  In general, however, there might be other means for achieving HA, like
- extremely quick automatic repair methods, self-healing systems, etc.
+ extremely quick automatic repair methods, self-healing
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+This is no joke.
+ For example, certain spacecrafts need to run for years or even for decades,
+ without any maintenance.
+ Thus it helps enormously when some of their components are self-healing,
+ for example certain surfaces or shields after a hit by micro meteorites.
+\end_layout
+
+\end_inset
+
+ systems, etc.
 \end_layout
 
 \begin_layout Section
@@ -1336,8 +1454,8 @@ risk
 \series bold
 physical impacts
 \series default
-, such as earthquakes, floods, terrorist attacks, mass power outage, etc,
- must be 
+, such as earthquakes, floods, terrorist attacks, cascading mass power blackouts
+, etc, must be 
 \series bold
 compensated
 \series default
@@ -1350,6 +1468,11 @@ core business
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -1357,7 +1480,11 @@ core business
 
 \end_inset
 
-Notice that requirements can be solved differently.
+Notice that the same family of requirements can be solved 
+\emph on
+very
+\emph default
+ differently.
  This guide explains ways for both 
 \series bold
 cost reduction
@@ -1395,7 +1522,13 @@ noprefix "false"
 .
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 There are some ongoing political discussions about detail requirements for
  geo-redundancy.
  The mimimum distance requirement between suitable geo-locations is seen
@@ -1471,7 +1604,7 @@ What is
 Cloud Storage
 \begin_inset CommandInset label
 LatexCommand label
-name "sec:Requirements-for-Cloud"
+name "sec:What-is-Cloud-Storage"
 
 \end_inset
 
@@ -1530,6 +1663,494 @@ eventually consistent
 \end_layout
 
 \begin_layout Standard
+A detailed analysis of consequences from this definition is in secction
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Requirements-for-Cloud"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+What is SDS = Software Defined Storage
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:What-is-Software-defined-Storage"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+As explained in 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Software-defined_storage
+\end_layout
+
+\end_inset
+
+, SDS is a 
+\series bold
+marketing term
+\series default
+, subsuming a wide variety of offerings from several 
+\emph on
+vendors
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+In essence, it can be 
+\emph on
+almost anything
+\emph default
+ from the storage area, where hardware can be treated independently from
+ software, or at least some software configuration is available.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\noindent
+Even a 
+\begin_inset Quotes eld
+\end_inset
+
+simple
+\begin_inset Quotes erd
+\end_inset
+
+ HDD = Hard Disk Drive device has not only some 
+\series bold
+network interface
+\series default
+ (typically SATA or SAS in place of Ethernet), but also contains some software
+ called firmware, which 
+\emph on
+could
+\emph default
+ (at least potentially) be exchanged independently.
+ Believe it or not: even such a 
+\begin_inset Quotes eld
+\end_inset
+
+simple hardware
+\begin_inset Quotes erd
+\end_inset
+
+ device is providing 
+\series bold
+storage virtualization
+\series default
+, although a rather primitive one.
+ For example, it maps logical sector numbers (LBNs) to physical coordinates
+ like CHS = Cylinder / Head / Sector, or similar.
+ Newer 4k sector disks can emulate old 512 byte sector formats, etc.
+ Thus such devices would match the fuzzy Wikipedia description of SDS.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In practice, the term SDS is a 
+\series bold
+tautology
+\series default
+ because it can mean almost anything from the storage area, thus the term
+ is not really useful.
+\end_layout
+
+\begin_layout Standard
+In order to talk about SDS in technical terms of architecture, here is an
+ 
+\emph on
+attempt
+\emph default
+ to somehow narrow it down, and to somehow relate it to Cloud Storage:
+\end_layout
+
+\begin_layout Quote
+SDS (in the sense of this guide) is a Cloud Storage system.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Treating SDS as equivalent to Cloud Storage makes it more useful, but neglects
+ the opportunity for defining something useful inbetween of Cloud Storage
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+anything
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Notice that a Wikipedia search 
+\begin_inset Quotes eld
+\end_inset
+
+storage as a service
+\begin_inset Quotes erd
+\end_inset
+
+ (which could be abbreviated StaaS) is delivering a redirection to 
+\begin_inset Quotes eld
+\end_inset
+
+Cloud Storage
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Another missed opportunity for getting some useful structure into the 
+\series bold
+wild-growing jungle
+\series default
+, and for clearly explaining differences, and for a fruitful discussion
+ of pro and cons.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Remark
+\end_layout
+
+\end_inset
+
+This is an indicator that the storage area is not really mature.
+ There are more short-sighted hypes than fundamental concepts.
+ This architecture guide is an attempt to guide
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+German saying, semantically translated to English: 
+\begin_inset Quotes eld
+\end_inset
+
+You cannot see the forest because there are too many trees in front of it.
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+ you through the hype jungle in a structured way.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Indirect cost of hypes
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Beware of hyped buzzwords like 
+\begin_inset Quotes eld
+\end_inset
+
+storage as a service
+\begin_inset Quotes erd
+\end_inset
+
+.
+ It narrows your attention to network-centric architectures, and distracts
+ your attention from major cost saving opportunities like 
+\family typewriter
+LocalSharding
+\family default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Variants-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Chapter
+Architectures of Cloud Storage / Software Defined Storage
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Cloud-Storage"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Datacenter architects have no easy job.
+ Building up some petabytes of data in the wrong way can easily endanger
+ a company, as will be shown later.
+ There are some architectural laws to know and some rules to follow.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+As a responsible manager, you will make architectural decisions, even if
+ you are 
+\emph on
+not aware
+\emph default
+ of them.
+ Bad decisions, even if you are not aware of its consequences, can endanger
+ major products, and increase cost by 
+\emph on
+factors
+\emph default
+.
+ Once you have commited to a certain architecture, it will be 
+\emph on
+extremely cumbersome
+\emph default
+ to modify it later.
+ Thus you need to get an architecture right from start.
+ Typically, you will have 
+\series bold
+only one shot
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+First, we need to take a look at the most general possibilities how storage
+ can be architecturally designed:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/storage-classification.fig
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The topmost question is: do we always need to access bigger masses of (typically
+ unstructured) data over a network?
+\end_layout
+
+\begin_layout Standard
+There is a common belief that both reliability and scalability could be
+ only achieved this way.
+ In the past, local storage has often been viewed as 
+\begin_inset Quotes eld
+\end_inset
+
+too simple
+\begin_inset Quotes erd
+\end_inset
+
+ to provide enterprise grade reliability, and scalability, and maintainability.
+ In the past, this was sometimes true.
+\end_layout
+
+\begin_layout Standard
+However, this picture has changed with the advent of a new 
+\series bold
+load balancing
+\series default
+ method called 
+\series bold
+LV Football
+\series default
+, see 
+\family typewriter
+football-user-manual.pdf
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+When Football is combined with a 
+\family typewriter
+FlexibleSharding
+\family default
+ architecture (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:FlexibleSharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), practically the same flexibility as promised by 
+\family typewriter
+BigCluster
+\family default
+ is possible.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Architectural Properties of Cloud Storage
+\emph on
+
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Requirements-for-Cloud"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Brief recall from section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Cloud-Storage"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ Cloud storage is
+\end_layout
+
+\begin_layout Description
+(1) Made up of many 
+\series bold
+distributed resources
+\series default
+, but still 
+\series bold
+act as one
+\series default
+.
+\end_layout
+
+\begin_layout Description
+(2) Highly 
+\series bold
+fault tolerant
+\series default
+ through redundancy and distribution of data.
+\end_layout
+
+\begin_layout Description
+(3) Highly 
+\series bold
+durable
+\series default
+ through the creation of versioned copies.
+\end_layout
+
+\begin_layout Description
+(4) Typically 
+\series bold
+eventually consistent
+\series default
+ with regard to data replicas.
+\end_layout
+
+\begin_layout Standard
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -1538,7 +2159,7 @@ eventually consistent
 
 \end_inset
 
-The requirement (1) 
+ The requirement (1) 
 \begin_inset Quotes eld
 \end_inset
 
@@ -1572,7 +2193,7 @@ noprefix "false"
 
 \end_inset
 
-The definition says nothing about the 
+ The definition says nothing about the 
 \series bold
 granularity
 \series default
@@ -1600,7 +2221,7 @@ noprefix "false"
 
 \end_inset
 
-Notice that the term 
+ Notice that the term 
 \begin_inset Quotes eld
 \end_inset
 
@@ -1633,7 +2254,7 @@ some(!)
 
 \end_inset
 
-Important! The definition does 
+ The definition does 
 \emph on
 not
 \emph default
@@ -1739,7 +2360,7 @@ noprefix "false"
 
 \end_inset
 
-Notice that the definition says nothing about the 
+ Notice that the definition says nothing about the 
 \series bold
 time scale
 \series default
@@ -1805,17 +2426,20 @@ residual risk
  = Single Points Of Failure.
 \end_layout
 
-\begin_layout Description
+\begin_layout Standard
 \noindent
-Example
-\begin_inset space ~
-\end_inset
+\begin_inset Flex Custom Color Box 1
+status open
 
-1
-\begin_inset space ~
-\end_inset
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
 
-(replication
+\begin_layout Plain Layout
+
+\series bold
+Replication
 \begin_inset space ~
 \end_inset
 
@@ -1823,25 +2447,38 @@ network
 \begin_inset space ~
 \end_inset
 
-failures): Football on top of MARS for background LV migration over both
- short and geo-distances.
+failures
+\end_layout
+
+\end_inset
+
+ Football on top of MARS for background LV migration over both short and
+ geo-distances.
  When the replication network is down, it will just pause for a while, and
  MARS will automatically resume once the network is up again.
  Football can be configured to also resume the higher-level migration process,
  when necessary.
 \end_layout
 
-\begin_layout Description
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
 \noindent
-Example
-\begin_inset space ~
-\end_inset
+\begin_inset Flex Custom Color Box 1
+status open
 
-2
-\begin_inset space ~
-\end_inset
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
 
-(storage
+\begin_layout Plain Layout
+
+\series bold
+Storage
 \begin_inset space ~
 \end_inset
 
@@ -1849,15 +2486,19 @@ network
 \begin_inset space ~
 \end_inset
 
-failures): It is clear that a failure of a classical storage network will
- halt all services depending on it.
+failures
+\end_layout
+
+\end_inset
+
+ It is clear that a failure of a classical storage network will halt all
+ services depending on it.
  Some people believe that realtime storage networks cannot be avoided, in
  order to react at varying load situations, and are running much faster
  due to load distribution.
  This is not the full picture:
 \end_layout
 
-\begin_deeper
 \begin_layout Enumerate
 Football plus FlexibleSharding can achieve a similar level of elasticity.
 \end_layout
@@ -1940,7 +2581,11 @@ Reorg tasks: these can occur in all top-level architectures.
  by the very nature of bigger reorganisational tasks.
 \end_layout
 
-\end_deeper
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
@@ -1950,7 +2595,7 @@ Reorg tasks: these can occur in all top-level architectures.
 
 \end_inset
 
-When 
+ When 
 \series bold
 geo-redundancy
 \series default
@@ -2032,6 +2677,11 @@ migration
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -2054,7 +2704,17 @@ and
  all at the same time.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -2063,17 +2723,45 @@ and
 
 \end_inset
 
- Basic idea behind Football on top of a Sharding model: minimize the 
+ Basic idea behind Football on top of a Sharding model: 
+\series bold
+minimize the 
 \emph on
 distances
+\series default
 \emph default
  between your storage spindles and the corresponding data processing.
  When background data migration is automated properly, real-time storage
  networks can become superfluous, or at least the corresponding realtime
  IO traffic can be drastically reduced.
+ When minimization is well dimensioned, a pair of storage + application
+ server residing in the same geo-location can be 
+\series bold
+collapsed into a single box
+\series default
+.
+ This is not only a 
+\series bold
+major cost reducer
+\series default
+, it also 
+\series bold
+improves reliability
+\series default
+ because there are less components which can fail.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -2087,8 +2775,33 @@ distances
 missed
 \emph default
  if both system architects and responsible managers are just requiring only
- DR = Disaster Recovery over long distances.
- Essentially, suchalike minimum requirements can be easily interpreted as
+ DR = Disaster Recovery over long distances, instead of requiring the ability
+ for butterfly (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+Essentially, suchalike minimum requirements can be easily interpreted as
  
 \begin_inset Quotes eld
 \end_inset
@@ -2143,7 +2856,7 @@ instead of doubling
  virtually everything.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -2170,7 +2883,7 @@ noprefix "false"
 .
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -2261,7 +2974,17 @@ noprefix "false"
 ).
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -2270,7 +2993,7 @@ noprefix "false"
 
 \end_inset
 
- Another buzzword for flexible cross-geo distribution is the 
+ Important keyword for flexible cross-geo distribution: 
 \series bold
 ability for butterfly
 \series default
@@ -2285,6 +3008,11 @@ noprefix "false"
 \end_inset
 
 .
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -2307,13 +3035,22 @@ tradeoff
  Although this might be true in some relatively small corner cases, the
  picture can rapidly change when thousands of servers and/or petabytes or
  storage are involved.
- Doubling the overall cost for big datacenters instead of intelligently
- geo-distributing resources, is likely much more cost intensive in the long
- term than investing once into 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+Doubling the overall cost for big datacenters instead of intelligently geo-distr
+ibuting resources, is likely much more cost intensive in the long term than
+ investing once into 
 \series bold
 intelligent abilities
 \series default
- of the company which can then 
+ of the company like Football, which can then 
 \series bold
 scale up
 \series default
@@ -2330,6 +3067,11 @@ noprefix "false"
 ).
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
@@ -2339,7 +3081,7 @@ noprefix "false"
 
 \end_inset
 
- As a consequence of sufficiently fine-grained handover + failover, the
+ As a consequence from sufficiently fine-grained handover + failover, the
  above definition of cloud storage can be 
 \series bold
 met at geo-datacenter level
@@ -2365,6 +3107,11 @@ noprefix "false"
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -2423,15 +3170,23 @@ https://en.wikipedia.org/wiki/CAP_theorem
  of other properties.
  More detailed explanations are in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
 .
 \end_layout
 
-\begin_layout Subsection
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
 Suitability of Architectures for Cloud Storage
 \begin_inset CommandInset label
 LatexCommand label
@@ -2443,8 +3198,22 @@ name "subsec:Suitability-of-Architectures"
 \end_layout
 
 \begin_layout Standard
-There are some consequences from the above definition of Cloud Storage,
- for each of our high-level storage architectures:
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+There are some consequences from the above definition of Cloud Storage (see
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Requirements-for-Cloud"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), for each of our high-level storage architectures:
 \end_layout
 
 \begin_layout Description
@@ -2918,7 +3687,7 @@ not
 \end_deeper
 \end_deeper
 \end_deeper
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -2958,6 +3727,11 @@ noprefix "false"
 \end_inset
 
 , and the stacking order of sub-components.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -3016,11 +3790,26 @@ There are numerous examples where this fundamental principle is obeyed.
 \end_layout
 
 \begin_layout Standard
-Example: 
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+
 \series bold
-phone numbers
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Phone numbers
+\end_layout
+
+\end_inset
+
+
 \series default
- are 
+Phone numbers are 
 \emph on
 not
 \emph default
@@ -3061,6 +3850,11 @@ most practical purposes
 sufficienctly
 \emph default
  location transparent.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -3107,6 +3901,11 @@ https://en.wikipedia.org/wiki/Location_transparency
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -3122,7 +3921,7 @@ technical debt
 , likely causing future problems and impediments.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -3131,11 +3930,16 @@ technical debt
 
 \end_inset
 
-Therefore, establishment of location transparency can be seen as 
+Therefore, establishment of location transparency needs to be seen as 
 \series bold
 best practice
 \series default
 .
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -3180,6 +3984,23 @@ not needed
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Where location transparency makes sense or not
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -3195,27 +4016,27 @@ everywhere
  The art of system architecture consists of knowing
 \end_layout
 
-\begin_layout Description
+\begin_layout Enumerate
 \noindent
-(a) where it is 
+where it is 
 \emph on
 needed
 \emph default
 ,
 \end_layout
 
-\begin_layout Description
+\begin_layout Enumerate
 \noindent
-(b) where it is 
+where it is 
 \emph on
 beneficial
 \emph default
  for future growth / future reqirements in multiple dimensions,
 \end_layout
 
-\begin_layout Description
+\begin_layout Enumerate
 \noindent
-(c) where it is (or will be) too expensive to pay off in the mid-term future,
+where it is (or will be) too expensive to pay off in the mid-term future,
  using current technology, but nevertheless 
 \emph on
 cheap provisions for its later introduction
@@ -3223,9 +4044,9 @@ cheap provisions for its later introduction
  can be prepared, and
 \end_layout
 
-\begin_layout Description
+\begin_layout Enumerate
 \noindent
-(d) where its lack can be easily (or even 
+where its lack can be easily (or even 
 \emph on
 trivially
 \emph default
@@ -3238,8 +4059,8 @@ overall system
  is sufficiently location transparent, and
 \end_layout
 
-\begin_layout Description
-(e) when there are multiple choices 
+\begin_layout Enumerate
+when there are multiple choices 
 \emph on
 where
 \emph default
@@ -3247,8 +4068,8 @@ where
  cases, and finally
 \end_layout
 
-\begin_layout Description
-(f) 
+\begin_layout Enumerate
+
 \emph on
 how
 \emph default
@@ -3310,6 +4131,11 @@ nt setup.
 \end_inset
 
  are not generally necessary for achieving location transparency.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -3398,6 +4224,11 @@ optimally
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -3420,7 +4251,13 @@ worse scalability
 , etc.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 Well-designed systems can be recognized as roughly following Dijkstra's
  famous 
 \series bold
@@ -3637,8 +4474,16 @@ semantic gap
 \end_inset
 
 .
- It is independent from any implementations, programming languages, or programmi
-ng / user interfaces.
+ It is 
+\series bold
+independent
+\series default
+ from any implementations, programming languages, or programming / user
+ interfaces, or other matters of 
+\series bold
+representation
+\series default
+.
 \end_layout
 
 \begin_layout Standard
@@ -3682,6 +4527,11 @@ not
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -3709,6 +4559,11 @@ functionality
 really
 \emph default
  behind the scenes?
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -3792,7 +4647,27 @@ The crucial point is: several OSD implementations are internally using
 filesystems
 \series default
  for creating the object abstraction.
- For implementors, this seems to be a very tempting
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+OSD implementation strategies
+\end_layout
+
+\end_inset
+
+For implementors, this seems to be a very tempting
 \begin_inset Foot
 status open
 
@@ -3812,10 +4687,26 @@ mature
 \end_inset
 
  shortcut strategy.
- Instead of implementing their own object store functionality on top of
- block devices, which could easily take some years or decades until mature
- enough for production use, existing kernel-level filesystem implementations
- are just re-used.
+ Implementing their own object store functionality on top of block devices,
+ which could easily take some years or decades until mature enough for productio
+n use.
+ Linus Torvalds, for example, is measuring the maturity cycles of filesystem
+ implementations in units of 
+\emph on
+decades
+\emph default
+, not in years.
+ Pure object stores would need to solve similar 
+\emph on
+fundamental problems
+\emph default
+, like 
+\series bold
+fragmentation problems
+\series default
+, which is a science in itself.
+ Thus existing kernel-level filesystem implementations are often just re-used
+ for OSDs.
  They seem to be already there, 
 \begin_inset Quotes eld
 \end_inset
@@ -3827,7 +4718,7 @@ for free
 .
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 However, at architectural level, they are 
 \emph on
 not
@@ -3840,7 +4731,7 @@ regressions
 .
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 At abstract functionality level: passive objects, and even some associated
  
 \emph on
@@ -4064,14 +4955,14 @@ sparse files
 .
  Filesystem implementors need to spend a considerable fraction of their
  total effort on this.
- Concurrency on shared memory, togther with SMP scalability to a contemporary
- degree, is what makes it really hard, and why there are only relatively
- few people in the world mastering this art.
+ Concurrency on shared memory, together with SMP scalability to a contemporary
+ degree, is what makes implementation really hard, and why there are only
+ relatively few people in the world mastering this art.
  As a manager, compare with Dijkstra's remarks on required 
 \series bold
 skill levels
 \series default
- for serious OS work..
+ for serious OS work...
 \begin_inset Newline newline
 \end_inset
 
@@ -4154,7 +5045,13 @@ hardlinks
  etc.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 Obviously, these functionalities are 
 \emph on
 lost
@@ -4172,7 +5069,7 @@ lost
 
 \end_inset
 
- As already explained: 
+ As explained in the detail box: 
 \series bold
 trivial differences
 \series default
@@ -4219,6 +5116,26 @@ abstract functionality
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+\emph on
+Real
+\emph default
+ functionality behind object stores
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -4237,7 +5154,13 @@ special case
  of fileystems.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 Now let us look at some 
 \emph on
 active
@@ -4256,6 +5179,11 @@ There is a clear answer: NO.
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -4273,6 +5201,11 @@ miner
 \family default
 , and similar standard Linux tools are indexing the EXIF metadata of images,
  or metadata of mp3 songs, videos, etc, residing in a classical filesystem.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -4321,6 +5254,30 @@ hidden cartesian products
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+\emph on
+Real
+\emph default
+ implementation value of OSDs 
+\begin_inset Formula $\Longrightarrow$
+\end_inset
+
+ business value
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -4328,13 +5285,105 @@ hidden cartesian products
 
 \end_inset
 
- As a manager: when certain advocates are claiming that suchalike functionality
- mergers are constituting some new product, be cautious.
+ For responsibles: when certain advocates are claiming that functionality
+ mergers, such as more or less 
+\series bold
+trivial combinations
+\series default
+ of filesystem sub-functionality with some metadata harvesters, are constituting
+ some new product, be 
+\series bold
+cautious
+\series default
+.
  It is about 
+\series bold
 \emph on
 your
 \emph default
- money, or about your company's money.
+ money
+\series default
+, or about your company's money.
+\end_layout
+
+\begin_layout Plain Layout
+While it might be a 
+\begin_inset Quotes eld
+\end_inset
+
+new
+\begin_inset Quotes erd
+\end_inset
+
+ product from the perspective of end customers, you should 
+\series bold
+check
+\series default
+ the 
+\series bold
+technical effort
+\series default
+ for 
+\begin_inset Quotes eld
+\end_inset
+
+implementing
+\begin_inset Quotes erd
+\end_inset
+
+ the 
+\begin_inset Quotes eld
+\end_inset
+
+new
+\begin_inset Quotes erd
+\end_inset
+
+ functionality.
+ There are cases where more than 90% functionality is already there.
+ When it is from OpenSource, do not pay a lot of money for some more or
+ less trivial adaptors.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ When more than 95% of functionality is already there 
+\emph on
+for free
+\emph default
+, beware of costly blown-up architectural ill-designs, such as 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ client-server BigCluster architectures.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Dijkstra's layering rules can be used as tools for analyzing this, and
+ for discovery of 
+\series bold
+technical debt
+\series default
+ by unfortunate layering, causing further cost and trouble in the long term.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -4605,11 +5654,15 @@ xfs
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
 Some damages caused (or at least 
 \emph on
 supported
 \emph default
-) by suchalike Dijkstra regressions:
+) by Dijkstra regressions:
 \end_layout
 
 \begin_layout Itemize
@@ -4727,6 +5780,11 @@ noprefix "false"
  is further worsened by Dijkstra regressions.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Subsection
 Positive Example: ShaHoLin storage + application stack
 \begin_inset CommandInset label
@@ -4790,6 +5848,26 @@ close to optimal
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+ShaHoLin Layering
+\begin_inset CommandInset label
+LatexCommand label
+name "ShaHoLin-Layering"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
 The following bottom-up description explains some granularity considerations
  at each layer:
 \end_layout
@@ -5081,6 +6159,11 @@ intermediate granularity
 \end_layout
 
 \end_deeper
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Granularity at Architecture
 \begin_inset CommandInset label
@@ -6300,9 +7383,18 @@ both
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
 Confusion of solution classes and/or their corresponding problem classes
  / properties can be harmful to enterprises and to carreers of responsible
  persons.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -7122,6 +8214,11 @@ noprefix "false"
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -7141,27 +8238,36 @@ risk reducer
 , even at company and at stock exchange value level.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 In order to really get it implemented in its best form, CTOs should clearly
  require
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \align center
 
 \series bold
-Location Transparency
+Location Transparency at Application Level
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 It means that not only your servers, but also your 
 \series bold
 services
 \series default
  can run in any of more than 1 datacenter, without notice by your customers.
- The location of your services is no longer a primary key, but a dependent
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The location of your services is no longer a primary key, but a dependent
  runtime attribute which may change at runtime.
  Of course, your databases, your dashboards, your monitoring, and other
  surrounding tools, must also be able to properly deal with location transparenc
@@ -7171,6 +8277,17 @@ y.
 \begin_layout Standard
 Example: 1&1 Ionos ShaHoLin = Shared Hosting Linux has implemented it on
  thousands of servers, and on several petabytes of data.
+ See 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "ShaHoLin-Layering"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Subsection
@@ -7889,7 +9006,7 @@ backup
 \family typewriter
 zfs
 \family default
- replication setups at sisters of 1&1 are lacking the butterfly ability,
+ replication setups at sisters of 1&1 Ionos are lacking the butterfly ability,
  likely due to these difficulties.
 \end_layout
 
@@ -7922,11 +9039,15 @@ zfs
 \family typewriter
 zfs
 \family default
- snapshots can be 
+ 
+\series bold
+snapshots
+\series default
+ (without adding replication on top of it) can be 
 \series bold
 easily combined
 \series default
- with DRBD or MARS, because 
+ with DRBD or MARS replication, because 
 \family typewriter
 zfs
 \family default
@@ -7939,7 +9060,25 @@ filesystem
 block
 \emph default
  layer.
- Just create your zpools at the 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Combination of zfs with MARS
+\end_layout
+
+\end_inset
+
+Just create your zpools at the 
 \emph on
 top
 \emph default
@@ -7982,7 +9121,7 @@ marsadm
  macro processor, as often as needed.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -8013,7 +9152,7 @@ same
  from a user's perspective, but in a different way:
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \align center
 \begin_inset Graphics
@@ -8032,7 +9171,7 @@ same
 
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 When RAID functionality is executed by zfs, it will be located at the 
 \emph on
@@ -8069,7 +9208,7 @@ logical
  drawbacks as explained above.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -8120,7 +9259,7 @@ true
  as seen from outside.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -8169,6 +9308,11 @@ Unix Philosophy
 .
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Local vs Centralized Storage
 \begin_inset CommandInset label
@@ -8198,6 +9342,10 @@ Internal Redundancy Degree
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
 Centralized commerical storage systems are typically built up from highly
  redundant 
 \emph on
@@ -8234,7 +9382,7 @@ Redundant compute heads.
 Redundancy at control heads / management interfaces.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 What about local hardware RAID controllers? Some people think that these
  relatively cheap units were massively inferior at practically each of these
  points.
@@ -8284,9 +9432,43 @@ Dito: both cards may be plugged into two different servers, thereby creating
  As a side effect, you may also get a similar functionality than DRBD.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Redunduncy degree of RAID vs commercial appliances
+\end_layout
+
+\end_inset
+
+When dimensioned appropriately, real architectual and functional differences
+ at block layer are smaller than certain people are claiming.
+ For many block layer use cases, redundancy is 
+\series bold
+roughly comparable
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
 If you compare typical prices for both competing systems, you will notice
- a huge difference.
+ a 
+\emph on
+huge
+\emph default
+ difference in favour of RAID.
  See also section 
 \begin_inset CommandInset ref
 LatexCommand nameref
@@ -8298,6 +9480,11 @@ noprefix "false"
 \end_inset
 
 .
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -8315,7 +9502,25 @@ possible
  (but not generally recommended) to put several hundreds of spindles into
  several external HDD enclosures, and then connect them to a redundant cross-cou
 pled pair of RAID controllers via several types of SAS busses.
- By filling a rack this way, you can easily reach similar, if not higher
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Maximum possible RAID capacity
+\end_layout
+
+\end_inset
+
+By filling a rack this way, RAID can easily reach similar, if not higher
  capacities than commercial storage boxes, for a 
 \emph on
 fraction
@@ -8323,17 +9528,29 @@ fraction
  of the price.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
-However, this is not the recommended way for general use cases (but could
- be an option for low demands like archiving).
+\noindent
+However, this is not the recommended way for 
+\emph on
+general
+\emph default
+ use cases, but could be an option for low demands like archiving.
  The big advantage of RAID-based local storage is 
 \series bold
 massive scale-out by sharding,
 \series default
  as explained in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Distributed-vs-Local:"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -8378,8 +9595,11 @@ erronously not considered
 \begin_layout Standard
 Example, see also section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -8474,10 +9694,61 @@ write()
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+IOPS over-engineering
+\end_layout
+
+\end_inset
+
+IOPS over-engineering by some orders of magnitudes can cause 
+\emph on
+considerable
+\emph default
+ unnecessary expenses.
+ Be sure to carefully 
+\series bold
+check real demands
+\series default
+!
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
 Some (but not all) commercial storage systems can deliver similar IOPS rates,
- because they have internal RAM caches in the same order of magnitude.
- People who are buying such systems are typically falling into some of the
- following classes (list is probably incomplete):
+ because they have 
+\series bold
+internal RAM caches
+\series default
+ in the same order of magnitude.
+ Notice that persistent RAM is the 
+\series bold
+most expensive
+\series default
+ type of scalable storage you can buy.
+\end_layout
+
+\begin_layout Plain Layout
+People who are demanding such systems are typically falling into some of
+ the following classes (list is probably incomplete):
 \end_layout
 
 \begin_layout Itemize
@@ -8595,9 +9866,50 @@ political interest
 , often supported by storage vendors.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 Anyway, local storage can be augmented with various types of local caches
  with various dimensioning.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ There is no point in accessing the fastest possible type of RAM cache remotely
+ over a network.
+ RAM is best 
+\series bold
+invested money
+\series default
+ when installed 
+\series bold
+locally
+\series default
+, 
+\emph on
+directly
+\emph default
+ for your applications / services / compute nodes.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -8609,8 +9921,6 @@ Anyway, local storage can be augmented with various types of local caches
 
 \end_inset
 
- There is no point in accessing the fastest possible type of RAM cache remotely
- over a network.
  Even expensive hardware-based RDMA (e.g.
  over Infiniband) cannot deliver the same performance as 
 \series bold
@@ -8640,7 +9950,11 @@ shared memory
 \begin_layout Standard
 The physical laws of Einstein and others are telling us that neither this
  type of caching, nor its shared memory behaviour, can be transported over
- whatever type of network without causing performance degradation.
+ whatever type of network without causing 
+\series bold
+performance degradation
+\series default
+.
 \end_layout
 
 \begin_layout Subsection
@@ -8815,11 +10129,43 @@ indirectly
 \end_layout
 
 \begin_layout Standard
-The laws of information transfer are telling us: with increasing distance,
- both latencies (laws of Einstein) and throughput (laws of energy needed
+The laws of information transfer are telling us:
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+With 
+\series bold
+increasing distance
+\series default
+, both latencies (laws of Einstein) and throughput (laws of energy needed
  for compensation of SNR = signal to noise ratio) are becoming worse.
  Distance matters.
- The number of intermediate components, like routers / switches and their
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Because of this fundamental law, Football+MARS is 
+\series bold
+minimizing IO distances
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The number of intermediate components, like routers / switches and their
  
 \series bold
 queuing
@@ -8849,11 +10195,15 @@ ges in terms of latencies and throughput.
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
 What is the expected long-term future? Will additional latencies and throughput
  of centralized storages become better over time?
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 It is difficult to predict the future.
  Let us first look at the past evolution.
  The following graphics has taken its numbers from Wikipedia articles 
@@ -8886,7 +10236,7 @@ over-proportionally
  relative growth of network bandwidth.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 In the following graphics, effects caused by decreasing form factors have
  been neglected, which would even 
 \emph on
@@ -8922,7 +10272,7 @@ Infiniband.rates
  All comparisons are in logarithmic y axis scale:
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \align center
 \begin_inset Graphics
@@ -8934,12 +10284,12 @@ Infiniband.rates
 
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 What does this mean when extrapolated into the future?
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 It means that concentrating more and more capacity into a single rack due
  to increasing data density will likely lead to more problems in future.
  Accessing more and more data over the network will become increasingly
@@ -8964,14 +10314,32 @@ It is difficult to compare the space density of contemporary SSDs in a fair
  into the same space volume as before.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 In other words: centralized storages are no good idea yet, and will likely
  become an even worse idea in the future.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
-Example: there was a major incident at a German web hosting company at the
- beginning of the 2000's.
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+Risky central storage architecture
+\end_layout
+
+\end_inset
+
+There was a major incident at a German web hosting company at the beginning
+ of the 2000's.
  Their entire webhosting main business was running on a single proprietary
  highly redundant CentralStorage solution, which failed.
  Restore from backup took way too long from the viewpoint of a huge number
@@ -8984,8 +10352,26 @@ Example: there was a major incident at a German web hosting company at the
  drawn from this incident.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
-Another example: in the 1980s, a CentralStorage 
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+Non-competing scalabilty of central storage
+\end_layout
+
+\end_inset
+
+In the 1980s, a CentralStorage 
 \begin_inset Quotes eld
 \end_inset
 
@@ -9026,19 +10412,55 @@ try
  Nowadays, many people don't even remember the term SLED.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
-Today's future is likely dominated by 
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Strategic advice
+\end_layout
+
+\end_inset
+
+Today's 
+\series bold
+future
+\series default
+ is likely dominated by 
 \series bold
 scaling-out architectures
 \series default
- like sharding, as explained in section 
+ like 
+\series bold
+sharding
+\series default
+, as explained in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Distributed-vs-Local:"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
 .
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -9098,8 +10520,11 @@ human error
 In contrast, sharded storage (for example the LocalSharding model, see also
  section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "subsec:Variants-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -9124,10 +10549,13 @@ When all shards are residing in the same datacenter, there exists a SPOF
 
 \end_inset
 
- from each other by definition (cf paragraph 
+ from each other by definition (see section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "par:Definition-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -9165,8 +10593,11 @@ long
 \emph default
  time (see the example German webhoster mentioned in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "subsec:Latencies-and-Throughput"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -9293,11 +10724,29 @@ total impact onto the business
 \end_layout
 
 \begin_layout Standard
-Risk analysis of enterprise-critical use cases is summarized in the following
- table:
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Risk analysis of CentralStorage
 \end_layout
 
-\begin_layout Standard
+\end_inset
+
+Risk analysis for 
+\series bold
+enterprise-critical
+\series default
+ use cases is summarized in the following table:
+\end_layout
+
+\begin_layout Plain Layout
 \noindent
 \align center
 \begin_inset Tabular
@@ -9551,6 +11000,11 @@ stock exchange compatible
 
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
 \noindent
 Conclusions: CentralStorage is something for
@@ -9639,8 +11093,11 @@ focus
  the better solution (c.f.
  section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -9652,18 +11109,24 @@ reference "sec:Reliability-Arguments-from"
 
 \series default
  (e.g.
- Ceph / Swift / etc, see secion 
+ Ceph / Swift / etc, see section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
 ) is an option.
-\begin_inset Newline newline
-\end_inset
+\end_layout
 
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
 
+\begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -9676,8 +11139,8 @@ If you have an
  already sharded
 \emph default
  system, e.g.
- in webhosting, don't convert it to a non-shardable one, and don't introduce
- SPOFs needlessly.
+ independent VMs or webhosting, don't convert it to a non-shardable one,
+ and don't introduce SPOFs needlessly.
  You will introduce 
 \series bold
 technical debts
@@ -9685,7 +11148,16 @@ technical debts
  which are likely to hurt back somewhen in future!
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
 As a real big 
 \begin_inset Quotes eld
 \end_inset
@@ -9716,6 +11188,11 @@ concrete
 life
 \emph default
 .
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -9938,6 +11415,32 @@ helpless
 .
 \end_layout
 
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Long-term strategy
+\end_layout
+
+\end_inset
+
+When some appropriate OpenSource solution, or when some OpenSource components
+ are availabe, its long-term TCO will be typically better than from proprietary
+ vendors.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Distributed vs Local: Scalability Arguments from Architecture
 \begin_inset CommandInset label
@@ -10071,12 +11574,44 @@ realtime
 \end_layout
 
 \begin_layout Standard
-This 
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+The 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ 
 \series bold
 cross-bar functionality
 \series default
- in realtime makes the storage network complicated and expensive.
- Some further factors are increasing the costs of storage networks:
+ in 
+\series bold
+realtime
+\series default
+ makes the storage network complicated and 
+\series bold
+expensive
+\series default
+, while decreasing grand-total reliability and thus 
+\series bold
+increasing risk
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+Some further factors are increasing the cost of storage networks:
 \end_layout
 
 \begin_layout Itemize
@@ -10143,10 +11678,14 @@ noprefix "false"
 ), the total effort may easily double another time because in cases of disasters
  like terrorist attacks the backup datacenter must be prepared for taking
  over for multiple days or weeks.
-\begin_inset Newline newline
+\end_layout
+
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -10507,10 +12046,9 @@ BigCluster
 \end_inset
 
  between these two independent dimensions.
-\begin_inset Newline newline
-\end_inset
+\end_layout
 
-
+\begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -10597,9 +12135,21 @@ e way, big cluster architectures as implemented for example in Ceph or Swift
 \end_layout
 
 \begin_layout Standard
-In the following sections, we will see: when sharding is possible, it is
- the preferred model due to reliability and cost and performance reasons.
- Another good explanation can be found at 
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+When sharding is possible, it is the preferred model due to reliability
+ and cost and performance reasons.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Another good explanation can be found at 
 \begin_inset Flex URL
 status open
 
@@ -10631,10 +12181,28 @@ LocalSharding The simplest possible sharding architecture is simply putting
 \begin_inset Newline newline
 \end_inset
 
-Example: at 1&1 Shared Hosting Linux (ShaHoLin), we have dimensioned several
- variants of this.
- (a) we are using 1U pizza boxes with local hardware RAID controllers with
- fast hardware BBU cache and ~ 10 local disks for the majority of LXC container
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Dimensioning of 1&1 Shared Hosting Linux (ShaHoLin)
+\end_layout
+
+\end_inset
+
+We have dimensioned several variants of this.
+\end_layout
+
+\begin_layout Enumerate
+We are using 1U pizza boxes with local hardware RAID controllers with fast
+ hardware BBU cache and ~ 10 local disks for the majority of LXC container
  instances where the 
 \begin_inset Quotes eld
 \end_inset
@@ -10646,12 +12214,29 @@ small-sized
  customers (up to ~100 GB webspace per customer) are residing.
  Since most customers have very small home directories with extremely many
  but small files, this is a very cost-efficient model.
- (b) less that 1 permille of all customers have > 250 GB (up to 2TB) per
- home directory.
+\end_layout
+
+\begin_layout Enumerate
+Less that 1 permille of all customers have > 250 GB (up to 2TB) per home
+ directory.
  For these few customers we are using another dimensioning variant of the
  same architecture: 4U servers with 48 high-capacity spindles on 3 RAID
  sets, delivering a total PV capacity of ~300 TB, which are then cut down
  to ~10 LXC containers of ~30 TB each.
+\end_layout
+
+\begin_layout Enumerate
+(currently in planning stage) An intermediate dimensioning between both
+ extremes could save some more cost, and hopefully improve reliability even
+ more, due to better pre-distribution of customer behaviour.
+ The so-called midclass could be dimensioned as 90 TB per 2U pizza box,
+ roughly on 12 spindles.
+ It would carry the customers between ~50 and ~250 GB webspace each.
+\end_layout
+
+\end_inset
+
+
 \begin_inset Newline newline
 \end_inset
 
@@ -10702,7 +12287,23 @@ constant
 \begin_inset Newline newline
 \end_inset
 
-Hint 1: it is advisable to build this type of storage network with 
+
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Hint 1
+\end_layout
+
+\end_inset
+
+It is advisable to build this type of storage network with 
 \series bold
 local switches
 \series default
@@ -10714,11 +12315,31 @@ local switches
  This reduces error propagation upon network failures.
  Keep the storage and the compute nodes locally close to each other, e.g.
  in the same datacenter room, or even in the same rack.
+\end_layout
+
+\end_inset
+
+
 \begin_inset Newline newline
 \end_inset
 
-Hint 2: additionally, you can provide some (low-dimensioned) backbone for
- 
+
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Hint 2
+\end_layout
+
+\end_inset
+
+ Additionally, you can provide some (low-dimensioned) backbone for 
 \series bold
 exceptional(!)
 \series default
@@ -10728,11 +12349,23 @@ exceptional(!)
 regularly
 \emph default
 , but only for clear cases of emergency!
+\end_layout
+
+\end_inset
+
+
 \begin_inset Newline newline
 \end_inset
 
-Notice: in this model, a shard typically consists of one storage node plus
- 
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In this model, a shard typically consists of one storage node plus 
 \begin_inset Formula $k+1$
 \end_inset
 
@@ -10756,10 +12389,13 @@ no single point of contention
 \emph on
 between
 \emph default
- the shards (according to the definition 
+ the shards (according to section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "par:Definition-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -10816,16 +12452,37 @@ small cluster
 
 , and thus reducing the serious problems described in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
  to some degree.
- This could make sense in the following use cases:
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Some use cases for BigClusterSharding
 \end_layout
 
-\begin_deeper
+\end_inset
+
+This could make sense in the following use cases:
+\end_layout
+
 \begin_layout Itemize
 When you 
 \series bold
@@ -10921,8 +12578,16 @@ reference "sec:Reliability-Arguments-from"
  for similar reasons.
 \end_layout
 
-\end_deeper
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
 When building a 
 \series bold
 new
@@ -10981,6 +12646,11 @@ legal requirements
  that you can tell at any time where your data is.
  Typically, this is all else but easy on a BigCluster model, even when stripped
  down to SmallCluster size.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -11100,6 +12770,10 @@ and
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
 Following is a 
 \series bold
 super-model
@@ -11118,8 +12792,18 @@ big cluster
 \end_inset
 
  realtime network connections.
- The following example shows only two servers from a pool consisting of
- hundreds or thousands of servers:
+ The result is a similar flexibility than promised by BigCluster.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The following example shows only two servers from a pool consisting of hundreds
+ or thousands of servers:
 \begin_inset Separator latexpar
 \end_inset
 
@@ -11159,13 +12843,13 @@ directly
 locally
 \emph default
  by Virtual Machines (VMs), whenever possible.
- At architectual level, detail technologies KVM/qemu or filesystem-based
- local LXC containers make no real difference
+ At abstract architectual level, detail technologies KVM/qemu vs filesystem-base
+d local LXC containers make no real difference
 \begin_inset Foot
 status open
 
 \begin_layout Plain Layout
-A way for abstracting the details bettween KVM and LXC is for example provided
+A way for abstracting many details between KVM and LXC is for example provided
  by 
 \family typewriter
 libvirt
@@ -11251,18 +12935,28 @@ vast minority
 \end_layout
 
 \begin_layout Standard
-Running VMs directly on the same servers as their storage devices is a 
+
 \series bold
-major cost reducer.
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+Running (geo-)redundant VMs directly on the same servers as their storage
+ devices is a major cost reducer.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
 You simply don't need to buy and operate 
-\begin_inset Formula $n+m$
+\begin_inset Formula $2\cdot(n+m)$
 \end_inset
 
  servers, but only about 
-\begin_inset Formula $\max(n,m)+m\cdot\epsilon$
+\begin_inset Formula $2\cdot(\max(n,m)+m\cdot\epsilon)$
 \end_inset
 
  servers, where 
@@ -11289,12 +12983,15 @@ shared memory
 
 \end_inset
 
-In addition to this and to reduced networking costs, there are further cost
+In addition to this and to reduced networking cost, there are further cost
  savings at power consumption, air conditioning, Height Units (HUs), number
- of HDDs, operating costs, etc as explained below in section 
+ of HDDs, operating cost, etc as explained in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Cost-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -11324,7 +13021,8 @@ granularities
 \end_layout
 
 \begin_layout Itemize
-Moving customer data at filesystem or database level via 
+Moving per-customer data, typically at filesystem or database level via
+ 
 \family typewriter
 rsync
 \family default
@@ -11337,8 +13035,24 @@ mysqldump
 \begin_inset Newline newline
 \end_inset
 
-Example: at 1&1 Shared Hosting Linux, we have about 9 millions of customer
- home directories.
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Fine-grained migration of customer home directories
+\end_layout
+
+\end_inset
+
+At 1&1 Shared Hosting Linux, we have about 9 millions of customer home directori
+es.
  We also have a script 
 \family typewriter
 movespace.pl
@@ -11368,8 +13082,37 @@ movespace.pl
  at LV level.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Itemize
-Dynamically growing the sizes of LVs during operations: 
+Dynamically growing the sizes of LVs during operations.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Medium-grained extension of LVs
+\end_layout
+
+\end_inset
+
+Football's 
+\family typewriter
+expand
+\family default
+ operation roughly does the following: 
 \family typewriter
 lvresize
 \family default
@@ -11381,7 +13124,12 @@ marsadm resize
 \family typewriter
 xfs_growfs
 \family default
- or similar operations.
+ or some equivalent filesystem-specific operation.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Itemize
@@ -11402,7 +13150,11 @@ Moving whole LVs via MARS + Football, as shown in the following example:
 
 \begin_layout Standard
 \noindent
-The idea of Football is to dynamically create 
+The idea of Football's 
+\family typewriter
+migrate
+\family default
+ operation is to dynamically create 
 \emph on
 additional
 \emph default
@@ -11411,7 +13163,27 @@ additional
 background migration
 \series default
 .
- Examples, using MARS as replication engine:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+using MARS as replication engine
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Itemize
@@ -11640,6 +13412,11 @@ When already starting with
 swapping
 \emph default
  some LV replicas.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section
@@ -11963,10 +13740,33 @@ You can see that any self-built and self-administered storage (whose price
  varies with slower high-capacity disks versus faster low-capacity disks)
  is much cheaper than any commercial offering by about a factor of 10 or
  even more.
- If you need to operate several petabytes of data, self-built storage is
- always cheaper than commercial one, even if additional manpower is needed
- for commissioning and operating.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+If you need to operate several petabytes of data, self-built storage is
+ 
+\emph on
+always
+\emph default
+ cheaper than commercial one, even if some more manpower is needed for commissio
+ning and operating, than for communications with the storage provider.
  You don't have to pay the shareholders of the storage provider.
+ Instead, the savings will benefit your 
+\emph on
+own
+\emph default
+ shareholders.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -12406,8 +14206,11 @@ HU Consumption
 \noindent
 As shown in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -12814,10 +14617,33 @@ BC
 
 ).
  A geo-redundant sharded pool provides even better failure compensation
- (see section 
+ (see sections 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), and comparable flexibility when combined with Football (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Principle-of-Background"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -13056,6 +14882,11 @@ any
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
 Intuitively, it is easy to see that hitting both members of the 
 \emph on
 same
@@ -13065,9 +14896,20 @@ same
 any
 \emph default
  two nodes of a big cluster.
+ Therefore, 
+\series bold
+sharding provides better reliability
+\series default
+, when built on top of comparable technology.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
+\noindent
 In addition: even when 
 \begin_inset Formula $1$
 \end_inset
@@ -13094,6 +14936,25 @@ all
 uniform
 \emph default
  object distribution.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+Another advantage of sharded pairs is 
+\series bold
+smaller incident size
+\series default
+.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -14520,14 +16381,56 @@ size
 \emph default
  of incidents.
  However, now a big fat warning.
- When you are 
+ 
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Size-weighted incident probabilities
+\end_layout
+
+\end_inset
+
+When you are 
 \series bold
 responsible
 \series default
- for operations of thousands of servers, you should be very conscious about
- these preconditions.
- Otherwise you could risk your career.
- In short:
+ for operations of 
+\series bold
+thousands of servers
+\series default
+, you should be very conscious about preconditions for size-weighted downtime
+ probabilities (dashed lines).
+ Otherwise you could risk both the health of your business, and your career.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Some preconditions for size-weighted incident probabilities
+\end_layout
+
+\end_inset
+
+In short:
 \end_layout
 
 \begin_layout Itemize
@@ -14661,7 +16564,7 @@ system hangs
 .
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -14700,7 +16603,7 @@ undecidable
  Be cautious when drawing assumptions out of thin air!
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -14739,7 +16642,17 @@ dangerous zone
 !
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -14753,6 +16666,11 @@ dangerous zone
 safe side
 \series default
 , simply obey the fundamental law as explained in the next section:
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -14865,6 +16783,10 @@ always
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
 The above sentence is formulating a 
 \series bold
 fundamental law of storage systems
@@ -14880,7 +16802,23 @@ fundamental law of storage systems
 Spread your per-application data to as less nodes as possible.
 \end_layout
 
+\begin_layout Plain Layout
+This includes unnecessary spreading between dedicated client and server
+ machines, in place of local storage.
+ Thus 
+\family typewriter
+LocalSharding
+\family default
+ is the best architectural model.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 This is intuitive: the more nodes are involved for storing the 
 \emph on
 same
@@ -14986,15 +16924,29 @@ permutation
 opposite
 \emph default
  of this, by its very nature.
- Thus the 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+Thus the 
 \emph on
 concept
 \emph default
- 
+ of 
 \series bold
-does not work as expected
+random replication does not work as expected
 \series default
 .
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -15055,13 +17007,28 @@ noprefix "false"
 \end_inset
 
 .
- These can only patch the most urgent problems, such that operation remains
- 
+ These can only patch the most urgent architectural problems, such that
+ operation remains 
 \emph on
 bearable
 \emph default
  in practice.
- However, the above plot explains why even the workarounds are 
+ They cannot fix the 
+\series bold
+Dijkstra regression overhead
+\series default
+ explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Negative-Example:-object"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ The above plot explains why even the workarounds are 
 \series bold
 far from optimal
 \series default
@@ -15112,6 +17079,23 @@ fair comparison
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Summary from a management viewpoint
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -15119,8 +17103,8 @@ fair comparison
 
 \end_inset
 
- Summary from a management viewpoint: under comparable conditions for big
- installations, random replication is requiring 
+ Under comparable conditions for big installations, random replication is
+ requiring 
 \series bold
 more invest
 \series default
@@ -15140,6 +17124,11 @@ worse result
 risk dimension
 \series default
 .
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -15362,8 +17351,32 @@ glusterfs
 \end_layout
 
 \begin_layout Standard
-Clear advice: don't do that.
- It's a bad idea.
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Clear advice
+\end_layout
+
+\end_inset
+
+ Don't use 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ mountpoints in total.
+ It's a very bad idea.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -15968,7 +17981,7 @@ noprefix "false"
  fundamental law of storage systems.
 \end_layout
 
-\begin_layout Section
+\begin_layout Subsection
 Explanations from DSM and WorkingSet Theory
 \begin_inset CommandInset label
 LatexCommand label
@@ -15980,6 +17993,11 @@ name "subsec:Explanations-from-DSM"
 \end_layout
 
 \begin_layout Standard
+When looking for practical advice, just read the below example use cases,
+ and skip the rest, which is mostly of academic interest.
+\end_layout
+
+\begin_layout Standard
 This section tries to explain the BigCluster incidents observed at some
  1&1 Ionos doughter from a different perspective.
  In the OS literature and community, DSM = Distributed Shared Memory and
@@ -15988,9 +18006,35 @@ This section tries to explain the BigCluster incidents observed at some
 \end_layout
 
 \begin_layout Standard
-However, personal discussions with some prominent promoters of Ceph found
- some informal agreements about some use cases where BigCluster appears
- to be well suited:
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Example use cases for 
+\family typewriter
+BigCluster
+\family default
+\series default
+
+\begin_inset CommandInset label
+LatexCommand label
+name "Example-use-cases-Bigcluster"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+Personal discussions with some prominent promoters of Ceph found some informal
+ agreements about some use cases where BigCluster appears to be well suited:
 \end_layout
 
 \begin_layout Itemize
@@ -16024,7 +18068,39 @@ streaming
 .
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Example problems for 
+\family typewriter
+BigCluster
+\family default
+\series default
+
+\begin_inset CommandInset label
+LatexCommand label
+name "Example-problems-Bigcluster"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
 In contrast to this, here are some other use cases where BigCluster did
  not meet expectations of some people at 1&1 Ionos:
 \end_layout
@@ -16055,7 +18131,13 @@ highly parallel random updates
  concurrent metadata updates belonging to the same directory).
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 Here is a 
 \emph on
 first attempt
@@ -16063,6 +18145,22 @@ first attempt
  to explain these behavioural observations from a more generalized viewpoint.
  The author is open for discussion, and will modify this part upon better
  understanding.
+\end_layout
+
+\begin_layout Standard
+For the following, you will need profound
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In addition to standard Operating System text books like Silberschatz or
+ Tanenbaum, you may need to consult some of the original work of further
+ authors mentioned above.
+\end_layout
+
+\end_inset
+
+ knowledge in Operating System Principles (aka Theory of Operating Systems).
 \end_layout
 
 \begin_layout Standard
@@ -16089,7 +18187,7 @@ unpredictable
 behavioural pattern
 \emph default
 s.
- Otherwise, caching would not be beneficial.
+ Otherwise, caching would not be beneficial in practice.
 \end_layout
 
 \begin_layout Standard
@@ -16105,8 +18203,12 @@ status open
 
 \begin_layout Plain Layout
 In general, this is unavoidable.
- In a storage pyramid, the CPU is always able to access RAM pages with a
- much higher frequency than any (R)DMA transport can supply.
+ In a 
+\series bold
+storage pyramid
+\series default
+, the CPU is always able to access RAM pages with a much higher frequency
+ than any (R)DMA transport can supply.
 \end_layout
 
 \end_inset
@@ -16148,11 +18250,43 @@ self-amplifying effect
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 4
+status open
+
+\begin_layout Plain Layout
+Although some historic descriptions of thrashing are mentioning contemporary
+ hardware devices like drum storage, the 
+\emph on
+concept
+\emph default
+ is very universal.
+ Thrashing can be transferred and 
+\series bold
+generalized
+\series default
+ to modern instances of 
+\series bold
+storage pyramids
+\series default
+, and/or also to remote access over 
+\series bold
+network bottlenecks
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 Saltzer found a workaround for his contemporary batch operating systems:
  limit the parallelism degree of concurrently running batch jobs.
  In his Multics project, this was also transferred to interactive systems,
- by limiting the swap-in parallelism degree of his contemporary swapping
- methods.
+ by limiting the swap-in parallelism degree of his contemporary segment
+ swapping methods.
  Although this may sound counter-intuitive for modern readers: by introduction
  of a certain type of 
 \series bold
@@ -16184,7 +18318,7 @@ Overload propagation
 \end_inset
 
  storage network are overloaded, other parts may also become affected in
- turn, due to sharing of network resources.
+ turn, due to sharing of network resources, such as cross-traffic lines.
  Once queueing has started somewhere, it is likely to worsen, and likely
  to induce further queueing at other parts of the shared network.
  The more other parts are affected transitively, the more parts will get
@@ -16277,12 +18411,19 @@ slightly
 \emph default
  overloaded.
  Although there may exist some areas where the assumption of linearity is
- correct and may lead to improvements by better load distribution, unpredictable
+ correct and may lead to improvements by better load distribution, 
+\begin_inset Quotes eld
+\end_inset
+
+unpredictable
+\begin_inset Quotes erd
+\end_inset
+
  behaviour due to self-amplification of overload at BigCluster level may
  result in the 
-\series bold
+\emph on
 opposite
-\series default
+\emph default
 .
  Denning has provided a mathematical model for this, which could probably
  be transferred to modern application behaviour.
@@ -16301,6 +18442,39 @@ In contrast, sharding models are not spreading any overload to other shards
 total
 \emph default
  set of customers is less vulnerable to impacts.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Risk characterization in a nutshell
+\end_layout
+
+\end_inset
+
+While BigCluster increases the risk of spread-out of overload and other
+ stability problems similarly to a 
+\series bold
+domino effect
+\series default
+, Sharding is restricting those risks by 
+\series bold
+fencing
+\series default
+.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -16585,6 +18759,11 @@ maintain cache coherence
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -16597,6 +18776,17 @@ maintain cache coherence
 orders of magnitude
 \emph default
  of performance.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
  In contrast, frequently heard load distribution arguments can only re-distribut
 e the already existing performance of your spindles, but cannot magically
  
@@ -16608,7 +18798,16 @@ create
 \end_inset
 
  new sources of performance out of thin air.
- In contrary, load distribution over a storage network is 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+In contrary, load distribution over a storage network is 
 \emph on
 costing
 \emph default
@@ -16738,6 +18937,10 @@ synchronisation overhead at metadata level
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
 If you want mixed operations at different locations in parallel: split your
  data set into disjoint filesystem instances (or database / VM instances,
  etc).
@@ -16756,7 +18959,16 @@ noprefix "false"
 \end_inset
 
 .
- All you need is careful thought about the 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+All you need is careful thought about the 
 \emph on
 appropriate
 \emph default
@@ -16871,13 +19083,43 @@ noprefix "false"
 \end_layout
 
 \begin_layout Standard
-Conclusion: active-passive operation over long distances (such as between
- continents) is even an 
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Conclusion
+\end_layout
+
+\end_inset
+
+
+\series bold
+Active-passive operation
+\series default
+ over long distances (such as between continents) at 
+\series bold
+block layer
+\series default
+ is an 
+\series bold
 \emph on
 advantage
+\series default
 \emph default
 .
- It keeps you from trying bad / almost impossible things.
+ It keeps your staff from trying bad / almost impossible things, like DSM
+ = Distributed Shared Memory over long distances.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -17024,6 +19266,23 @@ constructed
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Advice for performance-critical workloads
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -17031,9 +19290,45 @@ constructed
 
 \end_inset
 
- Management summary: just use some appropriate RAID striping at your (Local)Shar
-ding storage boxes for performance-critical workloads.
- It is not only cheaper
+ Besides 
+\emph on
+local
+\emph default
+ SSDs, also consider some appropriate RAID striping at your (Local)Sharding
+ storage boxes for performance-critical workloads.
+ It is not only cheaper than BigCluster load distribution methods, but typically
+ also more performant (on top of comparable technology and comparable dimensioni
+ng).
+ Tradeoffs of various parameters and measurement methods for system architects
+ are described at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://blkreplay.org
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ RAID-6 is much cheaper
 \begin_inset Foot
 status open
 
@@ -17051,21 +19346,8 @@ two
 
 \end_inset
 
-, but typically also more performant (on top of comparable technology and
- comparable dimensioning).
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- RAID-6 is much cheaper than RAID-10, and can also provide some striping
- with respect to (random) reads.
+ than RAID-10, and can also provide some striping with respect to (random)
+ reads.
  However, random writes are much slower.
  For read-intensive workloads, the striping behaviour of RAID-6 is often
  sufficient.
@@ -17096,25 +19378,52 @@ name "sec:Scalability-Arguments-from"
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Importance of scalability
+\end_layout
+
+\end_inset
+
 Scalability is important for 
 \series bold
 mass data
 \series default
  / mass production.
- From the viewpoint of managers, it determines the technical limits of 
+ It determines the technical limits of 
 \series bold
 scaling effects
 \series default
 .
- Bad scalability can seriously limit the business, and its resolvement can
- produce very high cost.
+ Bad scalability can seriously 
+\series bold
+limit the business
+\series default
+, and its resolvement can produce high 
+\series bold
+cost
+\series default
+.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-Unfortunately, in some non-academic circles, some seriously wrong habits
- have established.
+\noindent
+Unfortunately, in some circles, seriously wrong habits have established.
  I know of examples causing unnecessary problems and cost in the range of
- millions.
+ millions of €.
 \end_layout
 
 \begin_layout Standard
@@ -17613,6 +19922,23 @@ fixed
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Required skill level for architects
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -17620,12 +19946,36 @@ fixed
 
 \end_inset
 
- Therefore, the 
+ The 
 \series bold
 suitability of architectures for certain use cases
 \series default
  needs to be checked separately.
  This is an expert task, requiring high levels of skills and experience.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Cross-checking by several experts may lead into systematical ill-designs
+ by 
+\series bold
+information bubbles
+\series default
+.
+ Well-foundation of arguments, well-founded measurements on basis of solid
+ methodology, etc, are much more important than number of votes!
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -17640,16 +19990,39 @@ name "subsec:Example-Failures-of"
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Recommended reading
+\end_layout
+
+\end_inset
+
 The following example is a 
 \series bold
 must read
 \series default
- for sysadmins and system architects, and also for managers who are 
+ not only for 
 \series bold
-responsible
+responsibles
 \series default
-.
- The numbers and some details are from my memory, thus it need not be 100%
+, but also for system architects, and also for sysadmins.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The numbers and some details are from my memory, thus it need not be 100%
  accurate in all places.
 \end_layout
 
@@ -17719,13 +20092,18 @@ round-robin
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
 
-\color lightgray
+\begin_layout Plain Layout
 At this point, eager readers may notice some similarity with the error propagati
 on problem treated in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "subsec:Error-Propagation-to"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -17737,7 +20115,13 @@ scalability
  instead, but you should compare with that, to find some similarities.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 After the complicated system was built up and was working well enough, the
  new product was launched via a marketing campaign with free trial accounts,
  limited to some time.
@@ -17829,7 +20213,7 @@ noprefix "false"
 
 \end_inset
 
-).
+.
 \end_layout
 
 \begin_layout Paragraph
@@ -18021,6 +20405,11 @@ drbdadm disconnect
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -18031,8 +20420,11 @@ drbdadm disconnect
  Retrospective explanation: some of the reasons can be found in section
  
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "subsec:Behaviour-of-DRBD"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -18087,6 +20479,11 @@ operable
 \end_inset
 
  again.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Paragraph
@@ -18179,6 +20576,11 @@ shard granularity
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -18251,7 +20653,7 @@ asynchronously in background
 .
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -18316,7 +20718,7 @@ cache coherence problem
  behaviour, network filesystems are often unable to deal with this performantly.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -18354,6 +20756,11 @@ save
 
  button), and thus are not really performance critical for this particular
  use case.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -19037,7 +21444,7 @@ Any
 \end_layout
 
 \begin_layout Subsection
-Example Scalability Scenario
+Case Study: Example Scalability Scenario
 \begin_inset CommandInset label
 LatexCommand label
 name "subsec:Example-Scalability-Scenario"
@@ -19058,11 +21465,14 @@ enterprise critical data
 
  can mean in a concrete example, here are some characteristic numbers from
  1&1 Ionos ShaHoLin (Shared Hosting Linux) around spring 2018.
- When the whole system would have to be re-constructed from scratch at a
+\end_layout
+
+\begin_layout Standard
+When the whole system would have to be re-constructed from scratch at a
  green field, the following number from the current implemenation would
  be 
 \emph on
-input parameters
+requirered input parameters
 \emph default
  for 
 \emph on
@@ -19084,7 +21494,28 @@ Sharding
 \end_layout
 
 \begin_layout Itemize
-About 9 millions of customer homedirectories.
+Webhosting very close to 24/7/365.
+\end_layout
+
+\begin_layout Itemize
+Overall customer-visible HA target of 99.98%, including WAN outages.
+ Technically, a much better system-only HA target would be possible, but
+ there are also some 
+\emph on
+external
+\emph default
+ incident sources like frequent updates of userspace software and a varity
+ of application software libraries, frequent security updates, etc.
+ Although managed by ITIL processes, these sources are outside of the scope
+ of this 
+\emph on
+system architecture
+\emph default
+ guide.
+\end_layout
+
+\begin_layout Itemize
+About 9 millions of customer home directories.
 \end_layout
 
 \begin_layout Itemize
@@ -19108,14 +21539,36 @@ All of this permanently replicated into a second datacenter.
 \end_layout
 
 \begin_layout Itemize
-Webhosting very close to 24/7/365.
- For maintenance, any resource must be switchable to the other datacenter
- at any time, indepently from other resources; while in catastrophic failure
- scenarios 
+In catastrophic failure scenarios, 
 \emph on
 all
 \emph default
  resources must be switchable within a short time.
+\end_layout
+
+\begin_layout Standard
+In order to not bail out too many competing solutions via preconditions,
+ the following is treated as a nice-to-have feature (only for the sake of
+ the following sandbox game, while in reality the sysadmins would vote for
+ a 
+\emph on
+hard requirement
+\emph default
+ instead):
+\end_layout
+
+\begin_layout Itemize
+Ability for butterfly, cf section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -19174,7 +21627,7 @@ net
 \family typewriter
 CentralStorage
 \family default
- instance will need to scale up to at least this number, in one datacenter
+ instance will need to scale up to at least this number, in each datacenter
  (under the simplified game assumptions).
 \end_layout
 
@@ -19185,9 +21638,10 @@ The current number of client LXC containers is about
 
 , independently from location.
  You will have to support growth in number of them.
- For maintenance, any of these need to be switchable to a different geo-datacent
-er at any time (e.g.
- risk mitigation of power supply maintenance in a datacenter).
+ For maintenance, these need to be switchable to a different geo-datacenter
+ at any time (e.g.
+ risk mitigation of power supply maintenance in a datacenter), at least
+ at hypervisor granularity.
  As explained in sections 
 \begin_inset CommandInset ref
 LatexCommand nameref
@@ -19344,21 +21798,7 @@ noprefix "false"
 
 \end_inset
 
-, while 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Cost-Arguments-from-Architecture"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
- are no longer 
-\emph on
-fully
-\emph default
- applicable anymore.
+.
 \end_layout
 
 \begin_layout Standard
@@ -19380,7 +21820,7 @@ RemoteSharding
  
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Cost-Arguments-from"
+reference "subsec:Cost-Arguments-from-Technology"
 plural "false"
 caps "false"
 noprefix "false"
@@ -19546,7 +21986,17 @@ noprefix "false"
 
 \end_inset
 
- and mathematically in appendix 
+, and graphically in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sub:Detailed-explanation"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, and mathematically in appendix 
 \begin_inset CommandInset ref
 LatexCommand vref
 reference "chap:Mathematical-Model-of"
@@ -19801,7 +22251,7 @@ more frequently
  Neglecting metadata and its access patterns is a major source of ill-designs.
  I know of projects which have failed (in their original setup) because
  of this.
- Repair will typically involve some non-trivial architectural changes.
+ Repair may involve some non-trivial architectural changes.
 \begin_inset Newline newline
 \end_inset
 
@@ -19930,8 +22380,9 @@ external
 container as such
 \emph default
  is necessary.
- Typically, there is no big difference between storing them in block devices
- vs local filesystems.
+ Typically, there is no big performance difference between storing them
+ in block devices vs local filesystems (although it could be viewed as a
+ minor Dijkstra regression).
 \begin_inset Newline newline
 \end_inset
 
@@ -19988,7 +22439,11 @@ noprefix "false"
 
 \end_inset
 
-).
+) at 
+\emph on
+several
+\emph default
+ places.
  A similar argument holds for block devices on top of object stores.
  Another layering violation may result from VM container formats like 
 \family typewriter
@@ -20212,10 +22667,9 @@ must be scalable
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
- runtime behaviour is occuring (see example of a failed scalability scenario
- in section 
+ runtime behaviour is occuring (see section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "subsec:Example-Failures-of"
 plural "false"
 caps "false"
@@ -20272,6 +22726,10 @@ Maturity of Architectures
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
 Instances of storage system 
 \emph on
 architectures
@@ -20297,7 +22755,7 @@ decades
 .
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 While implementations / components / storage vendors etc can often be exchanged
  or updated more frequently (typically lifecycles of 3 to 5 years for CAPEX
  reasons), 
@@ -20315,7 +22773,13 @@ long-term strategy
 .
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 In contrast, certain hardware technologies have a much lower lifetime, typically
  between 1 and 2 years.
  New server hardware / new disks / SSDs etc are hitting their market all
@@ -20466,7 +22930,22 @@ Implementations may slowly migrate to other architectures, or even support
 \end_layout
 
 \begin_layout Standard
-As a manger, there is a clear consequence:
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+General advice
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Quote
@@ -20479,6 +22958,11 @@ Pay more attention to fundamental architectures.
 long-term strategy
 \uuline default
  for maturity of components and implementations.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -20778,7 +23262,11 @@ build a new platform.
 \end_layout
 
 \begin_layout Standard
-The rest of this section focusses on architecture of new platforms.
+The rest of this section focusses on architecture of 
+\emph on
+new
+\emph default
+ platforms.
  Always check whether existing 
 \emph on
 experience
@@ -20841,7 +23329,7 @@ false proofs
  workloads).
  See the failed scalability scenario in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "subsec:Example-Failures-of"
 plural "false"
 caps "false"
@@ -21163,7 +23651,7 @@ risk
 \begin_layout Standard
 Not everything which works in a garage, or in a student pool, or in the
  testlab (whether it's yours or from a commercial storage vendor), or in
- a PoC with some 
+ a PoC with so-called 
 \begin_inset Quotes eld
 \end_inset
 
@@ -21213,6 +23701,23 @@ losses
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Important advice
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -21220,7 +23725,7 @@ losses
 
 \end_inset
 
- General advice: if you start a new platform from scratch, always 
+ If you start a new platform from scratch, always 
 \series bold
 start with a 
 \emph on
@@ -21229,7 +23734,16 @@ good
  architecture
 \series default
 .
- Once a platform is in production, even with a small number of customers,
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Once a platform is in production, even with a small number of customers,
  it becomes increasingly difficult to change its fundamental architecture.
  While bugs can be relatively easily fixed, and while single components
  can be exchanged with some effort, changing an architecture may turn out
