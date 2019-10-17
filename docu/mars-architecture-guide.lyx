@@ -8,12 +8,13 @@
 \begin_preamble
 \usepackage{listings}
 \end_preamble
-\options abstracton,dvipsnames
+\options abstracton,most,usenames,dvipsnames
 \use_default_options true
 \begin_modules
 customHeadersFooters
 enumitem
 fixltx2e
+tcolorbox
 \end_modules
 \maintain_unincluded_children false
 \language english
@@ -24700,7 +24701,6 @@ Not all existing clustermanagers are dealing with all of these cases (or
 at all
 \emph default
 .
- 
 \end_layout
 
 \begin_layout Standard

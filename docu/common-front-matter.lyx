@@ -8,12 +8,13 @@
 \begin_preamble
 \usepackage{listings}
 \end_preamble
-\options abstracton,dvipsnames
+\options abstracton,most,usenames,dvipsnames
 \use_default_options true
 \begin_modules
 customHeadersFooters
 enumitem
 fixltx2e
+tcolorbox
 \end_modules
 \maintain_unincluded_children false
 \language english
@@ -179,6 +180,198 @@ reference "chap:GNU-FDL"
 \end_inset
 
 .
+\end_layout
+
+\begin_layout New Color Box Type
+
+\begin_inset Argument 2
+status open
+
+\begin_layout Plain Layout
+cBoxA
+\end_layout
+
+\end_inset
+
+
+\begin_inset Argument 3
+status open
+
+\begin_layout Plain Layout
+
+1
+\end_layout
+
+\end_inset
+
+
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+auto counter, number within=chapter
+\end_layout
+
+\end_inset
+
+enhanced,breakable,colback=green!5!white,title=Example~
+\backslash
+thetcbcounter : #1
+\end_layout
+
+\begin_layout New Color Box Type
+
+\begin_inset Argument 2
+status open
+
+\begin_layout Plain Layout
+cBoxB
+\end_layout
+
+\end_inset
+
+
+\begin_inset Argument 3
+status open
+
+\begin_layout Plain Layout
+
+1
+\end_layout
+
+\end_inset
+
+
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+auto counter, number within=chapter
+\end_layout
+
+\end_inset
+
+enhanced,breakable,title=Details~
+\backslash
+thetcbcounter : #1
+\end_layout
+
+\begin_layout New Color Box Type
+
+\begin_inset Argument 2
+status open
+
+\begin_layout Plain Layout
+cBoxC
+\end_layout
+
+\end_inset
+
+
+\begin_inset Argument 3
+status open
+
+\begin_layout Plain Layout
+
+1
+\end_layout
+
+\end_inset
+
+
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+auto counter, number within=chapter
+\end_layout
+
+\end_inset
+
+enhanced,breakable,colback=yellow!25!white,title=Manager~Hint~
+\backslash
+thetcbcounter : #1
+\end_layout
+
+\begin_layout New Color Box Type
+
+\begin_inset Argument 2
+status open
+
+\begin_layout Plain Layout
+cBoxD
+\end_layout
+
+\end_inset
+
+
+\begin_inset Argument 3
+status open
+
+\begin_layout Plain Layout
+
+1
+\end_layout
+
+\end_inset
+
+
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+auto counter, number within=chapter
+\end_layout
+
+\end_inset
+
+enhanced,breakable,colback=blue!5!white,title=Hint~for~research~
+\backslash
+thetcbcounter : #1
 \end_layout
 
 \begin_layout Abstract

@@ -8,12 +8,13 @@
 \begin_preamble
 \usepackage{listings}
 \end_preamble
-\options abstracton,dvipsnames
+\options abstracton,most,usenames,dvipsnames
 \use_default_options true
 \begin_modules
 customHeadersFooters
 enumitem
 fixltx2e
+tcolorbox
 \end_modules
 \maintain_unincluded_children true
 \language english
