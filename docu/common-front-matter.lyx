@@ -183,11 +183,11 @@ reference "chap:GNU-FDL"
 \end_layout
 
 \begin_layout New Color Box Type
-
 \begin_inset Argument 2
 status open
 
 \begin_layout Plain Layout
+
 cBoxA
 \end_layout
 
@@ -231,11 +231,11 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
-
 \begin_inset Argument 2
 status open
 
 \begin_layout Plain Layout
+
 cBoxB
 \end_layout
 
@@ -279,11 +279,11 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
-
 \begin_inset Argument 2
 status open
 
 \begin_layout Plain Layout
+
 cBoxC
 \end_layout
 
@@ -327,11 +327,11 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
-
 \begin_inset Argument 2
 status open
 
 \begin_layout Plain Layout
+
 cBoxD
 \end_layout
 
@@ -455,7 +455,33 @@ status open
 \end_layout
 
 \begin_layout Standard
+\noindent
+Many thanks for constructive feedback which helped to improve this document
+ series and related material like presentation slides:
+\end_layout
 
+\begin_layout Itemize
+Philipp Reisner from Linbit
+\end_layout
+
+\begin_layout Itemize
+Ewen NcNeill and Simon Lyall from the Australian / New Zealand Linux community
+\end_layout
+
+\begin_layout Itemize
+Jens Clever and Jörg Mann, external freelancers working at 1&1
+\end_layout
+
+\begin_layout Itemize
+Anders Henke and Christian Albert from 1&1 Ionos
+\end_layout
+
+\begin_layout Itemize
+Olof Sandström-Herrera from Arsys
+\end_layout
+
+\begin_layout Standard
+Please report any omissions in case I forgot somebody.
 \end_layout
 
 \end_body
