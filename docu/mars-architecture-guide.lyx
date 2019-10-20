@@ -24206,7 +24206,7 @@ architectural
 \end_layout
 
 \begin_layout Chapter
-Use Cases for MARS vs DRBD
+Use Cases for MARS
 \begin_inset CommandInset label
 LatexCommand label
 name "chap:Use-Cases-for"
@@ -24227,6 +24227,21 @@ DRBD has a long history of successfully providing HA features to many users
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Use cases MARS vs DRBD
+\end_layout
+
+\end_inset
+
 The following table is a short guide to the most important cases where the
  decision is rather clear:
 \begin_inset Separator latexpar
@@ -24235,7 +24250,7 @@ The following table is a short guide to the most important cases where the
 
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \align center
 \begin_inset Tabular
@@ -24396,9 +24411,15 @@ read the following details
 
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
 \noindent
-There exist some use cases where DRBD is clearly better than MARS.
+There exist a few use cases where DRBD is clearly better than the current
+ version of MARS.
  1&1 has a long history of experiences with DRBD where it works very fine,
  in particular coupling Linux devices rack-to-rack via crossover cables.
  DRBD is just 
@@ -24546,7 +24567,7 @@ On the other hand, there exist other use cases where DRBD did not work as
  expected, leading to incidents and other operational problems.
  We analyzed them for our specific use cases.
  The later author of MARS came to the conclusion that they could only be
- resolved by fundamental changes in the overall architecture of DRBD.
+ resolved by fundamental changes in the internal architecture of DRBD.
  The development of MARS started at the personal initiative of the author,
  first in form of a personal project during holidays, but later picked up
  by 1&1 as an official project.
@@ -24607,7 +24628,7 @@ In order to describe the most important problem we found when DRBD was used
 
 Notice that the following DRBD effect does not appear at crossover cables.
  The following scenario covers a non-standard case of DRBD.
- DRBD works fine when no network bottleneck appears!
+ DRBD works fine when no network bottleneck appears.
 \end_layout
 
 \begin_layout Standard
@@ -24690,8 +24711,8 @@ must
 status open
 
 \begin_layout Plain Layout
-This is independent from the DRBD protocols A through C, because it just
- depends on an information-theoretic argument independently from any protocol.
+This is independent from the DRBD protocols A through C, because it depends
+ on an information-theoretic argument independently from any protocol.
  We have a fundamental conflict between network capabilities and application
  demands here, which cannot be circumvented due to the 
 \series bold
@@ -24703,7 +24724,10 @@ synchronous
 \end_inset
 
  due to the bottleneck.
- As a consequence, the application running on top of DRBD will see increasingly
+\end_layout
+
+\begin_layout Standard
+As a consequence, the application running on top of DRBD will see increasingly
  higher IO latencies and/or stalls / hangs.
  We found practical cases (at least with former versions of DRBD) where
  IO latencies exceeded practical monitoring limits such as 
@@ -24715,11 +24739,19 @@ synchronous
 minutes
 \emph default
 .
- As an experienced sysadmin, you know what happens next: your application
- will run into an incident, and your customers will be dissatisfied.
+ Experienced sysadmins will know what happens next: your application will
+ run into an 
+\series bold
+incident
+\series default
+, and your customers will be dissatisfied.
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
 In order to deal with such situations, DRBD has lots of tuning parameters.
  In particular, the 
 \family typewriter
@@ -24766,7 +24798,13 @@ ping-timeout
 .
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 What happens next in our scenario? During the 
 \family typewriter
 disconnect
@@ -24929,10 +24967,19 @@ hopeless
 \end_layout
 
 \begin_layout Standard
-In case you lose your primary site now, you are lost at all.
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In case you lose your primary site now, you are lost at all.
 \end_layout
 
 \begin_layout Standard
+\noindent
 Some people may argue that the probability for a similar scenario were low.
  We don't agree on such an argumentation.
  Not only because it really happens in pratice, and it may even last some
@@ -24949,11 +24996,31 @@ rolling disasters
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Resilience of DRBD
+\end_layout
+
+\end_inset
+
 The point is that you can produce an ill behaviour 
 \emph on
 systematically
 \emph default
  just by overloading the network a bit for some sufficient duration.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -25003,6 +25070,23 @@ guaranteed
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Risks from non-crossover DRBD
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/MatieresToxiques.png
 	lyxscale 50
@@ -25015,6 +25099,11 @@ guaranteed
  desperately need them.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
@@ -25024,9 +25113,13 @@ guaranteed
 
 \end_inset
 
-Notice that crossover cables usually never show a behaviour like depicted
- by the red line.
- Crossover cables are 
+Notice that 
+\emph on
+classical
+\emph default
+ crossover cables usually do not show a behaviour like depicted by the red
+ line.
+ Traditional crossover cables are 
 \emph on
 passive components
 \emph default
@@ -25048,6 +25141,43 @@ Exceptions might be mechanical jiggling of plugs, or electro-magnetical
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ However, some newer Ethernet cable technologies like SFP+ and faster are
+ no longer passive.
+ They have some internal chips inside of their plugs.
+ Thus they may 
+\series bold
+fail independently
+\series default
+ from your storage nodes.
+ Then you run at least the risks from the CAP theorem, see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ In addition to CAP effects, intermitting errors such as flaky electrical
+ contacts may rise the above risk of permanent data loss.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -25087,7 +25217,7 @@ performance penalty
  investigate the field.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -25111,6 +25241,11 @@ awkward
  analog behaviour, such as overload, or as occasionally produced by various
  switches / routers / transmitters, or other potential sources of packet
  loss.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -25249,7 +25384,7 @@ chaotic
 
 \begin_layout Standard
 As you can see, a network dropdown undershooting the application demand
- has no impact on the application throughput, but only on the replication
+ has no impact onto the application throughput, but only onto the replication
  network throughput.
  Whenever the network throughput is held back due to the flaky network,
  it simply catches up as soon as possible by overshooting the application
@@ -25304,6 +25439,23 @@ after
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Optimum throughput via MARS
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -25316,6 +25468,11 @@ MARS utilizes the existing network bandwidth as best as possible in order
  data requiring expedition.
  Conceptually, there exists no better way due to information theoretic limits
  (besides data compression).
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -25332,14 +25489,36 @@ MARS utilizes the existing network bandwidth as best as possible in order
 in average
 \emph default
  during a longer period of time, the network must have emough capacity for
- transporting all of your data.
+ transporting 
+\emph on
+all
+\emph default
+ of your data.
  MARS cannot magically break through information-theoretic limits.
- It cannot magically transport gigabytes of data over modem lines.
+ It cannot magically transport terabytes of data in a few seconds over very
+ slow modem
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+A certain colleague at 1&1 is using MARS for a private application: CDP
+ = Continuous Data Protection of a critical Windows VM over his home DSL
+ line.
+\end_layout
+
+\end_inset
+
+ lines.
  Only 
 \emph on
 relatively short
 \emph default
- network problems / packet loss can be compensated.
+ network problems / packet loss can be compensated, depending on the capacity
+ of the 
+\family typewriter
+/mars
+\family default
+ filesystem.
 \end_layout
 
 \begin_layout Standard
@@ -25405,6 +25584,23 @@ mars-user-manual.pdf
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Risk reduction via MARS
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -25424,6 +25620,11 @@ Anytime Consistency
 .
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
@@ -25437,14 +25638,46 @@ Even when the capacity of
 \family typewriter
 /mars/
 \family default
- is exhausted and when emergency mode is entered, the replicas will not
+ is exhausted and thus emergency mode is entered, the replicas will 
+\emph on
+not
+\emph default
  become inconsistent by themselves.
  However, when the emergency mode is later 
 \emph on
 cleaned up
 \emph default
- for a replica, it will become temporarily inconsistent during the fast
- full sync.
+ for a replica via 
+\family typewriter
+marsadm invalidate
+\family default
+, it will become 
+\emph on
+temporarily
+\emph default
+ inconsistent during the fast full sync.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+When you have a total of 
+\begin_inset Formula $k\geq3$
+\end_inset
+
+ replicas, you don't need to invalidate them 
+\emph on
+all in parallel
+\emph default
+.
+ By cascading the full syncs sequentially, you can retain some consistent,
+ but outdated replica for the meantime, until all sync have finished.
 \end_layout
 
 \begin_layout Standard
@@ -25471,6 +25704,53 @@ traffic shaping
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Simple traffic shaping be default
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Newer versions of MARS are automatically setting the so-called TOS fields
+ in standard TCP/IP packets for you, which is backwards compatible with
+ the newer DSCP feature.
+ You just need to properly configure your network equipment for this type
+ of traffic shaping, unless it isn't already enabled by default from various
+ network vendors.
+ In the latter case, you don't need to do anything, in order to get some
+ improvements by automatic traffic shaping for free.
+ Details are in 
+\family typewriter
+mars-user-manual.pdf
+\family default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 Finally, here is yet another scenario where MARS can cope with the situation:
 \begin_inset Separator latexpar
 \end_inset
@@ -25506,16 +25786,54 @@ When the peaks are exceeding the network capacities for some short time,
  the replication network throughput (solid green line) will be limited for
  a short time, stay a little bit longer at the limit, and finally drop down
  again to the normal workload.
- In other words, you get a flexible buffering behaviour, coping with the
- peaks.
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Resilience against load peaks
+\end_layout
+
+\end_inset
+
+In other words, you get a flexible buffering behaviour, coping with application
+ load peaks.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 Similar scenarios (where both the application workload has peaks and the
  network is flaky to some degree) are rather common.
- If you would use DRBD there, you were likely to run into regular application
- performance problems and/or frequent automatic disconnect cycles, depending
- on the height and on the duration of the peaks, and on network resources.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ If you would use DRBD in place of MARS, you were likely to run into regular
+ application performance problems and/or frequent automatic disconnect cycles,
+ depending on the height and on the duration of the peaks, and on network
+ resources.
+ As observed at 1&1, even permanent data loss is possible, with some residual
+ probability.
 \end_layout
 
 \begin_layout Section
@@ -25523,6 +25841,10 @@ Long Distances / High Latencies
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
 In general and in some theories, latencies are conceptually independent
  from throughput, at least to some degree.
  There exist all 4 possible combinations:
@@ -25559,13 +25881,22 @@ Low latency combined with low throughput is also possible: in an ATM system
  of assigned bandwidth.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 In the 
 \emph on
 internet
 \emph default
- practice, however, it is very likely that high latencies will also lead
- to worse throughput, because of the 
+ practice, it is very likely that 
+\series bold
+high network latencies will also lead to worse throughput
+\series default
+, because of the 
 \emph on
 congestion control algorithms
 \emph default
@@ -25578,7 +25909,7 @@ We have experimented with extremely large TCP send/receive buffers plus
  lines between the USA and Europe.
  Yes, it is possible to improve the behaviour to some degree.
  But magic does not happen.
- Natural laws will always hold.
+ Natural laws like Einstein's laws will always hold.
  You simply cannot travel faster than the speed of light.
 \end_layout
 
@@ -25587,14 +25918,51 @@ Our experience leads to the following rule of thumb, not formally proven
  by anything, but just observed in practice:
 \end_layout
 
-\begin_layout Quotation
-In general
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Safety rule for synchronous replication
+\end_layout
+
+\end_inset
+
+In general, 
+\emph on
+synchronous
+\emph default
+ data replication (not limited to applications of DRBD) works reliably only
+ over distances 
+\begin_inset Formula $<50$
+\end_inset
+
+ km, or sometimes even less.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+There may be some exceptions
 \begin_inset Foot
 status open
 
 \begin_layout Plain Layout
-We have heard of cases where even less than 50 km were not working with
- DRBD.
+We have heard of cases where even 
+\emph on
+less
+\emph default
+ than 50 km were not working with DRBD.
  It depends on application workload, on properties of the line, and on congestio
 n caused by other traffic.
  Some other people told us that according to 
@@ -25608,19 +25976,17 @@ their
 
 \end_inset
 
-, synchronous data replication (not limited to applications of DRBD) works
- reliably only over distances 
-\begin_inset Formula $<50$
-\end_inset
-
- km, or sometimes even less.
-\end_layout
-
-\begin_layout Standard
-There may be some exceptions, e.g.
+, e.g.
  when dealing with low-end workstation loads.
- But when you are responsible for a whole datacenter and/or some centralized
- storage units, don't waste your time by trying (almost) impossible things.
+ But when you are 
+\series bold
+responsible
+\series default
+ for a whole datacenter and/or for 
+\series bold
+enterprise-critical data
+\series default
+, don't waste your time by trying (almost) impossible things.
  We recommend to use MARS in such use cases.
 \end_layout
 
@@ -25702,6 +26068,15 @@ As explained in the Wikipedia article, the P = Partitioning Tolerance is
 wide-distance
 \emph default
  data replication scenarios, and possibly in some other scenarios.
+ There the property P cannot be chosen at runtime, but is 
+\emph on
+given
+\emph default
+ by 
+\emph on
+setup
+\emph default
+ of the Distributed System.
 \end_layout
 
 \begin_layout Subsection
@@ -25729,15 +26104,17 @@ only then
 \emph on
 assume(!)
 \emph default
- that P is not required.
+ that no effort for achieving property P is required, because it it is already
+ given for free.
  Then, and only then, you can get both A and C at the same time, without
  sacrificing P, because P is already for free by 
 \emph on
 assumption
 \emph default
 .
- In such a passive crossover cable scenario, getting all three C and A and
- P is possible, similarly to an explanation in the Wikipedia article.
+ In such a passive crossover cable scenario, getting all three properties
+ C and A and P is possible, similarly to an explanation in the Wikipedia
+ article.
 \end_layout
 
 \begin_layout Standard
@@ -25764,24 +26141,47 @@ passive component which cannot fail
 \end_layout
 
 \begin_layout Standard
-Relying on the assumption leads us to classical use cases for DRBD: when
- both DRBD replicas are always staying physically connected via a passive
- crossover cable (which is 
+Relying on the assumption 
+\begin_inset Quotes eld
+\end_inset
+
+P is for free = the network cannot fail
+\begin_inset Quotes erd
+\end_inset
+
+ leads us to classical use cases for DRBD: when both DRBD replicas are always
+ staying physically connected via a passive crossover cable (which is 
 \emph on
 assumed
 \emph default
  to never break down), you 
 \emph on
-can
+could potentially 
 \emph default
- get both strict global consistency and availability, even in cases where
- one of the DRBD nodes is failing
+get both strict global consistency and availability.
+\end_layout
+
+\begin_layout Standard
+Whether this is real in practice for DRBD, is a different story.
+ It depends on the 
+\emph on
+implementation
+\emph default
+ of DRBD.
+ Some sysadmins at 1&1 Ionos have made the experience that there is no 100%
+ CAP guarantee, regardless of DRBD protocol configuration, while they were
+ testing only some cases where only 
+\emph on
+one
+\emph default
+ of the DRBD nodes was failing
 \begin_inset Foot
 status open
 
 \begin_layout Plain Layout
 In addition, you will need some further components like Pacemaker, iSCSI
  failover, etc.
+ These might also be involved in the practically observed behaviour.
 \end_layout
 
 \end_inset
@@ -25791,8 +26191,15 @@ In addition, you will need some further components like Pacemaker, iSCSI
 \family typewriter
 connected
 \family default
- state, while P is assumed to be provided by a passive component.
- By addition of iSCSI failover (e.g.
+ state, while P is 
+\emph on
+assumed
+\emph default
+ to be provided by a passive component.
+\end_layout
+
+\begin_layout Standard
+By addition of iSCSI failover (e.g.
  ALUA and similar technologies), it 
 \emph on
 should
@@ -25946,8 +26353,11 @@ Inconsistent
 You may wonder what the difference to MARS is.
  As explained in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Requirements-for-Cloud"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -25970,7 +26380,10 @@ strict
 not required by definition
 \emph default
 .
- Therefore, the red X is not present in the following graphics, showing
+\end_layout
+
+\begin_layout Standard
+Consequently, the red X is not present in the following graphics, showing
  the state where MARS is remaining 
 \emph on
 locally consistent
@@ -26061,8 +26474,8 @@ each
 \emph default
  of the passive replicas, each by each.
  Don't confuse these different levels.
- There are different consistency guarantees at different levels, at the
- same time.
+ There are two different consistency guarantees at different levels, both
+ at the same time.
  This might be confusing if you are not looking at the system at different
  levels: (1) overall Distributed System versus (2) each of the local system
  instances.
@@ -26077,11 +26490,11 @@ each
 
 \end_inset
 
-Why does MARS this? Because a better way is not possible at all.
+ Why does MARS this? Because a better way is not possible at all.
  The CAP theorem tells us that there exists no better way when both A has
- to be guaranteed (as almost everywhere in enterprise-critical IT operations),
- and P has to be ensured in datacenter disaster scenarios or some other
- scenarios.
+ to be guaranteed (as almost everywhere in enterprise-critical IT operations
+ except database systems), and P has to be ensured in geo-redundant datacenter
+ disaster scenarios or some other scenarios.
  Similarly to natural laws like Einstein's laws of the speed of light, there
  
 \emph on
@@ -26092,6 +26505,23 @@ does not exist
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Solution classification of DRBD
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -26107,16 +26537,30 @@ hard
 \emph on
 requirement
 \emph default
-, don't use DRBD (or other 
+, don't use DRBD (or any other 
 \emph on
 synchronous
 \emph default
- replication implementations) for long-distance and/or Cloud Storage scenarios.
- The red X is in particular problematic during re-sync, after the network
+ replication implementation) for long-distance and/or true Cloud Storage
+ scenarios.
+ It is only well-suited for short-distance crossover cable scenarios.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The red X is in particular problematic during re-sync, after the network
  has become healthy again (cf section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "subsec:Behaviour-of-DRBD"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -26135,24 +26579,23 @@ local
 
 \begin_layout Standard
 \noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Impossible requirements
+\end_layout
 
 \end_inset
 
- Another conclusion from the CAP theorem: when A+C is a 
-\emph on
-hard requirement
-\emph default
-, and when P can be faithfully assumed as already given by passive crossover
- cables, then don't use the current version of MARS.
- Use DRBD instead.
-\end_layout
 
-\begin_layout Standard
-\noindent
 \begin_inset Graphics
 	filename images/MatieresToxiques.png
 	lyxscale 50
@@ -26167,7 +26610,17 @@ hard requirement
 impossible
 \series default
  in general.
- There exists no solution, with whatever component, or from whatever commercial
+ You need give up one of them, at least with a certain probability.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+There exists no solution, with whatever component, or from whatever commercial
  storage vendor.
  Although some 
 \begin_inset Quotes eld
@@ -26189,7 +26642,7 @@ exceptional examples
 \emph default
  where all three C+A+P were ok, 
 \series bold
-by accident
+by chance
 \series default
 .
  But there remains a 
@@ -26198,15 +26651,18 @@ risk
 \series default
 .
  The CAP theorem is as hard as Einstein's natural laws are.
- You need a conscious decision about 
+\end_layout
+
+\begin_layout Standard
+You need a conscious decision about 
 \series bold
 priorities
 \series default
 , which property to drop first.
  Rethink your complete concept, from end to end.
  Something is wrong, somewhere.
- Ignoring this on enterprise-critical use cases can endanger a company and/or
- your career.
+ Ignoring a fundamental law like CAP on enterprise-critical use cases can
+ endanger a company and/or your career.
 \end_layout
 
 \begin_layout Subsection
@@ -26306,7 +26762,48 @@ actually occurred
 \emph on
 global
 \emph default
- Consistency is violated, by creation of two or more versions of the data.
+ Consistency may be violated, by creation of two or more versions of the
+ data.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Fortunately,
+\emph on
+ 
+\emph default
+there is a method for 
+\emph on
+dynamic
+\emph default
+ control of SplitBrain at 
+\emph on
+runtime
+\emph default
+.
+ The decision about forceful creation of SplitBrain can be made 
+\emph on
+dynamically dependent
+\emph default
+ on further external factors, like current customer demands, or forecasts,
+ etc.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -26334,17 +26831,47 @@ reference "sec:Inappropriate-Clustermanger"
  result in existential surprises, once a bigger network partition and/or
  a flaky replication networks triggers them in masses, and possibly at unexpecte
 d moments.
- Split brain should not be provoked when not 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+Split brain should not be provoked when not 
 \emph on
 absolutely
 \emph default
  necessary.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
-Split brain resolution is all else but easy in general.
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Split brain resolution is all else but easy 
+\emph on
+in general
+\emph default
+.
  When the data is in a generic block device, you typically will have no
- general means for merging both versions.
+ general means for 
+\emph on
+merging
+\emph default
+ both versions.
  This means, split brain resolution is typically only possible by 
 \series bold
 throwing away
@@ -26381,6 +26908,18 @@ conflicts
 \series default
  (e.g.
  on path names in addition to file content).
+ Anyway, long-distance replication should not be done at filesystem layer,
+ see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Performance-Penalties-Layer"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -26411,18 +26950,24 @@ There exists lots of types of potential dependencies between objects.
 
 \end_inset
 
- When stacking block devices or filesystems (or some other complex 
+ Cautious: when stacking block devices or filesystems, or any other complex
+ 
 \emph on
-structured aggregate
+structured aggregates
 \emph default
-) on top of some BigCluster object store, the latter will not magically
- resolve any split brain for you.
- Check whether your favorite object store implementation has some kind of
- equivalent of a 
-\family typewriter
-primary --force
-\family default
- command, and some equivalent
+ on top of some BigCluster object store, you are creating another fundamental
+ risk, in addition to Dijkstra regressions explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Negative-Example:-object"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ Several types
 \begin_inset Foot
 status open
 
@@ -26435,9 +26980,11 @@ Notice: BigCluster architectures are typically discriminating between between
 
 \end_inset
 
- of an 
+ of object stores will not magically resolve any split brain for you.
+ Check whether your favorite object store implementation has some kind of
+ equivalent of a 
 \family typewriter
-invalidate
+primary --force
 \family default
  command.
  If it doesn't have one, or only a restricted one, you should be 
@@ -26447,12 +26994,40 @@ alerted
 \series default
 \emph default
 .
- In case of a long-lasting storage network partition, you might need suchalike
- 
+ In case of a 
+\emph on
+long-lasting(!)
+\emph default
+ storage network partition, you might need suchalike 
 \emph on
 desperately
 \emph default
- for ensuring A, even at the cost of C.
+ for ensuring A, even at the cost of C
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+\noindent
+Notice that the C functionality is often not implemented by the object store
+ itself (which typically provides only 
+\emph on
+eventually consistent
+\emph default
+ at object granularity), but implemented by the distributed block device
+ or distributed filesystem, if it is implemented at all.
+ There is a fundamental problem with at least 3 different granularities
+ to be resolved: in order to guarantee strict consistency at (1) aggregate
+ granularity, which is independent from the (2) network partition granularity,
+ in general multiple versions of objects may be required at (3) object granulari
+ty.
+ Does your object store have a means for this, similarly to multiversion
+ databases, e.g.
+ multiversion timestamp ordering?
+\end_layout
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -26472,8 +27047,11 @@ application class
 \emph default
  (see also the Cloud Storage definition in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Requirements-for-Cloud"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -26540,13 +27118,17 @@ SplitBrain
 \begin_layout Standard
 The only reliable way for avoiding split brain in truly distributed systems
  would be: don't insist on A = Availability.
- Notice that there exist some application classes, like certain types of
- banking, where C is typically a higher good than A.
+ Notice that there exist only a few application classes, like certain types
+ of banking, where C is typically a higher good than A.
 \end_layout
 
 \begin_layout Standard
-Notice that both DRBD and MARS are supporting this also: just don't add
- the option 
+Notice that both DRBD and MARS are supporting suchalike application classes
+ also: just 
+\emph on
+don't
+\emph default
+ add the option 
 \family typewriter
 --force
 \family default
@@ -26569,8 +27151,40 @@ extremely extraordinary
 manual cleanup
 \emph default
  of C is cheaper than long-lasting violations of A).
- Both DRBD and MARS have some emergency measure for killing C in favour
- of A.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Summary CAP decisions
+\end_layout
+
+\end_inset
+
+Both DRBD and MARS have some emergency measure for killing C in favour of
+ A.
+ It requires your 
+\series bold
+conscious decision
+\series default
+ whether / where / when to use it, 
+\emph on
+or not
+\emph default
+.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section
@@ -26580,8 +27194,11 @@ Higher Consistency Guarantees vs Actuality
 \begin_layout Standard
 We already saw in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Network-Bottlenecks"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -26595,21 +27212,25 @@ anytime consistency
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
 Some people, often located at database operations, are obtrusively arguing
  that actuality is such a high good that it must not be sacrificed under
  any circumstances.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 Anyone arguing this way has at least the following choices (list may be
  incomplete):
 \end_layout
 
 \begin_layout Enumerate
 None of the above use cases for MARS apply.
- For instance, short distance replication over crossover cables is sufficient
- (which occurs very often), or the network is reliable enough such that
- bottlenecks can never occur (e.g.
+ For instance, short distance replication over crossover cables is sufficient,
+ and the network is reliable enough such that bottlenecks can never occur
+ (e.g.
  because the total load is extremely low, or conversely the network is extremely
  overengineered / expensive), or the occurrence of bottlenecks can 
 \emph on
@@ -26631,7 +27252,11 @@ In the presence of network bottlenecks, people didn't notice and/or didn't
 really
 \emph default
  bearable.
- Once they are hit by a systematic chain of events which 
+ Once they are hit by a 
+\emph on
+systematic chain
+\emph default
+ of events which 
 \emph on
 reproducibly
 \emph default
@@ -26693,11 +27318,15 @@ lower
 \family typewriter
 connected
 \family default
- state, but for a full picture the actuality in 
+ state, but for a 
+\emph on
+full picture
+\emph default
+ the actuality in 
 \family typewriter
 disconnected
 \family default
- state should not be neglected
+ state must not be neglected
 \begin_inset Foot
 status open
 
@@ -26731,8 +27360,11 @@ ion could remain hard.
  may be fundamentally wrong.
  A possible way to overcome that may be re-reading section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "subsec:Behaviour-of-MARS"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -26741,10 +27373,33 @@ reference "subsec:Behaviour-of-MARS"
 \end_layout
 
 \begin_layout Enumerate
+People do not know the CAP theorem (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), and are trying to require something which simply is 
+\series bold
+impossible
+\series default
+.
+\end_layout
+
+\begin_layout Enumerate
 People are stuck in contradictive requirements because the current version
  of MARS does not yet support synchronous or pseudo-synchronous operation
  modes.
  This should be resolved some day.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
