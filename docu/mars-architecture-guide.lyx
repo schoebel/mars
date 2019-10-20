@@ -27513,8 +27513,11 @@ name "sec:Inappropriate-Clustermanger"
 
 \begin_layout Standard
 This section addresses some wide-spread misconceptions.
- Its main target audience is developers, but sysadmins will profit from
- 
+ Its main target audience is 
+\emph on
+userspace
+\emph default
+ developers, but others may profit from 
 \series bold
 detailed explanations of problems and pitfalls
 \series default
@@ -27526,9 +27529,19 @@ detailed explanations of problems and pitfalls
 \begin_layout Standard
 Doing 
 \series bold
-High Availability (HA)
+HA = High Availability 
 \series default
- wrong at 
+(see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-HA"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) wrong at 
 \emph on
 concept level
 \emph default
@@ -27583,7 +27596,7 @@ internal
 system
 \emph default
  architecure layer / network level, there exists no redundant disk at all.
- Only the application cluster is built redundant.
+ Only the application cluster is built redundantly.
 \end_layout
 
 \begin_layout Standard
@@ -27596,7 +27609,8 @@ system
 \end_inset
 
  It should be immediately clear that shared-disk clusters are only suitable
- for short-distance operations in the same datacenter.
+ for short-distance operations in the same datacenter, or better in the
+ same room / rack.
  Although running one of the data access lines over short distances between
  very near-by datacenters (e.g.
  1 km) would be theoretically possible, there would be no sufficient protection
@@ -27631,7 +27645,7 @@ shared-nothing
 \noindent
 The characteristic feature of a shared-nothing model is (additional)
 \series bold
- redundancy at network level
+ data redundancy at network level
 \series default
 .
 \end_layout
@@ -27707,8 +27721,11 @@ any
  However, concrete technologies of disk coupling such as synchronous operation
  may pose practical limits on the distances (see chapter 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "chap:Use-Cases-for"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -27722,8 +27739,13 @@ In general, clustermanagers must fit to the model.
 \end_layout
 
 \begin_layout Standard
-Some people don't know, or they don't believe, that different architectural
- models like shared-disk or shared-nothing will 
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+Some people don't know, or they don't believe even when told them, that
+ different architectural models like shared-disk or shared-nothing will
+ 
 \emph on
 require
 \emph default
@@ -27731,9 +27753,68 @@ require
 \emph on
 appropriate
 \emph default
- type of clustermanager and/or a different configuration.
+ type of clustermanager and/or at least a different configuration.
  Failing to do so, by selection of an inappropriate clustermanager type
- and/or an inappropriate configuration may be hazardous.
+ and/or an inappropriate configuration may be 
+\series bold
+hazardous
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Pitfall: suchalike problems are typically appearing 
+\series bold
+only during incidents
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ It is dangerous to conclude from 
+\begin_inset Quotes eld
+\end_inset
+
+stable ordinary operation
+\begin_inset Quotes erd
+\end_inset
+
+ that the system is reliable.
+ The real 
+\series bold
+risk
+\series default
+ is that 
+\series bold
+data inconsistencies
+\series default
+ are showing up at the 
+\series bold
+wrong moment
+\series default
+, when the clustermanager has to execute the right actions for compensation
+ of a certain component failure.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -27746,11 +27827,28 @@ appropriate
 \end_inset
 
  Selection of the right model alone is not sufficient.
- Some, if not many, clustermanagers have not been designed for long distances.
- As explained in section 
+ Some, if not many, clustermanagers have not been designed for long distances
+ (see section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
+reference "sec:What-is-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+As explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
 reference "subsec:Special-Requirements-for"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -27803,7 +27901,15 @@ extremely
 \end_layout
 
 \begin_layout Standard
-Both reasons are valid and must be automatically handled in larger installations.
+Both reasons are valid and must be automatically 
+\emph on
+handled
+\emph default
+ (but not necessarily automatically 
+\emph on
+triggered
+\emph default
+) in larger installations.
  In order to deal with all of these reasons, the following basic mechanisms
  can be used in either model:
 \end_layout
@@ -27841,13 +27947,20 @@ It is important to not confuse handover with failover at concept level.
 requirements
 \emph default
 .
- Example: precondition for handover is that 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+Precondition for handover is that 
 \emph on
 both
 \emph default
  cluster sides are healthy, while precondition for failover is that 
 \emph on
-some relevant(!)
+some really relevant(!)
 \emph default
  failure has been 
 \emph on
@@ -27862,7 +27975,13 @@ really
  often has lower scaling requirements.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 Not all existing clustermanagers are dealing with all of these cases (or
  their variants) equally well, and some are not even dealing with some of
  these cases / variants 
@@ -27907,11 +28026,30 @@ automatic mode
 \end_inset
 
  (except when you start to hack the code and/or write new plugins; then
- you might notice that there is almost no architectural layering / sufficient
- separation between mechanism and strategy).
- Being forced to permanently use an automatic mode for several hundreds
- or even thousands of clusters is not only boring, but bears a considerable
- risk when automatics do a wrong decision at hundreds of instances in parallel.
+ you might notice that there is no sufficient architectural layering / sufficien
+t separation between mechanism and strategy).
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+Being forced to permanently use an automatic mode for 
+\series bold
+triggering
+\series default
+ several hundreds or even thousands of clusters is not only boring, but
+ bears a 
+\series bold
+considerable risk
+\series default
+ when automatics do a wrong decision at hundreds of instances in parallel.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -28045,6 +28183,23 @@ strategy
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Minimum requirements for larger installations
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -28052,8 +28207,8 @@ strategy
 
 \end_inset
 
- A lacking distinction between automatic mode and manual mode, and/or lack
- of corresponding 
+ A lacking distinction between automatic mode and manual mode in a cluster
+ management solution, and/or lack of corresponding 
 \series bold
 architectural software layers
 \series default
@@ -28062,7 +28217,20 @@ architectural software layers
 \series bold
 software engineering
 \series default
-, but will bind you even more firmly to an inflexible system.
+, but will bind you even more firmly to an 
+\series bold
+inflexible system
+\series default
+, producing direct and indirect 
+\series bold
+long-term follow-up cost
+\series default
+.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -28162,11 +28330,15 @@ internally distributed
 distributed consensus protocol
 \series default
 ; but in difference to many published distributed consensus algorithms it
- should be able to work with multiple granularities at the same time.
+ should be able to work with 
+\emph on
+multiple
+\emph default
+ granularities at the same time.
 \end_layout
 
 \begin_layout Subsection
-Methods and their Appropriateness
+Discussion of Handover / Failover Methods
 \end_layout
 
 \begin_layout Subsubsection
@@ -28181,8 +28353,23 @@ name "subsec:Failover-Methods"
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
 Failover methods are only needed in case of an incident.
- They should not be used for regular handover.
+ They should not be used for regular handover, because preconditions are
+ different.
+ Inappropriate merges of both method classes will cause unnecessary 
+\series bold
+indirekt cost
+\series default
+.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Paragraph
@@ -28213,7 +28400,44 @@ exist
 \end_layout
 
 \begin_layout Standard
-The most obvious drawback is that STONITH will always create a 
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ A historical motivation for STONITH was prevention of illegal modifications
+ of the 
+\emph on
+shared disk
+\emph default
+ by amok-running defective clients.
+ In those ancient times, disks were 
+\emph on
+passive
+\emph default
+ mechanical components, while their disk controller was often belongig to
+ the server.
+ In modern shared-nothing scenarios, this motivation does no longer exist.
+ Anyway, you can achieve 
+\series bold
+disk fencing
+\series default
+ by various software means nowadays.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ The most obvious drawback is that STONITH will always create a 
 \series bold
 damage
 \series default
@@ -28221,20 +28445,35 @@ damage
 \end_layout
 
 \begin_layout Standard
-Example: a typical contemporary STONITH implementation uses IPMI for automatical
-ly powering off your servers, or at least pushes the (virtual) reset button.
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+Typical contemporary STONITH implementations are using IPMI and relatives
+ for automatically powering off your server, or at least pushing the (virtual)
+ reset button.
  This will 
 \emph on
 always
 \emph default
  create a certain type of damage: the affected systems will definitely not
- be available, at least for some time until they have (manually) rebooted.
+ be available, at least for some time until it has (manually) rebooted.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-This is a conceptual contradiction: the reason for starting failover is
- that you want to restore availability as soon as possible, but in order
- to do so you will first 
+\noindent
+The STONITH damage leads to a 
+\emph on
+conceptual
+\emph default
+ contradiction: the reason for starting failover is that you want to restore
+ availability as soon as possible, but in order to do so you will first
+ 
 \emph on
 destroy
 \emph default
@@ -28247,19 +28486,58 @@ component
 \end_layout
 
 \begin_layout Standard
-Example: when your hot standby node B does not work as expected, or if it
- works even 
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+When your hot standby node B does not work as expected, or if it works even
+ 
 \emph on
 worse
 \emph default
- than A before, you will loose some time until you 
+ than A before, you will 
+\emph on
+at least
+\emph default
+ loose some time until you 
 \emph on
 can
 \emph default
  become operational again at the old side A.
+ In addition, pushing the reset button bears the 
+\series bold
+risk of unnecessary data loss
+\series default
+ from RAM buffers not yet written to disk, and in turn to 
+\series bold
+risk of data inconsistencies
+\series default
+, like need for a filesystem check.
+ When some of the hardware is defective, like for example the boot disk
+ or the boot sector, the system may not come up at all after reset.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+STONITH variant for shared-nothing
+\end_layout
+
+\end_inset
+
 Here is an example method for handling a failure scenario.
  The old active side A is assumed to be no longer healthy anymore.
  The method uses a sequential state transition chain with a STONITH-like
@@ -28297,7 +28575,7 @@ Phase3 In case phase2 did not work during a grace period / after a timeout,
 Phase4 Start the application at the hot standby B.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 Notice: any cleanup actions, such as 
 \series bold
 repair
@@ -28306,7 +28584,7 @@ repair
  Typically, they are executed much later when restoring redundancy.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 Also notice: this method is a 
 \emph on
 heavily
@@ -28317,7 +28595,7 @@ heavily
  presence of network problems.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \begin_inset CommandInset label
 LatexCommand label
 name "Phase4-in-more"
@@ -28346,7 +28624,7 @@ at side B:
 applicationmanager start all
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 The same phase4 using MARS:
 \end_layout
 
@@ -28368,7 +28646,13 @@ at side B:
 applicationmanager start all
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 This sequential 4-phase method is far from optimal, for the following reasons:
 \end_layout
 
@@ -28403,15 +28687,15 @@ and
 \end_layout
 
 \begin_layout Itemize
-The above method is adapted to the shared-disk model.
+The above method is adapted from the shared-disk model.
  It does not take advantage of the shared-nothing model, where further possibili
 ties for better solutions exist.
 \end_layout
 
 \begin_layout Itemize
 In case of long-distance network partitions and/or sysadmin / system management
- subnetwork outages, you may not even be able to (remotely) start STONITH
- at at.
+ subnetwork outages, you may not even be able to (remotely) execute STONITH
+ at all.
  Thus the above method misses an important failure scenario.
 \end_layout
 
@@ -28498,7 +28782,22 @@ assuming a worst case
 \end_layout
 
 \begin_layout Standard
-Therefore, avoid the following 
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Advice
+\end_layout
+
+\end_inset
+
+Avoid the following 
 \series bold
 fundamental flaws
 \series default
@@ -28596,7 +28895,7 @@ unknown
 \series default
 .
  Even better: attach a probability to anything you (believe to) know.
- Errare humanum est: nothing is absolutely sure.
+ Errare humanum est: nothing is absolutely for sure.
 \end_layout
 
 \begin_layout Itemize
@@ -28775,7 +29074,7 @@ Finite automatons are known to be transformable to deterministic ones, usually
 \end_layout
 
 \begin_layout Itemize
-Use the 
+Apply the 
 \series bold
 best effort principle
 \series default
@@ -28818,7 +29117,10 @@ global
 converge
 \emph default
  to an optimum, but will never actually reach it).
- The best effort principle means the following: if you discover a method
+\begin_inset Newline newline
+\end_inset
+
+The best effort principle means the following: if you discover a method
  for improving your operating state by reduction of a (potential) damage
  in a reasonable time and with reasonable effort, then 
 \series bold
@@ -28932,7 +29234,7 @@ fencing the disk is otherwise not possible
 \end_inset
 
  does not apply.
- You can interrupt iSCSI connection at the network gear, or you can often
+ You can interrupt iSCSI connections at the network gear, or you can often
  do it at cluster A or at the iSCSI target.
  Even commercial storage appliances speaking iSCSI can be remotely controlled
  for forcefully aborting iSCSI sessions.
@@ -29081,12 +29383,17 @@ marsadm view-*-rest
  commands or macros are your friend.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Paragraph
 ITON = Ignore The Other Node
 \end_layout
 
 \begin_layout Standard
-This means 
+This strategy means 
 \series bold
 fencing from application traffic
 \series default
@@ -29319,7 +29626,8 @@ two incompatible primaries are existing in parallel
 \end_layout
 
 \begin_layout Standard
-If you already have some load balancing, or BGP, or another 
+If you already have some load balancing at the network, or BGP, or another
+ 
 \emph on
 mechanism
 \emph default
@@ -29368,13 +29676,28 @@ A possible strategy is to use a Lamport clock for route changes: the change
 \end_layout
 
 \begin_layout Standard
-Example:
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Application fencing
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Description
 Phase1 Check whether the hot standby B is currently usable.
  If this is violated (which may happen during certain types of disasters),
- abort the failover for any affected resources.
+ do not start failover for any affected resources.
 \end_layout
 
 \begin_layout Description
@@ -29422,10 +29745,13 @@ before
 \begin_deeper
 \begin_layout Itemize
 Start all affected applications at the hot standby B.
- This can be done with the same DRBD or MARS procedure as described 
+ This can be done with the same DRBD or MARS procedure as described in 
 \begin_inset CommandInset ref
-LatexCommand vpageref
+LatexCommand nameref
 reference "Phase4-in-more"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -29437,7 +29763,7 @@ Fence A by fixedly routing all affected application traffic to B.
 \end_layout
 
 \end_deeper
-\begin_layout Standard
+\begin_layout Plain Layout
 That's all which has to be done for a shared-nothing model.
  Of course, this will likely produce a split-brain (even when using DRBD
  in place of MARS), but that will not matter from a user's perspective,
@@ -29465,15 +29791,25 @@ logically passive
 could
 \emph default
  have gone lost.
- In fields like webhosting, this is taken into account.
+ In fields like webhosting, this can be taken into account.
  Users will usually not complain when some (smaller amount of) data is lost
  due to split-brain.
  They will complain when the service is unavailable.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
-This method is the fastest for restoring availability, because it doesn't
- try to execute any (remote) action at side A.
+\noindent
+This method is the 
+\series bold
+fastest
+\series default
+ for restoring HA, because it doesn't try to execute any (remote) action
+ at side A.
  Only from a sysadmin's perspective, there remain some cleanup tasks to
  be done during the following repair phase, such as split-brain resolution,
  which are outside the scope of this treatment.
@@ -29488,10 +29824,19 @@ sequentially
  can no longer be reached by any users) in front of the failover step, you
  may minimize the amount of lost data, but at the cost of total duration.
  Your service will take longer to be available again, while the amount of
- lost data is typically somewhat smaller.
+ lost data could be 
+\emph on
+theoretically
+\emph default
+ somewhat smaller.
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -29508,29 +29853,44 @@ simply no way at all
 \emph default
  for guaranteeing that no data can be lost ever.
  According to the laws of Einstein and the laws of Distributed Systems like
- the famous CAP theorem, this isn't the fault of DRBD+proxy or MARS, but
- simply the 
+ the famous CAP theorem (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), this isn't the fault of DRBD+proxy or MARS, but simply the 
 \emph on
 consequence
 \emph default
  of having long distances.
- If you want to protect against data loss as best as possible, then don't
- use 
+ If you want to protect against data loss as best as possible, and when
+ you can afford it financially, then don't use 
 \begin_inset Formula $k=2$
 \end_inset
 
  replicas.
  Use 
-\begin_inset Formula $k\geq4$
+\begin_inset Formula $k\geq3$
 \end_inset
 
 , and spread them over different distances, such as mixed small + medium
  + long distances.
- Future versions of MARS will support adaptive pseudo-synchronous modes,
- which will allow individual adaptation to network latencies / distances.
+ Future versions of MARS are planned to support adaptive pseudo-synchronous
+ modes, which will allow individual adaptation to network latencies / distances.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
+\noindent
 The ITON method can be adapted to shared-disk by additionally fencing the
  common disk from the (presumably) failed cluster node A.
 \end_layout
@@ -29600,6 +29960,28 @@ marsadm primary all
 at side B: 
 \family typewriter
 applicationmanager start all
+\end_layout
+
+\begin_layout Standard
+When using the 
+\family typewriter
+systemd
+\family default
+ interface of 
+\family typewriter
+marsadm
+\family default
+ (see 
+\family typewriter
+mars-user-mnaual.pdf
+\family default
+), this can be shortened into only one command:
+\end_layout
+
+\begin_layout Enumerate
+at side B: 
+\family typewriter
+marsadm primary all
 \end_layout
 
 \begin_layout Subsubsection
