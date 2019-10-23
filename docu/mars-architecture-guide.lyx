@@ -22710,6 +22710,17 @@ noprefix "false"
 .
 \end_layout
 
+\begin_layout Chapter
+Advice for Managers and Architects
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Advice-for-Managers"
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Maturity Considerations for Managers
 \begin_inset CommandInset label
