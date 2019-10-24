@@ -29030,6 +29030,2719 @@ dashboard
 \end_layout
 
 \begin_layout Section
+Recommendations for Hard- and Software Project Setup
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Recommendations-for-Project"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Big enterprises are often binding their technical projects (whether developmenta
+l or operational ones) to 
+\emph on
+specific
+\emph default
+ products, or to 
+\emph on
+specific
+\emph default
+ platforms.
+ In addition, inter-team organisational structures are tending to 
+\emph on
+fragmentation
+\emph default
+.
+ This can can easily produce lots of 
+\series bold
+missed opportunties
+\series default
+ for 
+\series bold
+synergy effects
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+In the storage field, missed synergy effects from projects are often creating
+ considerable 
+\series bold
+\emph on
+direct
+\emph default
+ cost
+\series default
+.
+ For a total of petabytes, this can easily sum up to some millions.
+ 
+\series bold
+\emph on
+Indirect
+\emph default
+ long-term cost
+\series default
+, including 
+\series bold
+insufficient flexibility
+\series default
+ for the market, can be even higher.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+This section hints you at some countermeasures.
+\end_layout
+
+\begin_layout Subsection
+Hardware Projects and Virtualization
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Hardware-Projects-and-Virtualization"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This section hints you at several pitfalls, which may result from misconceptions.
+\end_layout
+
+\begin_layout Subsubsection
+Physical Hardware vs Virtual Hardware
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Physical-Hardware-vs-Virtual"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In theory, server hardware is independent from system software.
+ For example, you may install both Windows and Linux onto the same server
+ iron.
+ In practice, however, each software application stack may have 
+\emph on
+different
+\emph default
+ requirements for ...
+\end_layout
+
+\begin_layout Itemize
+CPU power
+\end_layout
+
+\begin_layout Itemize
+RAM size
+\end_layout
+
+\begin_layout Itemize
+IOPS demands
+\end_layout
+
+\begin_layout Standard
+...
+ independently from storage, whether it would be local one, or remote storage
+ over network.
+ In order to save cost, several companies are using 
+\series bold
+virtualization
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Capabilities of virtualization
+\end_layout
+
+\end_inset
+
+Several people are believing that virtualization will 
+\emph on
+generally
+\emph default
+ improve things.
+ While this is often true, there are 
+\emph on
+exceptions
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ For large applications requiring a lot of CPU and RAM, such as big databases,
+ or masses of smaller databases, or webhosting with PHP as a primary consumer
+ of resources, virtualization will 
+\emph on
+not
+\emph default
+ magically give you more resources.
+ It can just 
+\emph on
+dynamically re-distribute
+\emph default
+ existing hardware resources across the same hypervisor iron, without magically
+ creating new resources out of thin air.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not try to virtualize a system which is 
+\emph on
+already virtualized
+\emph default
+.
+ This can only be counter-productive.
+ Many people do not know that 
+\series bold
+classical UNIX processes
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Originally, processes have been invented at the beginning of the 1960s for
+ better exploitation of expensive physical resources, originally by providing
+ multiple 
+\begin_inset Quotes eld
+\end_inset
+
+virtual computers
+\begin_inset Quotes erd
+\end_inset
+
+ to 
+\emph on
+different
+\emph default
+ users.
+ Later, the concept of 
+\begin_inset Quotes eld
+\end_inset
+
+communicating sequential processes
+\begin_inset Quotes erd
+\end_inset
+
+ (Hoare) become popular as a structuring aid for the 
+\emph on
+same
+\emph default
+ user, which is now standard, and has been extended in various ways.
+\end_layout
+
+\end_inset
+
+ are also a form of virtualization.
+ When your system is already at its limit when carrying masses of conventional
+ processes (e.g.
+ by dynamically scaling the number of daemons / server processes), an additional
+ KVM layer or 
+\emph on
+masses
+\emph default
+ of docker instances (lesser with an LXC layer or a 
+\emph on
+low
+\emph default
+ number of docker instances allowing resource sharing in the kernel) will
+ 
+\emph on
+not
+\emph default
+ speed up your existing processes, but in contrary, will likely lead to
+ 
+\series bold
+density regressions
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not neglect the 
+\series bold
+overhead of virtualization
+\series default
+.
+ Running several dozens to hundrets of KVM instances on one iron will consume
+ a lot of RAM overhead, while the same amount of LXC containers is typically
+ cheaper.
+ For CPU overhead, the picture is similar, but typically less stronger,
+ provided that CPU overbooking is 
+\emph on
+very moderate
+\emph default
+.
+ When overbooking CPU too much with KVM / qemu (or commercial alternatives
+ like vmware), so-called 
+\series bold
+steal overhead
+\series default
+ can grow considerably, depending on various influences.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not expect linear behaviour: steal overhead can 
+\emph on
+amplify itself
+\emph default
+ in various situations, and hardware-based SMP systems can also go into
+ 
+\series bold
+RAM thrashing
+\series default
+ / multilayer 
+\series bold
+CPU cache thrashing
+\series default
+ when overloaded with too big workingsets (cf.
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ The so-called 
+\series bold
+noisy neighbour problem
+\series default
+ has been publicly advocated a few years ago, thus it is known by more people.
+ However, it is only a special sub-problem of more general workingset problems.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Capabilities of virtualization
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Avoid the above detail problems, which can lead to 
+\series bold
+serious cost increase
+\series default
+ (both direct and indirect cost), by careful checking in advance.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Let the check done by skilled experts who know what a workingset is, and
+ how to measure it, and how to workaround corresponding problems.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Storage Hardware
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Storage-Hardware"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+It is easy to miss opportunities for cost savings, or even to produce 
+\emph on
+massive regressions
+\emph default
+ by 
+\emph on
+factors
+\emph default
+, by 
+\series bold
+unexpected side effects
+\series default
+ of management decisions.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Missed: architecture had to follow organization
+\end_layout
+
+\end_inset
+
+
+\series default
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ A frequent mistake is to organize teams or departments by introduction
+ of a border between 
+\begin_inset Quotes eld
+\end_inset
+
+storage admins
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+sysadmins
+\begin_inset Quotes erd
+\end_inset
+
+, and assigning them more or less complementary technical responsibilities.
+ Typical arguments can be heard that each could then better 
+\emph on
+concentrate
+\emph default
+ at his speciality.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ What looks like a 
+\begin_inset Quotes eld
+\end_inset
+
+good idea
+\begin_inset Quotes erd
+\end_inset
+
+ at first glance, will likely prevent several cost-saving models like 
+\family typewriter
+FlexibleSharding
+\family default
+, see sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Variants-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:FlexibleSharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ As explained there, this can 
+\series bold
+increase cost
+\series default
+ by factors, and 
+\series bold
+reduce reliability
+\series default
+ considerably (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Optimum-Reliability-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Similarly: creating a department (or a team) which is 
+\series bold
+responsible for the whole storage of a divison or of the company
+\series default
+ is a very bad idea.
+ It will 
+\series bold
+bind you for decades
+\series default
+, likely to either cost-intensitive commercial storage appliances (depending
+ on the gusto of involved people, see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Local-vs-Centralized"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), and/or to some 
+\family typewriter
+BigCluster
+\family default
+ architecture.
+ It simply means that only 
+\series bold
+network-centric storage hardware
+\series default
+ can be used in practice, and that an expensive storage network becomes
+ mandatory in practice (otherwise capacity planning etc could become difficult).
+ Other types of storage will become almost impossible.
+ Changing such an architecture for some petabytes of data will be very cumbersom
+e and time-consuming.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Better: organization follows architecture
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Always consider alternatives, and determine / estimate their TCO for at
+ least 5 years, better 10 years.
+ You need to include 
+\series bold
+migration cost
+\series default
+ when both EOL storage hardware and EOL server hardware has to be replaced
+ by newer one (hardware lifecycle).
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Notice: the 
+\family typewriter
+FlexibleSharding
+\family default
+ model is naturally well-suited for VMs of various types.
+ If you want to splice the overall IT responsibility, then the 
+\series bold
+VM layer
+\series default
+ is 
+\emph on
+typically
+\emph default
+ a much better 
+\emph on
+candidate
+\emph default
+ than introduction of a dedicated network-centric storage layer.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Software Project Recommendations
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Software-Project-Recommendations"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+On one hand, software 
+\emph on
+appears
+\emph default
+ to be easier exchangeable than masses of hardware.
+ However, this only applies to 
+\emph on
+components
+\emph default
+ in practice.
+ More complex software stacks or networks are typically too complex, and
+ are often containing lots of 
+\series bold
+hidden dependencies
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+In this section, we will look at various obstacles where software, and in
+ particular the 
+\series bold
+fundamental architecture
+\series default
+ of software, is 
+\series bold
+limiting flexibility
+\series default
+ and producing 
+\series bold
+unnecessary cost
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+The scope of this section is exceeding the storage area.
+ Most of the given advice will also apply to more general enterprise software.
+\end_layout
+
+\begin_layout Subsubsection
+Usefulness Scope of Software
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Usefulness-Scope-of-Software"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+A very important property of software: after it is 
+\series bold
+written once
+\series default
+, in general it can be 
+\series bold
+instantiated many times
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ While creation of copies of tangible goods typically costs a lot of effort
+ and money, software copies are costing 
+\emph on
+almost nothing
+\emph default
+.
+ This is a major source of 
+\series bold
+cost saving potential
+\series default
+, while at the same time 
+\series bold
+improving quality
+\series default
+ as explained below.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Observations from the whole industry, not very specific for a single company:
+ in practice there exists 
+\emph on
+lots
+\emph default
+ of software which actually is installed only 
+\emph on
+once
+\emph default
+.
+ Most of it is constructed in such a way that it 
+\emph on
+cannot
+\emph default
+ be easily installed another time, or suchalike would not be useful, because
+ it is 
+\series bold
+firmly bound
+\series default
+ to a 
+\series bold
+singleton instance
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Singletons
+\end_layout
+
+\end_inset
+
+So-called 
+\begin_inset Quotes eld
+\end_inset
+
+enterprise databases
+\begin_inset Quotes erd
+\end_inset
+
+ which often have their own enterprise-specific databasse schema, or even
+ their own 
+\series bold
+product-specific schema
+\series default
+.
+ Much of the software / scripts around them makes only sense for this particular
+ schema.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Workarounds for incompatibilities
+\end_layout
+
+\end_inset
+
+So-called 
+\begin_inset Quotes eld
+\end_inset
+
+middleware
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+This usage of the term 
+\begin_inset Quotes eld
+\end_inset
+
+middleware
+\begin_inset Quotes erd
+\end_inset
+
+ is 
+\emph on
+incorrect
+\emph default
+ in strong sense.
+ The original goal of middleware was providing 
+\series bold
+universally generic
+\series default
+ marshalling and translation of data formats between 
+\begin_inset Quotes eld
+\end_inset
+
+incompatible
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset Quotes eld
+\end_inset
+
+platforms
+\begin_inset Quotes erd
+\end_inset
+
+ (where nowadays the latter term often is also used incorrectly, because
+ a 
+\begin_inset Quotes eld
+\end_inset
+
+platform
+\begin_inset Quotes erd
+\end_inset
+
+ is a 
+\series bold
+stable interface
+\series default
+ / foundation for a 
+\series bold
+\emph on
+multitude
+\emph default
+ of application 
+\emph on
+classes
+\series default
+\emph default
+).
+\end_layout
+
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+ is often translating and adapting between multiple singletons.
+ It makes no sense to instantiate this type of 
+\begin_inset Quotes eld
+\end_inset
+
+middleware
+\begin_inset Quotes erd
+\end_inset
+
+ somewhere else.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Another frequent ill-design is placement of 
+\series bold
+business logic
+\series default
+ in so-called 
+\begin_inset Quotes eld
+\end_inset
+
+middleware
+\begin_inset Quotes erd
+\end_inset
+
+.
+ According to Dijkstra's layering rules (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Layering-Rules"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), business logic should get its own layer, independently from cross-platform
+ concerns (aka 
+\series bold
+separation of concerns
+\series default
+).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ From the discipline of software engineering
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Explanation: software engineering as a discipline has the 
+\emph on
+opposite
+\emph default
+ goal of 
+\emph on
+maximizing
+\emph default
+ several important KPIs of software.
+\end_layout
+
+\end_inset
+
+: 
+\series bold
+non-instantiable singletons
+\series default
+ are an 
+\series bold
+indicator
+\series default
+ of 
+\series bold
+\emph on
+poor software design
+\series default
+ and practice
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Likely, your competitors will have similar problems, often without noticing
+ them.
+ If you are the first to 
+\series bold
+overcome them in long term
+\series default
+, you will get an 
+\series bold
+advantage
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The usefulness of software and/or of its components can be roughly classified
+ as follows:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/usefulness.fig
+	width 60col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Globally useful software
+\end_layout
+
+\end_inset
+
+The Linux kernel is installed at several 
+\emph on
+billions
+\emph default
+ of instances.
+ From the biggest server, on supercomputers, down to 
+\emph on
+billions
+\emph default
+ of smartphones, and on tiny IoT gadgets.
+ In order to support such a wide variety of hardware, it is 
+\series bold
+highly customizable
+\series default
+ through thousands of compile-time config options, and lots of runtime options.
+ Additionally, it has a high degree of automatic adaptation to hardware
+ components, 
+\series bold
+automatic self-configuring
+\series default
+, etc.
+ Its userspace API does not only support classical libc-based Unix software,
+ but also the completely different execution engines of smartphones, and
+ much more.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Domain-specific generic software
+\end_layout
+
+\end_inset
+
+Football (see 
+\family typewriter
+football-user-manual.pdf
+\family default
+) is domain-specific in the sense that it is only useful for sharded storage,
+ but not for BigCluster storage.
+ Its main part is generic, since it is 
+\series bold
+extensible via plugins
+\series default
+.
+ For usage in other application areas than currently in production, some
+ new plugins might be necessary.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Instance-specific software
+\end_layout
+
+\end_inset
+
+Tetris is the 1&1-internal name for the instance-specific customization
+ plugin of Football.
+ It is only useful at the 1&1 Ionos ShaHoLin software instance.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In general, most instance-specific software is 
+\emph on
+not
+\emph default
+ based on higher usability levels.
+ Then the 
+\emph on
+whole
+\emph default
+ invest is practically not re-usable.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Tetris is an example how divergent requirements from broader usefulness
+ desires can be combined with instance-specific requirements.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Maximizing the usefulness KPI
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In general, all three usefulness classes are needed for a healty enterprise.
+ It is not possible to operate your business purely with 
+\begin_inset Quotes eld
+\end_inset
+
+globally useful software
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Plain Layout
+You can 
+\series bold
+maximize the overall usefulness
+\series default
+ by using 
+\emph on
+as much
+\emph default
+ from the upper classes 
+\emph on
+as reasonably possible
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ For example, you can make an inventory of all your software assets, including(!
+) free ones from OpenSource your people are just downloading and installing,
+ and 
+\series bold
+evaluate the usefulness
+\series default
+ according to the above classification, then determine the 
+\series bold
+number of instances
+\series default
+ for each asset, and finally 
+\series bold
+create a weighted
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The 
+\begin_inset Quotes eld
+\end_inset
+
+size
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+development effort
+\begin_inset Quotes erd
+\end_inset
+
+ for software components needs to be taken into account.
+ They can vary by some orders of magitudes.
+ Treating them as 
+\begin_inset Quotes eld
+\end_inset
+
+equal-sized bricks
+\begin_inset Quotes erd
+\end_inset
+
+ would massively over-emphasize tiny helper scripts.
+ Since there is often some binary-only proprietary software, a possibly
+ weighting method could be the 
+\emph on
+installed binary size
+\emph default
+ in bytes.
+ This will also lead to distortions, but typically less significant than
+ 
+\begin_inset Quotes eld
+\end_inset
+
+uniform bricks
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Theoretically, you could discriminate between code and data (e.g.
+ images), but this might lead to a high effort for inventory.
+ Simple solutions are better in practice.
+ Exceptional corrections can be applied when distortion are getting too
+ high in certain places.
+\end_layout
+
+\end_inset
+
+
+\series bold
+ KPI
+\series default
+ out of it.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ It is 
+\emph on
+critical
+\emph default
+ to 
+\series bold
+not forget 
+\emph on
+external
+\emph default
+ OpenSource
+\series default
+ assets which cost 
+\emph on
+nothing
+\emph default
+, but heavily contribute to your business value, and/or contribute by risk
+ reduction, etc.
+ Beware of SAP & relatives, typically there exists no inventory for them.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ You might derive further sub-KPIs, such as per-asset TCO, or business value,
+ or risk indicators, etc.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ As a side effect, you will likely find much more opportunities for long-term
+ improvements of your enterprise than you can implement in short term.
+ Evaluate their 
+\series bold
+potential
+\series default
+, and 
+\series bold
+prioritize
+\series default
+ accordingly.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+As a manager, the big question is: 
+\emph on
+how
+\emph default
+ can you achieve better usefulness in 
+\series bold
+long term
+\series default
+? Just use a KPI, or are there further aspects not modeled by KPIs?
+\end_layout
+
+\begin_layout Standard
+For a better background, have a brief look at the following classification
+ of 
+\series bold
+architectural potentials
+\series default
+.
+\end_layout
+
+\begin_layout Subsubsection
+Architectural Levels of Genericity
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Architectural-Levels-of-Genericity"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Managers only interested in an overview may skip the rest after the first
+ graphics, showing 3 different levels of genericity.
+ Architects should 
+\emph on
+not
+\emph default
+ skip the examples.
+\end_layout
+
+\begin_layout Standard
+Here is a classification of 
+\series bold
+genericity
+\series default
+ according to its 
+\series bold
+re-use potential
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Genericity and re-use
+\end_layout
+
+\end_inset
+
+Re-use
+\series default
+ means that each time something needs to be implemented, or each time some
+ requirements are changing, some new software components need not be implemented
+ from scratch, but already existing components / parts are just 
+\series bold
+recycled
+\series default
+ and used in a different way or in a different context.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In general, components / parts 
+\series bold
+need to be constructed for re-use
+\series default
+.
+ When not prepared for re-use, artefacts will be less useful, or even not
+ useful for re-use at all.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ A good way for re-use preparation is 
+\series bold
+genericity
+\series default
+.
+ It means that something is only 
+\begin_inset Quotes eld
+\end_inset
+
+prepared for use
+\begin_inset Quotes erd
+\end_inset
+
+, by providing some 
+\emph on
+concrete interface
+\emph default
+ for both use and re-use, such that any concrete usage is 
+\emph on
+relatively easy
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
+In other words: although the 
+\emph on
+first use
+\emph default
+ is slightly more expensive because of intermediate introduction of genericity
+ and its documented or 
+\emph on
+self-documenting(!)
+\emph default
+ interfaces, 
+\emph on
+any
+\emph default
+ later 
+\emph on
+re-use
+\emph default
+ will then be 
+\series bold
+cheaper
+\series default
+ than making everything from scratch again.
+ When re-use is executed frequently enough, 
+\series bold
+investments into genericity
+\series default
+ will 
+\series bold
+pay off rapidly
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ If you are 
+\series bold
+unsatisfied
+\series default
+ with 
+\series bold
+software development productivity
+\series default
+ in your company, consider the following.
+ You need to 
+\series bold
+explicitly request
+\series default
+ a certain level of genericity as a 
+\series bold
+preparation for long-term re-use
+\series default
+.
+ Otherwise, you likely won't get it.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Reason: people want to finish their current projects 
+\emph on
+as fast as possible
+\emph default
+, typically 
+\emph on
+missing
+\emph default
+ important opportunities for preparation of re-use (provided they have the
+ necessary skills).
+ This behaviour is often heavily amplified by 
+\series bold
+deadlines
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The following can be used to classify not only the genericity of software
+ itself or of programming styles, but also of 
+\series bold
+software architectures
+\series default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ The biggest potential of genericity is when applied at architectural level:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/levels-of-genericity.fig
+	width 60col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Universal genericity
+\series default
+ means that potentially an 
+\series bold
+infinite
+\series default
+ number of re-usage variants (potential: 
+\begin_inset Formula $\infty$
+\end_inset
+
+) can be derived 
+\series bold
+easily
+\series default
+, by 
+\series bold
+configuration
+\series default
+ and/or by 
+\series bold
+convention
+\series default
+.
+ A few examples:
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Unix files
+\end_layout
+
+\end_inset
+
+Invented in the 1970s, Unix files are extremely universal.
+ They can hold 
+\emph on
+anything
+\emph default
+, from simple ASCII text to executables, and to complex database containers.
+ This is possible by a 
+\series bold
+universally generic representation
+\series default
+: a file is nothing but a sequence of bytes
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Predecessor filesystems were typically more complex, e.g.
+ a file was a sequence of 
+\emph on
+records
+\emph default
+.
+ There was a variety of variants, like fixed-length records, variable-length
+ records, indexed records, etc.
+ These had further problems, because the 
+\emph on
+byte
+\emph default
+ was not yet standardized as exactly 8 bit.
+ There were 6-bit bytes, or 12-bit bytes, etc.
+\end_layout
+
+\end_inset
+
+, with an arbitrary length, which can change dynamically at runtime.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ The genericity of Unix files is a striking example that sometimes 
+\series bold
+less code is more value
+\series default
+! Unix files are 
+\series bold
+simpler
+\series default
+ than the 
+\series bold
+unnecessary complexity
+\series default
+ of historical record-based predecessor file concepts.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ The 
+\series bold
+only invest
+\series default
+ for exploitation of fruitful generic simplification: 
+\series bold
+careful thinking
+\series default
+ before starting an implementation, best from experienced software architects
+ / experts.
+ This can save you up to 
+\emph on
+factors
+\emph default
+!
+\end_layout
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Business process languages
+\end_layout
+
+\end_inset
+
+Business process languages like BMPL and their execution engines are modern
+ universally generic systems, but typically used for domain-specific purposes.
+ There you can see that both concepts usefulness vs genericity are 
+\emph on
+orthogonal
+\emph default
+ to each other by some degree.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Universal compilers / interpreters
+\end_layout
+
+\end_inset
+
+LISP is one of the eldest programming languages in the world, invented 1959.
+ It can be used to express 
+\series bold
+any mathematical problem
+\series default
+, while only a 
+\emph on
+subset
+\emph default
+ of them is actually 
+\series bold
+computable
+\series default
+, even by modern supercomputers.
+ While the Unix file as such is just a 
+\emph on
+passive
+\emph default
+ item and thus not prone to computability problems, active items like LISP
+ programs are 
+\series bold
+Turing Complete
+\series default
+, which is a two-sided sword in practice.
+ Although 
+\emph on
+extremely capable
+\emph default
+, it is not easy to understand and to control.
+ Many modern 
+\series bold
+IT risks
+\series default
+ (e.g.
+ security risks) can be deduced from Turing Completeness.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ There are universally generic compilers and interpreters, for example parser
+ generators, which are 
+\emph on
+not
+\emph default
+ Turing Complete by their basic configuration language.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Macro mechanisms and C++ templates
+\end_layout
+
+\end_inset
+
+Parameterization can be done via C preprocessor macros, or C++ templates,
+ or other macro processors.
+ Macro substitution can not only be applied to programming languages, but
+ also to configuration data.
+ An example is the 
+\family typewriter
+systemd
+\family default
+ interface of 
+\family typewriter
+marsadm
+\family default
+, see 
+\family typewriter
+mars-user-manual.pdf
+\family default
+.
+ It suffices to define a certain 
+\family typewriter
+systemd
+\family default
+ unit template only once, and then let it automatically instantiate for
+ hundrets or thousands of LVs and their application stacks.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Recommendation
+\end_layout
+
+\end_inset
+
+Universal genericity has the 
+\series bold
+highest potential
+\series default
+, and should be always considered for 
+\emph on
+passive
+\emph default
+ use cases.
+ Several 
+\emph on
+active
+\emph default
+ systems, however, bear a relatively high risk when Turing Complete, when
+ not developed and maintained and operated by 
+\series bold
+highly skilled staff
+\series default
+ which can 
+\emph on
+really
+\emph default
+ deal with their complexity, and who are 
+\series bold
+really knowing what they are doing
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Compositorical genericity
+\series default
+ is similar to the composibility of LEGO bricks: via a more or less 
+\series bold
+uniform standard interface
+\series default
+, numerous re-combinations / compositions can be easily created.
+ Its potential is similar to 
+\series bold
+permutations
+\series default
+, thus factorial: 
+\begin_inset Formula $O(n!).$
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Pipe and filters style
+\end_layout
+
+\end_inset
+
+A good example is an architectural style called 
+\series bold
+pipe and filters style
+\series default
+, which is the heart of the Unix Philosophy.
+ In the original Unix concept, a relatively 
+\emph on
+low
+\emph default
+ number of simple
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Modern Unix-like systems including GNU/Linux have much more complex operators,
+ some with hundreds of options.
+ Nevertheless, they can also be used for compositorical genericity.
+\end_layout
+
+\end_inset
+
+ basic operators were used for creation of an extremely wide variety of
+ complex data processing pipelines.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ There is a programming language which directly supports this style, called
+ Bash Script in its modern version.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Stacked block devices
+\end_layout
+
+\end_inset
+
+Linux has inherited the concept from Unix.
+ In Unix, 
+\begin_inset Quotes eld
+\end_inset
+
+everything is a file
+\begin_inset Quotes erd
+\end_inset
+
+, and thus Unix devices are also 
+\emph on
+represented
+\emph default
+ as a file.
+ Block devices are a special case, where only certain access granularities
+ like multiples of 
+\emph on
+sectors
+\emph default
+ are possible.
+ Modern Linux has augmented the concept with several special operations,
+ such as 
+\family typewriter
+BLKDISCARD
+\family default
+ and other 
+\family typewriter
+ioctl()
+\family default
+ syscalls.
+ Nevertheless, block devices are stackable, for example for creation of
+ software RAID.
+ Stacks are very flexible, for example you may place MARS on top of LVM
+ on top of software RAID, or in a different order, or you may insert SSD
+ caches at various positions, etc.
+ The number of 
+\emph on
+potential
+\emph default
+ combinations is very high.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ For 
+\emph on
+usage
+\emph default
+ of stacked block devices, you don't need to be a programmer.
+ Exploiting compositorical genericity is possible from sysadmin space.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ However, 
+\emph on
+creation
+\emph default
+ of a new stackable component is a completely different story.
+ Linux 
+\series bold
+kernel programming
+\series default
+ requires completely different skills, and even among kernel hackers a junior
+ level is all else but sufficient
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+C programming is 
+\emph on
+one
+\emph default
+ of many 
+\emph on
+preconditions
+\emph default
+ for kernel hacking.
+ It is however not sufficient.
+ The Linux kernel is a technical universe in itself.
+ While many userspace C programmers need not deal with 
+\series bold
+concurrency
+\series default
+, or only with harmless standard cases, kernel programmers need to know
+ and have experiences with about a 
+\emph on
+dozen
+\emph default
+ of different concurrency models and their concrete implementations.
+ This is required for SMP scalability, weak memory semantics / memory barrier
+ hardware operations, RCU, and much more, in addition to classical interrupt-dri
+ven concurrency models.
+\end_layout
+
+\end_inset
+
+.
+ As a manager, do not confuse these HR requirements!
+\end_layout
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Electrical engineering
+\end_layout
+
+\end_inset
+
+Electrical engineers have used compositorical genericity even before the
+ digital computer had been invented.
+ Their 
+\series bold
+wiring diagrams
+\series default
+ are connecting basic 
+\series bold
+functional units
+\series default
+, for example transistors or resistors, or whole sub-circuits.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Established use case for compositorical genericity
+\end_layout
+
+\end_inset
+
+By using Linux, you automatically get it via 
+\family typewriter
+ssh
+\family default
+ commandlines used by sysadmins.
+ Experienced Linux seniors will confirm that its 
+\series bold
+automation potential
+\series default
+ is beyond anything having a graphical point-and-click interface.
+ System administration for several hundrets or thousands of servers would
+ be an extreme effort, or almost impossible otherwise.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+New use cases for compositorical genericity
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ There are much more use cases where compositorical genericity would be
+ extremely beneficial.
+ Its potential is 
+\begin_inset Formula $O(n!)$
+\end_inset
+
+ where 
+\begin_inset Formula $n$
+\end_inset
+
+ is not the number of developers, but the number of functor instances
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In general, a functor of a certain type can be instantiated several times,
+ even in the same pipeline.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ The biggest practical obstacle is that too few people know of its enormous
+ potential, and even less people have practical experiences with it in larger
+ scale systems, such as Distributed Systems.
+ When you have few excellent people with the necessary skills, don't force
+ them to use so-called 
+\begin_inset Quotes eld
+\end_inset
+
+standard paradigms
+\begin_inset Quotes erd
+\end_inset
+
+ like OO, but let them exploit the much higher potential of compositorical
+ genericity.
+ Often, they won't be able to do so unless you help them by creating a special
+ friendly working environment.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Don't be surprised when a single developer shows a 
+\series bold
+productivity
+\series default
+ roughly equivalent to 10 conventional OO developers, or even more.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not confuse the roles of sysadmins with the roles of developers.
+ Just because sysadmins usually are more used to pipe and filters style,
+ this does not magically convert them into developers.
+ A developer for compositorical genericity at large scale needs to know
+ much more, at least at a 
+\series bold
+master's level in computer science
+\series default
+, if not at a PhD level.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not populate a team with OO addicts or with people who don't have the
+ necessary skills, if you want to exploit the potential of compositorical
+ genericity.
+ Ask the inevitable 
+\emph on
+experienced technical leader
+\emph default
+, who else may have the necessary skills, in order to qualify as additional
+ team member.
+ There exists practically no standard hiring profile at the job market.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Extensional genericity
+\series default
+ means that an existing component needs to be re-used by 
+\emph on
+extending
+\emph default
+ it.
+ Its potential is only 
+\begin_inset Formula $O(k)$
+\end_inset
+
+ where 
+\begin_inset Formula $k$
+\end_inset
+
+ is a constant depending on your development resources.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Classical OO = Object Orientation
+\end_layout
+
+\end_inset
+
+No detailed explanation necessary, because many people already know what
+ 
+\series bold
+OO inheritance
+\series default
+ is, and have some experiences with it.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Typically, programmer skills are required for non-trivial large-scale systems.
+ Pure sysadmin skills are often not sufficient.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ There are lots of programmers at the job market, qualifying for OO.
+ However, many of them are often lacking some sysadmin skills when HA operations
+ is required.
+ Thus a 
+\emph on
+mixed team
+\emph default
+ with both skill sets is something you should consider for 
+\series bold
+enterprise-critical
+\series default
+ application stacks.
+ In addition, automated testing is highly recommendable.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Classical OO = Object Orientation
+\end_layout
+
+\end_inset
+
+Probably you are surprised that classical OO inheritance has the 
+\emph on
+least
+\emph default
+ potential, only 
+\begin_inset Formula $O(k)$
+\end_inset
+
+, while alternatives are much better, e.g.
+ 
+\begin_inset Formula $O(n!)$
+\end_inset
+
+ or 
+\begin_inset Formula $O(\infty)$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Plain Layout
+Reason: for any new OO functionality, some skilled programmer has to write
+ some program code, which needs to be tested and made production-ready.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Thus real-life OO productivity is often lower than promised by advocates.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In general, programming language paradigms are 
+\emph on
+orthogonal
+\emph default
+ to levels of genericity.
+ For example, compositorical genericity can be implemented with OO languages.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Genericity in the Linux kernel
+\end_layout
+
+\end_inset
+
+The Linux kernel has more than 20 millions of lines of code written in C.
+ Many people are regarding C as an imperative language, some even condemning
+ it as 
+\begin_inset Quotes eld
+\end_inset
+
+high-level assembler
+\begin_inset Quotes erd
+\end_inset
+
+.
+ However, the kernel has many parts like stackable filesystems where OO
+ techniques are used.
+ Several parts, like the dm = device mapper infrastructure, are more or
+ less following many principles from compositorical genericity.
+ Universal genericity is also present, for example in firewall rules execution
+ engines.
+ Few people seem to know that even FP = Functional Programming style is
+ possible in C, if you know how to do it.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Good C programming requires some skills.
+ People who 
+\emph on
+really
+\emph default
+ have those skills are reaching a similar productivity than with other programmi
+ng languages.
+ Notice that C has some unique application areas where other languages are
+ practically out of the game
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Several years ago, some Java advocates were claiming that operating systems
+ would be better written in Java, thus C will vanish in the long term.
+ This has not become true.
+ Reason: it is not 
+\emph on
+reasonably
+\emph default
+ possible to write a JVM = Java Virtual Machine in Java, while all major
+ JVMs are written in C.
+\end_layout
+
+\end_inset
+
+, such as kernel and deep system programming.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ A good programmer is treating programming languages as 
+\series bold
+tools
+\series default
+, which have 
+\emph on
+no global
+\emph default
+ pros and cons, but each of them is more or less well-suited for each specific
+ 
+\series bold
+application area
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
 Recommendations for Design and Operation of  Storage Systems
 \begin_inset CommandInset label
 LatexCommand label
@@ -29660,7 +32373,8 @@ Unnecessary load balancers are causing
 follow-up cost by increased complexity
 \series default
 .
- In addition to the load balancer and its administration, 
+ In addition to the load balancer hardware and its setup / administration,
+ 
 \emph on
 multiple
 \emph default
@@ -29861,6 +32575,56 @@ noprefix "false"
 source(!)
 \emph default
  of massive scalability problems.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not mis-use load balancer hardware for achieving location transparency.
+ Suchalike would need to be called 
+\begin_inset Quotes eld
+\end_inset
+
+load 
+\emph on
+redirector
+\emph default
+
+\begin_inset Quotes erd
+\end_inset
+
+ in place of 
+\begin_inset Quotes eld
+\end_inset
+
+load 
+\emph on
+balancer
+\emph default
+
+\begin_inset Quotes erd
+\end_inset
+
+.
+ You pay a lot of money for functionality you don't need, see also section
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Layering-Rules"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ Traffic redirection is both cheaper and more performant when executed by
+ your ordinary network routers.
 \end_layout
 
 \begin_layout Plain Layout
@@ -30200,9 +32964,10 @@ risk
 Another good indicator is advocacy of load balancers.
  See above boxes about the size of their real application area and their
  real value.
- Do not confuse people's belief with deep knowledge.
- The latter also requires theoretical background, in addition to practical
- experience.
+ Do not confuse people's belief with deep knowledge about Operating Systems
+ and Distributed Systems.
+ The latter also requires substantial theoretical background, in addition
+ to practical experience.
 \end_layout
 
 \begin_layout Standard
