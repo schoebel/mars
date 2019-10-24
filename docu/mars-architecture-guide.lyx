@@ -22711,1512 +22711,6 @@ noprefix "false"
 \end_layout
 
 \begin_layout Chapter
-Advice for Managers and Architects
-\begin_inset CommandInset label
-LatexCommand label
-name "chap:Advice-for-Managers"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Section
-Maturity Considerations for Managers
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:Maturity-Considerations"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsection
-Maturity of Architectures
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-Instances of storage system 
-\emph on
-architectures
-\emph default
- (see section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:What-is-Architecture"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-) typically have a 
-\series bold
-lifetime
-\series default
- of 
-\series bold
-decades
-\series default
-.
-\end_layout
-
-\begin_layout Plain Layout
-While implementations / components / storage vendors etc can often be exchanged
- or updated more frequently (typically lifecycles of 3 to 5 years for CAPEX
- reasons), 
-\series bold
-fundamental architectures
-\series default
- are much less flexible to change, and thus are 
-\emph on
-forcing
-\emph default
- you into a 
-\series bold
-long-term strategy
-\series default
-.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-In contrast, certain hardware technologies have a much lower lifetime, typically
- between 1 and 2 years.
- New server hardware / new disks / SSDs etc are hitting their market all
- the time, like waves in the ocean.
-\end_layout
-
-\begin_layout Standard
-
-\emph on
-System software
-\emph default
- technologies (OS layer) typically have a lifetime inbetween hardware and
- architecture lifetimes.
- Although their update cycles / minor release cycles are typically even
- faster than hardware releases, their 
-\emph on
-fundamental product appearance points 
-\emph default
-are rather stable
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Appearance of certain technologies may occur in 
-\series bold
-hype cycles
-\series default
-, caused by 
-\emph on
-social
-\emph default
- effects.
- While there are founding wa ves for (sometimes similar) product classes,
- other solution appearancesare more evenly spread over the decades.
- For example, appearance of many Unix clones / descendants appears to rather
- smoothly distributed over half a century.
-\end_layout
-
-\end_inset
-
-.
- For example, the Linux kernel is now more than 20 years old, while its
- 
-\emph on
-fundamental architecture
-\emph default
- has been copied from Unix and is now almost 50 years old.
-\end_layout
-
-\begin_layout Standard
-Certain advocates are arguing with the 
-\emph on
-current
-\emph default
- status of maturity of 
-\emph on
-components
-\emph default
-.
- In a long-term business operated by professionals, there is an observable
- long-term trend:
-\end_layout
-
-\begin_layout Quote
-
-\series bold
-\size large
-Maturity of components is (almost) always improving over the years.
-\end_layout
-
-\begin_layout Standard
-Of course, maturity is important.
- In sensible areas, so-called 
-\begin_inset Quotes eld
-\end_inset
-
-banana software
-\begin_inset Quotes erd
-\end_inset
-
- may even kill you.
- In such a situation, the 
-\emph on
-current
-\emph default
- maturity status is important.
- However, once an implementation is 
-\emph on
-mature enough
-\emph default
-, and/or once only some nice-to-have features are deservable, the long-term
- maturity trend / forecast of implementations / components is more important
- than the current status.
- You can influence this with your 
-\series bold
-long-term investment decisions
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-There exists something which is even more important:
-\end_layout
-
-\begin_layout Quote
-
-\series bold
-\size large
-Maturity of fundamental architectures is most important, because they 
-\emph on
-cannot
-\emph default
- improve.
- Architectures need to be 
-\uuline on
-right from scratch
-\uuline default
-.
-\end_layout
-
-\begin_layout Standard
-This is similar to mathematics: Pythagoras' theorem or Einstein's laws cannot
- be improved.
- They will last forever.
- At most, they can get old-fashioned or otherwise 
-\series bold
-outdated
-\series default
- / obsoleted.
- However, there are other chances and 
-\series bold
-opportunities
-\series default
-:
-\end_layout
-
-\begin_layout Itemize
-New / better architetures may appear (rarely).
-\end_layout
-
-\begin_layout Itemize
-Implementations of architectures should evolve slowly over time.
-\end_layout
-
-\begin_layout Itemize
-Implementations may slowly migrate to other architectures, or even support
- multiple architectures at the same time (convergence properties).
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-
-\series bold
-General advice
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Quote
-
-\series bold
-\size large
-Pay more attention to fundamental architectures.
- Develop a 
-\uuline on
-long-term strategy
-\uuline default
- for maturity of components and implementations.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsection
-Maturity of MARS
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Maturity-of-MARS"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-Notice that MARS itself is just a component.
- For a fully functional system, you will need some more infrastructure at
- several layers.
-\end_layout
-
-\begin_layout Itemize
-
-\series bold
-MARS
-\series default
- itself is in production since 2013, and on mass data (several petabytes)
- since 2014.
- MARS itself is 
-\emph on
-generic
-\emph default
-, and can be used for a multitude of Linux application stacks.
-\end_layout
-
-\begin_layout Itemize
-A 
-\series bold
-cluster manager
-\series default
-
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-1&1 Ionos ShaHoLin uses a self-built proprietray cluster manager called
- 
-\family typewriter
-cm3
-\family default
-.
- It works only with the internal 1&1 database infrastructure, and is not
- generic.
-\end_layout
-
-\end_inset
-
- is typically also needed for mass installations.
- You can use the 
-\family typewriter
-systemd
-\family default
- template engine of 
-\family typewriter
-marsadm
-\family default
-, see 
-\family typewriter
-mars-user-manual.pdf
-\family default
-, which is easily configurable by Linux sysadmins.
-\end_layout
-
-\begin_layout Itemize
-Tpically, 
-\series bold
-monitoring
-\series default
- is anyway specific for each application stack.
- Adding some simple Icinga scripts or similar should be no problem for professio
-nal Linux admins.
-\end_layout
-
-\begin_layout Itemize
-Automatic 
-\series bold
-mass deployment
-\series default
-: this is anyway specific for the deployment system used for your system
- plus application stack.
- At the moment, plugins for generic solutions like OpenStack etc are missing.
- This is an opportunity for other OpenSource projects!
-\end_layout
-
-\begin_layout Itemize
-The 
-\series bold
-Football framework
-\series default
- is in mass production at 1&1 Ionos ShaHoLin since 2018.
- It has some plugin for driving the 
-\family typewriter
-systemd
-\family default
- cluster manager.
- Its plugin architecture should allow easy adaptation to other system and
- application stacks.
-\end_layout
-
-\begin_layout Itemize
-Another opportunity for OpenSource projects: some web-based point-and-click
- 
-\series bold
-dashboard
-\series default
- similar to the Ceph Dashboard, but displaying and controlling sharded LVM
- pools which are replicated via MARS, and also controlling Football, would
- be a highly appreciated addendum.
-\end_layout
-
-\begin_layout Section
-Recommendations for Design and Operation of  Storage Systems
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:Recommendations-for-Designing"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsection
-Recommendations for Managers
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Recommendations-for-Managers"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-When you are responsible for 
-\series bold
-masses of enterprise-critical data
-\series default
-, the most important point is to get people with 
-\series bold
-the right skills
-\series default
-, in 
-\emph on
-addition(!) to
-\emph default
- the 
-\emph on
-right mindset
-\emph default
-, and to assign the right roles to them.
-\end_layout
-
-\begin_layout Standard
-Practical observation from many groups in many companies: which storage
- systems / architectures are in use, and how much they are 
-\emph on
-really
-\emph default
- 
-\series bold
-failure resistent
-\series default
- and 
-\series bold
-reliable
-\series default
-, and how much they are 
-\emph on
-really
-\emph default
- 
-\series bold
-scalable
-\series default
- for their workload, and what is their 
-\series bold
-TCO = Total Cost of Ownership
-\series default
-, does often 
-\emph on
-not
-\emph default
- depend on real knowledge and on facts.
- It often depends 
-\series bold
-randomly
-\series default
- on 
-\series bold
-personal habits
-\series default
- and 
-\series bold
-pre-judgement
-\series default
- of staff
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-\noindent
-This can be seen in a bigger company (e.g.
- after mergers etc) when very different architectures have been built by
- different teams for very similar usecases, although they are sometimes
- even roughly comparable in size and workload.
-\end_layout
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- In essence, this results in a 
-\series bold
-gambling game
-\series default
- how safe / cost-effective etc your critical data 
-\emph on
-really
-\emph default
- is.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- In particular after company mergers, suchalike varieties need not remain
- a permanent disadvantage.
- You may turn it into an advantage.
- Once you have enough reliable and validated KPIs about each of the systems,
- and after you have checked that they are 
-\emph on
-really
-\emph default
- comparable, you can derive a detailed comparison of competing architectures
- and/or of their actual implementations.
- Then you may start 
-\series bold
-merging
-\series default
- some of the technical platforms, provided there is a business case for
- it.
- Or, you may 
-\series bold
-bleed out
-\series default
- some old / obsolete technology.
-\end_layout
-
-\begin_layout Standard
-When the game is about building up 
-\series bold
-new functionality
-\series default
- from scratch, it is much different.
- There are two main possibilities:
-\end_layout
-
-\begin_layout Enumerate
-check whether your 
-\emph on
-best
-\emph default
- platform can be extended with the new functionality.
- Good architectures are also 
-\series bold
-easily extensible
-\series default
-.
-\end_layout
-
-\begin_layout Enumerate
-build a new platform.
-\end_layout
-
-\begin_layout Standard
-The rest of this section focusses on architecture of 
-\emph on
-new
-\emph default
- platforms.
- Always check whether existing 
-\emph on
-experience
-\emph default
- can be re-used.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- As explained throughout section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:Scalability-Arguments-from"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-, there are many pitfalls, and there are only few people who know them,
- because more people are working in small-scale systems than in large-scale
- enterprise ones.
- There are so many lots of people at the market who 
-\emph on
-claim
-\emph default
- to have some experience, but in reality they don't know what they don't
- know (
-\series bold
-second-order ignorance
-\series default
-).
-\end_layout
-
-\begin_layout Standard
-Second-order ignorance is very dangerous, even for affected people themselves,
- because they are in good faith about their own skills, and that they would
- be able to control everything (sometimes they really want to control literally
- 
-\emph on
-everything
-\emph default
-, even other people who have more real experience and knowledge).
- See for example wrong assumptions and 
-\begin_inset Quotes eld
-\end_inset
-
-false proofs
-\begin_inset Quotes erd
-\end_inset
-
- about scalability, derived from different use cases (or even from workstation
- workloads).
- See the failed scalability scenario in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Example-Failures-of"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
- where some freelancers were consulted as 
-\begin_inset Quotes eld
-\end_inset
-
-external experts
-\begin_inset Quotes erd
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Quotation
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Check your information sources! There is a 
-\emph on
-systematic reason
-\emph default
- for ill-informed 
-\begin_inset Quotes eld
-\end_inset
-
-experts
-\begin_inset Quotes erd
-\end_inset
-
-.
- On the internet, you can find a lot of so-called 
-\begin_inset Quotes eld
-\end_inset
-
-best practices
-\begin_inset Quotes erd
-\end_inset
-
-.
- Many of them propagating badly scaling storage architectures for enterprise
- workloads, sometimes even 
-\emph on
-generally
-\emph default
- claiming they would 
-\begin_inset Quotes eld
-\end_inset
-
-scale very well
-\begin_inset Quotes erd
-\end_inset
-
-, which is however often based on 
-\emph on
-assumptions
-\emph default
- instead of knowledge (and rarely based on 
-\emph on
-measurements
-\emph default
- at the right measurement points for deriving substantial knowledge about
- your 
-\emph on
-real
-\emph default
- application behaviour).
- Literally 
-\emph on
-anyone
-\emph default
- can post falsely generalized 
-\begin_inset Quotes eld
-\end_inset
-
-best practices
-\begin_inset Quotes erd
-\end_inset
-
- to the internet.
- Together with second-order ignorance about the non-transferability of 
-\begin_inset Quotes eld
-\end_inset
-
-success stories
-\begin_inset Quotes erd
-\end_inset
-
- from usecase A to usecase B (resulting in 
-\emph on
-false 
-\begin_inset Quotes eld
-\end_inset
-
-proofs
-\emph default
-
-\begin_inset Quotes erd
-\end_inset
-
-), the internet is creating 
-\series bold
-information bubbles
-\series default
-.
- 
-\end_layout
-
-\begin_layout Quotation
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Real knowledge originates from evaluated sources, such as 
-\series bold
-scientific publications
-\series default
- which have undergone at least some minimum 
-\emph on
-quality check
-\emph default
-, and which are trying to describe their preconditions and operating environment
-s as precisely
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-\noindent
-Therefore, chances are better to get a real expert when he has some (higher)
- academic degrees, and was working in the area for a longer time.
-\end_layout
-
-\end_inset
-
- as possible.
-\end_layout
-
-\begin_layout Quotation
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- Real experts will tell you when they don't know something.
- In addition, they will tell you 
-\emph on
-multiple
-\emph default
- ways for obtaining such information, such as measurements, simulation,
- etc.
-\end_layout
-
-\begin_layout Standard
-If you don't have anyone in your teams who knows how 
-\series bold
-caching
-\series default
- 
-\emph on
-really
-\emph default
- works, or if it is a single guy who cannot withstand the pressure from
- a whole group of 
-\begin_inset Quotes eld
-\end_inset
-
-alpha animals
-\begin_inset Quotes erd
-\end_inset
-
-, you are running an 
-\series bold
-increased risk
-\series default
- of unnecessary expenses
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-I know of cases which have produced unnecessary 
-\emph on
-direct
-\emph default
- cost of at least € 20 millions, not counting further indirect costs such
- as power and rackspace consumption.
-\end_layout
-
-\end_inset
-
-, worse services (indirect costs), failed projects, and sometimes even resulting
- in loss of market share and/or of stock exchange value.
-\end_layout
-
-\begin_layout Standard
-The problem is that it 
-\emph on
-looks so easy
-\emph default
-, as if everyone could build a 
-\emph on
-large(!)
-\emph default
- storage and/or application system, with ease.
- It looks easy once a small prototype is running at a workstation.
- Some people believe that 
-\begin_inset Quotes eld
-\end_inset
-
-just spend some more money
-\begin_inset Quotes erd
-\end_inset
-
- would all which is needed.
- Unfortunately, both 
-\begin_inset Quotes eld
-\end_inset
-
-marketing drones
-\begin_inset Quotes erd
-\end_inset
-
- from commercial storage vendors, and even a few OpenSource advocates, are
- propagating this 
-\series bold
-dangerous mindset
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-As a responsible manager, how can you detect dangerous partly knowledge?
- Good indicators are wrong usage of the term 
-\begin_inset Quotes eld
-\end_inset
-
-architecture
-\begin_inset Quotes erd
-\end_inset
-
- (see definition in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:What-is-Architecture"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-), and/or
-\series bold
- confusion of architecture with implementation
-\series default
-.
- When somebody confuses
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Notice that there exist people who use the term 
-\begin_inset Quotes eld
-\end_inset
-
-architecture
-\begin_inset Quotes erd
-\end_inset
-
- inadvertly.
- They even don't even know that they are confusing architecture with implementat
-ion.
- Pure usage of a certain term is no clear indicator that somebody is really
- an expert.
-\end_layout
-
-\end_inset
-
- this, he does not really have an overview of different architectural solution
- classes.
- Instead, such people are tending to propagate their random 
-\begin_inset Quotes eld
-\end_inset
-
-favourite solution
-\begin_inset Quotes erd
-\end_inset
-
- or their random 
-\begin_inset Quotes eld
-\end_inset
-
-favourite product
-\begin_inset Quotes erd
-\end_inset
-
-.
- For you as a responsible, this increases the 
-\series bold
-risk
-\series default
- of getting a non-optimum, or possibly even a bad / dangerous solution.
-\end_layout
-
-\begin_layout Standard
-Not everything which works in a garage, or in a student pool, or in the
- testlab (whether it's yours or from a commercial storage vendor), or in
- a PoC with so-called 
-\begin_inset Quotes eld
-\end_inset
-
-friendly customers
-\begin_inset Quotes erd
-\end_inset
-
-, is well-suited for large enterprises and their critical data (measured
- in petabytes / billions of files / etc), or is the optimum solution for
- TCO.
- Some rules of thumb, out of experience and observation:
-\end_layout
-
-\begin_layout Itemize
-For each 1 or 2 orders of magnitude of the 
-\series bold
-size
-\series default
- of your data, you will need 
-\series bold
-better methods
-\series default
- for safe construction and operation, as would be sufficient for lower demands.
-\end_layout
-
-\begin_layout Itemize
-For each 3 to 4 orders of magnitude (sometimes even for less), you will
- need 
-\series bold
-better architectures
-\series default
-, and people who can deal with them.
-\end_layout
-
-\begin_layout Itemize
-For each 1 or 2 orders of magntitude of 
-\series bold
-criticality
-\series default
- of your data (measured by 
-\emph on
-losses
-\emph default
- in case of certain incidents), you will also need better architecture,
- not just better components.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\noindent
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-
-\series bold
-Important advice
-\end_layout
-
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- If you start a new platform from scratch, always 
-\series bold
-start with a 
-\emph on
-good
-\emph default
- architecture
-\series default
-.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-Once a platform is in production, even with a small number of customers,
- it becomes increasingly difficult to change its fundamental architecture.
- While bugs can be relatively easily fixed, and while single components
- can be exchanged with some effort, changing an architecture may turn out
- 
-\emph on
-close to impossible
-\emph default
-, or at least very expensive.
-\end_layout
-
-\begin_layout Subsection
-Recommendations for Architects
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Recommendations-for-Architects"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-In order of precedence, do the following:
-\end_layout
-
-\begin_layout Enumerate
-
-\series bold
-Fix and/or limit and/or tune the 
-\emph on
-application
-\series default
-\emph default
-.
-\begin_inset Newline newline
-\end_inset
-
-Some extreme examples:
-\end_layout
-
-\begin_deeper
-\begin_layout Itemize
-When you encounter a classical Unix 
-\series bold
-fork bomb
-\series default
-, you have no chance against it.
- Even the 
-\begin_inset Quotes eld
-\end_inset
-
-best and the most expensive hardware
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-There is an old joke from the 1980s: a Cray is a computer capable of running
- an endless loop in 10 seconds.
-\end_layout
-
-\end_inset
-
-
-\begin_inset Quotes erd
-\end_inset
-
- is unable to successfully run a fork bomb.
- The only countermeasure is 
-\emph on
-limitation of resources
-\emph default
-.
- Reason: unlimited resources do not exist on earth.
-\end_layout
-
-\begin_layout Itemize
-If you think that this were only of academic interest: several types of
- internet 
-\series bold
-DDOS attacks
-\series default
- are acting like a fork bomb, and 
-\series bold
-Apache
-\series default
- is also acting similar to a fork bomb when not configured properly.
- This is not about academics, it is about 
-\emph on
-your survival
-\emph default
- (in the sense of Darwin).
-\end_layout
-
-\begin_layout Itemize
-If you think it cannot hurt you because you are running 
-\family typewriter
-fast-cgi
-\family default
- or another application scheme where forks are not part of the game (e.g.
- databases and many others): please notice that 
-\series bold
-network queues
-\series default
- are often acting as a replacement for processes.
- Overflow of queues can have a similar effect than fork bombs from the viewpoint
- of customers: they simply don't get the service they are expecting.
-\end_layout
-
-\begin_layout Itemize
-If you think this cannot hurt you, because you are working in a completely
- different area from Apache: 
-\emph on
-any
-\emph default
- type of IP-based network traffic can show queueing behaviour.
- Complex queuing systems can show 
-\begin_inset Quotes eld
-\end_inset
-
-unexpected
-\begin_inset Quotes erd
-\end_inset
-
- behaviour, and sometimes even a dangerous one.
-\end_layout
-
-\begin_layout Itemize
-Real-life example for application-level problems: some percentage of 
-\family typewriter
-WordPress
-\family default
- customers are typically and 
-\emph on
-systematically
-\emph default
- 
-\series bold
-misconfiguring
-\series default
- their 
-\family typewriter
-wp-cron
-\family default
- cron jobs.
- They create backups of their website, which 
-\emph on
-include
-\emph default
- their old backups.
- Result: in each generation of the backups, the needed disk space will roughly
- 
-\emph on
-double
-\emph default
-.
- Even if you had 
-\begin_inset Quotes eld
-\end_inset
-
-unlimited storage
-\begin_inset Quotes erd
-\end_inset
-
- on top of the 
-\begin_inset Quotes eld
-\end_inset
-
-best and the most expensive storage system
-\begin_inset Quotes erd
-\end_inset
-
-, and even if you would like to give 
-\begin_inset Quotes eld
-\end_inset
-
-unlimited storage
-\begin_inset Quotes erd
-\end_inset
-
- to your customers, it simply cannot work at all.
- Exponential growth is exponential growth.
- After a few months of this kind of daily backup, you would need more storage
- than atoms exist in the whole universe.
- You 
-\emph on
-must
-\emph default
- introduce some quota limits somewhere.
- And you 
-\emph on
-must
-\emph default
- ensure that the 
-\family typewriter
-wp-cron
-\family default
- misconfiguration is fixed, whoever is responsible for fixing it.
-\end_layout
-
-\begin_layout Itemize
-Another 
-\family typewriter
-WordPress
-\family default
- example: the 
-\family typewriter
-wp-cron
-\family default
- configuration syntax is not easily understandable by laymen.
- It is easy to 
-\series bold
-misconfigure
-\series default
- such that a backup is created 
-\emph on
-once per minute
-\emph default
-.
- As long as the website is very small, this will not even be noticed by
- sysadmins.
- However, for bigger websites (and they are typically growing over time),
- the IO load may increase to a point until even asynchronous replication
- over 10Gig interfaces cannot catch up.
- Even worse: the next run of 
-\family typewriter
-wp-cron
-\family default
- may start before the old one has finished within a minute.
- Again, there is no chance except fixing the 
-\emph on
-root cause
-\emph default
- at application level.
-\end_layout
-
-\end_deeper
-\begin_layout Enumerate
-
-\series bold
-Choose the right 
-\emph on
-overall
-\emph default
- architecture
-\series default
- (not limited to storage).
-\begin_inset Newline newline
-\end_inset
-
-An impressive example for architectural (cf section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:What-is-Architecture"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-) ill-design can be found in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Example-Failures-of"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
- Important explanations are in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "subsec:Properties-Scalability"
-
-\end_inset
-
-, in particular subsection 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Influence-Factors-Scalability"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-, and section 
-\begin_inset CommandInset ref
-LatexCommand vref
-reference "subsec:Filesystem-Layer-vs"
-
-\end_inset
-
-.
- A strategic example is in subsection 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Example-Scalability-Scenario"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
- It is absolutely necessary to know the standard cache hierarchy of Unix
- (similarly also found in Windows) from section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:Performance-Arguments-from"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
- More explanations are in this manual at many places.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- In general, major ill-designs of overall architectures (end-to-end) cannot
- be fixed at component level.
- Even the 
-\begin_inset Quotes eld
-\end_inset
-
-best tuning of the world
-\begin_inset Quotes erd
-\end_inset
-
- executed by the 
-\begin_inset Quotes eld
-\end_inset
-
-best tuning expert
-\begin_inset Quotes erd
-\end_inset
-
- on top of the 
-\begin_inset Quotes eld
-\end_inset
-
-best and most expensive storage 
-\emph on
-components
-\emph default
- over the best storage 
-\emph on
-network
-\emph default
- of the world
-\begin_inset Quotes erd
-\end_inset
-
- cannot compensate major ill-designs, such as 
-\begin_inset Formula $O(n^{2})$
-\end_inset
-
- behaviour.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Similarly for reliability: if you have problems with too many and/or too
- large incidents affecting too many customers, read sections 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:Reliability-Arguments-from"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
- and 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Reliability-Differences-CentralStorage"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Enumerate
-
-\series bold
-Choice and tuning of components
-\series default
-.
-\begin_inset Newline newline
-\end_inset
-
-No further explanations necessary, because most people already know this.
- In case you think this is the 
-\emph on
-only
-\emph default
- way: no, it is typically the 
-\emph on
-worst
-\emph default
- and typically only the 
-\emph on
-last resort
-\emph default
- when compared to the previous enumeration items.
- See example in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Example-Failures-of"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
-\begin_inset Newline newline
-\end_inset
-
-Exception: choice of wrong components with insufficient properties for your
- particular application / use case, or even hard restrictions as mentioned
- in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:What-is-Architecture"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
- But this is an 
-\emph on
-architectural
-\emph default
- problem in reality, and belongs to the previous item, not to this one.
-\end_layout
-
-\begin_layout Chapter
 Use Cases for MARS
 \begin_inset CommandInset label
 LatexCommand label
@@ -30151,6 +28645,1512 @@ fencing of application traffic
 mandatory
 \emph default
 .
+\end_layout
+
+\begin_layout Chapter
+Advice for Managers and Architects
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Advice-for-Managers"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Maturity Considerations for Managers
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Maturity-Considerations"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Maturity of Architectures
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+Instances of storage system 
+\emph on
+architectures
+\emph default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) typically have a 
+\series bold
+lifetime
+\series default
+ of 
+\series bold
+decades
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+While implementations / components / storage vendors etc can often be exchanged
+ or updated more frequently (typically lifecycles of 3 to 5 years for CAPEX
+ reasons), 
+\series bold
+fundamental architectures
+\series default
+ are much less flexible to change, and thus are 
+\emph on
+forcing
+\emph default
+ you into a 
+\series bold
+long-term strategy
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+In contrast, certain hardware technologies have a much lower lifetime, typically
+ between 1 and 2 years.
+ New server hardware / new disks / SSDs etc are hitting their market all
+ the time, like waves in the ocean.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+System software
+\emph default
+ technologies (OS layer) typically have a lifetime inbetween hardware and
+ architecture lifetimes.
+ Although their update cycles / minor release cycles are typically even
+ faster than hardware releases, their 
+\emph on
+fundamental product appearance points 
+\emph default
+are rather stable
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Appearance of certain technologies may occur in 
+\series bold
+hype cycles
+\series default
+, caused by 
+\emph on
+social
+\emph default
+ effects.
+ While there are founding wa ves for (sometimes similar) product classes,
+ other solution appearancesare more evenly spread over the decades.
+ For example, appearance of many Unix clones / descendants appears to rather
+ smoothly distributed over half a century.
+\end_layout
+
+\end_inset
+
+.
+ For example, the Linux kernel is now more than 20 years old, while its
+ 
+\emph on
+fundamental architecture
+\emph default
+ has been copied from Unix and is now almost 50 years old.
+\end_layout
+
+\begin_layout Standard
+Certain advocates are arguing with the 
+\emph on
+current
+\emph default
+ status of maturity of 
+\emph on
+components
+\emph default
+.
+ In a long-term business operated by professionals, there is an observable
+ long-term trend:
+\end_layout
+
+\begin_layout Quote
+
+\series bold
+\size large
+Maturity of components is (almost) always improving over the years.
+\end_layout
+
+\begin_layout Standard
+Of course, maturity is important.
+ In sensible areas, so-called 
+\begin_inset Quotes eld
+\end_inset
+
+banana software
+\begin_inset Quotes erd
+\end_inset
+
+ may even kill you.
+ In such a situation, the 
+\emph on
+current
+\emph default
+ maturity status is important.
+ However, once an implementation is 
+\emph on
+mature enough
+\emph default
+, and/or once only some nice-to-have features are deservable, the long-term
+ maturity trend / forecast of implementations / components is more important
+ than the current status.
+ You can influence this with your 
+\series bold
+long-term investment decisions
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+There exists something which is even more important:
+\end_layout
+
+\begin_layout Quote
+
+\series bold
+\size large
+Maturity of fundamental architectures is most important, because they 
+\emph on
+cannot
+\emph default
+ improve.
+ Architectures need to be 
+\uuline on
+right from scratch
+\uuline default
+.
+\end_layout
+
+\begin_layout Standard
+This is similar to mathematics: Pythagoras' theorem or Einstein's laws cannot
+ be improved.
+ They will last forever.
+ At most, they can get old-fashioned or otherwise 
+\series bold
+outdated
+\series default
+ / obsoleted.
+ However, there are other chances and 
+\series bold
+opportunities
+\series default
+:
+\end_layout
+
+\begin_layout Itemize
+New / better architetures may appear (rarely).
+\end_layout
+
+\begin_layout Itemize
+Implementations of architectures should evolve slowly over time.
+\end_layout
+
+\begin_layout Itemize
+Implementations may slowly migrate to other architectures, or even support
+ multiple architectures at the same time (convergence properties).
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+General advice
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Quote
+
+\series bold
+\size large
+Pay more attention to fundamental architectures.
+ Develop a 
+\uuline on
+long-term strategy
+\uuline default
+ for maturity of components and implementations.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Maturity of MARS
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Maturity-of-MARS"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Notice that MARS itself is just a component.
+ For a fully functional system, you will need some more infrastructure at
+ several layers.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+MARS
+\series default
+ itself is in production since 2013, and on mass data (several petabytes)
+ since 2014.
+ MARS itself is 
+\emph on
+generic
+\emph default
+, and can be used for a multitude of Linux application stacks.
+\end_layout
+
+\begin_layout Itemize
+A 
+\series bold
+cluster manager
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+1&1 Ionos ShaHoLin uses a self-built proprietray cluster manager called
+ 
+\family typewriter
+cm3
+\family default
+.
+ It works only with the internal 1&1 database infrastructure, and is not
+ generic.
+\end_layout
+
+\end_inset
+
+ is typically also needed for mass installations.
+ You can use the 
+\family typewriter
+systemd
+\family default
+ template engine of 
+\family typewriter
+marsadm
+\family default
+, see 
+\family typewriter
+mars-user-manual.pdf
+\family default
+, which is easily configurable by Linux sysadmins.
+\end_layout
+
+\begin_layout Itemize
+Tpically, 
+\series bold
+monitoring
+\series default
+ is anyway specific for each application stack.
+ Adding some simple Icinga scripts or similar should be no problem for professio
+nal Linux admins.
+\end_layout
+
+\begin_layout Itemize
+Automatic 
+\series bold
+mass deployment
+\series default
+: this is anyway specific for the deployment system used for your system
+ plus application stack.
+ At the moment, plugins for generic solutions like OpenStack etc are missing.
+ This is an opportunity for other OpenSource projects!
+\end_layout
+
+\begin_layout Itemize
+The 
+\series bold
+Football framework
+\series default
+ is in mass production at 1&1 Ionos ShaHoLin since 2018.
+ It has some plugin for driving the 
+\family typewriter
+systemd
+\family default
+ cluster manager.
+ Its plugin architecture should allow easy adaptation to other system and
+ application stacks.
+\end_layout
+
+\begin_layout Itemize
+Another opportunity for OpenSource projects: some web-based point-and-click
+ 
+\series bold
+dashboard
+\series default
+ similar to the Ceph Dashboard, but displaying and controlling sharded LVM
+ pools which are replicated via MARS, and also controlling Football, would
+ be a highly appreciated addendum.
+\end_layout
+
+\begin_layout Section
+Recommendations for Design and Operation of  Storage Systems
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Recommendations-for-Designing"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Recommendations for Managers
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Recommendations-for-Managers"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+When you are responsible for 
+\series bold
+masses of enterprise-critical data
+\series default
+, the most important point is to get people with 
+\series bold
+the right skills
+\series default
+, in 
+\emph on
+addition(!) to
+\emph default
+ the 
+\emph on
+right mindset
+\emph default
+, and to assign the right roles to them.
+\end_layout
+
+\begin_layout Standard
+Practical observation from many groups in many companies: which storage
+ systems / architectures are in use, and how much they are 
+\emph on
+really
+\emph default
+ 
+\series bold
+failure resistent
+\series default
+ and 
+\series bold
+reliable
+\series default
+, and how much they are 
+\emph on
+really
+\emph default
+ 
+\series bold
+scalable
+\series default
+ for their workload, and what is their 
+\series bold
+TCO = Total Cost of Ownership
+\series default
+, does often 
+\emph on
+not
+\emph default
+ depend on real knowledge and on facts.
+ It often depends 
+\series bold
+randomly
+\series default
+ on 
+\series bold
+personal habits
+\series default
+ and 
+\series bold
+pre-judgement
+\series default
+ of staff
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+\noindent
+This can be seen in a bigger company (e.g.
+ after mergers etc) when very different architectures have been built by
+ different teams for very similar usecases, although they are sometimes
+ even roughly comparable in size and workload.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In essence, this results in a 
+\series bold
+gambling game
+\series default
+ how safe / cost-effective etc your critical data 
+\emph on
+really
+\emph default
+ is.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In particular after company mergers, suchalike varieties need not remain
+ a permanent disadvantage.
+ You may turn it into an advantage.
+ Once you have enough reliable and validated KPIs about each of the systems,
+ and after you have checked that they are 
+\emph on
+really
+\emph default
+ comparable, you can derive a detailed comparison of competing architectures
+ and/or of their actual implementations.
+ Then you may start 
+\series bold
+merging
+\series default
+ some of the technical platforms, provided there is a business case for
+ it.
+ Or, you may 
+\series bold
+bleed out
+\series default
+ some old / obsolete technology.
+\end_layout
+
+\begin_layout Standard
+When the game is about building up 
+\series bold
+new functionality
+\series default
+ from scratch, it is much different.
+ There are two main possibilities:
+\end_layout
+
+\begin_layout Enumerate
+check whether your 
+\emph on
+best
+\emph default
+ platform can be extended with the new functionality.
+ Good architectures are also 
+\series bold
+easily extensible
+\series default
+.
+\end_layout
+
+\begin_layout Enumerate
+build a new platform.
+\end_layout
+
+\begin_layout Standard
+The rest of this section focusses on architecture of 
+\emph on
+new
+\emph default
+ platforms.
+ Always check whether existing 
+\emph on
+experience
+\emph default
+ can be re-used.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ As explained throughout section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Scalability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, there are many pitfalls, and there are only few people who know them,
+ because more people are working in small-scale systems than in large-scale
+ enterprise ones.
+ There are so many lots of people at the market who 
+\emph on
+claim
+\emph default
+ to have some experience, but in reality they don't know what they don't
+ know (
+\series bold
+second-order ignorance
+\series default
+).
+\end_layout
+
+\begin_layout Standard
+Second-order ignorance is very dangerous, even for affected people themselves,
+ because they are in good faith about their own skills, and that they would
+ be able to control everything (sometimes they really want to control literally
+ 
+\emph on
+everything
+\emph default
+, even other people who have more real experience and knowledge).
+ See for example wrong assumptions and 
+\begin_inset Quotes eld
+\end_inset
+
+false proofs
+\begin_inset Quotes erd
+\end_inset
+
+ about scalability, derived from different use cases (or even from workstation
+ workloads).
+ See the failed scalability scenario in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ where some freelancers were consulted as 
+\begin_inset Quotes eld
+\end_inset
+
+external experts
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Quotation
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Check your information sources! There is a 
+\emph on
+systematic reason
+\emph default
+ for ill-informed 
+\begin_inset Quotes eld
+\end_inset
+
+experts
+\begin_inset Quotes erd
+\end_inset
+
+.
+ On the internet, you can find a lot of so-called 
+\begin_inset Quotes eld
+\end_inset
+
+best practices
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Many of them propagating badly scaling storage architectures for enterprise
+ workloads, sometimes even 
+\emph on
+generally
+\emph default
+ claiming they would 
+\begin_inset Quotes eld
+\end_inset
+
+scale very well
+\begin_inset Quotes erd
+\end_inset
+
+, which is however often based on 
+\emph on
+assumptions
+\emph default
+ instead of knowledge (and rarely based on 
+\emph on
+measurements
+\emph default
+ at the right measurement points for deriving substantial knowledge about
+ your 
+\emph on
+real
+\emph default
+ application behaviour).
+ Literally 
+\emph on
+anyone
+\emph default
+ can post falsely generalized 
+\begin_inset Quotes eld
+\end_inset
+
+best practices
+\begin_inset Quotes erd
+\end_inset
+
+ to the internet.
+ Together with second-order ignorance about the non-transferability of 
+\begin_inset Quotes eld
+\end_inset
+
+success stories
+\begin_inset Quotes erd
+\end_inset
+
+ from usecase A to usecase B (resulting in 
+\emph on
+false 
+\begin_inset Quotes eld
+\end_inset
+
+proofs
+\emph default
+
+\begin_inset Quotes erd
+\end_inset
+
+), the internet is creating 
+\series bold
+information bubbles
+\series default
+.
+ 
+\end_layout
+
+\begin_layout Quotation
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Real knowledge originates from evaluated sources, such as 
+\series bold
+scientific publications
+\series default
+ which have undergone at least some minimum 
+\emph on
+quality check
+\emph default
+, and which are trying to describe their preconditions and operating environment
+s as precisely
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+\noindent
+Therefore, chances are better to get a real expert when he has some (higher)
+ academic degrees, and was working in the area for a longer time.
+\end_layout
+
+\end_inset
+
+ as possible.
+\end_layout
+
+\begin_layout Quotation
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Real experts will tell you when they don't know something.
+ In addition, they will tell you 
+\emph on
+multiple
+\emph default
+ ways for obtaining such information, such as measurements, simulation,
+ etc.
+\end_layout
+
+\begin_layout Standard
+If you don't have anyone in your teams who knows how 
+\series bold
+caching
+\series default
+ 
+\emph on
+really
+\emph default
+ works, or if it is a single guy who cannot withstand the pressure from
+ a whole group of 
+\begin_inset Quotes eld
+\end_inset
+
+alpha animals
+\begin_inset Quotes erd
+\end_inset
+
+, you are running an 
+\series bold
+increased risk
+\series default
+ of unnecessary expenses
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+I know of cases which have produced unnecessary 
+\emph on
+direct
+\emph default
+ cost of at least € 20 millions, not counting further indirect cost such
+ as power and rackspace consumption.
+\end_layout
+
+\end_inset
+
+, worse services (indirect cost), failed projects, and sometimes even resulting
+ in loss of market share and/or of stock exchange value.
+\end_layout
+
+\begin_layout Standard
+The problem is that it 
+\emph on
+looks so easy
+\emph default
+, as if everyone could build a 
+\emph on
+large(!)
+\emph default
+ storage and/or application system, with ease.
+ It looks easy once a small prototype is running at a workstation.
+ Some people believe that 
+\begin_inset Quotes eld
+\end_inset
+
+just spend some more money
+\begin_inset Quotes erd
+\end_inset
+
+ would all which is needed.
+ Unfortunately, both 
+\begin_inset Quotes eld
+\end_inset
+
+marketing drones
+\begin_inset Quotes erd
+\end_inset
+
+ from commercial storage vendors, and even a few OpenSource advocates, are
+ propagating this 
+\series bold
+dangerous mindset
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+As a responsible manager, how can you detect dangerous partly knowledge?
+ Good indicators are wrong usage of the term 
+\begin_inset Quotes eld
+\end_inset
+
+architecture
+\begin_inset Quotes erd
+\end_inset
+
+ (see definition in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), and/or
+\series bold
+ confusion of architecture with implementation
+\series default
+.
+ When somebody confuses
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that there exist people who use the term 
+\begin_inset Quotes eld
+\end_inset
+
+architecture
+\begin_inset Quotes erd
+\end_inset
+
+ inadvertly.
+ They even don't even know that they are confusing architecture with implementat
+ion.
+ Pure usage of a certain term is no clear indicator that somebody is really
+ an expert.
+\end_layout
+
+\end_inset
+
+ this, he does not really have an overview of different architectural solution
+ classes.
+ Instead, such people are tending to propagate their random 
+\begin_inset Quotes eld
+\end_inset
+
+favourite solution
+\begin_inset Quotes erd
+\end_inset
+
+ or their random 
+\begin_inset Quotes eld
+\end_inset
+
+favourite product
+\begin_inset Quotes erd
+\end_inset
+
+.
+ For you as a responsible, this increases the 
+\series bold
+risk
+\series default
+ of getting a non-optimum, or possibly even a bad / dangerous solution.
+\end_layout
+
+\begin_layout Standard
+Not everything which works in a garage, or in a student pool, or in the
+ testlab (whether it's yours or from a commercial storage vendor), or in
+ a PoC with so-called 
+\begin_inset Quotes eld
+\end_inset
+
+friendly customers
+\begin_inset Quotes erd
+\end_inset
+
+, is well-suited for large enterprises and their critical data (measured
+ in petabytes / billions of files / etc), or is the optimum solution for
+ TCO.
+ Some rules of thumb, out of experience and observation:
+\end_layout
+
+\begin_layout Itemize
+For each 1 or 2 orders of magnitude of the 
+\series bold
+size
+\series default
+ of your data, you will need 
+\series bold
+better methods
+\series default
+ for safe construction and operation, as would be sufficient for lower demands.
+\end_layout
+
+\begin_layout Itemize
+For each 3 to 4 orders of magnitude (sometimes even for less), you will
+ need 
+\series bold
+better architectures
+\series default
+, and people who can deal with them.
+\end_layout
+
+\begin_layout Itemize
+For each 1 or 2 orders of magntitude of 
+\series bold
+criticality
+\series default
+ of your data (measured by 
+\emph on
+losses
+\emph default
+ in case of certain incidents), you will also need better architecture,
+ not just better components.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Important advice
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ If you start a new platform from scratch, always 
+\series bold
+start with a 
+\emph on
+good
+\emph default
+ architecture
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Once a platform is in production, even with a small number of customers,
+ it becomes increasingly difficult to change its fundamental architecture.
+ While bugs can be relatively easily fixed, and while single components
+ can be exchanged with some effort, changing an architecture may turn out
+ 
+\emph on
+close to impossible
+\emph default
+, or at least very expensive.
+\end_layout
+
+\begin_layout Subsection
+Recommendations for Architects
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Recommendations-for-Architects"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In order of precedence, do the following:
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Fix and/or limit and/or tune the 
+\emph on
+application
+\series default
+\emph default
+.
+\begin_inset Newline newline
+\end_inset
+
+Some extreme examples:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+When you encounter a classical Unix 
+\series bold
+fork bomb
+\series default
+, you have no chance against it.
+ Even the 
+\begin_inset Quotes eld
+\end_inset
+
+best and the most expensive hardware
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There is an old joke from the 1980s: a Cray is a computer capable of running
+ an endless loop in 10 seconds.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+ is unable to successfully run a fork bomb.
+ The only countermeasure is 
+\emph on
+limitation of resources
+\emph default
+.
+ Reason: unlimited resources do not exist on earth.
+\end_layout
+
+\begin_layout Itemize
+If you think that this were only of academic interest: several types of
+ internet 
+\series bold
+DDOS attacks
+\series default
+ are acting like a fork bomb, and 
+\series bold
+Apache
+\series default
+ is also acting similar to a fork bomb when not configured properly.
+ This is not about academics, it is about 
+\emph on
+your survival
+\emph default
+ (in the sense of Darwin).
+\end_layout
+
+\begin_layout Itemize
+If you think it cannot hurt you because you are running 
+\family typewriter
+fast-cgi
+\family default
+ or another application scheme where forks are not part of the game (e.g.
+ databases and many others): please notice that 
+\series bold
+network queues
+\series default
+ are often acting as a replacement for processes.
+ Overflow of queues can have a similar effect than fork bombs from the viewpoint
+ of customers: they simply don't get the service they are expecting.
+\end_layout
+
+\begin_layout Itemize
+If you think this cannot hurt you, because you are working in a completely
+ different area from Apache: 
+\emph on
+any
+\emph default
+ type of IP-based network traffic can show queueing behaviour.
+ Complex queuing systems can show 
+\begin_inset Quotes eld
+\end_inset
+
+unexpected
+\begin_inset Quotes erd
+\end_inset
+
+ behaviour, and sometimes even a dangerous one.
+\end_layout
+
+\begin_layout Itemize
+Real-life example for application-level problems: some percentage of 
+\family typewriter
+WordPress
+\family default
+ customers are typically and 
+\emph on
+systematically
+\emph default
+ 
+\series bold
+misconfiguring
+\series default
+ their 
+\family typewriter
+wp-cron
+\family default
+ cron jobs.
+ They create backups of their website, which 
+\emph on
+include
+\emph default
+ their old backups.
+ Result: in each generation of the backups, the needed disk space will roughly
+ 
+\emph on
+double
+\emph default
+.
+ Even if you had 
+\begin_inset Quotes eld
+\end_inset
+
+unlimited storage
+\begin_inset Quotes erd
+\end_inset
+
+ on top of the 
+\begin_inset Quotes eld
+\end_inset
+
+best and the most expensive storage system
+\begin_inset Quotes erd
+\end_inset
+
+, and even if you would like to give 
+\begin_inset Quotes eld
+\end_inset
+
+unlimited storage
+\begin_inset Quotes erd
+\end_inset
+
+ to your customers, it simply cannot work at all.
+ Exponential growth is exponential growth.
+ After a few months of this kind of daily backup, you would need more storage
+ than atoms exist in the whole universe.
+ You 
+\emph on
+must
+\emph default
+ introduce some quota limits somewhere.
+ And you 
+\emph on
+must
+\emph default
+ ensure that the 
+\family typewriter
+wp-cron
+\family default
+ misconfiguration is fixed, whoever is responsible for fixing it.
+\end_layout
+
+\begin_layout Itemize
+Another 
+\family typewriter
+WordPress
+\family default
+ example: the 
+\family typewriter
+wp-cron
+\family default
+ configuration syntax is not easily understandable by laymen.
+ It is easy to 
+\series bold
+misconfigure
+\series default
+ such that a backup is created 
+\emph on
+once per minute
+\emph default
+.
+ As long as the website is very small, this will not even be noticed by
+ sysadmins.
+ However, for bigger websites (and they are typically growing over time),
+ the IO load may increase to a point until even asynchronous replication
+ over 10Gig interfaces cannot catch up.
+ Even worse: the next run of 
+\family typewriter
+wp-cron
+\family default
+ may start before the old one has finished within a minute.
+ Again, there is no chance except fixing the 
+\emph on
+root cause
+\emph default
+ at application level.
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+
+\series bold
+Choose the right 
+\emph on
+overall
+\emph default
+ architecture
+\series default
+ (not limited to storage).
+\begin_inset Newline newline
+\end_inset
+
+An impressive example for architectural (cf section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) ill-design can be found in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ Important explanations are in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Properties-Scalability"
+
+\end_inset
+
+, in particular subsection 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Influence-Factors-Scalability"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, and section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Filesystem-Layer-vs"
+
+\end_inset
+
+.
+ A strategic example is in subsection 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Scalability-Scenario"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ It is absolutely necessary to know the standard cache hierarchy of Unix
+ (similarly also found in Windows) from section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ More explanations are in this manual at many places.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In general, major ill-designs of overall architectures (end-to-end) cannot
+ be fixed at component level.
+ Even the 
+\begin_inset Quotes eld
+\end_inset
+
+best tuning of the world
+\begin_inset Quotes erd
+\end_inset
+
+ executed by the 
+\begin_inset Quotes eld
+\end_inset
+
+best tuning expert
+\begin_inset Quotes erd
+\end_inset
+
+ on top of the 
+\begin_inset Quotes eld
+\end_inset
+
+best and most expensive storage 
+\emph on
+components
+\emph default
+ over the best storage 
+\emph on
+network
+\emph default
+ of the world
+\begin_inset Quotes erd
+\end_inset
+
+ cannot compensate major ill-designs, such as 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ behaviour.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Similarly for reliability: if you have problems with too many and/or too
+ large incidents affecting too many customers, read sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Reliability-Differences-CentralStorage"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Choice and tuning of components
+\series default
+.
+\begin_inset Newline newline
+\end_inset
+
+No further explanations necessary, because most people already know this.
+ In case you think this is the 
+\emph on
+only
+\emph default
+ way: no, it is typically the 
+\emph on
+worst
+\emph default
+ and typically only the 
+\emph on
+last resort
+\emph default
+ when compared to the previous enumeration items.
+ See example in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\begin_inset Newline newline
+\end_inset
+
+Exception: choice of wrong components with insufficient properties for your
+ particular application / use case, or even hard restrictions as mentioned
+ in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ But this is an 
+\emph on
+architectural
+\emph default
+ problem in reality, and belongs to the previous item, not to this one.
 \end_layout
 
 \begin_layout Chapter
