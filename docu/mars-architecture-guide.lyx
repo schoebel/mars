@@ -31743,6 +31743,688 @@ application area
 \end_layout
 
 \begin_layout Section
+From OpenSource Consumers to Contributors to Leaders
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:From-OpenSource-Consumers"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The basic idea of OpenSource is very simple:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Fundamental idea of OpenSource
+\end_layout
+
+\end_inset
+
+Several competitors and enthusiasts are meeting together in a common neutral
+ playground, also called 
+\series bold
+commons
+\series default
+ or 
+\series bold
+common land
+\series default
+.
+ Each is contributing something useful to the commons.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ As a 
+\emph on
+result
+\emph default
+ of collaboration, 
+\emph on
+each
+\emph default
+ of them is 
+\series bold
+getting back more value
+\series default
+ than 
+\emph on
+each
+\emph default
+ of them have contributed.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ OpenSource is much more than a particular component.
+ In fact, it is a 
+\series bold
+whole ecosystem
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+This means: by definition, only globally useful software (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Usefulness-Scope-of-Software"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) can qualify as OpenSource commons.
+ In some cases, domain-specific generic software may qualify also, but this
+ needs to be checked.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ This 
+\emph on
+usability gap
+\emph default
+ leaves you an opportunity for 
+\series bold
+company-individual or product-specific customization
+\series default
+ even of your own OpenSource components, provided you manage to get an appropria
+te degree of genericity (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Architectural-Levels-of-Genericity"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Best areas for OpenSource
+\end_layout
+
+\end_inset
+
+Several people are fearing that OpenSource might help their competitors
+ too much.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ When OpenSource is used for 
+\series bold
+basic infrastructure
+\series default
+ instead of finished competitive products, then a 
+\series bold
+win-win
+\series default
+ situation is always 
+\series bold
+improving competitiveness
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ There are a few 
+\emph on
+examples
+\emph default
+ where even giving away a 
+\emph on
+full product
+\emph default
+ can improve competitiveness.
+ An example is Google Android.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In addition, each competitor may make better business by 
+\series bold
+strengthening a whole ecosystem
+\series default
+, e.g.
+ attracting more customers in total, etc.
+\end_layout
+
+\begin_layout Plain Layout
+In particular, this can make sense when competition is more between 
+\emph on
+whole ecosystems
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Example: today there is an increasing competition between the webhosting
+ ecosystem (including public blog software like WordPress), and account-based
+ social media (e.g.
+ Facebook & co).
+\end_layout
+
+\end_inset
+
+, than between individual companies.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+The vast majority of companies will profit from the Linux kernel, because
+ selling OS software is 
+\emph on
+not
+\emph default
+ their core business.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+Several ecosystems are already 
+\series bold
+dominated by OpenSource
+\series default
+.
+ Commercial competitors would not have a chance anyway, because the 
+\series bold
+world-wide total productivity
+\series default
+ (e.g.
+\series bold
+scaling effects
+\series default
+) of OpenSource is unbeatable in such areas.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+MARS would not have a chance for long-term survival if it weren't OpenSource.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+How to take advantage of OpenSource? The OSAMM = Open Source Adoption Maturity
+ Model is explained in simplified form at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://baloise.github.io/open-source/docs/md/goals/uplift.html
+\end_layout
+
+\end_inset
+
+.
+ More context can be found in Lofi Dewanto's presentation 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://drive.google.com/file/d/1GHLogE3ibdyjPaYfK_O4ELVtvUcE051R/view
+\end_layout
+
+\end_inset
+
+, in particular slide 24.
+ There are 3 levels of OpenSource adoption which are interesting for most
+ companies:
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Use
+\series default
+.
+ Typically, OpenSource software is just downloaded, possibly compiled (depending
+ on development model), and installed.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Contribute
+\series default
+.
+ Some code / documentation / feedback is flowing from in-house users back
+ to the public project.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Champion
+\series default
+.
+ Somebody in the company has a leading role in the public project, and is
+ thus leading a 
+\series bold
+movement
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Important OpenSource specialities
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ There are certain misconceptions about OpenSource, which can lead to 
+\series bold
+fatal failures
+\series default
+.
+ Here are some extremely important explanations:
+\end_layout
+
+\begin_layout Itemize
+OpenSource is more about a 
+\emph on
+movement
+\emph default
+ than about the 
+\begin_inset Quotes eld
+\end_inset
+
+software as such
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+Several important OpenSource projects, like the Linux kernel, have been
+ 
+\series bold
+founded by individuals
+\series default
+ and 
+\emph on
+not
+\emph default
+ by companies.
+ Such projects are following 
+\series bold
+different rules than company projects
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Rules in personal OpenSource projects
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Managers who don't know the written and un-written rules of 
+\series bold
+personally led OpenSource projects 
+\series default
+can easily create 
+\series bold
+substantial damage
+\series default
+, up to the destruction of a (sub-)project.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ The principles behind OpenSource movement rules can be found at Eric Raymond's
+ articles from the 1990s and early 2000s.
+ You need to understand that OpenSource communities are a 
+\series bold
+gift culture
+\series default
+, aka 
+\series bold
+meritocracy
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Personal leadership in Linux
+\end_layout
+
+\end_inset
+
+Practically everybody knows that Linus Torvalds has founded the Linux kernel.
+ His name is even encoded into the project name.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ As you can read at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://www.kernel.org
+\end_layout
+
+\end_inset
+
+, there is no chance to submit a patch originating from a company.
+ Linus and the kernel hackers will simply ignore it.
+ Only patches submitted by 
+\emph on
+individuals
+\emph default
+ are acceptable at all.
+ It would be bad style to argue 
+\begin_inset Quotes eld
+\end_inset
+
+you must accept this patch because I am from company XYZ, and I am paid
+ by my company to create this patch
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Even if the company name had three capital letters, it wouldn't help.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Kernel modules like MARS
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ As mentioned above, MARS would have no long-term chance for survival unless
+ OpenSource.
+ Since it is a Linux kernel module, it 
+\series bold
+\emph on
+cannot exist
+\emph default
+ independently from Linux
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Consequence: anyone who wants to work at the core of the MARS project 
+\series bold
+\emph on
+must accept
+\emph default
+ the same rules
+\series default
+ as for the Linux kernel
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Example: 
+\family typewriter
+grsecurity
+\family default
+ was 
+\emph on
+technically
+\emph default
+ a sub-project of Linux, but did not comply to the rules of the Linux community.
+ Therefore it failed in 2017, after more of a decade of OpenSource activity.
+ Some of its remains are now migrated into mainstream, but not by the original
+ founder of the technical sub-project.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Eric Raymond's famous articles need to be obeyed, too.
+ For example, as a company you 
+\emph on
+cannot decide
+\emph default
+ to replace the founder of the project (which started only upon personal
+ initiative and 
+\emph on
+not
+\emph default
+ as a company project), with another person.
+ Otherwise, the public OpenSource project would be either dead, or it would
+ necessarily lead to a project fork.
+ Only one of the forks could survive in long term, and be included into
+ mainstream Linux.
+ Which one will become clear to you, once you have read Eric Raymond's articles
+ (if you cannot guess it anyway from terms like 
+\series bold
+meritocracy
+\series default
+).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
 Recommendations for Design and Operation of  Storage Systems
 \begin_inset CommandInset label
 LatexCommand label
