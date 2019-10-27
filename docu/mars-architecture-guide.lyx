@@ -7397,7 +7397,7 @@ Confusion of solution classes and/or their corresponding problem classes
 
 \end_layout
 
-\begin_layout Subsection
+\begin_layout Section
 Flexibility of Handover / Failover Granularities
 \begin_inset CommandInset label
 LatexCommand label
@@ -8290,8 +8290,8 @@ noprefix "false"
 .
 \end_layout
 
-\begin_layout Subsection
-Example: Point-in-time Replication via ZFS Snapshots
+\begin_layout Section
+Point-in-time Replication via ZFS Snapshots
 \begin_inset CommandInset label
 LatexCommand label
 name "subsec:Example:-ZFS-Replication"
