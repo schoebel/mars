@@ -1233,7 +1233,183 @@ reach
 \end_layout
 
 \begin_layout Section
-Replication vs Backup
+What is Backup
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:What-is-Backup"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A Backup is a 
+\series bold
+copy of your data
+\series default
+ at a 
+\series bold
+different location
+\series default
+.
+ There are two distinct operations associated with backup:
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Creation
+\series default
+ of backup.
+ This creates a 
+\series bold
+copy
+\series default
+, or a new version of a copy.
+ It involves some network traffic over various distances, e.g in simplest
+ case over a USB cable, or from the application datacenter to a backup datacente
+r.
+ Typically, this is done at 
+\series bold
+regular time intervals
+\series default
+, e.g.
+ daily.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Restore
+\series default
+ from backup.
+ This does the 
+\emph on
+opposite
+\emph default
+ of backup creation.
+ It also involves network traffic, but in 
+\series bold
+reverse direction
+\series default
+.
+ The 
+\series bold
+roles
+\series default
+ of application datacenter and backup datacenter 
+\series bold
+do not change
+\series default
+.
+ Restore is typically 
+\series bold
+triggered manually
+\series default
+, and only after some incident which led to 
+\series bold
+data loss
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ It would be a 
+\emph on
+bad idea
+\emph default
+ to restore a backup although there is no data loss.
+ This would likely overwrite your newest application data with an elder
+ version, likely leading to 
+\emph on
+data loss
+\emph default
+.
+ Therefore, restore is 
+\series bold
+potentially dangerous operation
+\series default
+!
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Summary: structural properties of backup
+\end_layout
+
+\end_inset
+
+Backup is 
+\series bold
+asymmetrical
+\series default
+.
+ It involves two non-exchangable roles / locations, application location
+ vs backup location.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Confusion of these roles, or triggering an unnecessary restore is a 
+\series bold
+risk
+\series default
+ for 
+\series bold
+data integrity
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Conversely, having no reasonable backup at all is an even higher risk.
+ Backup is a 
+\series bold
+best practice
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+What is Replication
 \begin_inset CommandInset label
 LatexCommand label
 name "sec:Replication-vs-Backup"
@@ -1278,7 +1454,9 @@ https://en.wikipedia.org/wiki/Replication_(computing)
 \end_layout
 
 \begin_layout Standard
-For a rough comparison of 
+For this guide, we want a clearer discrimination, for better orientation
+ in the solution jungle.
+ As a rough comparison of 
 \emph on
 typical
 \emph default
@@ -1293,7 +1471,7 @@ typical
 \noindent
 \align center
 \begin_inset Tabular
-<lyxtabular version="3" rows="6" columns="3">
+<lyxtabular version="3" rows="7" columns="3">
 <features tabularvalignment="middle">
 <column alignment="left" valignment="top">
 <column alignment="center" valignment="top">
@@ -1322,6 +1500,35 @@ Backup
 
 \begin_layout Plain Layout
 Replication
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Timely pattern
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+intervals
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+continuously
 \end_layout
 
 \end_inset
@@ -1428,7 +1635,7 @@ Protect for logical data corruption
 \begin_inset Text
 
 \begin_layout Plain Layout
-yes (partly)
+yes
 \end_layout
 
 \end_inset
@@ -1448,7 +1655,11 @@ typically no
 \begin_inset Text
 
 \begin_layout Plain Layout
-Disaster Recovery Time (MTTR)
+Disaster Recovery Time (
+\series bold
+MTTR
+\series default
+)
 \end_layout
 
 \end_inset
@@ -1457,7 +1668,9 @@ Disaster Recovery Time (MTTR)
 \begin_inset Text
 
 \begin_layout Plain Layout
-typically (very) slow
+typically 
+\series bold
+very slow
 \end_layout
 
 \end_inset
@@ -1466,6 +1679,8 @@ typically (very) slow
 \begin_inset Text
 
 \begin_layout Plain Layout
+
+\series bold
 fast
 \end_layout
 
@@ -1481,12 +1696,109 @@ fast
 
 \begin_layout Standard
 \noindent
+There are some solutions implementing a 
+\emph on
+mixture
+\emph default
+, by different combinations of some of these typical properties.
+ Here we focus on fundamental principles.
+\end_layout
+
+\begin_layout Standard
+Although 
+\series bold
+replication
+\series default
+ as defined here 
+\series bold
+has much better properties
+\series default
+ from a risk viewpoint on enterprise-critical data, there remains a gap
+ in favour of backup: backup is typically implemented as a 
+\emph on
+logical copy
+\emph default
+, which lowers risks from certain types of 
+\series bold
+data corruption
+\series default
+, such as filesystem corruption, for which only risky repair workarounds
+ like 
+\family typewriter
+fsck
+\family default
+ are the last resort when you don't have a backup 
+\emph on
+in addition
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+An integrated solution for continuous replication via logical copies would
+ be difficult.
+ There is a 
+\emph on
+concept mismatch
+\emph default
+ between logical copies and strict consistency requirements posed by fast
+ handover, while at the same time compensation of logical data corruption
+ would require the 
+\emph on
+opposite
+\emph default
+ of strict consistency.
+ Notice that logical copies are residing at higher layers, e.g.
+ filesystems or database records, while pure replication is easier done
+ at block layer.
+ See also section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ Notice that snapshots at block layer cannot 
+\emph on
+reliably
+\emph default
+ protect against long-lasting 
+\series bold
+silent corruptions
+\series default
+.
+ Even higher-layer ZFS snapshots treated in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example:-ZFS-Replication"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ cannot provide the same protection level as a classical per-inode multi-generat
+ion backup onto a different filesystem type, thus lowering systematical
+ risks from software bugs in filesystem code.
+\end_layout
+
+\end_inset
+
+ to replication.
+\end_layout
+
+\begin_layout Standard
 Because of these typical differences, enterprise-critical data typically
  deserves 
 \emph on
 both
 \emph default
- solution classes.
+ solution classes at the same time.
 \end_layout
 
 \begin_layout Standard
@@ -1494,9 +1806,126 @@ both
 status open
 
 \begin_layout Plain Layout
-Confusion of solution classes and/or their corresponding problem classes
- / properties can be harmful to enterprises and to carreers of responsible
- persons.
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Important requirements for replication
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ A good replication solution is 
+\series bold
+symmetrical
+\series default
+.
+ There a two (or more) copies at different locations.
+ They are either active at the same time (which works reliably only rack-to-rack
+ over crossover cables, see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), and/or they need to 
+\series bold
+switch their roles quickly
+\series default
+.
+ Switching should have two different triggers: 
+\series bold
+planned handover
+\series default
+, vs 
+\series bold
+unplanned failover
+\series default
+ in case of an incident.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Symmetry is an important precondition for 
+\series bold
+fast reaction
+\series default
+ onto incidents.
+ For 
+\series bold
+enterprise-critical data
+\series default
+, this is important for drastically 
+\series bold
+lowering
+\series default
+ the expectance value of 
+\series bold
+losses by incidents
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Confusion of solution classes replication vs backup and/or their corresponding
+ problem classes / properties can be harmful to enterprises and to carreers
+ of responsible persons.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Hint: the 
+\emph on
+granularity
+\emph default
+ of replication handover / failover is important for maximum flexibility.
+ See section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \end_inset
