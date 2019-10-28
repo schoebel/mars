@@ -9874,2134 +9874,6 @@ http://www.blkreplay.org
 \end_layout
 
 \begin_layout Section
-Local vs Centralized Storage
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:Local-vs-Centralized"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-There is some historical belief that only centralized storage systems, as
- typically sold by commercial storage vendors, could achieve a high degree
- of reliability, while local storage were inferior by far.
- In the following, we will see that this is only true for an 
-\series bold
-\emph on
-unfair
-\series default
-\emph default
- comparison involving different classes of storage systems.
-\end_layout
-
-\begin_layout Subsection
-Internal Redundancy Degree
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 2
-status open
-
-\begin_layout Plain Layout
-Centralized commerical storage systems are typically built up from highly
- redundant 
-\emph on
-internal
-\emph default
- components:
-\end_layout
-
-\begin_layout Enumerate
-Redundant power supplies with UPS.
-\end_layout
-
-\begin_layout Enumerate
-Redundancy at the storage HDDs / SSDs.
-\end_layout
-
-\begin_layout Enumerate
-Redandancy at internal transport busses.
-\end_layout
-
-\begin_layout Enumerate
-Redundant RAM / SSD caches.
-\end_layout
-
-\begin_layout Enumerate
-Redundant network interfaces.
-\end_layout
-
-\begin_layout Enumerate
-Redundant compute heads.
-\end_layout
-
-\begin_layout Enumerate
-Redundancy at control heads / management interfaces.
-\end_layout
-
-\begin_layout Plain Layout
-What about local hardware RAID controllers? Some people think that these
- relatively cheap units were massively inferior at practically each of these
- points.
- Please take a 
-\emph on
-really deep
-\emph default
- look at what classical RAID chip manufacturers like LSI / Avago / Broadcom
- and their competitors are offering as configuration variants of their top
- notch models.
- The following enumeration is in the same order as above (item by item):
-\end_layout
-
-\begin_layout Enumerate
-Redundant hardware RAID cards with BBU caches, each with local goldcaps
- surviving power outages, their BBU caches cross-coupled via high-speed
- interconnects.
-\end_layout
-
-\begin_layout Enumerate
-HDD / SSD redundancy: almost any RAID level you can think of.
-\end_layout
-
-\begin_layout Enumerate
-Redundant SAS cross-cabling: any head can access any device.
-\end_layout
-
-\begin_layout Enumerate
-BBU caches are redundant and cross-coupled, similarly to RDMA.
- When SSD caches are added to both cards, you also get redundancy there.
-\end_layout
-
-\begin_layout Enumerate
-When using cross-coupled redundant cards, you automatically get redundant
- host bus interfaces (HBAs).
-\end_layout
-
-\begin_layout Enumerate
-The same story: you also get two independent RAID controller instances which
- can do RAID computations independently from each other.
- Some implementations do this even in hardware (ASICs).
-\end_layout
-
-\begin_layout Enumerate
-Dito: both cards may be plugged into two different servers, thereby creating
- redundancy at control level.
- As a side effect, you may also get a similar functionality than DRBD.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-
-\series bold
-Redunduncy degree of RAID vs commercial appliances
-\end_layout
-
-\end_inset
-
-When dimensioned appropriately, real architectual and functional differences
- at block layer are smaller than certain people are claiming.
- For many block layer use cases, redundancy is 
-\series bold
-roughly comparable
-\series default
-.
-\end_layout
-
-\begin_layout Plain Layout
-If you compare typical prices for both competing systems, you will notice
- a 
-\emph on
-huge
-\emph default
- difference in favour of RAID.
- See also section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Cost-Arguments-from-Technology"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsection
-Capacity Differences
-\end_layout
-
-\begin_layout Standard
-There is another hard-to-die myth: commercial storage would provide higher
- capacity.
- Please read the data sheets.
- It is 
-\emph on
-possible
-\emph default
- (but not generally recommended) to put several hundreds of spindles into
- several external HDD enclosures, and then connect them to a redundant cross-cou
-pled pair of RAID controllers via several types of SAS busses.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-
-\series bold
-Maximum possible RAID capacity
-\end_layout
-
-\end_inset
-
-By filling a rack this way, RAID can easily reach similar, if not higher
- capacities than commercial storage boxes, for a 
-\emph on
-fraction
-\emph default
- of the price.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-However, this is not the recommended way for 
-\emph on
-general
-\emph default
- use cases, but could be an option for low demands like archiving.
- The big advantage of RAID-based local storage is 
-\series bold
-massive scale-out by sharding,
-\series default
- as explained in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:Distributed-vs-Local:"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Subsection
-Caching Differences
-\end_layout
-
-\begin_layout Standard
-A frequent argument is that centralized storage systems had bigger caches
- than local RAID systems.
- While this argument is often true, it neglects an important point:
-\end_layout
-
-\begin_layout Standard
-Local RAID systems often 
-\emph on
-don't need
-\emph default
- bigger caches, because they are typically located at the 
-\emph on
-bottom
-\emph default
- of a cache hierarchy, playing only a 
-\emph on
-particular
-\emph default
- role in that hierarchy.
- There exist 
-\emph on
-further
-\emph default
- caches which are 
-\series bold
-erronously not considered
-\series default
- by such an argument!
-\end_layout
-
-\begin_layout Standard
-Example, see also section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:Performance-Arguments-from"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
- for more details: At 1&1 Shared Hosting Linux (ShaHoLin), a typical LXC
- container containing several thousands to tenthousands of customer home
- directories, creates a long-term 
-\emph on
-average(!)
-\emph default
- IOPS load at block layer of about 70 IOPS.
- No, this isn't a typo.
- It is not 70,000 IOPS.
- It is only 70 IOPS.
-\end_layout
-
-\begin_layout Standard
-Reason: the standard Linux kernel has two main caches, the Page Cache for
- file content, and the Dentry Cache (plus Inode slave cache) for metadata.
- Both caches are residing in 
-\series bold
-RAM
-\series default
-, which is the 
-\emph on
-fastest
-\emph default
- type of cache you can get.
- Some more details are in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:Performance-Arguments-from"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-Nowadays, typical servers have several hundreds of gigabytes of RAM, sometimes
- even up to terabytes, resulting in an incredible caching behaviour which
- can be measured
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Caution: this requires 
-\emph on
-extremely solid
-\emph default
- expert knowledge and experience.
- It can be easily done wrongly.
- When managers are believing 
-\series bold
-fake results
-\series default
-, whether produced by accident from people stuck to 
-\series bold
-second-order ignorance
-\series default
-, or whether produced for some 
-\series bold
-political reasons
-\series default
-: This can be 
-\series bold
-dangerous for companies
-\series default
-.
-\end_layout
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-Many people appear to neglect these caches, sometimes not knowing of their
- existence, and erronously assuming that 1 application r
-\family typewriter
-ead()
-\family default
- or 
-\family typewriter
-write()
-\family default
- operation will also lead to 1 IOPS at block layer.
- As a consequence, they are demanding 50,000 IOPS or 100,000 or even 1,000,000
- IOPS.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-
-\series bold
-IOPS over-engineering
-\end_layout
-
-\end_inset
-
-IOPS over-engineering by some orders of magnitudes can cause 
-\emph on
-considerable
-\emph default
- unnecessary expenses.
- Be sure to carefully 
-\series bold
-check real demands
-\series default
-!
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Flex Custom Color Box 2
-status open
-
-\begin_layout Plain Layout
-\noindent
-Some (but not all) commercial storage systems can deliver similar IOPS rates,
- because they have 
-\series bold
-internal RAM caches
-\series default
- in the same order of magnitude.
- Notice that persistent RAM is the 
-\series bold
-most expensive
-\series default
- type of scalable storage you can buy.
-\end_layout
-
-\begin_layout Plain Layout
-People who are demanding such systems are typically falling into some of
- the following classes (list is probably incomplete):
-\end_layout
-
-\begin_layout Itemize
-some people know this, but price does not matter - the more caches, the
- better.
- Wasted money for doubled caches does not count for them, or is even viewed
- as an advantage to them (personally).
- Original citation of an anonymous person: 
-\begin_inset Quotes eld
-\end_inset
-
-only the best and the most expensive storage is good enough for us
-\begin_inset Quotes erd
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Itemize
-using NFS, which has extremely poor filesystem caching behaviour because
- the Linux nfs client implementation does not take full advantage of the
- dentry cache.
- Sometimes people know this, sometimes not.
- Please read an important paper on the Linux implementation of nfs.
- Please search the internet for 
-\begin_inset Quotes eld
-\end_inset
-
-Why nfs sucks
-\begin_inset Quotes erd
-\end_inset
-
- from Olaf Kirch (who is one of the original Linux nfs implementors), and
- 
-\emph on
-read
-\emph default
- it.
- Your opinion about nfs might change.
-\end_layout
-
-\begin_layout Itemize
-have transactional databases, where high IOPS may be 
-\emph on
-really
-\emph default
- needed, but 
-\series bold
-\emph on
-exceptionally
-\series default
-\emph default
-(!) for this class of application.
- For very big enterprise databases like big SAP installations, there may
- be a very valid justification for big RAM caches at storage layers.
- However: smaller transactional loads, as in webhosting, are 
-\emph on
-often
-\emph default
- (not always) hammering a 
-\emph on
-low
-\emph default
- number of 
-\series bold
-hot spots
-\series default
-, where 
-\emph on
-big
-\emph default
- caches are not really needed.
- Relatively small BBU caches of RAID cards will do it also.
- Often people don't notice this because they don't measure the 
-\series bold
-workingset behaviour
-\series default
- of their application, as could be done for example with 
-\family typewriter
-blkreplay
-\family default
- (see 
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-https://blkreplay.org
-\end_layout
-
-\end_inset
-
-).
-\end_layout
-
-\begin_layout Itemize
-do not notice that 
-\emph on
-well-tuned
-\emph default
- filesystem caches over iSCSI are typically demanding much less IOPS, sometimes
- by several orders of magnitude, and are wasting money with caches at commercial
- boxes they don't need (classical 
-\series bold
-over-engineering
-\series default
-).
-\end_layout
-
-\begin_layout Itemize
-
-\series bold
-political interest
-\series default
-, often supported by storage vendors.
-\end_layout
-
-\begin_layout Plain Layout
-Anyway, local storage can be augmented with various types of local caches
- with various dimensioning.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- There is no point in accessing the fastest possible type of RAM cache remotely
- over a network.
- RAM is best 
-\series bold
-invested money
-\series default
- when installed 
-\series bold
-locally
-\series default
-, 
-\emph on
-directly
-\emph default
- for your applications / services / compute nodes.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- Even expensive hardware-based RDMA (e.g.
- over Infiniband) cannot deliver the same performance as 
-\series bold
-directly caching
-\series default
- your data in the 
-\series bold
-\emph on
-same
-\emph default
- RAM
-\series default
- where your application is running.
- The Dentry Cache in the Linux kernel provides highly optimized 
-\series bold
-shared metadata
-\series default
- in SMP and NUMA systems (nowadays scaling to more than 100 processor cores),
- while the Page Cache provides 
-\series bold
-shared memory
-\series default
- via hardware MMU.
- This is crucial for the performance of classical local filesystems.
-\end_layout
-
-\begin_layout Standard
-The physical laws of Einstein and others are telling us that neither this
- type of caching, nor its shared memory behaviour, can be transported over
- whatever type of network without causing 
-\series bold
-performance degradation
-\series default
-.
-\end_layout
-
-\begin_layout Subsection
-Latencies and Throughput
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Latencies-and-Throughput"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-First of all: today there exist only a small number of HDD manufacturers
- on the world.
- The number of SSD manufacturers will likely decline in the long run.
- Essentially, commercial storage vendors are more or less selling you the
- same HDDs or SSDs as you could buy and deploy yourself.
- If at all, there are only some minor technical differences.
-\end_layout
-
-\begin_layout Standard
-In the meantime, many people agree to a Google paper that the 
-\emph on
-ratio
-\emph default
- of market prices (price per terabyte) between HDDs and SSDs are unlikely
- to change in a fundamental
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-In folklore, there exists a 
-\series bold
-fundamental empirical law
-\series default
-, fuzzily called 
-\begin_inset Quotes eld
-\end_inset
-
-Storage Pyramid
-\begin_inset Quotes erd
-\end_inset
-
- or 
-\begin_inset Quotes eld
-\end_inset
-
-Memory Hierarchy Law
-\begin_inset Quotes erd
-\end_inset
-
- or similar, which is well-known at least in German OS academic circles.
- The empirical law (extrapolated from 
-\series bold
-observations
-\series default
-, similarly to Moore's law) tells us that faster storage technology is always
- 
-\series bold
-more expensive
-\series default
- than slower storage technology, and that capacities of faster storage are
- typically always lesser than capacity of slower storage.
- This observation has been roughly valid for more than 50 years now.
- You can find it in several German lecture scripts.
- Unfortunately, the Wikipedia article 
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-https://en.wikipedia.org/wiki/Memory_hierarchy
-\end_layout
-
-\end_inset
-
- (retrieved in June 2018) does not cite this very important fundamental
- law about 
-\series bold
-costs
-\series default
-.
- In contrast, the German article 
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-https://de.wikipedia.org/wiki/Speicherhierarchie
-\end_layout
-
-\end_inset
-
- about roughly the same subject is mentioning 
-\begin_inset Quotes eld
-\end_inset
-
-Kosten
-\begin_inset Quotes erd
-\end_inset
-
- which means 
-\begin_inset Quotes eld
-\end_inset
-
-cost
-\begin_inset Quotes erd
-\end_inset
-
-, and 
-\begin_inset Quotes eld
-\end_inset
-
-teuer
-\begin_inset Quotes erd
-\end_inset
-
- which means 
-\begin_inset Quotes eld
-\end_inset
-
-expensive
-\begin_inset Quotes erd
-\end_inset
-
-.
-\end_layout
-
-\end_inset
-
- way during the next 10 years.
- Thus, most large-capacity enterprise storage systems are built on top of
- HDDs.
-\end_layout
-
-\begin_layout Standard
-Typically, HDDs and their mechanics are forming the overall bottleneck.
-\end_layout
-
-\begin_layout Itemize
-by construction, a 
-\emph on
-local
-\emph default
- HDD attached via HBAs or a hardware RAID controller will show the least
- 
-\emph on
-additional
-\emph default
- overhead in terms of 
-\emph on
-additional
-\emph default
- latencies and throughput degradation caused by the attachment.
-\end_layout
-
-\begin_layout Itemize
-When the 
-\emph on
-same
-\emph default
- HDD is 
-\emph on
-indirectly
-\emph default
- attached via Ethernet or Infiniband or another rack-to-rack transport,
- both latencies and throughput will become worse.
- Depending on further factors and influences, the overall bottleneck may
- shift to the network.
-\end_layout
-
-\begin_layout Standard
-The laws of information transfer are telling us:
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-With 
-\series bold
-increasing distance
-\series default
-, both latencies (laws of Einstein) and throughput (laws of energy needed
- for compensation of SNR = signal to noise ratio) are becoming worse.
- Distance matters.
-\end_layout
-
-\begin_layout Plain Layout
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- Because of this fundamental law, Football+MARS is 
-\series bold
-minimizing IO distances
-\series default
-.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-The number of intermediate components, like routers / switches and their
- 
-\series bold
-queuing
-\series default
-, matters too.
-\end_layout
-
-\begin_layout Standard
-Consequently, local storage has 
-\emph on
-always
-\emph default
- an architectural
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-In order to be fair, an architectural comparison must be made under the
- assumption of comparable low-level technologies.
-\end_layout
-
-\end_inset
-
- advantage in front of any attachment via network.
- Centralized storages are bound to some network, and thus suffer from disadvanta
-ges in terms of latencies and throughput.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 2
-status open
-
-\begin_layout Plain Layout
-What is the expected long-term future? Will additional latencies and throughput
- of centralized storages become better over time?
-\end_layout
-
-\begin_layout Plain Layout
-It is difficult to predict the future.
- Let us first look at the past evolution.
- The following graphics has taken its numbers from Wikipedia articles 
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-https://en.wikipedia.org/wiki/List_of_device_bit_rates
-\end_layout
-
-\end_inset
-
- and 
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-https://en.wikipedia.org/wiki/History_of_hard_disk_drives
-\end_layout
-
-\end_inset
-
-, showing that HDD capacities have grown 
-\series bold
-over-proportionally
-\series default
- by about 2 orders of magnitude over about 30 years, when compared to the
- relative growth of network bandwidth.
-\end_layout
-
-\begin_layout Plain Layout
-In the following graphics, effects caused by decreasing form factors have
- been neglected, which would even 
-\emph on
-amplify
-\emph default
- the trend.
- For fairness, bundling of parallel disks or parallel communication channels
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-It is easy to see that the slopes of 
-\family typewriter
-HDD.capacity
-\family default
- vs 
-\family typewriter
-Infiniband.rates
-\family default
- are different.
- Parallelizing by bundling of Infiniband wires will only lift the line a
- little upwards, but will not alter its slope in logarithmic scale.
- For extrapolated time 
-\begin_inset Formula $t\rightarrow\infty$
-\end_inset
-
-, the extrapolated empirical long-term behaviour is rather striking.
-\end_layout
-
-\end_inset
-
- have been ignored.
- All comparisons are in logarithmic y axis scale:
-\end_layout
-
-\begin_layout Plain Layout
-\noindent
-\align center
-\begin_inset Graphics
-	filename BitRates/Capacity-BitRate-Comparison.pdf
-	width 100col%
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Plain Layout
-\noindent
-What does this mean when extrapolated into the future?
-\end_layout
-
-\begin_layout Plain Layout
-It means that concentrating more and more capacity into a single rack due
- to increasing data density will likely lead to more problems in future.
- Accessing more and more data over the network will become increasingly
- more difficult when concentrating high-capacity HDDs or SSDs
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-It is difficult to compare the space density of contemporary SSDs in a fair
- way.
- There are too many different form factors.
- For example, M2 cards are typically consuming even less 
-\begin_inset Formula $cm^{3}/TB$
-\end_inset
-
- than classical 2.5 inch form factors.
- This trend is likely to continue in future.
-\end_layout
-
-\end_inset
-
- into the same space volume as before.
-\end_layout
-
-\begin_layout Plain Layout
-In other words: centralized storages are no good idea yet, and will likely
- become an even worse idea in the future.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 1
-status open
-
-\begin_layout Plain Layout
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-Risky central storage architecture
-\end_layout
-
-\end_inset
-
-There was a major incident at a German web hosting company at the beginning
- of the 2000's.
- Their entire webhosting main business was running on a single proprietary
- highly redundant CentralStorage solution, which failed.
- Restore from backup took way too long from the viewpoint of a huge number
- of customers, leading to major press attention.
- Before this incident, they were the #1 webhoster in Germany.
- A few years later, 1&1 was the #1 instead.
- You can speculate whether this has to do with the incident.
- But anyway, the later geo-redundancy strategy of 1&1 basing on a sharding
- model (originally using DRBD, later MARS) was motivated by conclusions
- drawn from this incident.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 1
-status open
-
-\begin_layout Plain Layout
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-Non-competing scalabilty of central storage
-\end_layout
-
-\end_inset
-
-In the 1980s, a CentralStorage 
-\begin_inset Quotes eld
-\end_inset
-
-dinosaur
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-With the advent of NVME, SSDs are almost directly driven by DMA.
- Accessing any high-speed DMA devices by default via network is a foolish
- idea, similarly foolish than playing games via an expensive high-end gamer
- graphics cards which is then 
-\emph on
-indirectly
-\emph default
- attached via RDMA, or even via Ethernet.
- Probably no serious gamer would ever 
-\emph on
-try
-\emph default
- to do that.
- But some storage vendors do, for strategic reasons.
- Probably for their own survival, their customers are to be misguided to
- overlook the blinking red indicators that centralized SSD storage is likely
- nothing but an expensive dead end in the history of dinosaur architectures.
-\end_layout
-
-\end_inset
-
-
-\begin_inset Quotes erd
-\end_inset
-
- architecture called SLED = Single Large Expensive Disk was propagated with
- huge marketing noise and effort, but its historic fate was predictable
- for neutral experts not bound to particular interests: SLED finally lost
- against their contemporary RAID competition.
- Nowadays, many people don't even remember the term SLED.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-
-\series bold
-Strategic advice
-\end_layout
-
-\end_inset
-
-Today's 
-\series bold
-future
-\series default
- is likely dominated by 
-\series bold
-scaling-out architectures
-\series default
- like 
-\series bold
-sharding
-\series default
-, as explained in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:Distributed-vs-Local:"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsection
-Reliability Differences CentralStorage vs Sharding
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Reliability-Differences-CentralStorage"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-In this section, we look at 
-\emph on
-fatal
-\emph default
- failures only, ignoring temporary failures.
- A fatal failure of a storage is an incident which needs to be corrected
- by 
-\series bold
-restore from backup
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-By definition, even a 
-\emph on
-highly redundant
-\emph default
- CentralStorage is 
-\emph on
-nevertheless
-\emph default
- a SPOF = Single Point of Failure.
- This also applies to fatal failures.
-\end_layout
-
-\begin_layout Standard
-Some people are incorrectly arguing with redundancy.
- The problem is that 
-\emph on
-any
-\emph default
- system, even a highly redundant one, can fail fatally.
- There exists no perfect system on earth.
- One of the biggest known sources of fatal failure is 
-\series bold
-human error
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-In contrast, sharded storage (for example the LocalSharding model, see also
- section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Variants-of-Sharding"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-) has MPOF = Multiple Points Of Failure.
- It is unlikely that many shards are failing fatally at the same time, because
- shards are 
-\emph on
-independent
-\emph default
-
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-When all shards are residing in the same datacenter, there exists a SPOF
- by power loss or other impacts onto the whole datacenter.
- However, this applies to both the CentralStorage and to the LocalSharding
- model.
- In contrast to CentralStorage, LocalSharding can be more easily distributed
- over multiple datacenters.
-\end_layout
-
-\end_inset
-
- from each other by definition (see section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "par:Definition-of-Sharding"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
- for disambiguation of terms 
-\begin_inset Quotes eld
-\end_inset
-
-sharding
-\begin_inset Quotes erd
-\end_inset
-
- and 
-\begin_inset Quotes eld
-\end_inset
-
-shared-nothing
-\begin_inset Quotes erd
-\end_inset
-
-).
-\end_layout
-
-\begin_layout Standard
-What is the difference from the viewpoint of customers of the services?
-\end_layout
-
-\begin_layout Standard
-When a CentralStorage is failing fatally, a 
-\emph on
-huge
-\emph default
- number of customers will be affected for a 
-\emph on
-long
-\emph default
- time (see the example German webhoster mentioned in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Latencies-and-Throughput"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-).
- Reason: restore from backup will take extremely long because huge masses
- of data have to be restored = 
-\series bold
-copied
-\series default
- over a network.
- MTBF = Mean Time Between Failures is (hopefully) longer thanks to redundancy,
- but MTTR = Mean Time To Repair is also very long.
-\end_layout
-
-\begin_layout Standard
-With (Local)Sharding, the risk of 
-\emph on
-some
-\emph default
- fatal incident 
-\emph on
-somewhere
-\emph default
- in the sharding pool is higher, but the 
-\series bold
-\emph on
-size
-\series default
-\emph default
- of such an incident is smaller in three dimensions at the same time:
-\end_layout
-
-\begin_layout Enumerate
-There are much 
-\series bold
-less customers affected
-\series default
- (typically only 
-\begin_inset Formula $1$
-\end_inset
-
- shard out of 
-\begin_inset Formula $n$
-\end_inset
-
- shards).
-\end_layout
-
-\begin_layout Enumerate
-
-\series bold
-MTTR
-\series default
- = Mean Time To Repair is typically much better because there is much less
- data to be restored.
-\end_layout
-
-\begin_layout Enumerate
-
-\series bold
-Residual risk
-\series default
- plus resulting fatal damage by 
-\series bold
-un-repairable problems
-\series default
- is thus lower.
-\end_layout
-
-\begin_layout Standard
-What does this mean from the viewpoint of an investor of a big 
-\begin_inset Quotes eld
-\end_inset
-
-global player
-\begin_inset Quotes erd
-\end_inset
-
- company?
-\end_layout
-
-\begin_layout Standard
-As is promised by the vendors, let us assume that failure of CentralStorage
- might be occurring less frequently.
- But 
-\emph on
-when
-\emph default
- it happens on 
-\series bold
-enterprise-critical mass data
-\series default
-, the stock exchange value of the affected company will be exposed to a
- 
-\series bold
-hazard
-\series default
-.
- This is not bearable from the viewpoint of an investor.
-\end_layout
-
-\begin_layout Standard
-In contrast, the (Local)Sharding model is 
-\emph on
-distributing
-\emph default
- the 
-\series bold
-indispensible incidents
-\series default
- (because 
-\series bold
-perfect systems do not exist
-\series default
-, and 
-\series bold
-perfect humans do not exist
-\series default
-) to a lower number of customers with higher frequency, such that the 
-\series bold
-total impact onto the business
-\series default
- becomes bearable.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-
-\series bold
-Risk analysis of CentralStorage
-\end_layout
-
-\end_inset
-
-Risk analysis for 
-\series bold
-enterprise-critical
-\series default
- use cases is summarized in the following table:
-\end_layout
-
-\begin_layout Plain Layout
-\noindent
-\align center
-\begin_inset Tabular
-<lyxtabular version="3" rows="8" columns="3">
-<features tabularvalignment="middle">
-<column alignment="center" valignment="top">
-<column alignment="center" valignment="top">
-<column alignment="center" valignment="top" width="0pt">
-<row>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-CentralStorage
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-(Local)Sharding
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-Probability of 
-\emph on
-some
-\emph default
- fatal incident
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-lower
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-higher
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-# Customers affected
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-very high
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-very low
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-MTBF per storage
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-higher
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-lower
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-MTTR per storage
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-higher
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-lower
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-Unrepairable residual risk
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-higher
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-lower
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-Total impact
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-higher
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-lower
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-Investor's risk
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\series bold
-unbearable
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-stock exchange compatible
-\end_layout
-
-\end_inset
-</cell>
-</row>
-</lyxtabular>
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-Conclusions: CentralStorage is something for
-\end_layout
-
-\begin_layout Itemize
-\noindent
-Small to medium-sized companies which don't have the 
-\series bold
-manpower
-\series default
- and the 
-\series bold
-skills
-\series default
- for professionally building and operating a (Local)Sharding (or similar)
- system for their enterprise-critical mass data their business is relying
- upon.
-\end_layout
-
-\begin_layout Itemize
-
-\series bold
-\emph on
-Monolithic
-\emph default
- enterprise applications
-\series default
- like classical SAP which are anyway bound to a specific vendor, where you
- cannot select a different solution (so-called 
-\series bold
-Vendor Lock-In
-\series default
-).
-\end_layout
-
-\begin_layout Itemize
-When your application 
-\series bold
-is neither shardable
-\series default
- by construction (c.f.
- section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Distributed-vs-Local:"
-
-\end_inset
-
-), or when doing so would be a too high effort, 
-\series bold
-nor going to BigCluster
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Theoretically, BigCluster can be used to create 1 single huge remote LV
- (or 1 single huge remote FS instance) out of a pool of storage machines.
- Double-check, better triple-check that such a 
-\series bold
-big 
-\emph on
-logical
-\emph default
- SPOF
-\series default
- is 
-\emph on
-really
-\emph default
- needed, and cannot be circumvented by any means.
- Only in such a case, the current version of MARS cannot help (yet), because
- its 
-\emph on
-current
-\emph default
- 
-\emph on
-focus
-\emph default
- is on a big number of machines each having relatively small LVs.
- At 1&1 ShaHoLin, the biggest LVs are 40TiB at the moment, running for years
- now, and bigger ones are certainly possible.
- Only when current local RAID technology with external enclosures cannot
- easily create a single LV in the petabyte scale, BigCluster is probably
- the better solution (c.f.
- section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:Reliability-Arguments-from"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-).
-\end_layout
-
-\end_inset
-
-
-\series default
- (e.g.
- Ceph / Swift / etc, see section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:Reliability-Arguments-from"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-) is an option.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
-If you have an
-\emph on
- already sharded
-\emph default
- system, e.g.
- independent VMs or webhosting, don't convert it to a non-shardable one,
- and don't introduce SPOFs needlessly.
- You will introduce 
-\series bold
-technical debts
-\series default
- which are likely to hurt back somewhen in future!
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-As a real big 
-\begin_inset Quotes eld
-\end_inset
-
-global player
-\begin_inset Quotes erd
-\end_inset
-
-, or as a company being part of such a structure, you should be careful
- when listening to 
-\begin_inset Quotes eld
-\end_inset
-
-marketing drones
-\begin_inset Quotes erd
-\end_inset
-
- of proprietary CentralStorage vendors.
- Always check your 
-\emph on
-concrete
-\emph default
- use case.
- Never believe in wrongly generalized claims, which are only valid in some
- specific context, but do not really apply to your use case.
- It could be about your 
-\emph on
-life
-\emph default
-.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsection
-Proprietary vs OpenSource
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Proprietary-vs-OpenSource"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-In theory, the following dimensions are orthogonal to each other:
-\end_layout
-
-\begin_layout Description
-Architecture: LocalStorage vs CentralStorage vs DistributedStorage
-\end_layout
-
-\begin_layout Description
-Licensing: Proprietary vs OpenSource
-\end_layout
-
-\begin_layout Standard
-In practice, however, many vendors of proprietary storage systems are selecting
- the CentralStorage model.
- This way, they can avoid inter-operability with their competitors.
- This opens the door for the so-called 
-\series bold
-Vendor Lock-In
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-In contrast, the OpenSource community is based on 
-\emph on
-cooperation
-\emph default
-.
- Opting for OpenSource means that you can 
-\series bold
-combine and exchange
-\series default
- numerous 
-\series bold
-components
-\series default
- with each other.
- 
-\end_layout
-
-\begin_layout Standard
-Key OpenSource players are 
-\emph on
-basing
-\emph default
- their business on the 
-\series bold
-usefulness
-\series default
- of their software components for you, their customer.
- Please search the internet for further explanations from Eric S.
- Raymond.
-\end_layout
-
-\begin_layout Standard
-Therefore 
-\series bold
-interoperability
-\series default
- is a 
-\emph on
-must
-\emph default
- in the opensource business.
- For example, you can relatively easily migrate between DRBD and MARS, forth
- and backwards, see 
-\family typewriter
-mars-user-manual.pdf
-\family default
-.
- The 
-\emph on
-generic
-\emph default
- block devices provided by both DRBD and MARS (and by the kernel LVM2 implementa
-tion, and many others 
-\begin_inset Formula $\ldots$
-\end_inset
-
-) can interact with zillions of filesystems, VMs, applications, and so forth.
-\end_layout
-
-\begin_layout Standard
-Summary: 
-\series bold
-genericity
-\series default
- is a highly desired property in OpenSource communities, while proprietary
- products often try to control their usage by limiting either technical
- interoperability at certain layers, and/or legally by contracts.
- Trying to do so with OpenSource would make no sense, because 
-\emph on
-you
-\emph default
-, the customer, are the 
-\emph on
-real
-\emph default
- king who can 
-\emph on
-really
-\emph default
- select and combine components.
- You can form a 
-\series bold
-really customized system
-\series default
- to your 
-\series bold
-\emph on
-real needs
-\series default
-\emph default
-, not as just promised but not always actually delivered by so-called 
-\begin_inset Quotes eld
-\end_inset
-
-marketing drones
-\begin_inset Quotes erd
-\end_inset
-
- from commercial vendors who are actually prefering the needs of their employer
- in front of yours.
-\end_layout
-
-\begin_layout Standard
-There is another fundamental difference between proprietary software and
- OpenSource: the former is bound to some company, which may 
-\emph on
-vanish
-\emph default
- from the market.
- Commercial storage systems may be 
-\series bold
-discontinued
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-This can be a serious threat to your business relying on the value of your
- data.
- In particular, buying storage systems from 
-\emph on
-small
-\emph default
- vendors may increase this risk
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-There is a risk of a 
-\emph on
-domino effect
-\emph default
-: once there is a critical incident on highly redundant CentralStorage boxes
- from a particular (smaller) vendor, this may lead to major public media
- attention.
- This may form the 
-\emph on
-root cause
-\emph default
- for such a vendor to vanish from the market.
- Thus you may be left alone with a buggy system, even if you aren't the
- victim of the concrete incident.
-\end_layout
-
-\begin_layout Plain Layout
-In contrast, bugs in an OpenSource component can be fixed by a larger community
- of interested people, or by yourself if you hire somebody for this.
-\end_layout
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-OpenSource is different: it cannot die, even if the individual, or the (small)
- company which produced it, does no longer exist.
- The sourcecode is in the 
-\series bold
-public
-\series default
-.
- It just could get 
-\emph on
-outdated
-\emph default
- over time.
- However, as long as there is enough public interest, you will always find
- somebody who is willing to adapt and to 
-\emph on
-maintain
-\emph default
- it.
- Even if you would be the only one having such an interest, you can 
-\emph on
-hire
-\emph default
- a maintainer for it, specifically for your needs.
- You aren't 
-\series bold
-helpless
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-
-\series bold
-Long-term strategy
-\end_layout
-
-\end_inset
-
-When some appropriate OpenSource solution, or when some OpenSource components
- are availabe, its long-term TCO will be typically better than from proprietary
- vendors.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Section
 Distributed vs Local: Scalability Arguments from Architecture
 \begin_inset CommandInset label
 LatexCommand label
@@ -22220,6 +20092,2134 @@ component oriented
 Unix Philosophy
 \series default
 .
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Local vs Centralized Storage
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Local-vs-Centralized"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+There is some historical belief that only centralized storage systems, as
+ typically sold by commercial storage vendors, could achieve a high degree
+ of reliability, while local storage were inferior by far.
+ In the following, we will see that this is only true for an 
+\series bold
+\emph on
+unfair
+\series default
+\emph default
+ comparison involving different classes of storage systems.
+\end_layout
+
+\begin_layout Subsection
+Internal Redundancy Degree
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+Centralized commerical storage systems are typically built up from highly
+ redundant 
+\emph on
+internal
+\emph default
+ components:
+\end_layout
+
+\begin_layout Enumerate
+Redundant power supplies with UPS.
+\end_layout
+
+\begin_layout Enumerate
+Redundancy at the storage HDDs / SSDs.
+\end_layout
+
+\begin_layout Enumerate
+Redandancy at internal transport busses.
+\end_layout
+
+\begin_layout Enumerate
+Redundant RAM / SSD caches.
+\end_layout
+
+\begin_layout Enumerate
+Redundant network interfaces.
+\end_layout
+
+\begin_layout Enumerate
+Redundant compute heads.
+\end_layout
+
+\begin_layout Enumerate
+Redundancy at control heads / management interfaces.
+\end_layout
+
+\begin_layout Plain Layout
+What about local hardware RAID controllers? Some people think that these
+ relatively cheap units were massively inferior at practically each of these
+ points.
+ Please take a 
+\emph on
+really deep
+\emph default
+ look at what classical RAID chip manufacturers like LSI / Avago / Broadcom
+ and their competitors are offering as configuration variants of their top
+ notch models.
+ The following enumeration is in the same order as above (item by item):
+\end_layout
+
+\begin_layout Enumerate
+Redundant hardware RAID cards with BBU caches, each with local goldcaps
+ surviving power outages, their BBU caches cross-coupled via high-speed
+ interconnects.
+\end_layout
+
+\begin_layout Enumerate
+HDD / SSD redundancy: almost any RAID level you can think of.
+\end_layout
+
+\begin_layout Enumerate
+Redundant SAS cross-cabling: any head can access any device.
+\end_layout
+
+\begin_layout Enumerate
+BBU caches are redundant and cross-coupled, similarly to RDMA.
+ When SSD caches are added to both cards, you also get redundancy there.
+\end_layout
+
+\begin_layout Enumerate
+When using cross-coupled redundant cards, you automatically get redundant
+ host bus interfaces (HBAs).
+\end_layout
+
+\begin_layout Enumerate
+The same story: you also get two independent RAID controller instances which
+ can do RAID computations independently from each other.
+ Some implementations do this even in hardware (ASICs).
+\end_layout
+
+\begin_layout Enumerate
+Dito: both cards may be plugged into two different servers, thereby creating
+ redundancy at control level.
+ As a side effect, you may also get a similar functionality than DRBD.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Redunduncy degree of RAID vs commercial appliances
+\end_layout
+
+\end_inset
+
+When dimensioned appropriately, real architectual and functional differences
+ at block layer are smaller than certain people are claiming.
+ For many block layer use cases, redundancy is 
+\series bold
+roughly comparable
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+If you compare typical prices for both competing systems, you will notice
+ a 
+\emph on
+huge
+\emph default
+ difference in favour of RAID.
+ See also section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Cost-Arguments-from-Technology"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Capacity Differences
+\end_layout
+
+\begin_layout Standard
+There is another hard-to-die myth: commercial storage would provide higher
+ capacity.
+ Please read the data sheets.
+ It is 
+\emph on
+possible
+\emph default
+ (but not generally recommended) to put several hundreds of spindles into
+ several external HDD enclosures, and then connect them to a redundant cross-cou
+pled pair of RAID controllers via several types of SAS busses.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Maximum possible RAID capacity
+\end_layout
+
+\end_inset
+
+By filling a rack this way, RAID can easily reach similar, if not higher
+ capacities than commercial storage boxes, for a 
+\emph on
+fraction
+\emph default
+ of the price.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+However, this is not the recommended way for 
+\emph on
+general
+\emph default
+ use cases, but could be an option for low demands like archiving.
+ The big advantage of RAID-based local storage is 
+\series bold
+massive scale-out by sharding,
+\series default
+ as explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Distributed-vs-Local:"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+Caching Differences
+\end_layout
+
+\begin_layout Standard
+A frequent argument is that centralized storage systems had bigger caches
+ than local RAID systems.
+ While this argument is often true, it neglects an important point:
+\end_layout
+
+\begin_layout Standard
+Local RAID systems often 
+\emph on
+don't need
+\emph default
+ bigger caches, because they are typically located at the 
+\emph on
+bottom
+\emph default
+ of a cache hierarchy, playing only a 
+\emph on
+particular
+\emph default
+ role in that hierarchy.
+ There exist 
+\emph on
+further
+\emph default
+ caches which are 
+\series bold
+erronously not considered
+\series default
+ by such an argument!
+\end_layout
+
+\begin_layout Standard
+Example, see also section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ for more details: At 1&1 Shared Hosting Linux (ShaHoLin), a typical LXC
+ container containing several thousands to tenthousands of customer home
+ directories, creates a long-term 
+\emph on
+average(!)
+\emph default
+ IOPS load at block layer of about 70 IOPS.
+ No, this isn't a typo.
+ It is not 70,000 IOPS.
+ It is only 70 IOPS.
+\end_layout
+
+\begin_layout Standard
+Reason: the standard Linux kernel has two main caches, the Page Cache for
+ file content, and the Dentry Cache (plus Inode slave cache) for metadata.
+ Both caches are residing in 
+\series bold
+RAM
+\series default
+, which is the 
+\emph on
+fastest
+\emph default
+ type of cache you can get.
+ Some more details are in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Nowadays, typical servers have several hundreds of gigabytes of RAM, sometimes
+ even up to terabytes, resulting in an incredible caching behaviour which
+ can be measured
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Caution: this requires 
+\emph on
+extremely solid
+\emph default
+ expert knowledge and experience.
+ It can be easily done wrongly.
+ When managers are believing 
+\series bold
+fake results
+\series default
+, whether produced by accident from people stuck to 
+\series bold
+second-order ignorance
+\series default
+, or whether produced for some 
+\series bold
+political reasons
+\series default
+: This can be 
+\series bold
+dangerous for companies
+\series default
+.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Many people appear to neglect these caches, sometimes not knowing of their
+ existence, and erronously assuming that 1 application r
+\family typewriter
+ead()
+\family default
+ or 
+\family typewriter
+write()
+\family default
+ operation will also lead to 1 IOPS at block layer.
+ As a consequence, they are demanding 50,000 IOPS or 100,000 or even 1,000,000
+ IOPS.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+IOPS over-engineering
+\end_layout
+
+\end_inset
+
+IOPS over-engineering by some orders of magnitudes can cause 
+\emph on
+considerable
+\emph default
+ unnecessary expenses.
+ Be sure to carefully 
+\series bold
+check real demands
+\series default
+!
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+Some (but not all) commercial storage systems can deliver similar IOPS rates,
+ because they have 
+\series bold
+internal RAM caches
+\series default
+ in the same order of magnitude.
+ Notice that persistent RAM is the 
+\series bold
+most expensive
+\series default
+ type of scalable storage you can buy.
+\end_layout
+
+\begin_layout Plain Layout
+People who are demanding such systems are typically falling into some of
+ the following classes (list is probably incomplete):
+\end_layout
+
+\begin_layout Itemize
+some people know this, but price does not matter - the more caches, the
+ better.
+ Wasted money for doubled caches does not count for them, or is even viewed
+ as an advantage to them (personally).
+ Original citation of an anonymous person: 
+\begin_inset Quotes eld
+\end_inset
+
+only the best and the most expensive storage is good enough for us
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+using NFS, which has extremely poor filesystem caching behaviour because
+ the Linux nfs client implementation does not take full advantage of the
+ dentry cache.
+ Sometimes people know this, sometimes not.
+ Please read an important paper on the Linux implementation of nfs.
+ Please search the internet for 
+\begin_inset Quotes eld
+\end_inset
+
+Why nfs sucks
+\begin_inset Quotes erd
+\end_inset
+
+ from Olaf Kirch (who is one of the original Linux nfs implementors), and
+ 
+\emph on
+read
+\emph default
+ it.
+ Your opinion about nfs might change.
+\end_layout
+
+\begin_layout Itemize
+have transactional databases, where high IOPS may be 
+\emph on
+really
+\emph default
+ needed, but 
+\series bold
+\emph on
+exceptionally
+\series default
+\emph default
+(!) for this class of application.
+ For very big enterprise databases like big SAP installations, there may
+ be a very valid justification for big RAM caches at storage layers.
+ However: smaller transactional loads, as in webhosting, are 
+\emph on
+often
+\emph default
+ (not always) hammering a 
+\emph on
+low
+\emph default
+ number of 
+\series bold
+hot spots
+\series default
+, where 
+\emph on
+big
+\emph default
+ caches are not really needed.
+ Relatively small BBU caches of RAID cards will do it also.
+ Often people don't notice this because they don't measure the 
+\series bold
+workingset behaviour
+\series default
+ of their application, as could be done for example with 
+\family typewriter
+blkreplay
+\family default
+ (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://blkreplay.org
+\end_layout
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Itemize
+do not notice that 
+\emph on
+well-tuned
+\emph default
+ filesystem caches over iSCSI are typically demanding much less IOPS, sometimes
+ by several orders of magnitude, and are wasting money with caches at commercial
+ boxes they don't need (classical 
+\series bold
+over-engineering
+\series default
+).
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+political interest
+\series default
+, often supported by storage vendors.
+\end_layout
+
+\begin_layout Plain Layout
+Anyway, local storage can be augmented with various types of local caches
+ with various dimensioning.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ There is no point in accessing the fastest possible type of RAM cache remotely
+ over a network.
+ RAM is best 
+\series bold
+invested money
+\series default
+ when installed 
+\series bold
+locally
+\series default
+, 
+\emph on
+directly
+\emph default
+ for your applications / services / compute nodes.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Even expensive hardware-based RDMA (e.g.
+ over Infiniband) cannot deliver the same performance as 
+\series bold
+directly caching
+\series default
+ your data in the 
+\series bold
+\emph on
+same
+\emph default
+ RAM
+\series default
+ where your application is running.
+ The Dentry Cache in the Linux kernel provides highly optimized 
+\series bold
+shared metadata
+\series default
+ in SMP and NUMA systems (nowadays scaling to more than 100 processor cores),
+ while the Page Cache provides 
+\series bold
+shared memory
+\series default
+ via hardware MMU.
+ This is crucial for the performance of classical local filesystems.
+\end_layout
+
+\begin_layout Standard
+The physical laws of Einstein and others are telling us that neither this
+ type of caching, nor its shared memory behaviour, can be transported over
+ whatever type of network without causing 
+\series bold
+performance degradation
+\series default
+.
+\end_layout
+
+\begin_layout Subsection
+Latencies and Throughput
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Latencies-and-Throughput"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+First of all: today there exist only a small number of HDD manufacturers
+ on the world.
+ The number of SSD manufacturers will likely decline in the long run.
+ Essentially, commercial storage vendors are more or less selling you the
+ same HDDs or SSDs as you could buy and deploy yourself.
+ If at all, there are only some minor technical differences.
+\end_layout
+
+\begin_layout Standard
+In the meantime, many people agree to a Google paper that the 
+\emph on
+ratio
+\emph default
+ of market prices (price per terabyte) between HDDs and SSDs are unlikely
+ to change in a fundamental
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In folklore, there exists a 
+\series bold
+fundamental empirical law
+\series default
+, fuzzily called 
+\begin_inset Quotes eld
+\end_inset
+
+Storage Pyramid
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+Memory Hierarchy Law
+\begin_inset Quotes erd
+\end_inset
+
+ or similar, which is well-known at least in German OS academic circles.
+ The empirical law (extrapolated from 
+\series bold
+observations
+\series default
+, similarly to Moore's law) tells us that faster storage technology is always
+ 
+\series bold
+more expensive
+\series default
+ than slower storage technology, and that capacities of faster storage are
+ typically always lesser than capacity of slower storage.
+ This observation has been roughly valid for more than 50 years now.
+ You can find it in several German lecture scripts.
+ Unfortunately, the Wikipedia article 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Memory_hierarchy
+\end_layout
+
+\end_inset
+
+ (retrieved in June 2018) does not cite this very important fundamental
+ law about 
+\series bold
+cost
+\series default
+.
+ In contrast, the German article 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://de.wikipedia.org/wiki/Speicherhierarchie
+\end_layout
+
+\end_inset
+
+ about roughly the same subject is mentioning 
+\begin_inset Quotes eld
+\end_inset
+
+Kosten
+\begin_inset Quotes erd
+\end_inset
+
+ which means 
+\begin_inset Quotes eld
+\end_inset
+
+cost
+\begin_inset Quotes erd
+\end_inset
+
+, and 
+\begin_inset Quotes eld
+\end_inset
+
+teuer
+\begin_inset Quotes erd
+\end_inset
+
+ which means 
+\begin_inset Quotes eld
+\end_inset
+
+expensive
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+ way during the next 10 years.
+ Thus, most large-capacity enterprise storage systems are built on top of
+ HDDs.
+\end_layout
+
+\begin_layout Standard
+Typically, HDDs and their mechanics are forming the overall bottleneck.
+\end_layout
+
+\begin_layout Itemize
+by construction, a 
+\emph on
+local
+\emph default
+ HDD attached via HBAs or a hardware RAID controller will show the least
+ 
+\emph on
+additional
+\emph default
+ overhead in terms of 
+\emph on
+additional
+\emph default
+ latencies and throughput degradation caused by the attachment.
+\end_layout
+
+\begin_layout Itemize
+When the 
+\emph on
+same
+\emph default
+ HDD is 
+\emph on
+indirectly
+\emph default
+ attached via Ethernet or Infiniband or another rack-to-rack transport,
+ both latencies and throughput will become worse.
+ Depending on further factors and influences, the overall bottleneck may
+ shift to the network.
+\end_layout
+
+\begin_layout Standard
+The laws of information transfer are telling us:
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+With 
+\series bold
+increasing distance
+\series default
+, both latencies (laws of Einstein) and throughput (laws of energy needed
+ for compensation of SNR = signal to noise ratio) are becoming worse.
+ Distance matters.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Because of this fundamental law, Football+MARS is 
+\series bold
+minimizing IO distances
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The number of intermediate components, like routers / switches and their
+ 
+\series bold
+queuing
+\series default
+, matters too.
+\end_layout
+
+\begin_layout Standard
+Consequently, local storage has 
+\emph on
+always
+\emph default
+ an architectural
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In order to be fair, an architectural comparison must be made under the
+ assumption of comparable low-level technologies.
+\end_layout
+
+\end_inset
+
+ advantage in front of any attachment via network.
+ Centralized storages are bound to some network, and thus suffer from disadvanta
+ges in terms of latencies and throughput.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+What is the expected long-term future? Will additional latencies and throughput
+ of centralized storages become better over time?
+\end_layout
+
+\begin_layout Plain Layout
+It is difficult to predict the future.
+ Let us first look at the past evolution.
+ The following graphics has taken its numbers from Wikipedia articles 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/List_of_device_bit_rates
+\end_layout
+
+\end_inset
+
+ and 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/History_of_hard_disk_drives
+\end_layout
+
+\end_inset
+
+, showing that HDD capacities have grown 
+\series bold
+over-proportionally
+\series default
+ by about 2 orders of magnitude over about 30 years, when compared to the
+ relative growth of network bandwidth.
+\end_layout
+
+\begin_layout Plain Layout
+In the following graphics, effects caused by decreasing form factors have
+ been neglected, which would even 
+\emph on
+amplify
+\emph default
+ the trend.
+ For fairness, bundling of parallel disks or parallel communication channels
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+It is easy to see that the slopes of 
+\family typewriter
+HDD.capacity
+\family default
+ vs 
+\family typewriter
+Infiniband.rates
+\family default
+ are different.
+ Parallelizing by bundling of Infiniband wires will only lift the line a
+ little upwards, but will not alter its slope in logarithmic scale.
+ For extrapolated time 
+\begin_inset Formula $t\rightarrow\infty$
+\end_inset
+
+, the extrapolated empirical long-term behaviour is rather striking.
+\end_layout
+
+\end_inset
+
+ have been ignored.
+ All comparisons are in logarithmic y axis scale:
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset Graphics
+	filename BitRates/Capacity-BitRate-Comparison.pdf
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+What does this mean when extrapolated into the future?
+\end_layout
+
+\begin_layout Plain Layout
+It means that concentrating more and more capacity into a single rack due
+ to increasing data density will likely lead to more problems in future.
+ Accessing more and more data over the network will become increasingly
+ more difficult when concentrating high-capacity HDDs or SSDs
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+It is difficult to compare the space density of contemporary SSDs in a fair
+ way.
+ There are too many different form factors.
+ For example, M2 cards are typically consuming even less 
+\begin_inset Formula $cm^{3}/TB$
+\end_inset
+
+ than classical 2.5 inch form factors.
+ This trend is likely to continue in future.
+\end_layout
+
+\end_inset
+
+ into the same space volume as before.
+\end_layout
+
+\begin_layout Plain Layout
+In other words: centralized storages are no good idea yet, and will likely
+ become an even worse idea in the future.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+Risky central storage architecture
+\end_layout
+
+\end_inset
+
+There was a major incident at a German web hosting company at the beginning
+ of the 2000's.
+ Their entire webhosting main business was running on a single proprietary
+ highly redundant CentralStorage solution, which failed.
+ Restore from backup took way too long from the viewpoint of a huge number
+ of customers, leading to major press attention.
+ Before this incident, they were the #1 webhoster in Germany.
+ A few years later, 1&1 was the #1 instead.
+ You can speculate whether this has to do with the incident.
+ But anyway, the later geo-redundancy strategy of 1&1 basing on a sharding
+ model (originally using DRBD, later MARS) was motivated by conclusions
+ drawn from this incident.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+Non-competing scalabilty of central storage
+\end_layout
+
+\end_inset
+
+In the 1980s, a CentralStorage 
+\begin_inset Quotes eld
+\end_inset
+
+dinosaur
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+With the advent of NVME, SSDs are almost directly driven by DMA.
+ Accessing any high-speed DMA devices by default via network is a foolish
+ idea, similarly foolish than playing games via an expensive high-end gamer
+ graphics cards which is then 
+\emph on
+indirectly
+\emph default
+ attached via RDMA, or even via Ethernet.
+ Probably no serious gamer would ever 
+\emph on
+try
+\emph default
+ to do that.
+ But some storage vendors do, for strategic reasons.
+ Probably for their own survival, their customers are to be misguided to
+ overlook the blinking red indicators that centralized SSD storage is likely
+ nothing but an expensive dead end in the history of dinosaur architectures.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+ architecture called SLED = Single Large Expensive Disk was propagated with
+ huge marketing noise and effort, but its historic fate was predictable
+ for neutral experts not bound to particular interests: SLED finally lost
+ against their contemporary RAID competition.
+ Nowadays, many people don't even remember the term SLED.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Strategic advice
+\end_layout
+
+\end_inset
+
+Today's 
+\series bold
+future
+\series default
+ is likely dominated by 
+\series bold
+scaling-out architectures
+\series default
+ like 
+\series bold
+sharding
+\series default
+, as explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Distributed-vs-Local:"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Reliability Differences CentralStorage vs Sharding
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Reliability-Differences-CentralStorage"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In this section, we look at 
+\emph on
+fatal
+\emph default
+ failures only, ignoring temporary failures.
+ A fatal failure of a storage is an incident which needs to be corrected
+ by 
+\series bold
+restore from backup
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+By definition, even a 
+\emph on
+highly redundant
+\emph default
+ CentralStorage is 
+\emph on
+nevertheless
+\emph default
+ a SPOF = Single Point of Failure.
+ This also applies to fatal failures.
+\end_layout
+
+\begin_layout Standard
+Some people are incorrectly arguing with redundancy.
+ The problem is that 
+\emph on
+any
+\emph default
+ system, even a highly redundant one, can fail fatally.
+ There exists no perfect system on earth.
+ One of the biggest known sources of fatal failure is 
+\series bold
+human error
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+In contrast, sharded storage (for example the LocalSharding model, see also
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Variants-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) has MPOF = Multiple Points Of Failure.
+ It is unlikely that many shards are failing fatally at the same time, because
+ shards are 
+\emph on
+independent
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+When all shards are residing in the same datacenter, there exists a SPOF
+ by power loss or other impacts onto the whole datacenter.
+ However, this applies to both the CentralStorage and to the LocalSharding
+ model.
+ In contrast to CentralStorage, LocalSharding can be more easily distributed
+ over multiple datacenters.
+\end_layout
+
+\end_inset
+
+ from each other by definition (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Definition-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ for disambiguation of terms 
+\begin_inset Quotes eld
+\end_inset
+
+sharding
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+shared-nothing
+\begin_inset Quotes erd
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+What is the difference from the viewpoint of customers of the services?
+\end_layout
+
+\begin_layout Standard
+When a CentralStorage is failing fatally, a 
+\emph on
+huge
+\emph default
+ number of customers will be affected for a 
+\emph on
+long
+\emph default
+ time (see the example German webhoster mentioned in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Latencies-and-Throughput"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ Reason: restore from backup will take extremely long because huge masses
+ of data have to be restored = 
+\series bold
+copied
+\series default
+ over a network.
+ MTBF = Mean Time Between Failures is (hopefully) longer thanks to redundancy,
+ but MTTR = Mean Time To Repair is also very long.
+\end_layout
+
+\begin_layout Standard
+With (Local)Sharding, the risk of 
+\emph on
+some
+\emph default
+ fatal incident 
+\emph on
+somewhere
+\emph default
+ in the sharding pool is higher, but the 
+\series bold
+\emph on
+size
+\series default
+\emph default
+ of such an incident is smaller in three dimensions at the same time:
+\end_layout
+
+\begin_layout Enumerate
+There are much 
+\series bold
+less customers affected
+\series default
+ (typically only 
+\begin_inset Formula $1$
+\end_inset
+
+ shard out of 
+\begin_inset Formula $n$
+\end_inset
+
+ shards).
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+MTTR
+\series default
+ = Mean Time To Repair is typically much better because there is much less
+ data to be restored.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Residual risk
+\series default
+ plus resulting fatal damage by 
+\series bold
+un-repairable problems
+\series default
+ is thus lower.
+\end_layout
+
+\begin_layout Standard
+What does this mean from the viewpoint of an investor of a big 
+\begin_inset Quotes eld
+\end_inset
+
+global player
+\begin_inset Quotes erd
+\end_inset
+
+ company?
+\end_layout
+
+\begin_layout Standard
+As is promised by the vendors, let us assume that failure of CentralStorage
+ might be occurring less frequently.
+ But 
+\emph on
+when
+\emph default
+ it happens on 
+\series bold
+enterprise-critical mass data
+\series default
+, the stock exchange value of the affected company will be exposed to a
+ 
+\series bold
+hazard
+\series default
+.
+ This is not bearable from the viewpoint of an investor.
+\end_layout
+
+\begin_layout Standard
+In contrast, the (Local)Sharding model is 
+\emph on
+distributing
+\emph default
+ the 
+\series bold
+indispensible incidents
+\series default
+ (because 
+\series bold
+perfect systems do not exist
+\series default
+, and 
+\series bold
+perfect humans do not exist
+\series default
+) to a lower number of customers with higher frequency, such that the 
+\series bold
+total impact onto the business
+\series default
+ becomes bearable.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Risk analysis of CentralStorage
+\end_layout
+
+\end_inset
+
+Risk analysis for 
+\series bold
+enterprise-critical
+\series default
+ use cases is summarized in the following table:
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="8" columns="3">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top" width="0pt">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+CentralStorage
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+(Local)Sharding
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Probability of 
+\emph on
+some
+\emph default
+ fatal incident
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+lower
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+higher
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+# Customers affected
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+very high
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+very low
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MTBF per storage
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+higher
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+lower
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MTTR per storage
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+higher
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+lower
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Unrepairable residual risk
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+higher
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+lower
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Total impact
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+higher
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+lower
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Investor's risk
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\series bold
+unbearable
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+stock exchange compatible
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Conclusions: CentralStorage is something for
+\end_layout
+
+\begin_layout Itemize
+\noindent
+Small to medium-sized companies which don't have the 
+\series bold
+manpower
+\series default
+ and the 
+\series bold
+skills
+\series default
+ for professionally building and operating a (Local)Sharding (or similar)
+ system for their enterprise-critical mass data their business is relying
+ upon.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+\emph on
+Monolithic
+\emph default
+ enterprise applications
+\series default
+ like classical SAP which are anyway bound to a specific vendor, where you
+ cannot select a different solution (so-called 
+\series bold
+Vendor Lock-In
+\series default
+).
+\end_layout
+
+\begin_layout Itemize
+When your application 
+\series bold
+is neither shardable
+\series default
+ by construction (c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Distributed-vs-Local:"
+
+\end_inset
+
+), or when doing so would be a too high effort, 
+\series bold
+nor going to BigCluster
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Theoretically, BigCluster can be used to create 1 single huge remote LV
+ (or 1 single huge remote FS instance) out of a pool of storage machines.
+ Double-check, better triple-check that such a 
+\series bold
+big 
+\emph on
+logical
+\emph default
+ SPOF
+\series default
+ is 
+\emph on
+really
+\emph default
+ needed, and cannot be circumvented by any means.
+ Only in such a case, the current version of MARS cannot help (yet), because
+ its 
+\emph on
+current
+\emph default
+ 
+\emph on
+focus
+\emph default
+ is on a big number of machines each having relatively small LVs.
+ At 1&1 ShaHoLin, the biggest LVs are 40TiB at the moment, running for years
+ now, and bigger ones are certainly possible.
+ Only when current local RAID technology with external enclosures cannot
+ easily create a single LV in the petabyte scale, BigCluster is probably
+ the better solution (c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\end_inset
+
+
+\series default
+ (e.g.
+ Ceph / Swift / etc, see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) is an option.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+If you have an
+\emph on
+ already sharded
+\emph default
+ system, e.g.
+ independent VMs or webhosting, don't convert it to a non-shardable one,
+ and don't introduce SPOFs needlessly.
+ You will introduce 
+\series bold
+technical debts
+\series default
+ which are likely to hurt back somewhen in future!
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+As a real big 
+\begin_inset Quotes eld
+\end_inset
+
+global player
+\begin_inset Quotes erd
+\end_inset
+
+, or as a company being part of such a structure, you should be careful
+ when listening to 
+\begin_inset Quotes eld
+\end_inset
+
+marketing drones
+\begin_inset Quotes erd
+\end_inset
+
+ of proprietary CentralStorage vendors.
+ Always check your 
+\emph on
+concrete
+\emph default
+ use case.
+ Never believe in wrongly generalized claims, which are only valid in some
+ specific context, but do not really apply to your use case.
+ It could be about your 
+\emph on
+life
+\emph default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Proprietary vs OpenSource
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Proprietary-vs-OpenSource"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In theory, the following dimensions are orthogonal to each other:
+\end_layout
+
+\begin_layout Description
+Architecture: LocalStorage vs CentralStorage vs DistributedStorage
+\end_layout
+
+\begin_layout Description
+Licensing: Proprietary vs OpenSource
+\end_layout
+
+\begin_layout Standard
+In practice, however, many vendors of proprietary storage systems are selecting
+ the CentralStorage model.
+ This way, they can avoid inter-operability with their competitors.
+ This opens the door for the so-called 
+\series bold
+Vendor Lock-In
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+In contrast, the OpenSource community is based on 
+\emph on
+cooperation
+\emph default
+.
+ Opting for OpenSource means that you can 
+\series bold
+combine and exchange
+\series default
+ numerous 
+\series bold
+components
+\series default
+ with each other.
+ 
+\end_layout
+
+\begin_layout Standard
+Key OpenSource players are 
+\emph on
+basing
+\emph default
+ their business on the 
+\series bold
+usefulness
+\series default
+ of their software components for you, their customer.
+ Please search the internet for further explanations from Eric S.
+ Raymond.
+\end_layout
+
+\begin_layout Standard
+Therefore 
+\series bold
+interoperability
+\series default
+ is a 
+\emph on
+must
+\emph default
+ in the opensource business.
+ For example, you can relatively easily migrate between DRBD and MARS, forth
+ and backwards, see 
+\family typewriter
+mars-user-manual.pdf
+\family default
+.
+ The 
+\emph on
+generic
+\emph default
+ block devices provided by both DRBD and MARS (and by the kernel LVM2 implementa
+tion, and many others 
+\begin_inset Formula $\ldots$
+\end_inset
+
+) can interact with zillions of filesystems, VMs, applications, and so forth.
+\end_layout
+
+\begin_layout Standard
+Summary: 
+\series bold
+genericity
+\series default
+ is a highly desired property in OpenSource communities, while proprietary
+ products often try to control their usage by limiting either technical
+ interoperability at certain layers, and/or legally by contracts.
+ Trying to do so with OpenSource would make no sense, because 
+\emph on
+you
+\emph default
+, the customer, are the 
+\emph on
+real
+\emph default
+ king who can 
+\emph on
+really
+\emph default
+ select and combine components.
+ You can form a 
+\series bold
+really customized system
+\series default
+ to your 
+\series bold
+\emph on
+real needs
+\series default
+\emph default
+, not as just promised but not always actually delivered by so-called 
+\begin_inset Quotes eld
+\end_inset
+
+marketing drones
+\begin_inset Quotes erd
+\end_inset
+
+ from commercial vendors who are actually prefering the needs of their employer
+ in front of yours.
+\end_layout
+
+\begin_layout Standard
+There is another fundamental difference between proprietary software and
+ OpenSource: the former is bound to some company, which may 
+\emph on
+vanish
+\emph default
+ from the market.
+ Commercial storage systems may be 
+\series bold
+discontinued
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+This can be a serious threat to your business relying on the value of your
+ data.
+ In particular, buying storage systems from 
+\emph on
+small
+\emph default
+ vendors may increase this risk
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There is a risk of a 
+\emph on
+domino effect
+\emph default
+: once there is a critical incident on highly redundant CentralStorage boxes
+ from a particular (smaller) vendor, this may lead to major public media
+ attention.
+ This may form the 
+\emph on
+root cause
+\emph default
+ for such a vendor to vanish from the market.
+ Thus you may be left alone with a buggy system, even if you aren't the
+ victim of the concrete incident.
+\end_layout
+
+\begin_layout Plain Layout
+In contrast, bugs in an OpenSource component can be fixed by a larger community
+ of interested people, or by yourself if you hire somebody for this.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+OpenSource is different: it cannot die, even if the individual, or the (small)
+ company which produced it, does no longer exist.
+ The sourcecode is in the 
+\series bold
+public
+\series default
+.
+ It just could get 
+\emph on
+outdated
+\emph default
+ over time.
+ However, as long as there is enough public interest, you will always find
+ somebody who is willing to adapt and to 
+\emph on
+maintain
+\emph default
+ it.
+ Even if you would be the only one having such an interest, you can 
+\emph on
+hire
+\emph default
+ a maintainer for it, specifically for your needs.
+ You aren't 
+\series bold
+helpless
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Long-term strategy
+\end_layout
+
+\end_inset
+
+When some appropriate OpenSource solution, or when some OpenSource components
+ are availabe, its long-term TCO will be typically better than from proprietary
+ vendors.
 \end_layout
 
 \end_inset
