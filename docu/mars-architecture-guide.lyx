@@ -2983,10 +2983,10 @@ noprefix "false"
 \end_layout
 
 \begin_layout Chapter
-Architectures of Cloud Storage / Software Defined Storage
+Architectural Principles and Properties
 \begin_inset CommandInset label
 LatexCommand label
-name "chap:Cloud-Storage"
+name "chap:Architectural-Principles-and-Properties"
 
 \end_inset
 
@@ -9038,6 +9038,42 @@ noprefix "false"
 \end_inset
 
 
+\end_layout
+
+\begin_layout Chapter
+Architectures of Cloud Storage / Software Defined Storage
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Cloud-Storage"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This chapter compares several 
+\emph on
+architectural
+\emph default
+ alternatives with each other.
+ In order to not get lost in the jungle of numerous implementations and
+ their features, the description focuses on 
+\emph on
+architecture
+\emph default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) wherever possible.
+ Nevertheless, principal behaviour of implementations are also discussed.
 \end_layout
 
 \begin_layout Section
