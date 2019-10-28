@@ -9077,6 +9077,803 @@ noprefix "false"
 \end_layout
 
 \begin_layout Section
+Performance Arguments from Architecture
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Performance-Arguments-from"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Performance Penalties by Choice of Replication Layer
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Performance-Penalties-Layer"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Some people think that replication is easily done at filesystem layer.
+ There exist lots of cluster filesystems and other filesystem-layer solutions
+ which claim to be able to replicate your data, sometimes even over long
+ distances.
+\end_layout
+
+\begin_layout Standard
+Trying to replicate several petabytes of data, or some billions of inodes,
+ is however a much bigger challenge than many people can imagine.
+\end_layout
+
+\begin_layout Standard
+Choosing the wrong 
+\series bold
+layer
+\series default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Layering-Rules"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) for 
+\series bold
+mass data replication
+\series default
+ may get you into trouble.
+ Layer selection is much more important than any load distribution argument
+ as frequently heard from certain advocates.
+ Here is an architectural-level (cf section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) explanation why replication at the block layer is more easy and less error
+ prone:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/Layers.pdf
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The picture shows the main components of a standalone Unix / Linux system.
+ It conforms to Dijkstra's layering rules explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Layering-Rules"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+In the late 1970s / early 1980s, a so-called 
+\emph on
+Buffer Cache
+\emph default
+ had been introduced into the architecture of Unix.
+ Today's Linux has refined the concept to various internal caches such as
+ the 
+\series bold
+Page Cache
+\series default
+ (for data) and the 
+\series bold
+Dentry Cache
+\series default
+ (for metadata lookup).
+\end_layout
+
+\begin_layout Standard
+All these caches serve one main purpose
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Another important purpose is 
+\series bold
+providing shared memory
+\series default
+.
+\end_layout
+
+\end_inset
+
+: they are reducing the load onto the storage by exploitation of fast RAM.
+ A well-tuned cache can yield high cache hit ratios, typically 99%.
+ In some cases (as observed in practice) even more than 99.9%.
+\end_layout
+
+\begin_layout Standard
+Now start distributing the system over long distances.
+ There are potential cut points A and B and C
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In theory, there is another cut point D by implementing a generically distribute
+d cache.
+ There exists some academic research on this, but practically usable enterprise-
+grade implementations are rare and not wide-spread.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Cut point A is application specific, and can have advantages because it
+ has knowledge of the application.
+ For example, replication of mail queues can be controlled much more fine-graine
+d than at filesystem or block layer.
+\end_layout
+
+\begin_layout Standard
+Cut points B and C are 
+\emph on
+generic
+\emph default
+, supporting a wide variety of applications, without altering them.
+ Cutting at B means replication at filesystem layer.
+ C means replication at block layer.
+\end_layout
+
+\begin_layout Standard
+When replicating at B, you will notice that the caches are 
+\emph on
+below
+\emph default
+ your cut point.
+ Thus you will have to re-implement 
+\series bold
+distributed caches
+\series default
+, and you will have to 
+\series bold
+maintain cache coherence
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Caching can yield several 
+\emph on
+orders of magnitude
+\emph default
+ of performance.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In contrast, frequently heard load distribution arguments can only re-distribut
+e the already existing performance of your spindles, but cannot magically
+ 
+\begin_inset Quotes eld
+\end_inset
+
+create
+\begin_inset Quotes erd
+\end_inset
+
+ new sources of performance out of thin air.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+In contrary, load distribution over a storage network is 
+\emph on
+costing
+\emph default
+ some performance, by introduction of additional latencies and potential
+ bottlenecks.
+\end_layout
+
+\begin_layout Standard
+When replicating at C, the Linux caches are 
+\emph on
+above
+\emph default
+ your cut point.
+ Thus you will receive much less traffic at C, typically already reduced
+ by a factor of 100, or even more.
+ This is much more easy to cope with.
+ 
+\emph on
+Local
+\emph default
+ caches and their SMP scaling properties can be implemented much more efficientl
+y than distributed ones.
+ You will also profit from 
+\series bold
+journalling filesystems
+\series default
+ like 
+\family typewriter
+ext4
+\family default
+ or 
+\family typewriter
+xfs
+\family default
+.
+ In contrast, 
+\emph on
+truly distributed
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In this context, 
+\begin_inset Quotes eld
+\end_inset
+
+truly
+\begin_inset Quotes erd
+\end_inset
+
+ means that the POSIX semantics would be always guaranteed cluster-wide,
+ and even in case of partial failures.
+ In practice, some distributed filesystems like NFS don't even obey the
+ POSIX standard 
+\emph on
+locally
+\emph default
+ on 1 standalone client.
+ We know of projects which have 
+\emph on
+failed
+\emph default
+ right because of this.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ journalling is typically not available with distributed cluster filesystems.
+\end_layout
+
+\begin_layout Standard
+A 
+\emph on
+potential
+\emph default
+ drawback of block layer replication is that you are typically limited to
+ active-passive replication.
+ An active-active operation is not impossible at block layer (see combinations
+ of DRBD with 
+\family typewriter
+ocfs2
+\family default
+), but less common, and less safe to operate.
+\end_layout
+
+\begin_layout Standard
+This limitation isn't necessarily caused by the choice of layer.
+ It is simply caused by the 
+\series bold
+laws of physics
+\series default
+: communication is always limited by the speed of light.
+ A distributed filesystem is essentially nothing else but a persistent 
+\series bold
+DSM = Distributed Shared Memory
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+Some decades of research on DSM have shown that there exist applications
+ / workloads where the DSM model is 
+\emph on
+inferior
+\emph default
+ to the direct communication paradigm.
+ Even in short-distance / cluster scenarios.
+ Long-distance DSM is extremely cumbersome.
+\end_layout
+
+\begin_layout Standard
+Therefore: you simply shouldn't try to solve 
+\series bold
+long-distance communication needs
+\series default
+ via communication over shared filesystems.
+ Even simple producer-consumer scenarios (one-way communication) are less
+ performant (e.g.
+ when compared to plain TCP/IP) when it comes to distributed POSIX semantics.
+ There is simply too much 
+\series bold
+synchronisation overhead at metadata level
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+If you want mixed operations at different locations in parallel: split your
+ data set into disjoint filesystem instances (or database / VM instances,
+ etc).
+ Then you should achieve the 
+\series bold
+ability for butterfly
+\series default
+, see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+All you need is careful thought about the 
+\emph on
+appropriate
+\emph default
+ 
+\emph on
+granularity
+\emph default
+ of your data sets (such as well-chosen 
+\emph on
+sets
+\emph default
+ of user homedirectory subtrees, or database sets logically belonging together,
+ etc).
+ An example hierarchy of granularities is described in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Positive-Example:-ShaHoLin"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ Further hints can be found in sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Granularity-at-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Variants-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Sharding (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Definition-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) implementations like ShaHoLin (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Positive-Example:-ShaHoLin"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) are essentially exploiting the scalability of SMP = Symmetric MultiProcessing,
+ nowadays typically going into saturation around 
+\begin_inset Formula $\approx100$
+\end_inset
+
+ hardware CPU threads for typical workloads, which is executed by 
+\emph on
+hardware
+\emph default
+ inside of your server enclosure.
+ In contrast, DSM-like solutions are trying to distribute your application
+ workload over longer distances, involving relatively slow system software
+ instead of 
+\series bold
+hardware acceleration
+\series default
+.
+ Therefore, SMP is preferable over DSM wherever possible.
+\end_layout
+
+\begin_layout Standard
+Replication at filesystem level is often by single-file granularity.
+ If you have several millions or even billions of inodes, you may easily
+ find yourself in a snakepit.
+ See also 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Conclusion
+\end_layout
+
+\end_inset
+
+
+\series bold
+Active-passive operation
+\series default
+ over long distances (such as between continents) at 
+\series bold
+block layer
+\series default
+ is an 
+\series bold
+\emph on
+advantage
+\series default
+\emph default
+.
+ It keeps your staff from trying bad / almost impossible things, like DSM
+ = Distributed Shared Memory over long distances.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Performance Tradeoffs from Load Distribution
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Performance-Tradeoffs-from-Load-Distribution"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A frequent argument from BigCluster advocates is that random repliction
+ would provide better performance.
+ This argument isn't wrong, but it does not hit the point.
+\end_layout
+
+\begin_layout Standard
+As analysed in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Similarities-and-differences"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, load distribution isn't a unique concept bound to BigCluster / random
+ replication.
+ Load distribution has been used since decades at a variety of 
+\series bold
+RAID striping
+\series default
+ methods.
+\end_layout
+
+\begin_layout Standard
+RAID striping levels like RAID-0 or RAID-10 or RAID-60 are known since decades,
+ forming a mature technology.
+ Also known since the 1980s is that the size of a single striped RAID set
+ must not grow too big, otherwise reliability will suffer too much.
+ Larger RAID systems are therefore 
+\series bold
+split
+\series default
+ into multiple 
+\series bold
+RAID sets
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+This has some intresting parallels to the BigCluster reliability problems
+ analyzed in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sub:Detailed-explanation"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, and some workarounds, e.g.
+ as discussed in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Similarities-and-differences"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Summary: both RAID striping and random replication methods are 
+\series bold
+limited
+\series default
+ by the fundamental law of storage systems, see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Optimum-Reliability-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, in a similar way.
+\end_layout
+
+\begin_layout Standard
+A detailed performane comparison at architcture level between random replication
+ of variable-sized objects and striping of block-level sectors is beyond
+ the scope of this architecture guide.
+ However, the following should be be intuitively clear from section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Layering-Rules"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and from Einstein's laws of the speed of light:
+\end_layout
+
+\begin_layout Quote
+Fine-grained load distribution over 
+\series bold
+short distances
+\series default
+ and/or at 
+\series bold
+lower layers
+\series default
+ has a 
+\series bold
+bigger performance potential
+\series default
+ than over longer distances and/or at higher layers.
+\end_layout
+
+\begin_layout Standard
+In other words: local SAS busses are capable of realtime IO transfers over
+ very short distances (enclosure-to-enclosure), while an expensive IP storage
+ network isn't realtime (due to packet loss).
+ SAS busses are 
+\emph on
+constructed
+\emph default
+ for dealing with requirements arising from RAID, and have been optimized
+ for years / decades.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Advice for performance-critical workloads
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Besides 
+\emph on
+local
+\emph default
+ SSDs, also consider some appropriate RAID striping at your (Local)Sharding
+ storage boxes for performance-critical workloads.
+ It is not only cheaper than BigCluster load distribution methods, but typically
+ also more performant (on top of comparable technology and comparable dimensioni
+ng).
+ Tradeoffs of various parameters and measurement methods for system architects
+ are described at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://blkreplay.org
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ RAID-6 is much cheaper
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Several OSDs are also using SAS or similar local IO busses, in order to
+ drive a high number of spindles.
+ Essentially, random replication is involving 
+\emph on
+two
+\emph default
+ different types of networks at the same time.
+ This also explains why such a combination must necessarily induce some
+ performance loss.
+\end_layout
+
+\end_inset
+
+ than RAID-10, and can also provide some striping with respect to (random)
+ reads.
+ However, random writes are much slower.
+ For read-intensive workloads, the striping behaviour of RAID-6 is often
+ sufficient.
+ A tool for comparsion of different RAID setup alternatives can be found
+ at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://www.blkreplay.org
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
 Local vs Centralized Storage
 \begin_inset CommandInset label
 LatexCommand label
@@ -18330,803 +19127,6 @@ locality of references
 \emph default
 , while splitting into millions of very small objects may easily lead to
  an explosion of randomness by some orders of magnitude.
-\end_layout
-
-\begin_layout Section
-Performance Arguments from Architecture
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:Performance-Arguments-from"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsection
-Performance Penalties by Choice of Replication Layer
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Performance-Penalties-Layer"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-Some people think that replication is easily done at filesystem layer.
- There exist lots of cluster filesystems and other filesystem-layer solutions
- which claim to be able to replicate your data, sometimes even over long
- distances.
-\end_layout
-
-\begin_layout Standard
-Trying to replicate several petabytes of data, or some billions of inodes,
- is however a much bigger challenge than many people can imagine.
-\end_layout
-
-\begin_layout Standard
-Choosing the wrong 
-\series bold
-layer
-\series default
- (see section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Layering-Rules"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-) for 
-\series bold
-mass data replication
-\series default
- may get you into trouble.
- Layer selection is much more important than any load distribution argument
- as frequently heard from certain advocates.
- Here is an architectural-level (cf section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:What-is-Architecture"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-) explanation why replication at the block layer is more easy and less error
- prone:
-\end_layout
-
-\begin_layout Standard
-\noindent
-\align center
-\begin_inset Graphics
-	filename images/Layers.pdf
-	width 100col%
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-The picture shows the main components of a standalone Unix / Linux system.
- It conforms to Dijkstra's layering rules explained in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Layering-Rules"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-In the late 1970s / early 1980s, a so-called 
-\emph on
-Buffer Cache
-\emph default
- had been introduced into the architecture of Unix.
- Today's Linux has refined the concept to various internal caches such as
- the 
-\series bold
-Page Cache
-\series default
- (for data) and the 
-\series bold
-Dentry Cache
-\series default
- (for metadata lookup).
-\end_layout
-
-\begin_layout Standard
-All these caches serve one main purpose
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Another important purpose is 
-\series bold
-providing shared memory
-\series default
-.
-\end_layout
-
-\end_inset
-
-: they are reducing the load onto the storage by exploitation of fast RAM.
- A well-tuned cache can yield high cache hit ratios, typically 99%.
- In some cases (as observed in practice) even more than 99.9%.
-\end_layout
-
-\begin_layout Standard
-Now start distributing the system over long distances.
- There are potential cut points A and B and C
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-In theory, there is another cut point D by implementing a generically distribute
-d cache.
- There exists some academic research on this, but practically usable enterprise-
-grade implementations are rare and not wide-spread.
-\end_layout
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-Cut point A is application specific, and can have advantages because it
- has knowledge of the application.
- For example, replication of mail queues can be controlled much more fine-graine
-d than at filesystem or block layer.
-\end_layout
-
-\begin_layout Standard
-Cut points B and C are 
-\emph on
-generic
-\emph default
-, supporting a wide variety of applications, without altering them.
- Cutting at B means replication at filesystem layer.
- C means replication at block layer.
-\end_layout
-
-\begin_layout Standard
-When replicating at B, you will notice that the caches are 
-\emph on
-below
-\emph default
- your cut point.
- Thus you will have to re-implement 
-\series bold
-distributed caches
-\series default
-, and you will have to 
-\series bold
-maintain cache coherence
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- Caching can yield several 
-\emph on
-orders of magnitude
-\emph default
- of performance.
-\end_layout
-
-\begin_layout Plain Layout
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- In contrast, frequently heard load distribution arguments can only re-distribut
-e the already existing performance of your spindles, but cannot magically
- 
-\begin_inset Quotes eld
-\end_inset
-
-create
-\begin_inset Quotes erd
-\end_inset
-
- new sources of performance out of thin air.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-In contrary, load distribution over a storage network is 
-\emph on
-costing
-\emph default
- some performance, by introduction of additional latencies and potential
- bottlenecks.
-\end_layout
-
-\begin_layout Standard
-When replicating at C, the Linux caches are 
-\emph on
-above
-\emph default
- your cut point.
- Thus you will receive much less traffic at C, typically already reduced
- by a factor of 100, or even more.
- This is much more easy to cope with.
- 
-\emph on
-Local
-\emph default
- caches and their SMP scaling properties can be implemented much more efficientl
-y than distributed ones.
- You will also profit from 
-\series bold
-journalling filesystems
-\series default
- like 
-\family typewriter
-ext4
-\family default
- or 
-\family typewriter
-xfs
-\family default
-.
- In contrast, 
-\emph on
-truly distributed
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-In this context, 
-\begin_inset Quotes eld
-\end_inset
-
-truly
-\begin_inset Quotes erd
-\end_inset
-
- means that the POSIX semantics would be always guaranteed cluster-wide,
- and even in case of partial failures.
- In practice, some distributed filesystems like NFS don't even obey the
- POSIX standard 
-\emph on
-locally
-\emph default
- on 1 standalone client.
- We know of projects which have 
-\emph on
-failed
-\emph default
- right because of this.
-\end_layout
-
-\end_inset
-
-
-\emph default
- journalling is typically not available with distributed cluster filesystems.
-\end_layout
-
-\begin_layout Standard
-A 
-\emph on
-potential
-\emph default
- drawback of block layer replication is that you are typically limited to
- active-passive replication.
- An active-active operation is not impossible at block layer (see combinations
- of DRBD with 
-\family typewriter
-ocfs2
-\family default
-), but less common, and less safe to operate.
-\end_layout
-
-\begin_layout Standard
-This limitation isn't necessarily caused by the choice of layer.
- It is simply caused by the 
-\series bold
-laws of physics
-\series default
-: communication is always limited by the speed of light.
- A distributed filesystem is essentially nothing else but a persistent 
-\series bold
-DSM = Distributed Shared Memory
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-Some decades of research on DSM have shown that there exist applications
- / workloads where the DSM model is 
-\emph on
-inferior
-\emph default
- to the direct communication paradigm.
- Even in short-distance / cluster scenarios.
- Long-distance DSM is extremely cumbersome.
-\end_layout
-
-\begin_layout Standard
-Therefore: you simply shouldn't try to solve 
-\series bold
-long-distance communication needs
-\series default
- via communication over shared filesystems.
- Even simple producer-consumer scenarios (one-way communication) are less
- performant (e.g.
- when compared to plain TCP/IP) when it comes to distributed POSIX semantics.
- There is simply too much 
-\series bold
-synchronisation overhead at metadata level
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-If you want mixed operations at different locations in parallel: split your
- data set into disjoint filesystem instances (or database / VM instances,
- etc).
- Then you should achieve the 
-\series bold
-ability for butterfly
-\series default
-, see section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Flexibility-of-Failover"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-All you need is careful thought about the 
-\emph on
-appropriate
-\emph default
- 
-\emph on
-granularity
-\emph default
- of your data sets (such as well-chosen 
-\emph on
-sets
-\emph default
- of user homedirectory subtrees, or database sets logically belonging together,
- etc).
- An example hierarchy of granularities is described in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "par:Positive-Example:-ShaHoLin"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
- Further hints can be found in sections 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:Granularity-at-Architecture"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
- and 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Variants-of-Sharding"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- Sharding (see section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "par:Definition-of-Sharding"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-) implementations like ShaHoLin (see section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "par:Positive-Example:-ShaHoLin"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-) are essentially exploiting the scalability of SMP = Symmetric MultiProcessing,
- nowadays typically going into saturation around 
-\begin_inset Formula $\approx100$
-\end_inset
-
- hardware CPU threads for typical workloads, which is executed by 
-\emph on
-hardware
-\emph default
- inside of your server enclosure.
- In contrast, DSM-like solutions are trying to distribute your application
- workload over longer distances, involving relatively slow system software
- instead of 
-\series bold
-hardware acceleration
-\series default
-.
- Therefore, SMP is preferable over DSM wherever possible.
-\end_layout
-
-\begin_layout Standard
-Replication at filesystem level is often by single-file granularity.
- If you have several millions or even billions of inodes, you may easily
- find yourself in a snakepit.
- See also 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Example-Failures-of"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-
-\series bold
-Conclusion
-\end_layout
-
-\end_inset
-
-
-\series bold
-Active-passive operation
-\series default
- over long distances (such as between continents) at 
-\series bold
-block layer
-\series default
- is an 
-\series bold
-\emph on
-advantage
-\series default
-\emph default
-.
- It keeps your staff from trying bad / almost impossible things, like DSM
- = Distributed Shared Memory over long distances.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsection
-Performance Tradeoffs from Load Distribution
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Performance-Tradeoffs-from-Load-Distribution"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-A frequent argument from BigCluster advocates is that random repliction
- would provide better performance.
- This argument isn't wrong, but it does not hit the point.
-\end_layout
-
-\begin_layout Standard
-As analysed in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Similarities-and-differences"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-, load distribution isn't a unique concept bound to BigCluster / random
- replication.
- Load distribution has been used since decades at a variety of 
-\series bold
-RAID striping
-\series default
- methods.
-\end_layout
-
-\begin_layout Standard
-RAID striping levels like RAID-0 or RAID-10 or RAID-60 are known since decades,
- forming a mature technology.
- Also known since the 1980s is that the size of a single striped RAID set
- must not grow too big, otherwise reliability will suffer too much.
- Larger RAID systems are therefore 
-\series bold
-split
-\series default
- into multiple 
-\series bold
-RAID sets
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-This has some intresting parallels to the BigCluster reliability problems
- analyzed in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sub:Detailed-explanation"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-, and some workarounds, e.g.
- as discussed in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Similarities-and-differences"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-Summary: both RAID striping and random replication methods are 
-\series bold
-limited
-\series default
- by the fundamental law of storage systems, see section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Optimum-Reliability-from"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-, in a similar way.
-\end_layout
-
-\begin_layout Standard
-A detailed performane comparison at architcture level between random replication
- of variable-sized objects and striping of block-level sectors is beyond
- the scope of this architecture guide.
- However, the following should be be intuitively clear from section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "subsec:Layering-Rules"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
- and from Einstein's laws of the speed of light:
-\end_layout
-
-\begin_layout Quote
-Fine-grained load distribution over 
-\series bold
-short distances
-\series default
- and/or at 
-\series bold
-lower layers
-\series default
- has a 
-\series bold
-bigger performance potential
-\series default
- than over longer distances and/or at higher layers.
-\end_layout
-
-\begin_layout Standard
-In other words: local SAS busses are capable of realtime IO transfers over
- very short distances (enclosure-to-enclosure), while an expensive IP storage
- network isn't realtime (due to packet loss).
- SAS busses are 
-\emph on
-constructed
-\emph default
- for dealing with requirements arising from RAID, and have been optimized
- for years / decades.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Flex Custom Color Box 3
-status open
-
-\begin_layout Plain Layout
-\noindent
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-
-\series bold
-Advice for performance-critical workloads
-\end_layout
-
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- Besides 
-\emph on
-local
-\emph default
- SSDs, also consider some appropriate RAID striping at your (Local)Sharding
- storage boxes for performance-critical workloads.
- It is not only cheaper than BigCluster load distribution methods, but typically
- also more performant (on top of comparable technology and comparable dimensioni
-ng).
- Tradeoffs of various parameters and measurement methods for system architects
- are described at 
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-http://blkreplay.org
-\end_layout
-
-\end_inset
-
-.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- RAID-6 is much cheaper
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Several OSDs are also using SAS or similar local IO busses, in order to
- drive a high number of spindles.
- Essentially, random replication is involving 
-\emph on
-two
-\emph default
- different types of networks at the same time.
- This also explains why such a combination must necessarily induce some
- performance loss.
-\end_layout
-
-\end_inset
-
- than RAID-10, and can also provide some striping with respect to (random)
- reads.
- However, random writes are much slower.
- For read-intensive workloads, the striping behaviour of RAID-6 is often
- sufficient.
- A tool for comparsion of different RAID setup alternatives can be found
- at 
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-http://www.blkreplay.org
-\end_layout
-
-\end_inset
-
-.
 \end_layout
 
 \begin_layout Section
