@@ -473,7 +473,206 @@ name "chap:Management-Summary"
 \end_layout
 
 \begin_layout Standard
-TBD
+This guide is about 
+\series bold
+investments and long-term follow-up cost
+\series default
+ in the range of 
+\series bold
+millions
+\series default
+ of € or $.
+ It tries to guide you through the jungle of storage solutions and their
+ features, by focussing at 
+\series bold
+fundamental principles
+\series default
+ and high-level structures, called 
+\series bold
+architecture
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+For 
+\series bold
+HA enterprise-critical data
+\series default
+ in the range of 
+\series bold
+petabytes
+\series default
+, different storage architectures are leading to very different properties
+ in the 
+\series bold
+cost and risk dimensions
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Provably best HA / Cloud Storage architecture
+\end_layout
+
+\end_inset
+
+By intuitive explanations as well as mathematical arguments, this guide
+ shows that
+\end_layout
+
+\begin_layout Itemize
+Permanent 
+\series bold
+minimization of the distances
+\series default
+ between storage and the compute nodes will both 
+\series bold
+increase reliablity and reduce cost at the same time
+\series default
+.
+\end_layout
+
+\begin_layout Itemize
+When applicable for a certain use case, the best architectural model is
+ 
+\series bold
+sharding
+\series default
+ on top of 
+\series bold
+local storage
+\series default
+.
+ It can easily save a cost factor of about 2, while increasing 
+\series bold
+architectural reliability
+\series default
+ at the same time.
+\end_layout
+
+\begin_layout Itemize
+When the so-called 
+\series bold
+FlexibleSharding
+\series default
+ variant of the sharding model is combined with a novel load balancing method
+ called 
+\series bold
+Football
+\series default
+, it can deliver a very similar level of 
+\series bold
+flexibility
+\series default
+ than network-centric BigCluster architectures are promising.
+\end_layout
+
+\begin_layout Itemize
+By both intuitive and mathematical explanations, and contrary to some contempora
+ry belief, you will learn 
+\series bold
+\emph on
+why
+\emph default
+ BigCluster architectures are generally worse
+\series default
+ in practically any dimension.
+ There exist certain use cases where BigCluster cannot be explicitly recommended.
+\end_layout
+
+\begin_layout Itemize
+When built and dimensioned properly, 
+\series bold
+cross-datacenter replication
+\series default
+ and/or 
+\series bold
+geo-redundancy
+\series default
+ will 
+\emph on
+not
+\emph default
+ double TCO = Total Cost of Ownership, but can cost roughly about the same
+ as local redundancy in the same datacenter.
+ The key is a certain class of 
+\series bold
+wide-area distribution of resources
+\series default
+ 
+\emph on
+in place of
+\emph default
+ local replication.
+\end_layout
+
+\begin_layout Itemize
+When cross-datacenter replication and/or geo-redundancy is required, the
+ so-called 
+\series bold
+ability for butterfly
+\series default
+ leads to further HA improvements.
+\end_layout
+
+\begin_layout Itemize
+Object-based 
+\series bold
+Cloud Storage
+\series default
+ can also be built on top of a sharding model.
+\end_layout
+
+\begin_layout Itemize
+You will learn 
+\series bold
+why OpenSource component-based storage systems
+\series default
+ are much cheaper than commercial storage appliances (up to 
+\emph on
+factors
+\emph default
+), at least when you need a few petabytes of storage.
+ Alone by relinquishing Vendor-Lock-In and going to RAID-based Linux storage,
+ invest will typically decrease by factors between 3 and 10.
+ By going to a 
+\family typewriter
+LocalSharding
+\family default
+ or 
+\family typewriter
+FlexibleSharding
+\family default
+ model, where possible, 
+\emph on
+another
+\emph default
+ decrease factor of about 2 is typically possible.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+In addition, this guide explains the ideas behind the OpenSource components
+ Football on top of MARS.
+ It can be used for replication over short to very long distances, as well
+ as for load balancing via background data migration while your services
+ are running.
 \end_layout
 
 \begin_layout Chapter
