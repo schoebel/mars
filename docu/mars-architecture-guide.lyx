@@ -29298,6 +29298,31 @@ external experts
 
 \begin_layout Quotation
 \noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Pitfall 
+\begin_inset Quotes eld
+\end_inset
+
+false experts
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -29317,7 +29342,23 @@ experts
 \begin_inset Quotes erd
 \end_inset
 
-.
+: the internet.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Quotation
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
  On the internet, you can find a lot of so-called 
 \begin_inset Quotes eld
 \end_inset
@@ -29358,7 +29399,7 @@ real
 \emph on
 anyone
 \emph default
- can post falsely generalized 
+ can post incorrectly generalized 
 \begin_inset Quotes eld
 \end_inset
 
@@ -29392,7 +29433,151 @@ proofs
 information bubbles
 \series default
 .
+\end_layout
+
+\begin_layout Quotation
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Superfluous load balancers
+\end_layout
+
+\end_inset
+
+Good examples are HTTP or other IP-based load balancers placed in front
+ of VMs.
+ Almost always, this is an 
+\series bold
+expensive ill-design
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Notice: as long as 
+\emph on
+multiple
+\emph default
+ VM instances are hosted on 
+\emph on
+one
+\emph default
+ hypervisor iron, load balancers are most likely completely useless
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Reason: on SMP servers, there 
+\emph on
+already exists
+\emph default
+ a 
+\begin_inset Quotes eld
+\end_inset
+
+load balancer
+\begin_inset Quotes erd
+\end_inset
+
+.
+ The kernel and its 
+\series bold
+process scheduler
+\series default
+ can do even better than any external load balancer, by better distribution
+ of physical CPUs to processes, and by exploitation of 
+\series bold
+shared memory
+\series default
+, for example shared filesystem kernel caches, such as the Dentry Cache,
+ and the fscache / Page Cache.
+ Exceptions would only occur when there were per-VM global bottlenecks,
+ such as interdependent processes.
+ For instance, it is easy to 
+\emph on
+misconfigure
+\emph default
+ Apache logfiles to become such a bottleneck.
+ Just fix such misconfigurations, before claiming that SMP scalability would
+ be limited.
+\end_layout
+
+\end_inset
+
+.
+ Instead, just assign more physical resources to a single VM.
+ Only when the application load is 
+\emph on
+really
+\emph default
+ so high that 1 VM would fill up a hypervisor 
+\emph on
+completely
+\emph default
+, only then a load balancer 
+\emph on
+might
+\emph default
+ be potentially useful.
+ However, 
+\emph on
+first
+\emph default
+ check that there are enough RAM and SMP hardware threads.
+ Only when state-of-the-art multi-socket CPUs with 
+\begin_inset Formula $\approx128$
+\end_inset
+
+ or more CPU threads would be insufficient for a very high connection rate,
+ and after tuning measures like PHP OpCache were not sufficient, a load
+ balancer or another means for load distribution 
+\emph on
+could
+\emph default
+ become necessary.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Even then, there are often more intelligent alternative solutions, like
+ wide-area 
+\emph on
+distributed
+\emph default
  
+\series bold
+input traffic partitioning
+\series default
+ to geo-distributed servers, in place of a central load balancer acting
+ as a SPOF in a single datacenter.
+ For example, source-IP based routing can partition global traffic into
+ per-continent datacenters, drastically reducing application traffic latencies.
+ In essence, this is coarse granularity sharding at global level.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Quotation
@@ -29404,7 +29589,411 @@ information bubbles
 
 \end_inset
 
-Real knowledge originates from evaluated sources, such as 
+ In a nutshell: compared to the scalability of sharding, load balancers
+ would be 
+\series bold
+only suitable for small-scale scalability
+\series default
+.
+ However, small-scale scalability is much easier to achieve via hardware-based
+ SMP = Symmetric MultiProcessing, at least in 
+\emph on
+most
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Personally, I have never seen a situation where a load balancer was really
+ necessary.
+ In all example cases, they were superfluous.
+ In a few cases, they were even counter-productive.
+\end_layout
+
+\end_inset
+
+ cases.
+\end_layout
+
+\begin_layout Quotation
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Never start a design with a load balancer 
+\emph on
+by default
+\emph default
+.
+ Only use load balancers when there is 
+\emph on
+well-founded strong evidence
+\emph default
+ that other scalability measures won't suffice.
+ In particular, it needs to be very clear that sharding is really impossible,
+ which in turn implies that there exists only 1 big customer, and that its
+ data cannot be partitioned at all.
+\end_layout
+
+\begin_layout Quotation
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Cost explosion by superfluous load balancers
+\end_layout
+
+\end_inset
+
+Unnecessary load balancers are causing 
+\series bold
+follow-up cost by increased complexity
+\series default
+.
+ In addition to the load balancer and its administration, 
+\emph on
+multiple
+\emph default
+ servers and/or VMs need to be set up and administered.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ If you just need a redirection mechanism, read sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Location-transparency"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Where-implement-Location-Transparency"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ For example, the traffic from BGP = Border Gateway Protocol is executed
+ by your 
+\series bold
+ordinary network routers
+\series default
+, without additional hardware, and they can distribute sharded traffic to
+ wide-area geo-locations.
+ In comparison, load balancers are just restricted 
+\series bold
+overkill
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Never accept a system design with a 
+\emph on
+mandatory
+\emph default
+ load balancer.
+ It will likely imply a BigCluster-like 
+\emph on
+architecture
+\emph default
+, though typically only 
+\emph on
+implemented
+\emph default
+ as a SmallCluster.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Mandatory load balancers are often
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There are some rare potential exceptions, like 
+\series bold
+game servers
+\series default
+ rendering scenes in 
+\series bold
+realtime
+\series default
+, consuming 
+\emph on
+massive
+\emph default
+ CPU and/or GPU power in relation to network bandwidth.
+ Even there, sharding is often a better alternative.
+ In contrast, ordinary video streaming typically consumes very low CPU power,
+ because file streaming is executed by kernel 
+\family typewriter
+sendpage()
+\family default
+ and partly offloaded to DMA hardware acceleration.
+\end_layout
+
+\end_inset
+
+ creating some 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ behaviour, showing up somewhere, often unexpectedly.
+ Even when reduced to 
+\begin_inset Formula $O(n)$
+\end_inset
+
+, load balancers are close to the 
+\series bold
+opposite of sharding
+\series default
+ at 
+\emph on
+concept level
+\emph default
+, because they try to 
+\emph on
+distribute
+\emph default
+ an 
+\emph on
+unpartitioned load
+\emph default
+ to servers needing 
+\series bold
+shared data
+\series default
+ similar to DSM (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), instead of first 
+\emph on
+partitioning the data
+\emph default
+ and thus also partitioning the corresponding traffic.
+ Read section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Error-Propagation-to"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ about typical 
+\emph on
+real
+\emph default
+ scalability and reliability.
+ When this doesn't help, read section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ where the load balancer was a major 
+\emph on
+source(!)
+\emph default
+ of massive scalability problems.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ 
+\series bold
+Sharding
+\series default
+ architectures typically don't need any load balancers, although they are
+ 
+\series bold
+massively scalable 
+\emph on
+horizontally
+\series default
+\emph default
+.
+ Typically, they rely on the scalability of DNS, and of IP routing.
+ Notice: when DNS would reach its scalability limit, then the internet as
+ such would not scale anymore.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In comparison, a load balancer is a SPOB = Single Point Of 
+\series bold
+Bottleneck
+\series default
+, where the traffic must physically 
+\series bold
+flow through
+\series default
+ (thereby increasing hops and latencies), instead of dynamic wide-area routing.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Quotation
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Load balancers vs sharding
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ As a manger, if you 
+\begin_inset Quotes eld
+\end_inset
+
+buy
+\begin_inset Quotes erd
+\end_inset
+
+ a 
+\emph on
+mandatory
+\emph default
+ load balancer, there is a high risk for 
+\series bold
+architecturally hindering long-term scalability
+\series default
+ by sharding.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Check whether people are 
+\emph on
+really
+\emph default
+ experts, when they want to solve suspected(!) scalability problems via
+ mandatory load balancers.
+ It is just poor system design, often inducing DSM problems, and producing
+ unnecessary follow-up cost.
+ Unfortunately, load balancers are systematically promoted by 
+\series bold
+internet information bubbles
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Quotation
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Real knowledge originates from evaluated sources, such as 
 \series bold
 scientific publications
 \series default
@@ -29444,6 +30033,10 @@ multiple
 \emph default
  ways for obtaining such information, such as measurements, simulation,
  etc.
+ In addition, real experts are able to do well-founded measurements and
+ deriving forecasts from them.
+ Later, when it works, their forecasts were roughly correct.
+ Check the quality of forecasts afterwards!
 \end_layout
 
 \begin_layout Standard
@@ -29524,8 +30117,15 @@ dangerous mindset
 \end_layout
 
 \begin_layout Standard
-As a responsible manager, how can you detect dangerous partly knowledge?
- Good indicators are wrong usage of the term 
+As a responsible manager, 
+\series bold
+how can you detect
+\series default
+ dangerous partly knowledge?
+\end_layout
+
+\begin_layout Standard
+Good indicators are wrong usage of the term 
 \begin_inset Quotes eld
 \end_inset
 
@@ -29594,6 +30194,15 @@ favourite product
 risk
 \series default
  of getting a non-optimum, or possibly even a bad / dangerous solution.
+\end_layout
+
+\begin_layout Standard
+Another good indicator is advocacy of load balancers.
+ See above boxes about the size of their real application area and their
+ real value.
+ Do not confuse people's belief with deep knowledge.
+ The latter also requires theoretical background, in addition to practical
+ experience.
 \end_layout
 
 \begin_layout Standard
