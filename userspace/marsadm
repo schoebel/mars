@@ -3946,7 +3946,9 @@ sub progress_bar {
   $max = $mid if $max < $mid;
   $max = 1 if $max < 1;
   my $pos1 =  $length * $min / $max;
-  my $bar = '=' x ($pos1 - 1);
+  my $count = $pos1 - 1;
+  $count = 0 if $count < 0;
+  my $bar = '=' x $count;
   if ($pos1 < $length) {
     $bar .= ">";
     $pos1++;
