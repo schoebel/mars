@@ -80,6 +80,22 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable77
+	* Major doc update: the old mars-manual.pdf has been split into
+	    - mars-user-manual.pdf (for sysadmins)
+	    - mars-architecture-guide.pdf (for managers and architects)
+	    - mars-for-kernel-developers.lyx (unfinished)
+	    - football-user-manual.lyx
+	  The first two manuals have been heavily rewritten and
+	  extended!
+	* Minor fix: after primary crash without failover, the secondaries
+	  could get stuck because a version symlink was forgotten to
+	  update under scarce preconditions.
+	* Minor improvement: emergency space calculation is now more
+	  accurate.
+	* Minor usability: hint when marsadm resize would be possible.
+	* Several minor cosmetic improvements.
+
 mars0.1astable76
 	* Major fix: when the primary was dead and the
 	  secondary had an incomplete logfile which was
