@@ -1,6 +1,6 @@
 [Unit]
 Description=MARS systemd trigger from /mars/userspace/systemd-trigger
-Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
 Requires=mars.service
 After=mars.service
 

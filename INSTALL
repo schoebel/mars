@@ -97,7 +97,7 @@ your nodes:
 hint: use cron jobs for automation.
 
 Most marsadm commands are very similar to drbdadm. Details can be
-found in docu/mars-manual.pdf. The sourcecode of marsadm is a very
+found in docu/mars-user-manual.pdf. The sourcecode of marsadm is a very
 simple and stupid perl script, which intentionally does not use any
 perl module and no OO. The source code will tell you almost anything
 about the symlinks present in /mars/.

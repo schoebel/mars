@@ -1201,7 +1201,7 @@ sub check_res_member {
       lwarn "Resource '$res' seems to have been destroyed.\n";
       lwarn "Nevertheless, a replay link exists for host '$host'.\n";
       lwarn "This can happen after 'leave-resource --host=$host' while host $host was active.\n";
-      lwarn "mars-manual.pdf forbids any usage of such a resource _strongly_.\n";
+      lwarn "mars-user-manual.pdf forbids any usage of such a resource _strongly_.\n";
       lwarn "In order to finally remove this resource from $host, use the\n";
       lwarn "command 'marsadm leave-resource --force $res'\n";
     } else {
@@ -5841,7 +5841,7 @@ my %cmd_table =
    => [
        "usage: set-systemd-unit <resource_name> <start_unit_name> [<stop_unit_name>]",
        "This activates the systemd template engine of marsadm.",
-       "Please read mars-manual.pdf on this.",
+       "Please read mars-user-manual.pdf on this.",
        "When <stop_unit_name> is omitted, it will be treated equal to",
        "<start_unit_name>.",
        \&set_systemd_unit,
@@ -6437,7 +6437,7 @@ sub helplist {
   my $msg = shift;
   print "ERROR: $msg" if ($msg);
   print "
-Thorough documentation is in mars-manual.pdf. Please use the PDF manual
+Thorough documentation is in mars-user-manual.pdf. Please use the PDF manual
 as authoritative reference! Here is only a short summary of the most
 important sub-commands / options:
 

@@ -303,7 +303,7 @@ Here you find the most important cluster manager commands incl. some help for pr
 
 #ChapterThirteen
 ---++ 13. Link to mars manual
-https://github.com/schoebel/mars/blob/master/docu/mars-manual.pdf
+https://github.com/schoebel/mars/blob/master/docu/mars-user-manual.pdf
 
 #ChapterFourteen
 ---++ 14. Bug reports

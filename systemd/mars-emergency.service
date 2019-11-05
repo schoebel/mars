@@ -1,6 +1,6 @@
 [Unit]
 Description=MARS emergency trigger service from /mars/userspace/emergency-trigger
-Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
 
 [Service]
 Type=oneshot

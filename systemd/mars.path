@@ -1,6 +1,6 @@
 [Unit]
 Description=MARS block layer HA (activation by appearance of /mars/uuid)
-Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
 
 [Path]
 PathExists=/mars/uuid

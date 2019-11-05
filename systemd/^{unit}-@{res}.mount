@@ -1,7 +1,7 @@
 @eval{%let{mount}{%subst{%{unit}}{-}{/}}}
 [Unit]
 Description=MARS local mount on /@{mount}/@{res}
-Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
 Requires=mars.service
 After=mars.service
 
