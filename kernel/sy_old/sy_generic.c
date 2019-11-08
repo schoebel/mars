@@ -1635,7 +1635,9 @@ restart:
 		bind_to_dent(dent, &say_channel);
 
 		MARS_DBG("killing dent '%s'\n", dent->d_path);
-		list_del_init(tmp);
+		list_del_init(&dent->dent_link);
+		list_del_init(&dent->dent_hash_link);
+		list_del_init(&dent->dent_quick_link);
 		mars_free_dent(NULL, dent);
 	}
 	up_write(&global->dent_mutex);
