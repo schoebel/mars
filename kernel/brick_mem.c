@@ -69,6 +69,9 @@
 		say(_class, _BRICK_FMT(_fmt, _class), ##_args); if (_dump) dump_stack(); \
 	} while (0)
 
+#define BRICK_COND_ERR(_cond, _fmt, _args...)				\
+	_BRICK_MSG((_cond) ? SAY_ERROR : SAY_INFO, (_cond),  _fmt, ##_args)
+
 #define BRICK_ERR(_fmt, _args...) _BRICK_MSG(SAY_ERROR, true,  _fmt, ##_args)
 #define BRICK_WRN(_fmt, _args...) _BRICK_MSG(SAY_WARN,  false, _fmt, ##_args)
 #define BRICK_INF(_fmt, _args...) _BRICK_MSG(SAY_INFO,  false, _fmt, ##_args)
@@ -947,13 +950,10 @@ void brick_mem_statistics(bool final)
 				  atomic_read(&block_free[i]));
 		}
 	}
-	if (!final || !count) {
-		BRICK_INF("======== %d block allocations in %d places (phys=%d)\n",
-			  count, places, atomic_read(&phys_block_alloc));
-	} else {
-		BRICK_ERR("======== %d block allocations in %d places (phys=%d)\n",
-			  count, places, atomic_read(&phys_block_alloc));
-	}
+	BRICK_COND_ERR(final && count,
+		       "======== %d block allocations in %d places (phys=%d)\n",
+		       count, places, atomic_read(&phys_block_alloc));
+
 	count = places = 0;
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
 		int val = atomic_read(&mem_count[i]);
@@ -969,15 +969,11 @@ void brick_mem_statistics(bool final)
 				  atomic_read(&mem_free[i]));
 		}
 	}
-	if (!final || !count) {
-		BRICK_INF("======== %d memory allocations in %d places (phys=%d,redirect=%d)\n",
-			  count, places,
-			  atomic_read(&phys_mem_alloc), atomic_read(&mem_redirect_alloc));
-	} else {
-		BRICK_ERR("======== %d memory allocations in %d places (phys=%d,redirect=%d)\n",
-			  count, places,
-			  atomic_read(&phys_mem_alloc), atomic_read(&mem_redirect_alloc));
-	}
+	BRICK_COND_ERR(final && count,
+		       "======== %d memory allocations in %d places (phys=%d,redirect=%d)\n",
+		       count, places,
+		       atomic_read(&phys_mem_alloc), atomic_read(&mem_redirect_alloc));
+
 	count = places = 0;
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
 		int val = atomic_read(&string_count[i]);
@@ -992,13 +988,9 @@ void brick_mem_statistics(bool final)
 				  atomic_read(&string_free[i]));
 		}
 	}
-	if (!final || !count) {
-		BRICK_INF("======== %d string allocations in %d places (phys=%d)\n",
-			  count, places, atomic_read(&phys_string_alloc));
-	} else {
-		BRICK_ERR("======== %d string allocations in %d places (phys=%d)\n",
-			  count, places, atomic_read(&phys_string_alloc));
-	}
+	BRICK_COND_ERR(final && count,
+		       "======== %d string allocations in %d places (phys=%d)\n",
+		       count, places, atomic_read(&phys_string_alloc));
 #endif
 }
 EXPORT_SYMBOL_GPL(brick_mem_statistics);
