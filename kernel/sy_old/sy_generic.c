@@ -1749,13 +1749,9 @@ EXPORT_SYMBOL_GPL(mars_find_dent);
 
 void mars_kill_dent(struct mars_global *global, struct mars_dent *dent)
 {
-	if (global)
-		down_write(&global->dent_mutex);
-	list_del_init(&dent->dent_link);
-	list_del_init(&dent->dent_hash_link);
-	list_del_init(&dent->dent_quick_link);
-	if (global)
-		up_write(&global->dent_mutex);
+	/* Only mark as killable.
+	 * Removal from the lists is done at mars_free_dent_all().
+	 */
 	dent->d_killme = true;
 	mars_kill_brick_all(global, &dent->brick_list, true);
 }
