@@ -4840,7 +4840,9 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	bool do_start;
 	int status;
 
-	if (!dent->d_parent || !dent->new_link) {
+	if (!dent->d_parent ||
+	    !dent->d_parent->d_private ||
+	    !dent->new_link) {
 		return 0;
 	}
 
