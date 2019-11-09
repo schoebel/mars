@@ -1947,9 +1947,15 @@ int mars_free_brick(struct mars_brick *brick)
 			break;
 		}
 		if (maxsleep > 0) {
-			MARS_WRN("MEMLEAK: brick '%s' has %d mrefs allocated (total = %d, maxsleep = %d)\n", brick->brick_path, count, atomic_read(&brick->mref_object_layout.total_alloc_count), maxsleep);
+			MARS_WRN("memleak: brick '%s' has %d mrefs allocated (total = %d, maxsleep = %d)\n",
+				 brick->brick_path, count,
+				 atomic_read(&brick->mref_object_layout.total_alloc_count),
+				 maxsleep);
 		} else {
 			MARS_ERR("MEMLEAK: brick '%s' has %d mrefs allocated (total = %d)\n", brick->brick_path, count, atomic_read(&brick->mref_object_layout.total_alloc_count));
+#ifdef CONFIG_MARS_DEBUG
+			dump_stack();
+#endif
 			break;
 		}
 		brick_msleep(sleeptime);
