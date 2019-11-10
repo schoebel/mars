@@ -80,6 +80,12 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable78
+	* Major or minor fix: memory leak, triggered under scarce conditions.
+	  Observed cases were a few kilobytes. However, it could accumulate
+	  over a very long time. When unsure, better update to this version.
+	* Minor usability: report each resource size.
+
 mars0.1astable77
 	* Major doc update: the old mars-manual.pdf has been split into
 	    - mars-user-manual.pdf (for sysadmins)
