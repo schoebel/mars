@@ -5050,6 +5050,11 @@ my %complex_macros =
    .    "%call{resource-errors}"
    .  "}",
 
+   "default-resource"
+   => "%if{%{res}}{"
+   .    "%{res} %human-numbers{}{ }{ }{%resource-size{}} [%count-resource-members{%{res}}/%count-cluster-members{}]"
+   .  "}",
+
    "default-global"
    => "%call{comminfo}",
 
@@ -6776,9 +6781,9 @@ sub do_all_res {
       $res =~ s/^.*\/resource-(.*)$/$1/;
       next if defined($skip_res{$res});
       if ($verbose || $cmd !~ m/^log-/) {
-	my @this_list = glob("$mars/resource-$res/data-*");
-	my $this_count = scalar(@this_list);
-	lprint "--------- resource $res [$this_count/$total_count]\n" 
+	my $tpl = get_macro("default-resource");
+	my $hint = eval_macro($cmd, $res, $tpl, @_);
+	lprint "--------- resource $hint\n";
       }
       eval {
 	do_one_res($func, $cmd, $res, @_);
