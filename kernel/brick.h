@@ -656,7 +656,10 @@ typedef enum {
 
 #define brick_thread_create(_thread_fn, _data, _fmt, _args...)		\
 	({								\
-		brick_thread_t *_thr = kthread_create(_thread_fn, _data, _fmt, ##_args);	\
+		brick_thread_t *_thr;					\
+									\
+		flush_signals(current);					\
+		_thr = kthread_create(_thread_fn, _data, _fmt, ##_args); \
 		if (unlikely(IS_ERR(_thr))) {				\
 			int _err = PTR_ERR(_thr);			\
 			BRICK_ERR("cannot create thread '%s', status = %d\n", _fmt, _err); \
@@ -674,13 +677,14 @@ typedef enum {
 #define brick_thread_stop(_thread)					\
 	do {								\
 		struct task_struct *__thread__ = (_thread);		\
+									\
 		if (likely(__thread__)) {				\
 			BRICK_INF("stopping thread '%s'\n", __thread__->comm); \
 			kthread_stop(__thread__);			\
 			BRICK_INF("thread '%s' finished.\n", __thread__->comm); \
 			remove_binding(__thread__);			\
 			put_task_struct(__thread__);			\
-			_thread = NULL;					\
+			(_thread) = NULL;				\
 		}							\
 	} while (0)
 
