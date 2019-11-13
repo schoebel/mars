@@ -5363,17 +5363,23 @@ sub eval_fn {
       my $what = $1;
       return eval_fn($env, "$what-present", $arg1);
     }
-    if (/^(device)[-_]?opened$/) {
+    if (/^(device)[-_]?(opened|nrflying)$/) {
       my $what = $1;
+      my $op = $2;
       my $peer = $$env{"host"};
+      my %transl =
+	(
+	 "opened"      => "open-count",
+	 "nrflying"    => "if-flying",
+	);
       if ($what eq "device") {
 	my $other = eval_fn($env, "get-device", $arg1);
 	if ($other =~ m/\@(.*)/) {
 	  $peer = $1;
 	}
       }
-      my $lnk = $$env{"resdir"} . "/actual-$peer/open-count";
-      my $result = get_link($lnk, 1);
+      my $lnk = $$env{"resdir"} . "/actual-$peer/" . $transl{$op};
+      my $result = get_link($lnk, 2);
       $result = "0" unless defined($result);
       return $result;
     }
@@ -6412,7 +6418,7 @@ my %trivial_globs =
    => "(deprecated, use *-present instead)",
    "{disk,device}-present"
    => "",
-   "device-opened"
+   "device-{opened,nrflying}"
    => "",
    "get-log-status"
    => "",
