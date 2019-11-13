@@ -5935,6 +5935,7 @@ my %complex_macros =
   (
    "default"
    => "%if{%{res}}{"
+   .    "%call{device-info}"
    .    "  %{res} [%count-resource-members{%{res}}/%count-cluster-members{}]"
    .      " %include{diskstate} %include{replstate} %include{flags} %include{role} %include{primarynode} %include{commstate}\n"
    .    "%if{%>{%-{%disk-size{}}{%resource-size{}}}{%{threshold}}}{"
@@ -5988,6 +5989,26 @@ my %complex_macros =
    .    "%call{resource-errors-1and1}"
    .  "}{"
    .    "%the-pretty-global-msg{}"
+   .  "}",
+
+   "device-stats"
+   => ""
+   .  "%if{%device-opened{}}{"
+   .    "Opened, "
+   .    "%if{%device-error{}}{"
+   .      "ERROR %device-error{} %errno-text{%device-error{}}, "
+   .    "}"
+   .    "%device-ops-rate{} IOPS"
+   .    ", %device-nrflying{} Flying"
+   .  "}{"
+   .    "Closed"
+   .  "}",
+
+   "device-info"
+   => "%if{%device-present{}}{"
+   .    "  LocalDevice %get-device{}"
+   .    ""
+   .    " [%call{device-stats}]\n"
    .  "}",
 
    "diskstate"
