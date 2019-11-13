@@ -5363,7 +5363,7 @@ sub eval_fn {
       my $what = $1;
       return eval_fn($env, "$what-present", $arg1);
     }
-    if (/^(device)[-_]?(opened|nrflying)$/) {
+    if (/^(device)[-_]?(opened|nrflying|error)$/) {
       my $what = $1;
       my $op = $2;
       my $peer = $$env{"host"};
@@ -5371,6 +5371,7 @@ sub eval_fn {
 	(
 	 "opened"      => "open-count",
 	 "nrflying"    => "if-flying",
+	 "error"       => "if-state",
 	);
       if ($what eq "device") {
 	my $other = eval_fn($env, "get-device", $arg1);
@@ -6418,7 +6419,7 @@ my %trivial_globs =
    => "(deprecated, use *-present instead)",
    "{disk,device}-present"
    => "",
-   "device-{opened,nrflying}"
+   "device-{opened,nrflying,error}"
    => "",
    "get-log-status"
    => "",
