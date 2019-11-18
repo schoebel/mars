@@ -1079,6 +1079,7 @@ sub wait_cluster {
   my $abort = shift;
   $abort = $force unless defined($abort);
   my $old_timeout = $timeout;
+  finish_links();
   my $start_time = mars_time();
   my %old_status = get_alive_links($res, "time", $hosts);
   _trigger($hosts =~ m/\*/ ? 3 : 2);
@@ -3549,6 +3550,10 @@ sub primary_phase1 {
   _primary_res($res, $new, $old);
 }
 
+sub primary_phase1b {
+  finish_links();
+}
+
 # when necessary, wait
 sub primary_phase2 {
   my ($cmd, $res) = @_;
@@ -3569,6 +3574,10 @@ sub primary_phase3 {
   my $old = _get_designated_primary($res, -1);
   my $new = $host;
   _primary_res($res, $new, $old);
+}
+
+sub primary_phase3b {
+  finish_links();
 }
 
 # wait for device to appear / disappear
@@ -6281,10 +6290,14 @@ my %cmd_table =
        "wait for systemd",
        \&primary_phase1,
        "leave primary state",
+       \&primary_phase1b,
+       "trigger remote",
        \&primary_phase2,
        "wait when necessary",
        \&primary_phase3,
        "switch to primary",
+       \&primary_phase3b,
+       "trigger remote",
        \&primary_phase4,
        "wait for device",
       ],
@@ -6306,6 +6319,8 @@ my %cmd_table =
        "check preconditions",
        \&primary_phase1,
        "leave primary state",
+       \&primary_phase1b,
+       "trigger remote",
        \&primary_phase4,
        "wait for effect",
       ],
