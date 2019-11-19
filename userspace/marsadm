@@ -2084,9 +2084,28 @@ sub _get_actual_primary {
   return $primary;
 }
 
+my %old_primary;
+
 sub _get_designated_primary {
   my ($res, $unchecked) = @_;
-  return get_link("$mars/resource-$res/primary", $unchecked);
+  my $fallback_to_old = 0;
+  if (defined($unchecked) && $unchecked == -1) {
+    $fallback_to_old = 1;
+    $unchecked = 1;
+  }
+  my $val = get_link("$mars/resource-$res/primary", $unchecked);
+  if (!defined($val) || !$val || $val eq "(none)") {
+    if ($fallback_to_old) {
+      $val = $old_primary{$res} if defined($old_primary{$res});
+      if (!defined($val) || !$val || $val eq "(none)") {
+	my $last_lnk = "$mars/resource-$res/userspace/last-primary";
+	$val = get_link($last_lnk, 2);
+      }
+    }
+  } else {
+    $old_primary{$res} = $val;
+  }
+  return $val;
 }
 
 sub get_peers {
@@ -2775,6 +2794,7 @@ sub create_res {
 
   if ($create) {
     set_link($host, "$resdir/primary");
+    set_link($host, "$resdir/userspace/last-primary");
     set_link($size, "$resdir/syncstatus-$host");
     my $startnr = get_link("$resdir/maxnr", 2);
     if (defined($startnr) && $startnr ne "" && $startnr > 0) {
@@ -3431,6 +3451,12 @@ sub _primary_res {
   my ($res, $new, $old) = @_;
   my $pri = "$mars/resource-$res/primary";
   set_link($new, $pri);
+  unless ($new eq "(none)") {
+    my $last_lnk = "$mars/resource-$res/userspace/last-primary";
+    my $prev_lnk = "$mars/resource-$res/userspace/prev-primary";
+    system("mv -f $last_lnk $prev_lnk");
+    set_link($new, $last_lnk);
+  }
   lprint "designated primary changed from '$old' to '$new'\n";
 }
 
