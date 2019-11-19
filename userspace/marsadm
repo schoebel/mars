@@ -1946,7 +1946,7 @@ sub try_to_avoid_splitbrain {
     if ($emergency) {
       ldie "emergency mode $emergency has been entered locally: handover is not possible. Either free some space in $mars/, or use --force to use a potentially outdated version.\n";
     }
-    my $primary = _get_designated_primary($res);
+    my $primary = _get_designated_primary($res, -1);
     if ($primary eq "(none)") {
       # try to determine the old primary when unique
       my $glob_logs = sprintf("$mars/resource-$res/log-%09d-*", $max);
@@ -3434,7 +3434,7 @@ sub primary_phase0 {
   if ($force) {
     check_todo($cmd, $res, "fetch", 0, 0);
   }
-  my $old = _get_designated_primary($res);
+  my $old = _get_designated_primary($res, -1);
   lprint "Current designated primary: $old\n";
   if ($cmd eq "primary") {
     if ($host ne $old) {
@@ -3511,7 +3511,7 @@ sub primary_phase0b {
   my ($cmd, $res) = @_;
   return unless systemd_present(@_);
   # only relevant for true handover
-  my $old = _get_designated_primary($res);
+  my $old = _get_designated_primary($res, -1);
   return if ($old eq $host || $old eq "(none)");
   # ignore primary --force
   my $connect_path = "$mars/resource-$res/todo-$host/connect";
@@ -3535,7 +3535,7 @@ sub primary_phase0b {
 sub primary_phase1 {
   my ($cmd, $res) = @_;
   return if ($force and $cmd eq "primary");
-  my $old = _get_designated_primary($res);
+  my $old = _get_designated_primary($res, -1);
   return if ($old eq $host and $cmd eq "primary");
   my $new = "(none)";
   try_to_avoid_splitbrain($cmd, $res, $old) if (!$force and $cmd eq "primary");
@@ -3550,13 +3550,17 @@ sub primary_phase2 {
   return unless $cmd eq "primary";
   wait_cluster($cmd);
   check_primary_gone($res);
+  if (systemd_present(@_)) {
+    my $old = _get_designated_primary($res, -1);
+    try_to_avoid_splitbrain($cmd, $res, $old);
+  }
 }
 
 # when necessary, switch to primary
 sub primary_phase3 {
   my ($cmd, $res) = @_;
   return unless $cmd eq "primary";
-  my $old = _get_designated_primary($res);
+  my $old = _get_designated_primary($res, -1);
   my $new = $host;
   _primary_res($res, $new, $old);
 }
