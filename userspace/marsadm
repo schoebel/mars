@@ -553,16 +553,25 @@ sub _systemd_op {
 }
 
 sub systemd_activate {
-  my ($cmd, $res, $override) = @_;
+  my ($cmd, $res, $override, $fail_abort) = @_;
   my $want_path = "$mars/resource-$res/systemd-want";
   my $want = get_link($want_path, 2);
   my $want_host_path = "$mars/resource-$res/userspace/systemd-want-$host";
   if (!$want) {
     lprint "Nothing to (de)activate: $want_path does not exist\n" if $verbose;
     unlink($want_host_path);
-    return;
+    return 0;
   }
   my $do_activate = $want eq $host;
+  if ($do_activate) {
+    my $primary = _get_designated_primary($res);
+    if ($primary ne $host) {
+      # Do not activate for now
+      lprint "Overriding systemd-want: '$host' is not designated primary,\n";
+      lprint "==== Do not modify resource '$res'\n" if $verbose;
+      return 0;
+    }
+  }
   if (defined($override) && $override != $do_activate) {
     lprint "Overriding unit activate=$do_activate with $override\n" if $verbose;
     $do_activate = $override;
@@ -578,7 +587,7 @@ sub systemd_activate {
   if (!$unit) {
     lprint "Nothing to (de)activate: $unit_path does not exist\n" if $verbose;
     unlink($want_host_path);
-    return;
+    return 0;
   }
   my $ctl_cmd = "show \"$unit\"";
   my $op = "show";
@@ -586,7 +595,7 @@ sub systemd_activate {
     system("touch $want_host_path");
     $unit =~ s/ .*//;
     if (systemd_enabled($unit)) {
-      return;
+      return 0;
     }
     lprint "==== Activate resource '$res' unit '$unit'\n"if $verbose;
     $op = "start";
@@ -600,6 +609,10 @@ sub systemd_activate {
   my $response_path = "$mars/resource-$res/userspace/systemd-status-$oper-$host";
   set_link($status, $response_path);
   finish_links();
+  if ($status && defined($fail_abort) && $fail_abort) {
+    lwarn "systemd unit '$unit' operation $op failed, status=$status\n";
+    return 0;
+  }
   return 1;
 }
 
@@ -1417,7 +1430,7 @@ sub check_mars_device {
 	$round = 0;
 	$backoff++;
       }
-      systemd_activate($cmd, $res, 0);
+      systemd_activate($cmd, $res, 0, 1);
     }
     lprint "device '$dev' is no longer present\n" unless -b $dev;
     return;
@@ -3300,7 +3313,7 @@ sub attach_res_phase0 {
   if ($detach) {
     my $device_in_use = get_link("$mars/resource-$res/actual-$host/open-count", 1);
     if ($device_in_use) {
-      if (systemd_activate($cmd, $res, 0)) {
+      if (systemd_activate($cmd, $res, 0, 1)) {
 	return;
       }
       my $name = get_link("$mars/resource-$res/device-$host");
