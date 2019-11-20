@@ -1319,7 +1319,7 @@ sub _make_messages {
     );
   my $key_msg = defined($table{$key}) ? $table{$key} : $key;
   my $val_msg = $val ? "on" : "off";
-  my $wait_msg = $wait ? "waiting until" : "ensuring that";
+  my $wait_msg = $wait ? "waiting $timeout until" : "ensuring that";
   my $new_val = (defined($inv) && $inv) ? !$val : $val;
   my $action_msg = ($new_val ? "'resume-" : "'pause-") . $key_msg . "'";
   if ($key_msg eq "primary") {
@@ -1336,7 +1336,6 @@ sub _make_messages {
 
 sub check_todo {
   my ($cmd, $res, $key, $val, $wait, $unchecked, $inv) = @_;
-  my ($key_msg, $val_msg, $wait_msg, $action_msg) = _make_messages(@_);
   $key =~ s/fetch/connect/;
   my $path = "$mars/resource-$res/todo-$host/$key";
   $path = correct_path($path);
@@ -1344,6 +1343,7 @@ sub check_todo {
   for (;;) {
     $link = get_link($path, $unchecked);
     return unless defined($link);
+    my ($key_msg, $val_msg, $wait_msg, $action_msg) = _make_messages(@_);
     if (defined($inv) && $inv) {
       last if $link != $val;
       lprint "$wait_msg switch '$key' != '$val'....\n";
@@ -1361,13 +1361,13 @@ sub check_todo {
 sub check_status {
   my ($cmd, $res, $key, $val, $wait, $unchecked, $inv, $peer, $action) = @_;
   $peer = $host unless defined($peer);
-  my ($key_msg, $val_msg, $wait_msg, $action_msg) = _make_messages(@_);
   my $path = correct_path("$mars/resource-$res/actual-$peer/$key");
   my $link;
   my $rounds = 0;
   for (;;) {
     $link = get_link($path, $unchecked);
     $link = 0 unless (defined($link) && $link ne "");
+    my ($key_msg, $val_msg, $wait_msg, $action_msg) = _make_messages(@_);
     if (defined($inv) && $inv) {
       last if $link != $val;
       lprint "at $peer: $wait_msg actual '$key' != '$val'...\n";
