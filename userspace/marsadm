@@ -596,7 +596,10 @@ sub systemd_activate {
     lprint "==== Deactivate resource '$res' unit '$unit'\n"if $verbose;
     $op = "stop";
   }
-  _systemd_op($op, $unit);
+  my $status = _systemd_op($op, $unit);
+  my $response_path = "$mars/resource-$res/userspace/systemd-status-$oper-$host";
+  set_link($status, $response_path);
+  finish_links();
   return 1;
 }
 
