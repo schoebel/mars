@@ -412,25 +412,31 @@ sub subst_systemd_vars {
 
 sub match_systemd_vars {
   my ($env, $pattern, $text) = @_;
-  my $parsed = "";
-  while ($pattern =~ m/[$systemd_incape][{]([A-Za-z_][A-Za-z0-9_]*)[}](?:[{].*?[}])?/ps) {
+  ($env, $pattern) = subst_systemd_vars(1, $env, $pattern);
+  ($env, $text)    = subst_systemd_vars(1, $env, $text);
+  my @names;
+  my $regex = "";
+  while ($pattern =~ m/[$systemd_incape][{]([A-Za-z_][A-Za-z0-9_]*)[}]/ps) {
     my $name = $1;
-    my $deli = $2;
     my $pre  = $PREMATCH;
     my $post = $POSTMATCH;
-    $deli = "-" if (!defined($deli) || !$deli);
-    unless ($text =~ s{\A$pre(.+)(?:$deli)}{$deli}) {
-      return (undef, undef);
+    push @names, $name;
+    $regex .= $pre . "(.+)";
+    $pattern = $post;
+  }
+  $regex .= $pattern;
+  $regex =~ s/\\/\\\\/g;
+  my $nr = 1;
+  if ($text =~ m/^$regex$/p) {
+    foreach my $name (@names) {
+      my $val;
+      eval "\$val = \$$nr;";
+      $$env{$name} = $val;
+      $nr++;
     }
-    my $val = $1;
-    $$env{$name} = $val;
-    $parsed .= $pre . $val;
-    ($env, $pattern) = subst_systemd_vars(1, $env, $post);
+    return ($env, $text);
   }
-  unless ($text eq $pattern) {
-    return (undef, undef);
-  }
-  return ($env, $parsed . $pattern);
+  return (undef, undef);
 }
 
 sub instantiate_systemd_unit {
