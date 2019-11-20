@@ -1086,13 +1086,13 @@ sub wait_cluster {
   my $hosts = shift || "*";
   my $abort = shift;
   $abort = $force unless defined($abort);
-  my $old_timeout = $timeout;
+  $timeout_val = undef;
   finish_links();
   my $start_time = mars_time();
   my %old_status = get_alive_links($res, "time", $hosts);
   _trigger($hosts =~ m/\*/ ? 3 : 2);
   lprint "Ping and wait for answers from " . join(",", sort(keys(%old_status))) . "\n" if %old_status;
-  my $delta = $timeout > 0 ? $timeout : 30;
+  my $delta = $window > 0 ? $window / 2 : 30;
   while (1) {
     my $dead_count = 0;
     my $alive_count = 0;
@@ -1121,7 +1121,6 @@ sub wait_cluster {
     sleep_timeout();
     last if $timeout_val <= 0 && !$unknown_count;
   }
-  $timeout = $old_timeout;
 }
 
 sub wait_cluster_noforce {
