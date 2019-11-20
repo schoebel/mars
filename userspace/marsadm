@@ -116,7 +116,7 @@ my $backup_dir = "$mars/backups-" . time();
 my $force = 0;
 my $ignore_sync = 0;
 my $cron_mode = 0;
-my $timeout = -1;
+my $timeout = 600;
 my $ip = "";
 my $ssh_port = 22;
 my $ssh_opts = "-A -o StrictHostKeyChecking=no -o ConnectTimeout=5";
@@ -6559,10 +6559,13 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     the next one is only created when the last one has at least
     size thresh-logsize (in units of GB).
   --timeout=<seconds>
-    Abort safety checks after timeout with an error.
+    Current default: $timeout
+    Abort safety checks and waiting loops after timeout with an error.
     When giving 'all' as resource agument, this works for each
     resource independently.
+    The special value -1 means \"infinite\".
   --window=<seconds>
+    Current default: $window
     Treat other cluster nodes as healthy when some communcation has
     occured during the given time window.
   --threshold=<bytes>
