@@ -525,14 +525,23 @@ sub systemd_enabled {
 
 sub _systemd_op {
   my ($op, $unit) = @_;
-  if ($op eq "start" && systemd_enabled($unit)) {
-    return;
-  }
-  my $ctl_cmd = "$op '$unit'";
   if (systemctl("cat '$unit' > /dev/null 2>&1")) {
     lwarn "systemd unit $unit does not exist.\n";
-    return;
+    return 0;
   }
+  my $ctl_cmd = "is-failed --quiet '$unit'";
+  my $ok = systemctl($ctl_cmd);
+  if (!$ok) {
+    my $ctl_cmd = "reset-failed '$unit'";
+    my $status = systemctl($ctl_cmd);
+    lprint "--- resetting failed unit '$unit': status=$status\n";
+  }
+  if ($op eq "start" || $op eq "restart") {
+    if (systemd_enabled($unit)) {
+      return 0;
+    }
+  }
+  $ctl_cmd = "$op '$unit'";
   lprint "--- running systemd command: $ctl_cmd\n";
   my $status = systemctl($ctl_cmd);
   if ($status) {
@@ -540,6 +549,7 @@ sub _systemd_op {
   } else {
     lprint "--- systemctl status=$status\n";
   }
+  return $status;
 }
 
 sub systemd_activate {
