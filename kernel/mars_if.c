@@ -1205,6 +1205,17 @@ static int if_open(struct block_device *bdev, fmode_t mode)
 }
 
 static
+void wait_io_done(struct if_brick *brick)
+{
+	int nr;
+
+	while ((nr = atomic_read(&brick->flying_count)) > 0) {
+		MARS_INF("%d IO requests not yet completed\n", nr);
+		brick_msleep(1000);
+	}
+}
+
+static
 //      remove_this
 #ifdef HAS_VOID_RELEASE
 //      end_remove_this
@@ -1220,13 +1231,14 @@ if_release(struct gendisk *gd, fmode_t mode)
 	struct if_brick *brick = input->brick;
 	int nr;
 
-	MARS_INF("----------------------- CLOSE %d ------------------------------\n", atomic_read(&brick->open_count));
+	nr = atomic_read(&brick->open_count);
+	MARS_INF("----------------------- CLOSE %d ------------------------------\n",
+		 nr);
+	if (nr <= 1)
+		wait_io_done(brick);
 
 	if (atomic_dec_and_test(&brick->open_count)) {
-		while ((nr = atomic_read(&brick->flying_count)) > 0) {
-			MARS_INF("%d IO requests not yet completed\n", nr);
-			brick_msleep(1000);
-		}
+		wait_io_done(brick);
 
 		MARS_DBG("status button=%d led_on=%d led_off=%d\n", brick->power.button, brick->power.led_on, brick->power.led_off);
 		mars_trigger();
