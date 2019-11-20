@@ -1007,6 +1007,8 @@ sub mars_time {
   return $lamport_time || time() . "." . '0' x 9;
 }
 
+my $timeout_val = undef;
+
 sub sleep_timeout {
   my $sleeptime = shift || 5;
   my $continue = shift;
@@ -1014,16 +1016,22 @@ sub sleep_timeout {
     sleep($sleeptime);
     return;
   }
-  if ($timeout <= 0) {
+  if (!defined($timeout_val)) {
+    $timeout_val = $timeout;
+    lprint "Resetting timeout to $timeout\n" if $verbose > 0;
+  }
+  if ($timeout_val <= 0) {
+    $timeout_val = undef;
     if (!defined($continue) || !$continue) {
       ldie "Timeout reached.\n";
     }
     lwarn "Timeout reached. Continuing anyway.\n";
+    return;
   }
-  my $rest = $timeout;
+  my $rest = $timeout_val;
   $rest = $sleeptime if $rest > $sleeptime;
   sleep($rest);
-  $timeout -= $rest;
+  $timeout_val -= $rest;
 }
 
 # wait for some condition
@@ -1111,7 +1119,7 @@ sub wait_cluster {
       last;
     }
     sleep_timeout();
-    last if $timeout <= 0 && !$unknown_count;
+    last if $timeout_val <= 0 && !$unknown_count;
   }
   $timeout = $old_timeout;
 }
@@ -2574,7 +2582,7 @@ sub leave_cluster {
   _create_delete("$mars/todo-global/deleted-$host");
   finish_links();
   wait_cluster($cmd) unless $force;
-  while (-f "$mars/ips/ip-$host" && $timeout >= 0) {
+  while (-f "$mars/ips/ip-$host" && $timeout_val >= 0) {
     sleep_timeout(3, 1);
   }
   system("rmmod mars") if $host eq $real_host;
