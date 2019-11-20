@@ -1390,6 +1390,7 @@ sub check_status {
   my $path = correct_path("$mars/resource-$res/actual-$peer/$key");
   my $link;
   my $rounds = 0;
+  my $fail_round = 10;
   for (;;) {
     $link = get_link($path, $unchecked);
     $link = 0 unless (defined($link) && $link ne "");
@@ -1403,13 +1404,19 @@ sub check_status {
       lprint "at $peer: $wait_msg actual '$key' == '$val'...\n";
       ldie "Cannot execute $cmd on resource $res: actual '$key_msg' must be $val_msg. $action_msg Also ensure that your command _can_ succeed.\n" if !$wait;
     }
-    sleep_timeout();
-    $rounds++;
     if (defined($action) && $action && $rounds > 1) {
       lprint "action: $action\n" if $verbose;
+      my $action_status = 0;
+      my $old_error_count = $error_count;
       eval "$action";
-      $rounds = 0;
+      $error_count = $old_error_count;
+      # Tolerate intermediate failures for some time
+      if ($action_status && $rounds > $fail_round) {
+	ldie "Action failure, status=$action_status\n";
+      }
     }
+    sleep_timeout();
+    $rounds++;
   }
   lprint "OK at $peer: '$path' has acceptable value '$link'\n";
 }
@@ -3546,6 +3553,10 @@ sub primary_phase0 {
     my $unit_path = "$mars/resource-$res/systemd-$oper-unit";
     my $unit = get_link($unit_path, 2);
     if ($unit) {
+      if ($old ne "(none)") {
+	my $response_path = "$mars/resource-$res/userspace/systemd-status-stop-$old";
+	set_link(0, $response_path);
+      }
       lprint "IMPORTANT: Relying on systemd for $oper of unit '$unit'\n";
       lprint "IMPORTANT: unit '$unit' wanted at '$new'\n";
       finish_links();
@@ -3593,7 +3604,13 @@ sub primary_phase0b {
   # open-count will then go down to zero, hopefully somewhen.
   my $watch = "$mars/resource-$res/systemd-want";
   my $action = "";
-  $action = "system(\"touch -h $watch\");" if -l $watch;
+  if (-l $watch) {
+    $action = "system(\"touch -h $watch\");";
+    my $response_path = "$mars/resource-$res/userspace/systemd-status-stop-$old";
+    $action .= "\$action_status = get_link(\"$response_path\");";
+    my $msg = "systemctl stop on peer $old: status=\$action_status\n";
+    $action .= "ldie \"$msg\" if \$action_status;";
+  }
   check_status($cmd, $res, "open-count", 0, 1, undef, undef, $old, $action);
 }
 
