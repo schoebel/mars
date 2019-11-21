@@ -1066,7 +1066,7 @@ sub sleep_timeout {
   my $continue = shift;
   if ($timeout < 0) {
     sleep($sleeptime);
-    return;
+    return 0;
   }
   if (!defined($timeout_val)) {
     $timeout_val = $timeout;
@@ -1078,12 +1078,13 @@ sub sleep_timeout {
       ldie "Timeout reached.\n";
     }
     lwarn "Timeout reached. Continuing anyway.\n";
-    return;
+    return 1;
   }
   my $rest = $timeout_val;
   $rest = $sleeptime if $rest > $sleeptime;
   sleep($rest);
   $timeout_val -= $rest;
+  return 0;
 }
 
 # wait for some condition
@@ -1410,8 +1411,18 @@ sub check_todo {
   lprint "OK, '$path' has acceptable value '$link'\n";
 }
 
+sub _run_compensation {
+  my ($compensation) = @_;
+  if (defined($compensation)) {
+    my $txt = $compensation;
+    $txt =~ s/\n/\\n/mg;
+    lprint "Running compensation action '$txt'\n";
+    eval $compensation;
+  }
+}
+
 sub check_status {
-  my ($cmd, $res, $key, $val, $wait, $unchecked, $inv, $peer, $action) = @_;
+  my ($cmd, $res, $key, $val, $wait, $unchecked, $inv, $peer, $action, $compensation) = @_;
   $peer = $host unless defined($peer);
   my $path = correct_path("$mars/resource-$res/actual-$peer/$key");
   my $link;
@@ -1438,10 +1449,15 @@ sub check_status {
       $error_count = $old_error_count;
       # Tolerate intermediate failures for some time
       if ($action_status && $rounds > $fail_round) {
+	_run_compensation($compensation);
 	ldie "Action failure, status=$action_status\n";
       }
     }
-    sleep_timeout();
+    my $status = sleep_timeout(undef, 1);
+    if ($status) {
+      _run_compensation($compensation);
+      ldie "Timeout\n";
+    }
     $rounds++;
   }
   lprint "OK at $peer: '$path' has acceptable value '$link'\n";
@@ -3637,7 +3653,17 @@ sub primary_phase0b {
     my $msg = "systemctl stop on peer $old: status=\$action_status\n";
     $action .= "ldie \"$msg\" if \$action_status;";
   }
-  check_status($cmd, $res, "open-count", 0, 1, undef, undef, $old, $action);
+  # try to compensate failures by systemd restart
+  my $compensation = undef;
+  if ($old ne "(none)") {
+    $compensation = "lprint \"Restarting '$res' on '$old'\n\"; ";
+    $compensation .= "_primary_res(\"$res\", \"$old\", \"(none)\"); ";
+    $compensation .= "set_systemd_want(\"$cmd\", \"$res\", \"$old\"); ";
+    $compensation .= "finish_links(); ";
+    $compensation .= "_trigger(3); ";
+    $compensation .= "lprint \"Triggered systemd at '$old'.\n\";";
+  }
+  check_status($cmd, $res, "open-count", 0, 1, undef, undef, $old, $action, $compensation);
 }
 
 # when necessary, switch to secondary (intermediately)
