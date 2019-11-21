@@ -488,6 +488,27 @@ sub instantiate_systemd_unit {
   return (1, $outfile);
 }
 
+sub set_systemd_want {
+  my ($cmd, $res, $new) = @_;
+  if ($new ne "(none)") {
+    my $host_path = "$mars/ips/ip-$new";
+    unless (get_link($host_path, 1)) {
+      lwarn "The hostname '$new' does not exist.\n";
+      ldie "Refusing to set systemd-want.\n" unless $force;
+    }
+  }
+  my $unit_glob = "$mars/resource-$res/systemd-*-unit";
+  unless (glob($unit_glob)) {
+    lwarn "Resource '$res' has no configured systemd units.\n";
+    lwarn "First configure the resource with marsadm set-systemd-unit.\n";
+    ldie "Refusing to set systemd-want.\n" unless $force;
+  }
+  my $want_path = "$mars/resource-$res/systemd-want";
+  set_link($new, $want_path);
+  finish_links();
+  _systemd_trigger();
+}
+
 sub systemd_present {
   my ($cmd, $res) = @_;
   my $unit_glob = "$mars/resource-$res/systemd-*-unit";
@@ -5974,6 +5995,15 @@ my %cmd_table =
        "usage: get-systemd-unit <resource_name>",
        "Show the system units (for start and stop), or empty when unset.",
        \&get_systemd_unit,
+      ],
+   "set-systemd-want"
+   => [
+       "usage: set-systemd-want <resource_name> <host_name>",
+       "Override the current location where the complete systemd unit stack",
+       "should be started.",
+       "Useful for a temporary stop of the systemd unit stack by supplying",
+       "the special hostname \"(none)\".",
+       \&set_systemd_want,
       ],
    "set-connect-pref-list"
    => [
