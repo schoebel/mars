@@ -512,10 +512,15 @@ sub set_systemd_want {
 sub systemd_present {
   my ($cmd, $res) = @_;
   my $unit_glob = "$mars/resource-$res/systemd-*-unit";
-  return 0 unless glob($unit_glob);
+  return "" unless glob($unit_glob);
   my $want_path = "$mars/resource-$res/systemd-want";
   my $want = get_link($want_path, 2);
   return $want;
+}
+
+sub get_systemd_want {
+  my $txt = systemd_present(@_);
+  lprint "$txt\n";
 }
 
 sub systemd_exists {
@@ -6001,9 +6006,19 @@ my %cmd_table =
        "usage: set-systemd-want <resource_name> <host_name>",
        "Override the current location where the complete systemd unit stack",
        "should be started.",
-       "Useful for a temporary stop of the systemd unit stack by supplying",
+       "Useful for a _temporary_ stop of the systemd unit stack by supplying",
        "the special hostname \"(none)\".",
+       "For a _permanent_ stop, use \"marsadm set-systemd-unit <resource>\"",
+       "instead.",
        \&set_systemd_want,
+      ],
+   "get-systemd-want"
+   => [
+       "usage: get-systemd-want <resource_name>",
+       "Show the current hostname where the complete systemd unit stack",
+       "between start- and stop-unit should appear.",
+       "Reports empty when unset, or \"(none)\" when stopped.",
+       \&get_systemd_want,
       ],
    "set-connect-pref-list"
    => [
