@@ -2729,6 +2729,10 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 		INIT_LIST_HEAD(&peer->peer_head);
 		INIT_LIST_HEAD(&peer->remote_dent_list);
 
+		/* always trigger on peer startup */
+		peer->from_remote_trigger = true;
+		peer->to_remote_trigger = true;
+
 		down_write(&peer_lock);
 		list_add_tail(&peer->peer_head, &peer_anchor);
 		peer_count++;
