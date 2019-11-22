@@ -26431,14 +26431,9 @@ name "sec:systemd-Templates"
 \begin_layout Standard
 Starting with 
 \family typewriter
-mars0.1stable57
+mars0.1astable
 \family default
- (resp.
- 
-\family typewriter
-mars0.1abeta9
-\family default
-), you may use 
+79, you may use 
 \family typewriter
 systemd
 \family default
@@ -26447,7 +26442,7 @@ systemd
 \family typewriter
 systemd
 \family default
--relevant state information across the (big) cluster, achiving some remote
+-relevant state information across the (big) cluster, achieving some remote
  control.
  In particular, automated handover via 
 \family typewriter
@@ -26473,8 +26468,8 @@ systemd
  based.
  It is the new quasi standard.
  Although there have been some discussions in the community about its merits
- and shortcomings, it appears to be accepted now in large parts of the Linux
- world.
+ and its shortcomings, now it appears to be accepted in large parts of the
+ Linux world.
 \end_layout
 
 \begin_layout Standard
@@ -26491,7 +26486,7 @@ init
 pid=1
 \family default
 .
- If it would ever die, then your system would die.
+ If it ever would die, then your system as a whole would die.
  There is no need for adding a new MARS clustermanager daemon or similar,
  which could fail independently from other parts of the system.
 \end_layout
@@ -26719,7 +26714,7 @@ systemd
 \end_layout
 
 \begin_layout Standard
-Template unit files are nothing but unit files containing 
+Template unit files are nothing but unit files, optionally containing 
 \family typewriter
 @{
 \emph on
@@ -26911,62 +26906,52 @@ text
 \emph default
 }
 \family default
-
-\begin_inset space ~
-\end_inset
-
-or
-\begin_inset space ~
-\end_inset
-
-,
+ This can be used in template filenames 
+\emph on
+only
+\emph default
+.
+ First, any 
+\family typewriter
+@{
+\emph on
+othername
+\emph default
+}
+\family default
+ are substituted.
+ Finally, any 
 \family typewriter
 ^
 \emph on
 {varname
 \emph default
-}{
-\emph on
-regex
-\emph default
 }
 \family default
- This can be used in template filenames only.
- The 
+ are matched against the actual filename like a shell wildcard 
 \family typewriter
-\emph on
-regex
+*
 \family default
-\emph default
- denotes a delimiter for scanning the filename until the delimiter is reached.
+.
  The matching part of the filename is assigned to 
 \family typewriter
 \emph on
 varname
 \family default
 \emph default
-, and can be used at any following
+, and can be later used at 
 \family typewriter
- @{
+@{
 \emph on
 varname
 \emph default
 }
 \family default
- substitutions, both in the rest of the filename, and in the content of
- the file.
- When 
-\family typewriter
+ substitutions occurring in the 
 \emph on
-regex
-\family default
+content
 \emph default
- is omitted or empty, it defaults to 
-\family typewriter
--
-\family default
- (a single minus symbol) which is suitable for matching paths of mountpoints
- as written in systemd syntax.
+ of the file.
 \end_layout
 
 \begin_layout Description
@@ -27009,9 +26994,12 @@ x2d
 
 \end_inset
 
- Omitting this can lead to problems when your resource names are containing
- special characters like dashes or other special symbols (in the sense of
- 
+ Omission of 
+\family typewriter
+systemd-escape
+\family default
+ can lead to problems when your resource names are containing special characters
+ like dashes or other special symbols (in the sense of 
 \family typewriter
 systemd
 \family default
@@ -27085,7 +27073,14 @@ x2d
 \family typewriter
 ExecStart=
 \family default
- statements, the backslash will be removed.
+ statements like 
+\family typewriter
+/bin/bash -c
+\series bold
+ $args
+\family default
+\series default
+, the backslash will be removed.
  Therefore, don't forget to either replace any single backslash with two
  backslashes, or to put the whole pathname in single quotes, or similar.
  Always check the result of your substitutions! It depends on the 
@@ -27261,7 +27256,11 @@ touch /mars/userspace/systemd-trigger
 \family typewriter
 marsadm systemd-trigger
 \family default
- is executed.
+ (without 
+\family typewriter
+--force
+\family default
+) will be executed.
  In turn, this will re-compute all 
 \family typewriter
 systemd
@@ -27295,7 +27294,7 @@ reference "subsec:Handover-using-systemd"
 \begin_layout Description
 
 \family typewriter
-^{unit}-@{res}.mount
+^{mntname}-@{res}.mount
 \family default
  This is one of the possible sub-ordinate targets which depend on 
 \family typewriter
@@ -27311,16 +27310,31 @@ marsadm set-systemd-unit mydata vol-mydata.mount
 \family typewriter
 /dev/mars/mydata
 \family default
- to the mountpoint 
+ onto the mountpoint 
 \family typewriter
 /vol/mydata
 \family default
 .
- Notice that the template notation 
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Notice: the template notation 
 \family typewriter
-^{unit}
+^{mntname}
 \family default
- can be used for mounting to an arbitrary mountpoint, such as
+ can be used for mounting to an 
+\emph on
+arbitrary
+\emph default
+ mountpoint, such as
 \family typewriter
  /another/mountdir/mydata
 \family default
@@ -27329,6 +27343,178 @@ marsadm set-systemd-unit mydata vol-mydata.mount
 marsadm set-systemd-unit mydata another-mountdir-mydata.mount
 \family default
 .
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Look into the template file 
+\family typewriter
+^{mntname}-@{res}.mount
+\family default
+.
+ In the first line, there is the following macro call:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+@eval{%let{mntpath}{%subst{%{mntname}}{-}{/}}}
+\family default
+
+\begin_inset Newline newline
+\end_inset
+
+This is a trick for conversion of any systemd template name 
+\family typewriter
+mntname
+\family default
+ into into an ordinary filesystem pathname 
+\family typewriter
+mntpath
+\family default
+.
+ While subdirectories in a path are separated by slashes, the systemd unit
+ naming conventions (as required by systemd) are using dashes in place of
+ slashes.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not confuse 
+\family typewriter
+@{mntname}
+\family default
+ with 
+\family typewriter
+@{mntpath}
+\family default
+.
+ Depending on the 
+\emph on
+type
+\emph default
+ of argument to be substituted, you may need either systemd unit naming
+ conventions, or classical Unix pathname conventions.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+^{mntname}-@{res}-testload.service
+\family default
+ This is an academic example for testing and for inspection, not intended
+ for production.
+ Here you can see how a 
+\series bold
+transitive dependency chain
+\series default
+ should be configured.
+ In its body, this template contains a 
+\family typewriter
+BindsTo=
+\family default
+ reference to another template 
+\family typewriter
+^{mntname}-@{res}-medium-02.service
+\family default
+, which in turn contains a 
+\family typewriter
+BindsTo=
+\family default
+ reference to 
+\family typewriter
+^{mntname}-@{res}-medium-01.service
+\family default
+, which eventually references 
+\family typewriter
+^{mntname}-@{res}.mount
+\family default
+ also via 
+\family typewriter
+BindsTo=
+\family default
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not confuse 
+\family typewriter
+Requires=
+\family default
+ with 
+\family typewriter
+BindsTo=
+\family default
+ (see 
+\family typewriter
+man systemd.unit
+\family default
+).
+ If you want to automatically stop your 
+\emph on
+entire
+\emph default
+ unit stack via a 
+\emph on
+single
+\emph default
+ command 
+\family typewriter
+systemctl stop vol-mydata.mount
+\family default
+, then you most likely need the stronger 
+\family typewriter
+BindsTo=
+\family default
+ directive in place of weaker ones like 
+\family typewriter
+Requires=
+\family default
+ or similar.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In many cases (but not always), you also need an 
+\family typewriter
+After=
+\family default
+ directive.
+ Otherwise you will unintentionally program a hard to debug 
+\series bold
+race condition
+\series default
+, which can extinct your last hair.
+ Be sure to understand the corresponding details in the systemd documentation.
 \end_layout
 
 \begin_layout Standard
@@ -27344,11 +27530,15 @@ marsadm set-systemd-unit mydata another-mountdir-mydata.mount
 consistent
 \emph default
  name scheme.
- Always use the same name for the underlying LV (called disk in MARS terminology
-), equal to the MARS resource name, equal to the last part of the mountpoint,
- equal to the IQN of an iSCSI export, equal to the NFS share name, equal
- to the LXC container name, equal to the KVM/qemu virtual machine name,
- and so on.
+ Always use the 
+\emph on
+logically same name
+\emph default
+ (modulo some escaping conventions for special characters), e.g.
+ for the underlying LV (called disk in MARS terminology), equal to the MARS
+ resource name, equal to the last part of the mountpoint, equal to the IQN
+ of an iSCSI export, equal to the NFS share name, equal to the LXC container
+ name, equal to the KVM/qemu virtual machine name, and so on.
  Messing around with non-systematic naming conventions can easily result
  in a hell.
 \end_layout
@@ -27379,7 +27569,7 @@ reference "subsec:Working-Principle-of"
  In case you have never used the template engine before, you can create
  the first instantiation via 
 \family typewriter
-marsadm systemd-trigger
+marsadm systemd-trigger --force
 \family default
 .
  Afterwards, inspect 
@@ -27423,8 +27613,11 @@ $start_unit
 \family typewriter
 $stop_unit
 \family default
- are typically denoting different targets (with few exceptions) for the
- following reason:
+ are typically denoting 
+\emph on
+different
+\emph default
+ targets for start and stop (with few exceptions) for the following reason:
 \end_layout
 
 \begin_layout Description
@@ -27455,10 +27648,21 @@ systemd
 Requires=
 \family default
  dependency between both targets, or similar.
- However, the situation can become tricky upon shutdown.
+ Then, simply use 
+\family typewriter
+nfs-export-mydata.service
+\family default
+ as start unit.
+ Whenever it needs to be started, systemd will automatically analyze its
+ dependencies and automatically start 
+\family typewriter
+vol-mydata.mount
+\family default
+.
+ However, stopping is different.
  Theoretically, 
 \family typewriter
-systemctl stop nfs-export-@{res}.service
+systemctl stop nfs-export-mydata.service
 \family default
  
 \emph on
@@ -27474,7 +27678,7 @@ sister
 also
 \emph default
  depend on the mount.
- In some cases, you need not necessarily notice that sisters, because systemd
+ In some cases, you need not necessarily notice any sisters, because systemd
  can add further (internal) targets 
 \emph on
 automatically
@@ -27482,9 +27686,18 @@ automatically
 .
  The problem is easily solvable by 
 \family typewriter
-systemctl stop vol-@{res}.mount
+systemctl stop vol-mydata.mount
 \family default
-, which will automatically tear down all dependencies in reverse order.
+, which will automatically tear down 
+\emph on
+all
+\emph default
+ dependencies in reverse order.
+ Therefore, use the 
+\emph on
+bottom
+\emph default
+ of the stack (usually a mount unit) as your stop unit.
 \end_layout
 
 \begin_layout Standard
@@ -27500,7 +27713,7 @@ tip
 \family typewriter
 $stop_unit
 \family default
- should point at the 
+ should always point at the 
 \emph on
 bottom
 \emph default
@@ -27525,7 +27738,6 @@ marsadm set-systemd-unit $res
 
 \family default
  .
- 
 \end_layout
 
 \begin_layout Standard
@@ -27554,7 +27766,6 @@ $stop_unit
 
 \family default
  should be automatically executed at the old primary side.
- 
 \end_layout
 
 \begin_layout Enumerate
@@ -27579,19 +27790,58 @@ After a while, the MARS kernel module will notice that
 
 \end_inset
 
- In case the device is not closed, ordinary handover cannot proceed, because
- somebody could (at least potentially) write some data into it, even after
- the handover, which would lead to a split brain.
+ In case the device is not closed for any reason, ordinary handover 
+\emph on
+cannot
+\emph default
+ proceed, because somebody could (at least potentially) write some data
+ into it, even after the handover, which would lead to a split brain.
  Therefore MARS 
 \emph on
 must
 \emph default
- insist that the device is closed before ordinary handover will proceed.
- In case it is not closed, you can (a) use 
-\family typewriter
-primary --force
-\family default
- which will likely provoke a split brain, or (b) check your 
+ insist that the device is closed before 
+\emph on
+ordinary
+\emph default
+ handover can proceed.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In order to not leave you with a failed service, umount failures will be
+ detected after a timeout.
+ Handover by marsadm will then 
+\emph on
+automatically
+\emph default
+ restart the old start unit at the old primary side where the the device
+ was not released.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In case an ordinary handover is not possible due to hanging device openings,
+ you have the following options:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Check your 
 \family typewriter
 systemd
 \family default
@@ -27619,6 +27869,15 @@ all
 \end_layout
 
 \begin_layout Enumerate
+Do a failover via 
+\family typewriter
+primary --force
+\family default
+, which will likely provoke a split brain.
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
 Once 
 \family typewriter
 /dev/mars/$res
@@ -27645,7 +27904,6 @@ $start_unit
 
 \family default
  should be automatically executed.
- 
 \end_layout
 
 \begin_layout Standard
@@ -27680,7 +27938,120 @@ quagga
 \family typewriter
 bird
 \family default
- or other BGP configurations into your stack.
+ or other BGP configurations into your systemd unit stack.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In general, marsadm tries to keep your services running whenever a handover
+ failure occurs, or when you re-attach after a detach, or when your machine
+ reloads 
+\family typewriter
+mars.ko
+\family default
+ after a crash reboot, etc.
+ This is regarded as a 
+\emph on
+feature
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ However, this feature could become boring if you 
+\emph on
+intentionally(!)
+\emph default
+ want to stop your services, for example when you need to run an 
+\family typewriter
+fsck
+\family default
+.
+ Do not use 
+\family typewriter
+marsadm secondary
+\family default
+, because this would make 
+\family typewriter
+/dev/mars/mydata
+\family default
+ to disappear.
+ Although 
+\family typewriter
+marsadm set-systemd-unit mydata 
+\begin_inset Quotes eld
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+
+\family default
+ would solve the problem, this would make you forget the old start and stop
+ unit names.
+ You could workaround by some wrapper script remembering the old names via
+ 
+\family typewriter
+marsadm get-systemd-unit
+\family default
+, but this is not necessary:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ There is a simple solution: 
+\family typewriter
+marsadm set-systemd-want 
+\begin_inset Quotes eld
+\end_inset
+
+(none)
+\begin_inset Quotes erd
+\end_inset
+
+
+\family default
+ will 
+\emph on
+temporarily
+\emph default
+ stop the whole systemd unit stack, while keeping 
+\family typewriter
+/dev/mars/mydata
+\family default
+ accessible.
+ After your 
+\family typewriter
+fsck /dev/mars/mydata
+\family default
+ has finished, simply use an idempotent 
+\family typewriter
+marsadm primary mydata
+\family default
+ for restart of your services.
 \end_layout
 
 \begin_layout Section
