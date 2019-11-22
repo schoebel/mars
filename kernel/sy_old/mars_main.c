@@ -114,6 +114,8 @@
 		MARS_ERR(fmt, ##args);					\
 	})
 
+struct timespec modprobe_stamp;
+
 loff_t raw_total_space = 0;
 loff_t global_total_space = 0;
 EXPORT_SYMBOL_GPL(global_total_space);
@@ -4341,6 +4343,21 @@ int make_primary(void *buf, struct mars_dent *dent)
 	CHECK_PTR(rot, done);
 
 	rot->has_symlinks = true;
+	status = 0;
+
+	/* Do not activate primary role shortly after modprobe.
+	 * This gives the metadata update a chance to get the
+	 * newest version of the primary link from some other
+	 * cluster node.
+	 */
+	if (unlikely(!rot->checked_reboot)) {
+		struct timespec when;
+
+		get_lamport(NULL, &when);
+		when.tv_sec += mars_scan_interval * 2;
+		if (timespec_compare(&when, &modprobe_stamp) <= 0)
+			goto done;
+	}
 
 	rot->todo_primary =
 		global->global_power.button && dent->new_link && !strcmp(dent->new_link, my_id());
@@ -4359,7 +4376,6 @@ int make_primary(void *buf, struct mars_dent *dent)
 		MARS_DBG("recover_versionlink = %d\n",
 			 rot->recover_versionlink);
 	}
-	status = 0;
 
 done:
 	return status;
@@ -6360,6 +6376,8 @@ static int __init init_main(void)
 		MARS_ERR("Sorry, your /mars/ filesystem is too small!\n");
 		goto done;
 	}
+
+	get_lamport(NULL, &modprobe_stamp);
 
 	main_thread = brick_thread_create(_main_thread, NULL, "mars_main");
 	if (unlikely(!main_thread)) {
