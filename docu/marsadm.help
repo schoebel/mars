@@ -39,10 +39,13 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     the next one is only created when the last one has at least
     size thresh-logsize (in units of GB).
   --timeout=<seconds>
-    Abort safety checks after timeout with an error.
+    Current default: 600
+    Abort safety checks and waiting loops after timeout with an error.
     When giving 'all' as resource agument, this works for each
     resource independently.
+    The special value -1 means "infinite".
   --window=<seconds>
+    Current default: 60
     Treat other cluster nodes as healthy when some communcation has
     occured during the given time window.
   --threshold=<bytes>
@@ -174,6 +177,12 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   get-systemd-unit
     usage: get-systemd-unit <resource_name>
     Show the system units (for start and stop), or empty when unset.
+
+  get-systemd-want
+    usage: get-systemd-want <resource_name>
+    Show the current hostname where the complete systemd unit stack
+    between start- and stop-unit should appear.
+    Reports empty when unset, or "(none)" when stopped.
 
   invalidate
     usage: invalidate <resource_name>
@@ -462,6 +471,15 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     When <stop_unit_name> is omitted, it will be treated equal to
     <start_unit_name>.
 
+  set-systemd-want
+    usage: set-systemd-want <resource_name> <host_name>
+    Override the current location where the complete systemd unit stack
+    should be started.
+    Useful for a _temporary_ stop of the systemd unit stack by supplying
+    the special hostname "(none)".
+    For a _permanent_ stop, use "marsadm set-systemd-unit <resource>"
+    instead.
+
   split-cluster
     usage: split-cluster (no parameters)
     NOT OFFICIALLY SUPPORTED - ONLY FOR EXPERTS.
@@ -506,6 +524,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   cstate
   default
   default-global
+  default-resource
   diskstate
   diskstate-1and1
   dstate
