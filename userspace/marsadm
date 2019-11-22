@@ -1970,7 +1970,21 @@ sub try_to_avoid_splitbrain {
       my $p_vers = get_link($p_path, 1);
       my $h_vers = get_link($h_path, 1);
       if (!$p_vers || !$h_vers || $p_vers ne $h_vers) {
-	$ok = 0;
+	# Safeguard against artificial or missing version links
+	# (e.g. after crashes etc):
+	# when replay links are equal, we are safe.
+	my $replay_p = get_link("$mars/resource-$res/replay-$primary");
+	my $replay_h = get_link("$mars/resource-$res/replay-$host");
+	if ($replay_p eq $replay_h) {
+	  # self-healing the versionlink
+	  if ($p_vers) {
+	    lwarn "Correcting the versionlink '$h_path' from '$h_vers' to '$p_vers'\n";
+	    set_link($p_vers, $h_path);
+	    finish_links();
+	  }
+	} else {
+	  $ok = 0;
+	}
       }
     } else {
       # old primary is unknown: we have no chance, other than comparing _all_ versions.
