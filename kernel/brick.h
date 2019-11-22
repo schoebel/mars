@@ -656,15 +656,24 @@ typedef enum {
 
 #define brick_thread_create(_thread_fn, _data, _fmt, _args...)		\
 	({								\
-		brick_thread_t *_thr;					\
+		brick_thread_t *_thr = NULL;				\
+		int _max_retry = 3;					\
 									\
-		flush_signals(current);					\
-		_thr = kthread_create(_thread_fn, _data, _fmt, ##_args); \
-		if (unlikely(IS_ERR(_thr))) {				\
-			int _err = PTR_ERR(_thr);			\
+		while (_max_retry-- > 0) {				\
+			int _err;					\
+									\
+			flush_signals(current);				\
+			_thr = kthread_create(_thread_fn, _data, _fmt, ##_args); \
+			if (likely(!IS_ERR(_thr)))			\
+				break;					\
+			_err = PTR_ERR(_thr);				\
+			if (_err == -EAGAIN || _err == -EINTR)		\
+				continue;				\
 			BRICK_ERR("cannot create thread '%s', status = %d\n", _fmt, _err); \
 			_thr = NULL;					\
-		} else {						\
+			break;						\
+		}							\
+		if (_thr) {						\
 			struct say_channel *ch = get_binding(current);	\
 			if (ch)						\
 				bind_to_channel(ch, _thr);		\
