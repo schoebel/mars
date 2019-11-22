@@ -80,6 +80,23 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable80
+	* Compatibility up to kernels <= 4.14.
+	  Attention! There is a bug in upstream kernels >= 4.11, leading
+	  to an endless loop in kernel mode under certain preconditions.
+	  The fix is in pre-patches/vanilla-4.14/0001-sched-wait-fix-*
+	  If you _forget_ to apply this fix for _affected_ kernels, you may
+	  get "operational fun" at the wrong moment: ordinary operations
+	  will likely be unaffected, but a _silent_ network outage at the
+	  wrong moment (race condition) may hang up your kernel at the
+	  secondary site, just in the moment when you probably want to do
+	  a failover.
+	  LTS kernels 4.9 and earlier are not affected by the bug, although
+	  potentially present also there, but it is a _masked_ (sleeping)
+	  bug there.
+	  I already submitted the fix to LKML, but unfortunately has been
+	  ignored up to now.
+
 mars0.1astable79
 	* Critical fix: in a multiple-failure scenario which is hard
 	  to reach, and then acting badly by disregarding
