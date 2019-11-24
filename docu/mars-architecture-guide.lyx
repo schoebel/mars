@@ -6428,7 +6428,11 @@ xfs
  filesystem consuming 1 inode, there is not only noticable space overhead.
  In addition, random access by large application workingsets will need at
  least two seeks in total (inode + sector content).
- Disregarding caching effects, this just doubles the needed worst-case IOPS.
+ Disregarding caching effects
+\end_layout
+
+\begin_layout Plain Layout
+, this just doubles the needed worst-case IOPS.
  When taking the lookup fuctionality into account, the picture will worsen
  once again.
 \end_layout
@@ -9470,6 +9474,46 @@ status open
 
 \begin_layout Plain Layout
 \noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Distributed vs local caching vs spindle load distribution
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In best case, distributed caching can never be any better than local caching
+ (under comparable conditions).
+ In 
+\emph on
+worst case
+\emph default
+, distributed caching can however 
+\series bold
+drastically slow down performance
+\series default
+ instead of improving it.
+ The effect is kown in DSM = Distributed Shared Memory research.
+ It is related to thrashing, and may be called 
+\series bold
+distributed thrashing
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -9477,11 +9521,20 @@ status open
 
 \end_inset
 
- Caching can yield several 
+ 
 \emph on
-orders of magnitude
+Local
 \emph default
- of performance.
+ caching in shared RAM does not suffer from additional distribution effects.
+ In best case, it can yield up to 
+\emph on
+several orders of magnitude
+\emph default
+ of performance (depending on the workingset behaviour of your application
+ workload).
+ The worst case isn't worse than necessary: well-implemented local caches
+ cooperating with the kernel process scheduler can limit some effects of
+ local RAM thrashing, in case they should appear.
 \end_layout
 
 \begin_layout Plain Layout
@@ -9493,9 +9546,9 @@ orders of magnitude
 
 \end_inset
 
- In contrast, frequently heard load distribution arguments can only re-distribut
-e the already existing performance of your spindles, but cannot magically
- 
+ In contrast to local shared RAM caching, frequently heard spindle load
+ distribution arguments can only re-distribute the already existing performance
+ of your spindles, but cannot magically 
 \begin_inset Quotes eld
 \end_inset
 
@@ -9504,6 +9557,34 @@ create
 \end_inset
 
  new sources of performance out of thin air.
+ Anyway, their potential is only about 1 order of magnitude.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Therefore, invests into local RAM for shared caching by the kernel may
+ easily pay off better than invests into a storage network.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Spindle load distribution can be also achieved via local RAID-10, but typically
+ much cheaper and more performant due to lower distances between the spindles
+ and the application RAM.
 \end_layout
 
 \end_inset
@@ -9513,7 +9594,8 @@ create
 
 \begin_layout Standard
 \noindent
-In contrary, load distribution over a storage network is 
+Compared to local RAID storage, spindle load distribution over a storage
+ network is typically 
 \emph on
 costing
 \emph default
