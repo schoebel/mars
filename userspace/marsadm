@@ -279,6 +279,9 @@ my $match_fn = qr"$match_fn_head(?:\{($match_inner)\})"s;
 
 my $systemd_subdir = defined($ENV{SYSTEMD_SUBDIR}) ? $ENV{SYSTEMD_SUBDIR} : "systemd-templates";
 my $systemd_target_dir = defined($ENV{SYSTEMD_TARGET_DIR}) ? $ENV{SYSTEMD_TARGET_DIR} : "/run/systemd/system";
+my $systemd_suffixes = defined($ENV{SYSTEMD_SUFFIXES}) ?
+  $ENV{SYSTEMD_SUFFIXES} :
+  "service,socket,device,mount,automount,swap,target,path,timer,slice,scope";
 my $systemctl = defined($ENV{SYSTEMCTL}) ? $ENV{SYSTEMCTL} : "systemctl";
 my $systemd_escape = defined($ENV{SYSTEMD_ESCAPE}) ? $ENV{SYSTEMD_ESCAPE} : "@";
 my $systemd_incape = defined($ENV{SYSTEMD_INCAPE}) ? $ENV{SYSTEMD_INCAPE} : "\\^";
@@ -658,7 +661,7 @@ sub systemd_trigger {
     my $subdir = "$dir/$systemd_subdir";
     $subdir = $dir unless -d $subdir;
     next unless -d $subdir;
-    foreach my $template (glob("$subdir/*.{service,socket,device,mount,automount,swap,target,path,timer,slice,scope}")) {
+    foreach my $template (glob("$subdir/*.{$systemd_suffixes}")) {
       my $name = `basename '$template'`;
       chomp $name;
       $templates{$name} = 1;
