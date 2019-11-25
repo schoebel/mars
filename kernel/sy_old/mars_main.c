@@ -3635,6 +3635,7 @@ int _make_logging_status(struct mars_rotate *rot)
 {
 	struct mars_dent *dent = rot->relevant_log;
 	struct mars_dent *parent;
+	struct mars_dent *next_relevant_log;
 	struct mars_global *global = NULL;
 	struct trans_logger_brick *trans_brick;
 	int log_nr = 0;
@@ -3677,17 +3678,46 @@ int _make_logging_status(struct mars_rotate *rot)
 	case 1: /* Relevant, and transaction replay already finished.
 		 * Allow switching over to a new logfile.
 		 */
+		next_relevant_log = rot->next_relevant_log;
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
-			if (rot->next_relevant_log && !rot->log_is_really_damaged) {
+			if (next_relevant_log && !rot->log_is_really_damaged) {
 				int replay_tolerance = _get_tolerance(rot);
 				bool skip_new = !!rot->todo_primary;
-				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, skip_new = %d, replay_tolerance = %d)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, skip_new, replay_tolerance);
-				if (is_switchover_possible(rot, dent->d_path, rot->next_relevant_log->d_path, replay_tolerance, skip_new) ||
-				    (skip_new && !_check_allow(global, parent->d_path, "connect"))) {
+				bool possible;
+
+				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, skip_new = %d, replay_tolerance = %d)\n",
+					 dent->d_path,
+					 next_relevant_log->d_path,
+					 next_relevant_log->new_stat.size,
+					 skip_new,
+					 replay_tolerance);
+
+				possible =
+					is_switchover_possible(rot,
+							       dent->d_path,
+							       rot->next_relevant_log->d_path,
+							       replay_tolerance,
+							       skip_new);
+
+				if (possible) {
 					MARS_INF_TO(rot->log_say, "start switchover from transaction log '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_make_new_replaylink(rot, rot->next_relevant_log->d_rest, rot->next_relevant_log->d_serial, rot->next_relevant_log->new_stat.size);
+				} else {
+					bool want_bypass =
+						(rot->todo_primary &&
+						 !_check_allow(global,
+							       parent->d_path,
+							       "connect"));
+					if (want_bypass) {
+						MARS_INF_TO(rot->log_say,
+							    "forcefully bypassing transaction log '%s'\n",
+							    SAFE_STR(next_relevant_log->d_path));
+						next_relevant_log = NULL;
+					}
 				}
-			} else if (rot->todo_primary) {
+			}
+			if (rot->todo_primary &&
+			    (!next_relevant_log || rot->log_is_really_damaged)) {
 				if (dent->d_serial > log_nr)
 					log_nr = dent->d_serial;
 				MARS_INF_TO(rot->log_say, "preparing new transaction log, number moves from %d to %d\n", dent->d_serial, log_nr + 1);
