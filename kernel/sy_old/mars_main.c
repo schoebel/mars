@@ -347,6 +347,7 @@ const char *rot_keys[] = {
 	// from _update_info()
 	"err-sequence-trash",
 	// from _is_switchover_possible()
+	"inf-log-foreign-denied",
 	"inf-versionlink-not-yet-exist",
 	"inf-versionlink-not-equal",
 	"inf-replay-not-yet-finished",
@@ -2963,8 +2964,23 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 		make_rot_msg(rot, "err-versionlink-not-readable", "cannot read old versionlink '%s'", SAFE_STR(old_versionlink_path));
 		goto done;
 	}
+	new_versionlink = get_versionlink(rot->parent_path, new_log_seq,
+					  new_host, &new_versionlink_path);
+	if (rot->todo_primary &&
+	    !strcmp(old_host, my_id()) &&
+	    strcmp(new_host, my_id())) {
+		MARS_INF_TO(rot->log_say,
+			    "As a designated primary, I am refusing switchover from my own logfile '%s' to foreign logfile '%s' and versionlink '%s'.\n",
+			    SAFE_STR(old_log_path),
+			    SAFE_STR(new_log_path),
+			    SAFE_STR(new_versionlink_path));
+		make_rot_msg(rot, "inf-log-foreign-denied",
+			     "denied switchover from own logfile '%s' to foreign '%s'",
+			     SAFE_STR(old_log_path),
+			     SAFE_STR(new_log_path));
+		goto done;
+	}
 	if (!skip_new && strcmp(new_host, my_id())) {
-		new_versionlink = get_versionlink(rot->parent_path, new_log_seq, new_host, &new_versionlink_path);
 		if (unlikely(!new_versionlink || !new_versionlink[0])) {
 			MARS_INF_TO(rot->log_say, "new versionlink '%s' does not yet exist, we must wait for it.\n", SAFE_STR(new_versionlink_path));
 			make_rot_msg(rot, "inf-versionlink-not-yet-exist", "we must wait for new versionlink '%s'", SAFE_STR(new_versionlink_path));
@@ -3031,7 +3047,7 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	}
 
 	// last check: is the new versionlink based on the old one?
-	if (new_versionlink) {
+	if (new_versionlink && new_versionlink[0]) {
 		len1  = skip_sect(own_versionlink);
 		offs2 = skip_sect(new_versionlink);
 		if (unlikely(!new_versionlink[offs2++])) {
