@@ -390,6 +390,21 @@ sub get_template_files {
   return sort(keys(%template_names));
 }
 
+my %instance_names;
+my %instance_files;
+
+sub get_instance_files {
+  if (!%instance_names) {
+    foreach my $instance_file (glob("$systemd_target_dir/*.{$systemd_suffixes}")) {
+      my $instance_name = `basename '$instance_file'`;
+      chomp $instance_name;
+      $instance_names{$instance_file} = $instance_name;
+      $instance_files{$instance_name} = $instance_file;
+    }
+  }
+  return sort(keys(%instance_names));
+}
+
 sub systemctl {
   my ($args) = @_;
   my $cmd = "$systemctl $args";
@@ -710,10 +725,8 @@ sub systemd_trigger {
   return unless -d $systemd_target_dir;
   systemd_lock("template-generation");
   # Remember old instances
-  my %old_instances;
-  foreach my $file (glob("$systemd_target_dir/*")) {
-    $old_instances{$file} = 1;
-  }
+  get_instance_files();
+  my %old_instances = %instance_files;
   # Determine all template files.
   get_template_files();
   my %unit = %template_files;
