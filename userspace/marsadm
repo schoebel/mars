@@ -568,22 +568,6 @@ sub _instantiate_systemd_unit {
   return (1, $outfile, $replac);
 }
 
-sub instantiate_systemd_unit {
-  my ($cmd, $res, $template_file, $target) = @_;
-  my $template_name = `basename "$template_file"`;
-  chomp $template_name;
-  ($template_name, my $env) = make_env($cmd, $res, $template_name);
-  my $subst = $template_name;
-  if ($target) {
-    ($env, $subst) = match_systemd_vars($env, $template_name, $target);
-    unless ($env) {
-      lprint "==== Cannot match systemd template '$template_name' => '$target'\n" if $verbose;
-      return (0, $template_name);
-    }
-  }
-  return _instantiate_systemd_unit($env, $template_file, $subst);
-}
-
 sub make_systemd_unit {
   my ($cmd, $res, $target) = @_;
   my @res_list;
