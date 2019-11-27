@@ -275,6 +275,37 @@ my $match_fn = qr"$match_fn_head(?:\{($match_inner)\})"s;
 
 ##################################################################
 
+# resource lists
+
+my %all_resources;
+my %member_resources;
+
+sub _scan_resources {
+  foreach my $res (glob("$mars/resource-*/{data,replay,systemd}-*")) {
+    next unless $res =~ s:^$mars/resource-(.*?)/.*:$1:;
+    $all_resources{$res} = 1;
+    if (glob("$mars/resource-$res/{data,replay,systemd}-$host")) {
+      $member_resources{$res} = 1;
+    }
+  }
+  lprint "====== found " .
+    scalar(keys(%all_resources)) . " total and " .
+      scalar(keys(%member_resources)) . " participating " .
+	"resources for '$host'\n" if $verbose;
+}
+
+sub get_all_resources {
+  _scan_resources() unless %all_resources;
+  return sort(keys(%all_resources));
+}
+
+sub get_member_resources {
+  _scan_resources() unless %all_resources;
+  return sort(keys(%member_resources));
+}
+
+##################################################################
+
 # dynamic systemd control
 
 my $systemd_subdir = defined($ENV{SYSTEMD_SUBDIR}) ? $ENV{SYSTEMD_SUBDIR} : "systemd-templates";
@@ -687,9 +718,7 @@ sub systemd_trigger {
   get_template_files();
   my %unit = %template_files;
   # Determine all participating resource names.
-  my @res_list = glob("$mars/resource-*/{data,systemd}-$host");
-  map { s:^$mars/resource-(.*?)/.*:$1:; } @res_list;
-  lprint "====== found " . scalar(@res_list) . " participating resources\n" if $verbose;
+  my @res_list = get_member_resources();
   # Create all systemd units from templates.
   my %new_instances;
   my $count = 0;
