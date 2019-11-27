@@ -356,7 +356,7 @@ sub _systemd_escape {
 }
 
 sub subst_systemd_vars {
-  my ($escape, $env, $text) = @_;
+  my ($env, $text, $do_extra_escape) = @_;
   my $parsed = "";
   while ($text =~ m/[$systemd_escape]([A-Za-z_][-A-Za-z0-9_]*)?[{]($match_inner)[}]/ps) {
     my $name = $1 || "";
@@ -402,7 +402,7 @@ sub subst_systemd_vars {
       lwarn "systemd function '$name' is undefined\n";
       $replac = $body;
     }
-    if ($escape || $this_escape) {
+    if ($do_extra_escape || $this_escape) {
       my $orig = $replac;
       $replac = _systemd_escape($replac);
       lprint "    escape '$orig' => '$replac'\n" if $verbose > 2;
@@ -415,8 +415,8 @@ sub subst_systemd_vars {
 
 sub match_systemd_vars {
   my ($env, $pattern, $text) = @_;
-  ($env, $pattern) = subst_systemd_vars(1, $env, $pattern);
-  ($env, $text)    = subst_systemd_vars(1, $env, $text);
+  ($env, $pattern) = subst_systemd_vars($env, $pattern, 1);
+  ($env, $text)    = subst_systemd_vars($env, $text, 1);
   my @names;
   my $regex = "";
   while ($pattern =~ m/[$systemd_incape][{]([A-Za-z_][A-Za-z0-9_]*)[}]/ps) {
@@ -455,7 +455,7 @@ sub instantiate_systemd_unit {
       return (0, $basename);
     }
   }
-  ($env, my $replac) = subst_systemd_vars(1, $env, $subst);
+  ($env, my $replac) = subst_systemd_vars($env, $subst, 1);
   my $outfile = "$systemd_target_dir/$replac";
   chomp $outfile;
   lprint "==== Translate systemd template '$template_file' => '$outfile'\n" if $verbose;
@@ -469,7 +469,7 @@ sub instantiate_systemd_unit {
     $text = <IN>;
     close(IN);
   }
-  ($env, $text) = subst_systemd_vars(0, $env, $text);
+  ($env, $text) = subst_systemd_vars($env, $text, 0);
   if (open(IN, "< $outfile")) {
     # Check whether something has changed
     local $/;  # slurp
