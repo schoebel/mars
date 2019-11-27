@@ -442,19 +442,8 @@ sub match_systemd_vars {
   return (undef, undef);
 }
 
-sub instantiate_systemd_unit {
-  my ($cmd, $res, $template_file, $target) = @_;
-  my $basename = `basename "$template_file"`;
-  chomp $basename;
-  ($basename, my $env) = make_env($cmd, $res, $basename);
-  my $subst = $basename;
-  if ($target) {
-    ($env, $subst) = match_systemd_vars($env, $basename, $target);
-    unless ($env) {
-      lprint "==== Cannot match systemd template '$basename' => '$target'\n" if $verbose;
-      return (0, $basename);
-    }
-  }
+sub _instantiate_systemd_unit {
+  my ($env, $template_file, $subst) = @_;
   ($env, my $replac) = subst_systemd_vars($env, $subst, 1);
   my $outfile = "$systemd_target_dir/$replac";
   chomp $outfile;
@@ -489,6 +478,22 @@ sub instantiate_systemd_unit {
   rename("$outfile.tmp", $outfile);
   systemctl("enable '$replac'");
   return (1, $outfile);
+}
+
+sub instantiate_systemd_unit {
+  my ($cmd, $res, $template_file, $target) = @_;
+  my $template_name = `basename "$template_file"`;
+  chomp $template_name;
+  ($template_name, my $env) = make_env($cmd, $res, $template_name);
+  my $subst = $template_name;
+  if ($target) {
+    ($env, $subst) = match_systemd_vars($env, $template_name, $target);
+    unless ($env) {
+      lprint "==== Cannot match systemd template '$template_name' => '$target'\n" if $verbose;
+      return (0, $template_name);
+    }
+  }
+  return _instantiate_systemd_unit($env, $template_file, $subst);
 }
 
 sub set_systemd_want {
