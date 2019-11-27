@@ -791,36 +791,25 @@ sub systemd_trigger {
   my %old_instances = %instance_files;
   # Determine all template files.
   get_template_files();
-  my %unit = %template_files;
+  # Always add all plain templates
+  my $count = 0;
+  foreach my $template_name (sort(keys(%template_files))) {
+    next if $template_name =~ m/($systemd_incape|$systemd_escape)/;
+    $count += make_systemd_unit($cmd, "UNDEFINED_RESOURCE", $template_name);
+  }
   # Determine all participating resource names.
   my @res_list = get_member_resources();
-  # Create all systemd units from templates.
-  my %new_instances;
-  my $count = 0;
-  foreach my $name (sort(keys(%unit))) {
-    my $template = $unit{$name};
-    if ($name =~ m/[$systemd_incape].+?[{]($match_inner)[}]/i) {
-      foreach my $res (@res_list) {
-	foreach my $unit_link (glob("$mars/resource-$res/systemd-*-unit")) {
-	  my $target = get_link($unit_link);
-	  my ($nr, $file) = instantiate_systemd_unit($cmd, $res, $template, $target);
-	  $new_instances{$file} = 1;
-	  $count += $nr;
-	}
-      }
-    } elsif ($name =~ m/[$systemd_escape][{]res[}]/i) {
-      foreach my $res (@res_list) {
-	my ($nr, $file) = instantiate_systemd_unit($cmd, $res, $template);
-	$new_instances{$file} = 1;
-	$count += $nr;
-      }
-    } else {
-      my ($nr, $file) = instantiate_systemd_unit($cmd, "UNDEFINED_RESOURCE", $template);
-      $new_instances{$file} = 1;
-      $count += $nr;
+  # Create initial systemd units
+  foreach my $res (@res_list) {
+    foreach my $unit_link (glob("$mars/resource-$res/systemd-*-unit")) {
+      my $target = get_link($unit_link);
+      $count += make_systemd_unit($cmd, $res, $target);
     }
   }
   lprint "== $count units have changed.\n" if $verbose;
+  # Check the new situation
+  get_instance_files();
+  my %new_instances = %instance_files;
   my $deleted = 0;
   foreach my $file (keys(%old_instances)) {
     next if $new_instances{$file};
