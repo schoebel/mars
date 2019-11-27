@@ -335,6 +335,30 @@ sub systemd_unlock {
   unlink($lock_file);
 }
 
+my %template_names;
+my %template_files;
+
+sub get_template_files {
+  if (!%template_files) {
+    foreach my $dir (@MARS_PATH) {
+      my $subdir = "$dir/$systemd_subdir";
+      $subdir = $dir unless -d $subdir;
+      next unless -d $subdir;
+      foreach my $template_file (glob("$subdir/*.{$systemd_suffixes}")) {
+	my $template_name = `basename '$template_file'`;
+	chomp $template_name;
+	next unless $template_name;
+	# Only the first hit will win when the same template is in multiple dirs.
+	next if defined($template_files{$template_name});
+	$template_names{$template_file} = $template_name;
+	$template_files{$template_name} = $template_file;
+	lprint "== found template '$template_name' at '$template_file'\n" if $verbose;
+      }
+    }
+  }
+  return sort(keys(%template_names));
+}
+
 sub systemctl {
   my ($args) = @_;
   my $cmd = "$systemctl $args";
@@ -660,22 +684,8 @@ sub systemd_trigger {
     $old_instances{$file} = 1;
   }
   # Determine all template files.
-  my %templates;
-  my %unit;
-  foreach my $dir (@MARS_PATH) {
-    my $subdir = "$dir/$systemd_subdir";
-    $subdir = $dir unless -d $subdir;
-    next unless -d $subdir;
-    foreach my $template (glob("$subdir/*.{$systemd_suffixes}")) {
-      my $name = `basename '$template'`;
-      chomp $name;
-      $templates{$name} = 1;
-      # Only the first hit will win when the same template is in multiple dirs.
-      next if defined($unit{$name});
-      lprint "== found template '$template'\n" if $verbose;
-      $unit{$name} = $template;
-    }
-  }
+  get_template_files();
+  my %unit = %template_files;
   # Determine all participating resource names.
   my @res_list = glob("$mars/resource-*/{data,systemd}-$host");
   map { s:^$mars/resource-(.*?)/.*:$1:; } @res_list;
@@ -715,7 +725,7 @@ sub systemd_trigger {
     my $found = 0;
     my $name = $file;
     $name =~ s:^.*/::;
-    foreach my $template (keys(%templates)) {
+    foreach my $template (get_template_files()) {
       $template =~ s:^.*/::;
       if ($template eq $name) {
 	lprint "  '$name' equals '$template'\n" if $verbose > 1;
