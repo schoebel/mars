@@ -309,6 +309,9 @@ sub get_member_resources {
 # dynamic systemd control
 
 my $systemd_subdir = defined($ENV{SYSTEMD_SUBDIR}) ? $ENV{SYSTEMD_SUBDIR} : "systemd-templates";
+my $systemd_system_dirs = defined($ENV{SYSTEMD_SYSTEM_DIRS}) ?
+  $ENV{SYSTEMD_SYSTEM_DIRS} :
+  "/etc/systemd/system,/run/systemd/system,/usr/lib/systemd/system";
 my $systemd_target_dir = defined($ENV{SYSTEMD_TARGET_DIR}) ? $ENV{SYSTEMD_TARGET_DIR} : "/run/systemd/system";
 my $systemd_suffixes = defined($ENV{SYSTEMD_SUFFIXES}) ?
   $ENV{SYSTEMD_SUFFIXES} :
@@ -403,6 +406,22 @@ sub get_instance_files {
     }
   }
   return sort(keys(%instance_names));
+}
+
+my %systemd_names;
+my %systemd_files;
+
+sub get_systemd_files {
+  if (!%systemd_names) {
+    foreach my $systemd_file (glob("{$systemd_system_dirs}/*.{$systemd_suffixes}")) {
+      next if $systemd_file =~ m:$systemd_target_dir:;
+      my $systemd_name = `basename '$systemd_file'`;
+      chomp $systemd_name;
+      $systemd_names{$systemd_file} = $systemd_name;
+      $systemd_files{$systemd_name} = $systemd_file;
+    }
+  }
+  return sort(keys(%systemd_names));
 }
 
 sub systemctl {
@@ -509,7 +528,7 @@ sub match_systemd_vars {
     }
     return ($env, $text);
   }
-  return (undef, undef);
+  return (undef, $text);
 }
 
 sub _instantiate_systemd_unit {
@@ -546,8 +565,7 @@ sub _instantiate_systemd_unit {
   print OUT $text;
   close(OUT);
   rename("$outfile.tmp", $outfile);
-  systemctl("enable '$replac'");
-  return (1, $outfile);
+  return (1, $outfile, $replac);
 }
 
 sub instantiate_systemd_unit {
@@ -564,6 +582,50 @@ sub instantiate_systemd_unit {
     }
   }
   return _instantiate_systemd_unit($env, $template_file, $subst);
+}
+
+sub make_systemd_unit {
+  my ($cmd, $res, $target) = @_;
+  my @res_list;
+  if (defined($res)) {
+    @res_list = ($res);
+  } else {
+    @res_list = get_member_resources();
+  }
+  my ($found_env, $found_template_file, $found_subst);
+ search:
+  foreach my $template_file (get_template_files()) {
+    my $template_name = $template_names{$template_file};
+    next unless $template_name;
+    foreach my $res (@res_list) {
+      ($template_name, my $env) = make_env($cmd, $res, $template_name);
+      my $subst = $template_name;
+      (my $new_env, $subst) = match_systemd_vars($env, $template_name, $target);
+      if ($new_env) {
+	($found_env, $found_template_file, $found_subst) = ($new_env, $template_file, $subst);
+	last search;
+      } elsif ($subst) {
+	# Check if already installed somewhere else
+	get_systemd_files();
+	if (defined($systemd_files{$subst})) {
+	  lprint "systemd unit '$subst' is already present at '$systemd_files{$subst}'\n" if $verbose;
+	  return 0;
+	}
+      }
+    }
+  }
+  if (!$found_template_file) {
+    lwarn "cannot find any systemd template for target unit '$target'\n";
+    return 0;
+  }
+  my ($nr, $file, $name) = _instantiate_systemd_unit($found_env, $found_template_file, $found_subst);
+  if ($nr) {
+    $instance_names{$file} = $name;
+    $instance_files{$name} = $file;
+    $systemd_names{$file} = $name;
+    $systemd_files{$name} = $file;
+  }
+  return $nr;
 }
 
 sub set_systemd_want {
