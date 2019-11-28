@@ -313,6 +313,7 @@ my $systemd_system_dirs = defined($ENV{SYSTEMD_SYSTEM_DIRS}) ?
   $ENV{SYSTEMD_SYSTEM_DIRS} :
   "/etc/systemd/system,/run/systemd/system,/usr/lib/systemd/system";
 my $systemd_target_dir = defined($ENV{SYSTEMD_TARGET_DIR}) ? $ENV{SYSTEMD_TARGET_DIR} : "/run/systemd/system";
+my $systemd_tmp_dir = defined($ENV{SYSTEMD_TMP_DIR}) ? $ENV{SYSTEMD_TMP_DIR} : "/var/marsadm/systemd";
 my $systemd_suffixes = defined($ENV{SYSTEMD_SUFFIXES}) ?
   $ENV{SYSTEMD_SUFFIXES} :
   "service,socket,device,mount,automount,swap,target,path,timer,slice,scope";
@@ -430,19 +431,16 @@ sub get_template_files {
   return sort(keys(%template_names));
 }
 
-my %instance_names;
-my %instance_files;
-
 sub get_instance_files {
-  if (!%instance_names) {
-    foreach my $instance_file (glob("$systemd_target_dir/*.{$systemd_suffixes}")) {
-      my $instance_name = `basename '$instance_file'`;
-      chomp $instance_name;
-      $instance_names{$instance_file} = $instance_name;
-      $instance_files{$instance_name} = $instance_file;
-    }
+  my ($dir) = @_;
+  my $glob = "$dir/*.{$systemd_suffixes}";
+  my %instance_files;
+  foreach my $instance_file (glob($glob)) {
+    my $instance_name = `basename '$instance_file'`;
+    chomp $instance_name;
+    $instance_files{$instance_name} = $instance_file;
   }
-  return sort(keys(%instance_names));
+  return %instance_files;
 }
 
 my %systemd_names;
@@ -575,7 +573,7 @@ my %referenced_units;
 sub _instantiate_systemd_unit {
   my ($env, $template_file, $subst) = @_;
   ($env, my $replac) = subst_systemd_vars($env, $subst, 1);
-  my $outfile = "$systemd_target_dir/$replac";
+  my $outfile = "$systemd_tmp_dir.new/$replac";
   chomp $outfile;
   lprint "==== Translate systemd template '$template_file' => '$outfile'\n" if $verbose;
   my $text = "";
@@ -659,8 +657,6 @@ sub make_systemd_unit {
   }
   my ($nr, $file, $name) = _instantiate_systemd_unit($found_env, $found_template_file, $found_subst);
   if ($nr) {
-    $instance_names{$file} = $name;
-    $instance_files{$name} = $file;
     $systemd_names{$file} = $name;
     $systemd_files{$name} = $file;
   }
@@ -821,11 +817,43 @@ sub systemd_activate {
   return 1;
 }
 
-sub __systemd_trigger {
+sub __systemd_commit {
+  my %changes;
+  my %act_files = get_instance_files($systemd_target_dir);
+  my %old_files = get_instance_files($systemd_tmp_dir);
+  my %new_files = get_instance_files("$systemd_tmp_dir.new");
+  foreach my $old_target (sort(keys(%old_files))) {
+    next if defined($new_files{$old_target});
+    next if !defined($act_files{$old_target});
+    lprint "-- marking '$old_target' for removal\n" if $verbose > 2;
+    $changes{$old_target} = -1;
+  }
+  system("rm -rf \"$systemd_tmp_dir.old\"");
+  system("mv \"$systemd_tmp_dir\" \"$systemd_tmp_dir.old\"");
+  system("mv \"$systemd_tmp_dir.new\" \"$systemd_tmp_dir\"");
+  if (system("cp -a $systemd_tmp_dir/* \"$systemd_target_dir\"")) {
+    lwarn "Cannot copy new unit instances from '$systemd_tmp_dir' to '$systemd_target_dir'\n";
+    return ();
+  }
+  foreach my $new_target (sort(keys(%new_files))) {
+    next if defined($old_files{$new_target});
+    lprint "-- enabling new '$new_target'\n" if $verbose > 2;
+    my $unit = `basename "$new_target"`;
+    chomp $unit;
+    _systemd_op("enable", $unit);
+  }
+  return %changes;
+}
+
+sub __systemd_generate_all {
   my ($cmd) = @_;
-  # Remember old instances
-  get_instance_files();
-  my %old_instances = %instance_files;
+  return unless -d $mars;
+  return unless -d $systemd_target_dir;
+  system("rm -rf \"$systemd_tmp_dir.new\"");
+  system("mkdir -p \"$systemd_tmp_dir.new\"");
+  system("mkdir -p \"$systemd_tmp_dir\"");
+  return unless -d $systemd_tmp_dir;
+  return unless -d "$systemd_tmp_dir.new";
   # Determine all template files.
   get_template_files();
   # Always add all plain templates
@@ -857,47 +885,30 @@ sub __systemd_trigger {
     last if ($count <= $old_count);
   }
   lprint "== $count units have changed.\n" if $verbose;
-  # Check the new situation
-  get_instance_files();
-  my %new_instances = %instance_files;
+  # Check and commit the new situation
+  my %changes = __systemd_commit();
+  return %changes;
+}
+
+sub __systemd_commit_ops {
+  my $cmd = shift;
+  my %changes = @_;
   my $deleted = 0;
-  foreach my $file (keys(%old_instances)) {
-    next if $new_instances{$file};
-    # Don't remove foreign systemd files.
-    # Check whether it could have been created by our templates.
-    my $found = 0;
-    my $name = $file;
-    $name =~ s:^.*/::;
-    foreach my $template (get_template_files()) {
-      $template =~ s:^.*/::;
-      if ($template eq $name) {
-	lprint "  '$name' equals '$template'\n" if $verbose > 1;
-	$found = 1;
-	last;
-      }
-      $template =~ s:\.:\\.:g;
-      $template =~ s:@\{.*?\}:.*?:g;
-      lprint "  matching '$name' against '$template'\n" if $verbose > 1;
-      if ($name =~ m/^$template$/) {
-	lprint "  '$name' matches '$template'\n" if $verbose > 1;
-	$found = 1;
-	last;
-      }
+  foreach my $target (sort(keys(%changes))) {
+    my $action = $changes{$target};
+    if ($action < 0) {
+      lprint "Removing old template instance '$target'\n" if $verbose;
+      _systemd_op("stop", $target);
+      system("rm -f \"$systemd_target_dir/$target\"");
+      $deleted++;
     }
-    next unless $found;
-    lprint "Removing old template instance '$file'\n" if $verbose;
-    unlink($file);
-    $deleted++;
   }
   lprint "== $deleted units have been removed.\n" if $verbose;
-
-  if ($count + $deleted) {
-    lprint "==== Restart systemd\n"if $verbose;
-    foreach my $unit (@systemctl_enable) {
-      _systemd_op("enable", $unit);
-    }
-    systemctl("daemon-reload");
+  lprint "==== Restart systemd\n"if $verbose;
+  foreach my $unit (@systemctl_enable) {
+    _systemd_op("enable", $unit);
   }
+  systemctl("daemon-reload");
   # Activate all *.path triggers
   for my $unit_path (glob("$systemd_target_dir/*mars*.path")) {
     my $unit = `basename "$unit_path"`;
@@ -905,7 +916,12 @@ sub __systemd_trigger {
     lprint "==== Activate path watcher '$unit'\n"if $verbose;
     _systemd_op("start", $unit);
   }
+}
+
+sub __systemd_activate_ops {
+  my $cmd = shift;
   # Activate the listed units.
+  my @res_list = get_member_resources();
   foreach my $res (@res_list) {
     systemd_activate($cmd, $res);
   }
@@ -913,12 +929,19 @@ sub __systemd_trigger {
   foreach my $unit (@systemctl_start) {
     _systemd_op("start", $unit);
   }
+}
+
+sub is_systemd_generate_necessary {
+  my $cmd = shift;
+  return 1;
+}
+
+sub __systemd_trigger {
+  my $cmd = shift;
   # ensure that trigger file exists
   my $trigger = "$mars/userspace/systemd-trigger";
-  unless (-e $trigger) {
-    lprint "Triggering '$trigger' for '$cmd'\n" if $verbose;
-    system("touch $trigger");
-  }
+  lprint "Triggering '$trigger' for '$cmd'\n" if $verbose;
+  system("touch $trigger");
 }
 
 sub _systemd_trigger {
@@ -936,29 +959,35 @@ sub _systemd_trigger {
   if (systemd_enabled($needed_unit)) {
     return;
   }
-  my $trigger = "$mars/userspace/systemd-trigger";
-  lprint "Triggering '$trigger' for '$cmd'\n" if $verbose;
-  system("touch $trigger");
-  sleep(1);
-  if (!systemd_lock("template-generation", 1)) {
+  systemd_lock();
+  if (is_systemd_generate_necessary($cmd)) {
+    __systemd_activate_ops($cmd);
     lprint "Direct template generation\n" if $verbose;
+    my %changes;
     # Continue with unlock in case of any deaths inbetween
     eval {
-      __systemd_trigger($cmd);
+      %changes = __systemd_generate_all($cmd);
     };
-    systemd_unlock("template-generation");
+    __systemd_commit_ops($cmd, %changes);
   }
+  __systemd_activate_ops($cmd);
+  systemd_unlock();
 }
 
 sub systemd_trigger {
   my ($cmd) = @_;
   return unless -d $systemd_target_dir;
-  systemd_lock("template-generation");
-  # Continue with unlock in case of any deaths inbetween
-  eval {
-    __systemd_trigger($cmd);
-  };
-  systemd_unlock("template-generation");
+  systemd_lock();
+  if (is_systemd_generate_necessary($cmd)) {
+    my %changes;
+    # Continue with unlock in case of any deaths inbetween
+    eval {
+      %changes = __systemd_generate_all($cmd);
+    };
+    __systemd_commit_ops($cmd, %changes);
+  }
+  __systemd_activate_ops($cmd);
+  systemd_unlock();
 }
 
 sub _get_systemd_unit {
