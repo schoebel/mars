@@ -453,7 +453,10 @@ sub instantiate_systemd_unit {
   my $text;
   {
     local $/;  # slurp
-    open(IN, "< $template_file") or ldie "cannot open system template file '$template_file'\n";
+    if (!open(IN, "< $template_file")) {
+      lwarn "cannot open system template file '$template_file'\n";
+      return (0, $outfile);
+    }
     $text = <IN>;
     close(IN);
   }
@@ -468,7 +471,10 @@ sub instantiate_systemd_unit {
       return (0, $outfile);
     }
   }
-  open(OUT, "> $outfile.tmp") or ldie "cannt create '$outfile'\n";
+  if (!open(OUT, "> $outfile.tmp")) {
+    lwarn "cannot create '$outfile'\n";
+    return (0, $outfile);
+  }
   print OUT $text;
   close(OUT);
   rename("$outfile.tmp", $outfile);
