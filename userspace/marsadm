@@ -337,7 +337,7 @@ sub systemctl {
   my $cmd = "$systemctl $args";
   lprint "waiting for lock: $cmd\n" if $verbose > 1;
   systemd_lock();
-  lprint "starting: $cmd\n" if $verbose > 1;
+  lprint "executing: '$cmd'\n" if $verbose > 1;
   my $status = system($cmd);
   systemd_unlock();
   return $status;
@@ -2627,7 +2627,7 @@ sub create_res {
 	last;
       }
       if (!@peers || $max_retry < 0) {
-	lwarn "cannot get a relevant primary";
+	lwarn "cannot get a relevant primary\n";
 	last;
       }
       # We are desperate. Try to fetch the directory from anywhere.
