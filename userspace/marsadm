@@ -344,6 +344,7 @@ sub systemd_lock {
   if ($lock_status) {
     return 0;
   }
+  lprint "TRYING '$lock_file'\n" if $verbose > 1;
   use IO::Handle;
   use Fcntl;
   my $max_time = $timeout > 0 ? $timeout : 30;
@@ -379,6 +380,7 @@ sub systemd_lock {
       next;
     }
     if (defined($try_lock) && $try_lock && !$force) {
+      lprint "FAILED '$lock_file'\n" if $verbose > 1;
       return 1;
     }
     $count++;
@@ -386,6 +388,7 @@ sub systemd_lock {
   }
   print $fh "$$\n";
   close($fh);
+  lprint "LOCK   '$lock_file'\n" if $verbose > 1;
   return 0;
 }
 
@@ -397,6 +400,7 @@ sub systemd_unlock {
     return;
   }
   unlink($lock_file);
+  lprint "UNLOCK '$lock_file'\n" if $verbose > 1;
 }
 
 my %template_names;
@@ -457,7 +461,6 @@ sub get_systemd_files {
 sub systemctl {
   my ($args) = @_;
   my $cmd = "$systemctl $args";
-  lprint "waiting for lock: $cmd\n" if $verbose > 1;
   systemd_lock();
   lprint "executing: '$cmd'\n" if $verbose > 1;
   my $status;
@@ -906,6 +909,7 @@ sub _systemd_trigger {
   system("touch $trigger");
   sleep(1);
   if (!systemd_lock("template-generation", 1)) {
+    lprint "Direct template generation\n" if $verbose;
     # Continue with unlock in case of any deaths inbetween
     eval {
       __systemd_trigger($cmd);
