@@ -334,38 +334,68 @@ my @systemctl_enable =
    "mars-emergency.service",
   );
 
+my %recursive_locks;
+
 sub systemd_lock {
-  my ($suffix) = @_;
+  my ($suffix, $try_lock) = @_;
   my $lock_file = $systemd_lock_file;
   $lock_file .= "." . $suffix if defined($suffix) && $suffix;
+  my $lock_status = $recursive_locks{$lock_file}++;
+  if ($lock_status) {
+    return 0;
+  }
   use IO::Handle;
   use Fcntl;
   my $max_time = $timeout > 0 ? $timeout : 30;
   my $count = 0;
+  my $retry = 0;
   my $fh;
   for (;;) {
+    my $test_pid;
+    if (open(my $IN, "<", $lock_file)) {
+      $test_pid = <$IN>;
+      chomp $test_pid;
+      my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+	  $atime,$mtime,$ctime,$blksize,$blocks) = stat($IN);
+      close($IN);
+      # Check for timeout
+      if ($count > $max_time ||
+	  (defined($mtime) && $mtime && $mtime + $max_time < time())) {
+	lwarn "breaking lock $lock_file after $max_time seconds\n";
+	unlink($lock_file);
+	$count = 0;
+      }
+    }
+    $fh = undef;
     my $status = sysopen($fh, $lock_file, O_CREAT|O_EXCL|O_TRUNC|O_WRONLY);
     last if defined($status) && $status;
-    my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
-	$atime,$mtime,$ctime,$blksize,$blocks) = lstat($lock_file);
-    $count++;
-    if ($count > $max_time ||
-	(defined($mtime) && $mtime && $mtime + $max_time < time())) {
-      lwarn "breaking lock $lock_file after $max_time seconds\n";
+    # Check whether pid exists
+    if (defined($test_pid) && $test_pid && ! -d "/proc/$test_pid") {
+      next if !$retry++;
+      lwarn "breaking lock $lock_file, pid $test_pid is no longer alive.\n";
       unlink($lock_file);
       $count = 0;
+      $retry = 0;
       next;
     }
+    if (defined($try_lock) && $try_lock && !$force) {
+      return 1;
+    }
+    $count++;
     sleep(1);
   }
-  print $fh "locked\n";
+  print $fh "$$\n";
   close($fh);
+  return 0;
 }
 
 sub systemd_unlock {
   my ($suffix) = @_;
   my $lock_file = $systemd_lock_file;
   $lock_file .= "." . $suffix if defined($suffix) && $suffix;
+  if (--$recursive_locks{$lock_file} > 0) {
+    return;
+  }
   unlink($lock_file);
 }
 
@@ -874,7 +904,14 @@ sub _systemd_trigger {
   my $trigger = "$mars/userspace/systemd-trigger";
   lprint "Triggering '$trigger' for '$cmd'\n" if $verbose;
   system("touch $trigger");
-  systemd_trigger(@_);
+  sleep(1);
+  if (!systemd_lock("template-generation", 1)) {
+    # Continue with unlock in case of any deaths inbetween
+    eval {
+      __systemd_trigger($cmd);
+    };
+    systemd_unlock("template-generation");
+  }
 }
 
 sub systemd_trigger {
@@ -3019,7 +3056,7 @@ sub create_res {
   }
   set_link("1", "$todo/attach");
   finish_links();
-  systemd_trigger($cmd);
+  _systemd_trigger($cmd);
 }
 
 sub split_cluster {
