@@ -319,6 +319,9 @@ my $systemd_suffixes = defined($ENV{SYSTEMD_SUFFIXES}) ?
 my $systemctl = defined($ENV{SYSTEMCTL}) ? $ENV{SYSTEMCTL} : "systemctl";
 my $systemd_escape = defined($ENV{SYSTEMD_ESCAPE}) ? $ENV{SYSTEMD_ESCAPE} : "@";
 my $systemd_incape = defined($ENV{SYSTEMD_INCAPE}) ? $ENV{SYSTEMD_INCAPE} : "\\^";
+my $systemd_dependencies = defined($ENV{SYSTEMD_DEPENDENCIES}) ?
+  $ENV{SYSTEMD_DEPENDENCIES} :
+  "Requires|Requisite|Wants|BindsTo|PartOf|Conflicts|Before|After|OnFailure|PropagatesReloadTo|ReloadPropagatedFrom|JoinsNamespaceOf|RequiresMountsFor|Alias|WantedBy|RequiredBy|Also|DefaultInstance";
 my $systemd_lock_file = defined($ENV{SYSTEMD_LOCK_FILE}) ? $ENV{SYSTEMD_LOCK_FILE} : "/tmp/systemd.lock";
 
 my @systemctl_start =
@@ -567,13 +570,15 @@ sub match_systemd_vars {
   return (undef, $text);
 }
 
+my %referenced_units;
+
 sub _instantiate_systemd_unit {
   my ($env, $template_file, $subst) = @_;
   ($env, my $replac) = subst_systemd_vars($env, $subst, 1);
   my $outfile = "$systemd_target_dir/$replac";
   chomp $outfile;
   lprint "==== Translate systemd template '$template_file' => '$outfile'\n" if $verbose;
-  my $text;
+  my $text = "";
   {
     local $/;  # slurp
     if (!open(IN, "< $template_file")) {
@@ -584,6 +589,20 @@ sub _instantiate_systemd_unit {
     close(IN);
   }
   ($env, $text) = subst_systemd_vars($env, $text, 0);
+  my $scan = $text;
+  while ($scan =~ m/^\s*($systemd_dependencies)\s*=\s*(.*?)$/mp) {
+    my $next_unit_list = $2;
+    $scan = $POSTMATCH;
+    while ($next_unit_list =~ m/[^\s]+/) {
+      my $next_unit = $MATCH;
+      $next_unit_list = $POSTMATCH;
+      # some units like mount units may be specified as paths.
+      $next_unit = _systemd_escape($next_unit) if $next_unit =~ m:/:;
+      lprint "-- '$template_file' found reference to '$next_unit'\n" if $verbose > 2;
+      # Remember the encountered name
+      $referenced_units{$next_unit} = 1;
+    }
+  }
   if (open(IN, "< $outfile")) {
     # Check whether something has changed
     local $/;  # slurp
@@ -810,6 +829,7 @@ sub __systemd_trigger {
   # Determine all template files.
   get_template_files();
   # Always add all plain templates
+  %referenced_units = ();
   my $count = 0;
   foreach my $template_name (sort(keys(%template_files))) {
     next if $template_name =~ m/($systemd_incape|$systemd_escape)/;
@@ -823,6 +843,18 @@ sub __systemd_trigger {
       my $target = get_link($unit_link);
       $count += make_systemd_unit($cmd, $res, $target);
     }
+  }
+  # Compute the transitive closure of referenced units
+  lprint "== adding transitive units for $count start units.\n" if $verbose;
+  my %done_units;
+  for (;;) {
+    my $old_count = $count;
+    foreach my $target (sort(keys(%referenced_units))) {
+      next if $done_units{$target};
+      $count += make_systemd_unit($cmd, undef, $target);
+      $done_units{$target} = 1;
+    }
+    last if ($count <= $old_count);
   }
   lprint "== $count units have changed.\n" if $verbose;
   # Check the new situation
