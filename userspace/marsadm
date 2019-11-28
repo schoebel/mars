@@ -430,7 +430,10 @@ sub systemctl {
   lprint "waiting for lock: $cmd\n" if $verbose > 1;
   systemd_lock();
   lprint "executing: '$cmd'\n" if $verbose > 1;
-  my $status = system($cmd);
+  my $status;
+  eval {
+    $status = system($cmd);
+  };
   systemd_unlock();
   return $status;
 }
@@ -766,10 +769,8 @@ sub systemd_activate {
   return 1;
 }
 
-sub systemd_trigger {
+sub __systemd_trigger {
   my ($cmd) = @_;
-  return unless -d $systemd_target_dir;
-  systemd_lock("template-generation");
   # Remember old instances
   get_instance_files();
   my %old_instances = %instance_files;
@@ -853,7 +854,6 @@ sub systemd_trigger {
     lprint "Triggering '$trigger' for '$cmd'\n" if $verbose;
     system("touch $trigger");
   }
-  systemd_unlock("template-generation");
 }
 
 sub _systemd_trigger {
@@ -875,6 +875,17 @@ sub _systemd_trigger {
   lprint "Triggering '$trigger' for '$cmd'\n" if $verbose;
   system("touch $trigger");
   systemd_trigger(@_);
+}
+
+sub systemd_trigger {
+  my ($cmd) = @_;
+  return unless -d $systemd_target_dir;
+  systemd_lock("template-generation");
+  # Continue with unlock in case of any deaths inbetween
+  eval {
+    __systemd_trigger($cmd);
+  };
+  systemd_unlock("template-generation");
 }
 
 sub _get_systemd_unit {
