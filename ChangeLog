@@ -80,6 +80,32 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable79
+	* Critical fix: in a multiple-failure scenario which is hard
+	  to reach, and then acting badly by disregarding
+	  heavy warnings from marsadm and from mars-user-manual.pdf,
+	  data consistency could be violated. Detected by testing
+	  (the situation has not been observed in practice up to now).
+	  When unsure, better update to this fixed version.
+	* Minor fix: in a scarce corner case plus an additional
+	  scarce race, primary handover could hang.
+	* Major systemd interface fixes and improvements:
+	    - When handover fails due to failed systemd stopping at
+	      the old primary (e.g. hanging umount etc), the application
+	      stack will be automatically restarted before the handover
+	      operation reports timeout. The idea is to keep your
+	      applications running whenever possible.
+	    - New commands marsadm set-systemd-want and get-systemd-want
+	      for a temporary shutdown of the systemd unit stack.
+	      This is useful e.g. for performing an fsck.
+	    - Implemented transitive closure of indirectly referenced
+	      further systemd units.
+	    - Attach / detach now automatically starts / stops the
+	      systemd unit stack.
+	    - Improved reliability of systemd handover.
+	    - Fixed many bugs in the systemd template macro processor.
+	    - Updated doc accordingly.
+
 mars0.1astable78
 	* Major or minor fix: memory leak, triggered under scarce conditions.
 	  Observed cases were a few kilobytes. However, it could accumulate
