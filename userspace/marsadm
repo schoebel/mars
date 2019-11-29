@@ -771,6 +771,13 @@ sub systemd_activate {
   }
   my $do_activate = $want eq $host;
   if ($do_activate) {
+    # Check attach switch
+    my $path = "$mars/resource-$res/todo-$host/attach";
+    if (!get_link($path, 1)) {
+      $do_activate = 0;
+    }
+  }
+  if ($do_activate) {
     my $primary = _get_designated_primary($res);
     if ($primary ne $host) {
       # Do not activate for now
@@ -3630,7 +3637,14 @@ sub attach_res_phase0 {
   if ($detach) {
     my $device_in_use = get_link("$mars/resource-$res/actual-$host/open-count", 1);
     if ($device_in_use) {
-      if (systemd_activate($cmd, $res, 0, 1)) {
+      my $want_path = "$mars/resource-$res/systemd-want";
+      my $want = get_link($want_path, 2);
+      if ($want) {
+	lprint "IMPORTANT: Relying on systemd for $cmd of resource '$res'\n";
+	my $path = "$mars/resource-$res/todo-$host/attach";
+	_switch($cmd, $res, $path, 0);
+	finish_links();
+	systemd_activate($cmd, $res, 0, 1);
 	return;
       }
       my $name = get_link("$mars/resource-$res/device-$host");
