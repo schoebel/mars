@@ -29,7 +29,6 @@
 #include <linux/string.h>
 #include <linux/list.h>
 #include <linux/types.h>
-#include <linux/blkdev.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 #include <linux/file.h>
@@ -215,8 +214,16 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 		}
 
 		if (S_ISBLK(inode->i_mode)) {
+#ifdef MARS_HAS_BDI_GET
+			struct backing_dev_info *bdi =
+			  I_BDEV(inode)->bd_bdi;
+			MARS_INF("changing blkdev readahead from %lu to %d\n",
+				 bdi->ra_pages, ra);
+			bdi->ra_pages = ra;
+#else /* deprecated old code */
 			MARS_INF("changing blkdev readahead from %lu to %d\n", inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages, ra);
 			inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages = ra;
+#endif
 		}
 
 		if (flags & O_DIRECT) {	// never share them

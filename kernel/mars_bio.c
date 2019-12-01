@@ -791,6 +791,9 @@ static int bio_switch(struct bio_brick *brick)
 			struct address_space *mapping;
 			struct inode *inode;
 			struct request_queue *q;
+#ifdef MARS_HAS_BDI_GET
+			struct backing_dev_info *bdi;
+#endif
 
 			brick->mf = mapfree_get(path, flags);
 			if (unlikely(!brick->mf)) {
@@ -820,8 +823,15 @@ static int bio_switch(struct bio_brick *brick)
 				goto done;
 			}
 
+#ifdef MARS_HAS_BDI_GET
+			bdi = I_BDEV(inode)->bd_bdi;
+			MARS_INF("'%s' ra_pages OLD=%lu NEW=%d\n", path,
+				 bdi->ra_pages, brick->ra_pages);
+			bdi->ra_pages = brick->ra_pages;
+#else
 			MARS_INF("'%s' ra_pages OLD=%lu NEW=%d\n", path, q->backing_dev_info.ra_pages, brick->ra_pages);
 			q->backing_dev_info.ra_pages = brick->ra_pages;
+#endif
 
 			q->nr_requests = bio_nr_requests;
 

@@ -71,6 +71,20 @@ extern int _compat_unlink(
 #define MARS_HAS_BVEC_ITER
 #endif
 
+/* Detect upstream commits
+ * dc3b17cc8bf21307c7e076e7c778d5db756f7871
+ * d03f6cdc1fc422accb734c7c07a661a0018d8631
+ * b1d2dc5659b41741f5a29b2ade76ffb4e5bb13d8
+ * via fd2d332677c687ca90c12a47d6c377c547100b56
+ */
+#include <linux/blkdev.h>
+#ifdef BLK_QC_T_INTERNAL
+#define MARS_HAS_BDI_GET
+#endif
+#ifdef MARS_HAS_BDI_GET
+#include <linux/backing-dev.h>
+#endif
+
 /* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 and 8ae126660fddbeebb9251a174e6fa45b6ad8f932 */
 #ifndef bio_io_error
 #define MARS_HAS_BI_ERROR
