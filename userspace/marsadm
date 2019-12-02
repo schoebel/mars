@@ -48,6 +48,10 @@ my @MARS_PATH = $ENV{MARS_PATH} ?
    "/usr/local/lib/marsadm",
   );
 
+my $marsadm_var_dir = defined($ENV{MARSADM_VRA_DIR}) ?
+  $ENV{MARSADM_VAR_DIR} :
+  "/var/marsadm";
+
 ##################################################################
 
 # messaging
@@ -313,7 +317,9 @@ my $systemd_system_dirs = defined($ENV{SYSTEMD_SYSTEM_DIRS}) ?
   $ENV{SYSTEMD_SYSTEM_DIRS} :
   "/etc/systemd/system,/run/systemd/system,/usr/lib/systemd/system";
 my $systemd_target_dir = defined($ENV{SYSTEMD_TARGET_DIR}) ? $ENV{SYSTEMD_TARGET_DIR} : "/run/systemd/system";
-my $systemd_tmp_dir = defined($ENV{SYSTEMD_TMP_DIR}) ? $ENV{SYSTEMD_TMP_DIR} : "/var/marsadm/systemd";
+my $systemd_var_dir = defined($ENV{SYSTEMD_VAR_DIR}) ?
+  $ENV{SYSTEMD_VAR_DIR} :
+  "$marsadm_var_dir/systemd";
 my $systemd_suffixes = defined($ENV{SYSTEMD_SUFFIXES}) ?
   $ENV{SYSTEMD_SUFFIXES} :
   "service,socket,device,mount,automount,swap,target,path,timer,slice,scope";
@@ -573,7 +579,7 @@ my %referenced_units;
 sub _instantiate_systemd_unit {
   my ($env, $template_file, $subst) = @_;
   ($env, my $replac) = subst_systemd_vars($env, $subst, 1);
-  my $outfile = "$systemd_tmp_dir.new/$replac";
+  my $outfile = "$systemd_var_dir.new/$replac";
   chomp $outfile;
   lprint "==== Translate systemd template '$template_file' => '$outfile'\n" if $verbose;
   my $text = "";
@@ -820,19 +826,19 @@ sub systemd_activate {
 sub __systemd_commit {
   my %changes;
   my %act_files = get_instance_files($systemd_target_dir);
-  my %old_files = get_instance_files($systemd_tmp_dir);
-  my %new_files = get_instance_files("$systemd_tmp_dir.new");
+  my %old_files = get_instance_files($systemd_var_dir);
+  my %new_files = get_instance_files("$systemd_var_dir.new");
   foreach my $old_target (sort(keys(%old_files))) {
     next if defined($new_files{$old_target});
     next if !defined($act_files{$old_target});
     lprint "-- marking '$old_target' for removal\n" if $verbose > 2;
     $changes{$old_target} = -1;
   }
-  system("rm -rf \"$systemd_tmp_dir.old\"");
-  system("mv \"$systemd_tmp_dir\" \"$systemd_tmp_dir.old\"");
-  system("mv \"$systemd_tmp_dir.new\" \"$systemd_tmp_dir\"");
-  if (system("cp -a $systemd_tmp_dir/* \"$systemd_target_dir\"")) {
-    lwarn "Cannot copy new unit instances from '$systemd_tmp_dir' to '$systemd_target_dir'\n";
+  system("rm -rf \"$systemd_var_dir.old\"");
+  system("mv \"$systemd_var_dir\" \"$systemd_var_dir.old\"");
+  system("mv \"$systemd_var_dir.new\" \"$systemd_var_dir\"");
+  if (system("cp -a $systemd_var_dir/* \"$systemd_target_dir\"")) {
+    lwarn "Cannot copy new unit instances from '$systemd_var_dir' to '$systemd_target_dir'\n";
     return ();
   }
   foreach my $new_target (sort(keys(%new_files))) {
@@ -849,11 +855,11 @@ sub __systemd_generate_all {
   my ($cmd) = @_;
   return unless -d $mars;
   return unless -d $systemd_target_dir;
-  system("rm -rf \"$systemd_tmp_dir.new\"");
-  system("mkdir -p \"$systemd_tmp_dir.new\"");
-  system("mkdir -p \"$systemd_tmp_dir\"");
-  return unless -d $systemd_tmp_dir;
-  return unless -d "$systemd_tmp_dir.new";
+  system("rm -rf \"$systemd_var_dir.new\"");
+  system("mkdir -p \"$systemd_var_dir.new\"");
+  system("mkdir -p \"$systemd_var_dir\"");
+  return unless -d $systemd_var_dir;
+  return unless -d "$systemd_var_dir.new";
   # Determine all template files.
   get_template_files();
   # Always add all plain templates
@@ -916,6 +922,8 @@ sub __systemd_commit_ops {
     lprint "==== Activate path watcher '$unit'\n"if $verbose;
     _systemd_op("start", $unit);
   }
+  my $varfile = "$marsadm_var_dir/systemd.status";
+  system("mv $varfile.tmp $varfile");
 }
 
 sub __systemd_activate_ops {
@@ -931,8 +939,60 @@ sub __systemd_activate_ops {
   }
 }
 
+sub __systemd_fingerprint {
+  my () = @_;
+  my $text = "";
+  # Fingerprint all source templates
+  get_template_files();
+  foreach my $template_file (sort(keys(%template_names))) {
+    my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+	$atime,$mtime,$ctime,$blksize,$blocks) = stat($template_file);
+    $text .= "$size,$mtime,$template_file\n";
+  }
+  # Fingerprint all resources
+  $text .= "#\n";
+  my @res_list = get_member_resources();
+  foreach my $res (@res_list) {
+    $text .= "$res\n";
+    my $unit_glob = "$mars/resource-$res/systemd-*-unit";
+    foreach my $unit_link (glob($unit_glob)) {
+      $text .= get_link($unit_link, 1) . "\n";
+    }
+  }
+  # Fingerprint resulting templates (protect against external modifications)
+  $text .= "#\n";
+  foreach my $unit_file (glob($systemd_target_dir)) {
+    my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+	$atime,$mtime,$ctime,$blksize,$blocks) = stat($unit_file);
+    $text .= "$size,$mtime,$unit_file\n";
+  }
+  return $text;
+}
+
 sub is_systemd_generate_necessary {
   my $cmd = shift;
+  my $text = __systemd_fingerprint();
+  system("mkdir -p $marsadm_var_dir");
+  my $varfile = "$marsadm_var_dir/systemd.status";
+  my $old_text = "";
+  local $/;  # slurp
+  if (open(IN, "< $varfile")) {
+    $old_text = <IN>;
+    close(IN);
+  } else {
+    lwarn "file '$varfile' does not yet exist\n";
+  }
+  if ($text eq $old_text) {
+    lprint "systemd template generation not necessary.\n" if $verbose;
+    return 0 unless $force;
+    lprint "Forcing template generation...\n";
+  }
+  if (!open(OUT, "> $varfile.tmp")) {
+    lwarn "cannot open '$varfile.tmp'\n";
+    return 1;
+  }
+  print OUT $text;
+  close(OUT);
   return 1;
 }
 
