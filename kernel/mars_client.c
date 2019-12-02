@@ -855,10 +855,10 @@ static int sender_thread(void *data)
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
 		mref = mref_a->object;
 
+		/* Limiting is not inteded for production, only for testing */
 		if (brick->limit_mode) {
-			int amount = 0;
-			if (mref->ref_cs_mode < 2)
-				amount = (mref->ref_len - 1) / 1024 + 1;
+			int amount = (mref->ref_len - 1) / 1024 + 1;
+
 			mars_limit_sleep(&client_limiter, amount);
 		}
 
