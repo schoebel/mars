@@ -9,6 +9,7 @@ ConditionPathIsSymbolicLink=/mars/uuid
 
 [Service]
 Type=oneshot
+KillMode=none
 RemainAfterExit=yes
 #ExecStartPre=if ! mountpoint /mars; then mount /dev/*/mars /mars; fi
 ExecStart=/sbin/modprobe mars

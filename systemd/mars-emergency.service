@@ -5,6 +5,7 @@ Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
 [Service]
 Type=oneshot
 RemainAfterExit=no
+KillMode=none
 ExecStart=/usr/bin/marsadm cron
 
 [Install]

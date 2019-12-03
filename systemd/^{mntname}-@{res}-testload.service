@@ -1,0 +1,14 @@
+@eval{%let{mntpath}{%subst{%{mntname}}{-}{/}}}
+[Unit]
+Description=MARS dummy process running on /@{mntpath}/@{res}
+Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
+BindsTo=@{mntname}-@escvar{res}-medium-02.service
+After=@{mntname}-@escvar{res}-medium-02.service
+
+[Service]
+Type=simple
+ExecStart=/etc/marsadm/systemd-templates/MARS-load-occupy.sh /@{mntpath}/@{res}
+KillMode=process
+
+[Install]
+WantedBy=mars.service

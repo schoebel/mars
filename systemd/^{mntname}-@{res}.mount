@@ -1,6 +1,6 @@
-@eval{%let{mount}{%subst{%{unit}}{-}{/}}}
+@eval{%let{mntpath}{%subst{%{mntname}}{-}{/}}}
 [Unit]
-Description=MARS local mount on /@{mount}/@{res}
+Description=MARS local mount on /@{mntpath}/@{res}
 Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
 Requires=mars.service
 After=mars.service
@@ -8,11 +8,11 @@ After=mars.service
 ConditionPathIsSymbolicLink=/mars/resource-@{res}/systemd-want
 ConditionPathExists=/mars/resource-@{res}/userspace/systemd-want-@{host}
 ConditionPathExists=/dev/mars/@{res}
-ConditionPathIsDirectory=/@{mount}/@{res}
+ConditionPathIsDirectory=/@{mntpath}/@{res}
 
 [Mount]
 What=/dev/mars/@{res}
-Where=/@{mount}/@{res}
+Where=/@{mntpath}/@{res}
 
 [Install]
 WantedBy=mars.service
