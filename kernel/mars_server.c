@@ -572,7 +572,6 @@ int handler_thread(void *data)
 				_set_server_bio_params,
 				NULL,
 				(const struct generic_brick_type*)_bio_brick_type,
-				(const struct generic_brick_type*[]){},
 				2, // start always
 				path,
 				(const char *[]){},
