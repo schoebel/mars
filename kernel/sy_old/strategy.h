@@ -240,6 +240,7 @@ extern int mars_recv_dent_list(struct mars_global *global, struct mars_socket *m
 
 int mars_connect(struct mars_input *a, struct mars_output *b);
 int mars_disconnect(struct mars_input *a);
+int mars_reconnect(struct mars_input *a, struct mars_output *b);
 
 extern struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path);
 extern struct mars_brick *mars_make_brick(struct mars_global *global,

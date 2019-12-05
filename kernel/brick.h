@@ -548,6 +548,31 @@ INLINE int generic_disconnect(struct generic_input *input)
 	return 0;
 }
 
+INLINE int generic_reconnect(struct generic_input *input,
+			     struct generic_output *output)
+{
+	struct generic_output *old;
+
+	BRICK_DBG("generic_reconnect(input=%p, output=%p)\n", input, output);
+	if (unlikely(!input || !output))
+		return -EINVAL;
+	old = input->connect;
+	// helps only against the most common errors
+	if (unlikely(input->brick == output->brick))
+		return -EDEADLK;
+
+	input->connect = output;
+	output->nr_connected++;
+	if (old) {
+		old->nr_connected--;
+		BRICK_DBG("old nr_connected=%d\n", old->nr_connected);
+		list_del_init(&input->input_head);
+	}
+	list_add(&input->input_head, &output->output_head);
+	BRICK_DBG("new nr_connected=%d\n", output->nr_connected);
+	return 0;
+}
+
 #endif // _STRATEGY
 
 // simple wrappers for type safety

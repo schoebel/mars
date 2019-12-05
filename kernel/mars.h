@@ -296,6 +296,7 @@ struct mars_info {
 	int *mode_ptr;							\
 	int kill_round;							\
 	bool killme;							\
+	bool rewire;							\
 
 struct mars_brick {
 	MARS_BRICK(mars);

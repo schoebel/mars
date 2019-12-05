@@ -2607,6 +2607,29 @@ int mars_disconnect(struct mars_input *a)
 	return status;
 }
 
+int mars_reconnect(struct mars_input *a, struct mars_output *b)
+{
+	struct mars_brick *a_brick = a->brick;
+	struct mars_global *a_global = a_brick->global;
+	struct mars_brick *b_brick = b->brick;
+	struct mars_global *b_global = b_brick->global;
+	int status;
+
+	if (a_global)
+		down_write(&a_global->brick_mutex);
+	if (b_global && b_global != a_global)
+		down_write(&b_global->brick_mutex);
+
+	status = generic_reconnect((void*)a, (void*)b);
+
+	if (b_global && b_global != a_global)
+		up_write(&b_global->brick_mutex);
+	if (a_global)
+		up_write(&a_global->brick_mutex);
+
+	return status;
+}
+
 struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path)
 {
 	struct list_head *tmp;
@@ -3229,12 +3252,15 @@ struct mars_brick *make_brick_all(
 			MARS_DBG("KEEP '%s' override 0 -> 1\n", new_path);
 			switch_state = true;
 		}
-		goto do_switch;
+		if (!brick->rewire)
+			goto do_switch;
 	}
 
 	// brick not existing => check whether to create it
 	if (switch_override < 1) { // don't create
 		MARS_DBG("no need for brick '%s'\n", new_path);
+		if (brick)
+			goto do_switch;
 		goto done;
 	}
 	MARS_DBG("make new brick '%s'\n", new_path);
@@ -3266,8 +3292,8 @@ struct mars_brick *make_brick_all(
 	}
 
 	// some generic brick replacements (better performance / network functionality)
-	brick = NULL;
-	if ((new_brick_type == _bio_brick_type || new_brick_type == _aio_brick_type)
+	if (!brick &&
+	    (new_brick_type == _bio_brick_type || new_brick_type == _aio_brick_type)
 	   && _client_brick_type != NULL) {
 		char *remote = strchr(new_path, '@');
 		if (remote) {
@@ -3319,14 +3345,33 @@ struct mars_brick *make_brick_all(
 
 	// connect the wires
 	for (i = 0; i < prev_count; i++) {
+		struct mars_output *old;
+		struct mars_input *inp;
 		int status;
-		status = mars_connect(brick->inputs[i], prev[i]->outputs[0]);
+
+		old = prev[i]->outputs[0];
+		inp = brick->inputs[i];
+		if (inp && inp->connect == old) {
+			MARS_DBG("'%s' input %d already connected\n",
+				 new_path, i);
+			continue;
+		}
+		if (old) {
+			MARS_DBG("'%s' reconnecting input %d\n",
+				 new_path, i);
+			status = mars_reconnect(inp, prev[i]->outputs[0]);
+		} else {
+			status = mars_connect(inp, prev[i]->outputs[0]);
+		}
 		if (unlikely(status < 0)) {
 			MARS_ERR("'%s' cannot connect input %d\n",
 				 new_path, i);
 			goto err;
 		}
+		MARS_DBG("'%s' connected new input %d\n",
+			 new_path, i);
 	}
+	brick->rewire = false;
 
 do_switch:
 	// call setup function
@@ -3353,10 +3398,10 @@ do_switch:
 		goto done;
 
 err:
-	if (brick) {
+	if (brick && brick->power.led_off) {
 		mars_kill_brick(brick);
+		brick = NULL;
 	}
-	brick = NULL;
 
 done:
 	for (i = 0; i < prev_count; i++) {
