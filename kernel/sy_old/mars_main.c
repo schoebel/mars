@@ -4837,7 +4837,6 @@ int make_dev(void *buf, struct mars_dent *dent)
 	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot = NULL;
 	struct mars_brick *dev_brick;
-	struct if_brick *_dev_brick;
 	bool switch_on;
 	int status = 0;
 
@@ -4909,15 +4908,6 @@ int make_dev(void *buf, struct mars_dent *dent)
 	}
 	dev_brick->kill_ptr = (void**)&rot->if_brick;
 	dev_brick->show_status = _show_brick_status;
-	_dev_brick = (void*)dev_brick;
-#if 0
-	if (_dev_brick->has_closed) {
-		_dev_brick->has_closed = false;
-		MARS_INF("rotating logfile for '%s'\n", parent->d_name);
-		status = mars_power_button((void*)rot->trans_brick, false);
-		rot->relevant_log = NULL;
-	}
-#endif
 
 done:
 	_show_dev(rot);
