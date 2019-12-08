@@ -14139,10 +14139,14 @@ Another argument could be: don't distribute the BigCluster objects to exactly
 \end_layout
 
 \begin_layout Standard
-Actually, several BigCluster implementation are doing similar measures,
- in order to workaround the problems analyzed here.
- There are various terms for suchalike measures, like copysets, spread factors,
- buckets, etc.
+Actually, several BigCluster implementations are doing similar measures,
+ in order to 
+\emph on
+workaround
+\emph default
+ the problems analyzed here.
+ There are various terms for suchalike measures, like placement groups (Ceph),
+ copysets (Facebook), buckets (generic), etc.
 \end_layout
 
 \begin_layout Standard
@@ -14519,6 +14523,64 @@ fair comparison
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Real storage management cost from workarounds
+\end_layout
+
+\end_inset
+
+There was an original promise from BigCluster advocates years ago: near-zero
+ technical management effort for storage.
+ Just add an arbitrary number of new storage nodes to the storage network,
+ at more or less arbitrary physical locations, and done.
+ The rest should have been configured and load-balanced automatically.
+\end_layout
+
+\begin_layout Plain Layout
+This promise has been fulfilled only 
+\emph on
+partly
+\emph default
+.
+ In addition to increased CAPEX cost from at least 
+\begin_inset Formula $k=3$
+\end_inset
+
+ replica, workarounds like 
+\series bold
+placement groups
+\series default
+ (and internal modelling of physical placement hierarchies like segments
+ / rooms / racks and physical network topologies) are 
+\series bold
+inducing OPEX cost
+\series default
+: some human effort for dimensioning of hardware and placement / planning
+ will remain, at least in bigger installations.
+\end_layout
+
+\begin_layout Plain Layout
+So an original BigCluster USP = Unique Selling Point does not really work
+ as originally expected, due to fundamental laws of storage systems which
+ are as hard as Einstein's laws are.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
