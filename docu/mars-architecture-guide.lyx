@@ -5540,13 +5540,17 @@ passive
 \emph default
  augmented object metadata.
  Even active metadata is possible, e.g.
- by separate processes present in 
+ by separate processes run by metadata indexing tools like 
 \family typewriter
 Akonadi
 \family default
  or 
 \family typewriter
 miner
+\family default
+ or 
+\family typewriter
+baloo
 \family default
 .
  With such a standard addendum, classical filesystems can also be used for
@@ -5986,8 +5990,17 @@ Akonadi
 \family typewriter
 miner
 \family default
-, and similar standard Linux tools are indexing the EXIF metadata of images,
- or metadata of mp3 songs, videos, etc, residing in a classical filesystem.
+, 
+\family typewriter
+baloo
+\family default
+, and similar standard Linux tools (and several multimedia frameworks like
+ 
+\family typewriter
+gstreamer
+\family default
+) are indexing the EXIF metadata of images, or metadata of mp3 songs, videos,
+ etc, residing in a classical filesystem.
 \end_layout
 
 \end_inset
