@@ -6968,6 +6968,626 @@ intermediate granularity
 
 \end_layout
 
+\begin_layout Subsection
+Negative Example: Inappropriate Replication Layering
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Inappropriate-Replication-Layering"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+For unknown reasons, 
+\emph on
+several
+\emph default
+ people have tried 
+\emph on
+independently from each other
+\emph default
+ to use MARS inside of VMs.
+ Some of these people were outside of 1&1 Ionos.
+ Others were trying this even against explicit recommendations from the
+ author of MARS.
+ Suchalike cannot work.
+\end_layout
+
+\begin_layout Standard
+Instead, creation of a 
+\series bold
+separate replication layer at bare metal
+\series default
+ is the correct solution, e.g.
+ using dedicated storage boxes, or directly replicating at hypervisor hardware
+ when using local storage (as is the case at ShaHoLin).
+ Not only for performance reasons and for resource allocation
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Another argument: resource sharing in 
+\family typewriter
+/mars
+\family default
+.
+ Each VM would require its own instance of 
+\family typewriter
+/mars
+\family default
+, while a per-storage or per-hypervisor MARS instance can 
+\emph on
+share
+\emph default
+ its disk space.
+ MARS has been explicitly constructed with resource sharing in mind.
+\end_layout
+
+\end_inset
+
+ reasons, MARS is explicitly constructed for running on 
+\series bold
+bare metal
+\series default
+ 
+\emph on
+solely
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+A minor exception is 
+\emph on
+functional component testing
+\emph default
+ (as opposed to end-to-end system testing, aka integration testing, and
+ as opposed to non-functional testing).
+ This can be done under KVM, provided that 
+\family typewriter
+/dev/mars/mydata
+\family default
+ is never used for further sub-virtualization, and only for non-critical
+ test loads.
+\end_layout
+
+\end_inset
+
+.
+ See also description of hardware requirements in 
+\family typewriter
+mars-user-manual.pdf
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+Dijkstra's layering rules are 
+\emph on
+implying
+\emph default
+ that an actively running VM can never replicate 
+\emph on
+itself
+\emph default
+ into 
+\emph on
+another
+\emph default
+ VM, at least not its entire
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Being unable to replicate the 
+\emph on
+entire
+\emph default
+ VM state is also a violation of the blackbox principle.
+\end_layout
+
+\end_inset
+
+ internal state.
+ Trying to do so would lead to an 
+\series bold
+endless nesting recursion
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+A replicator replicating itself would change the state of the VM by its
+ replication activity, triggering another replication, which in turn would
+ trigger another replication, and so on.
+\end_layout
+
+\end_inset
+
+
+\series default
+ of runtime state.
+ Dijkstra's rules are clearly forbidding cyclic layering.
+ Therefore, replication must always be considered as a 
+\emph on
+separate
+\emph default
+ layer, and not intermixed with other layers.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ This isn't specific for MARS and its heavy statekeeping in 
+\family typewriter
+/mars
+\family default
+.
+ Dijkstra's rules also apply to 
+\emph on
+any other
+\emph default
+ replication system.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In addition to formal layering rules, resource management can easily become
+ a hell when based on virtual resources instead of on physical ones.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\noindent
+I never heard of anyone who tried to use DRBD 
+\emph on
+productively
+\emph default
+ inside of VMs.
+ Apparently, sysadmins understand that this would be a bad idea, 
+\series bold
+worsening performance
+\series default
+ over-proportionally and 
+\series bold
+\emph on
+unpredictably
+\series default
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Theoretical foundation: queueing theory.
+ VMs are introducing 
+\emph on
+several
+\emph default
+ queues into workloads, which did not exist without them.
+ In addition, it becomes impossible to guarantee a maximum service time.
+\end_layout
+
+\end_inset
+
+, since the passive side would have to react in 
+\emph on
+realtime
+\emph default
+, and even for each single IO request.
+ People seem to understand that 
+\series bold
+realtime behaviour
+\series default
+ cannot be expected from ordinary VMs.
+ Often they already had a bad experience, such as huge performance differences
+ between para-virtualized device drivers and physical hardware drivers,
+ both running on so-called 
+\begin_inset Quotes eld
+\end_inset
+
+virtual hardware
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The term 
+\begin_inset Quotes eld
+\end_inset
+
+virtual hardware
+\begin_inset Quotes erd
+\end_inset
+
+ is a contradiction in itself.
+ It simply isn't hardware at all.
+ Hardware is something which creates an 
+\begin_inset Quotes eld
+\end_inset
+
+Outch
+\begin_inset Quotes erd
+\end_inset
+
+ when falling down onto your feet.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Sometimes, the latter cannot run 
+\emph on
+reliably
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Standard problem: missed interrupts, or interrupts not delivered in-time.
+\end_layout
+
+\end_inset
+
+ under KVM/qemu, other than for non-critical or minor workstation loads.
+ Even then, they often work as a CPU burner.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ For some unknown reason, a few people seem to expect that MARS would be
+ able to work miracles there.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+End users messing around with IPs
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ I don't know of any virtualization platform where ordinary VM users can
+ easily configure and use BGP themselves.
+ Therefore, geo-redundant replication setups under VMs would 
+\series bold
+lack location transparency
+\series default
+, and provide a 
+\series bold
+crippled user experience
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Leaving geo-replication and BGP handover to be managed by end users would
+ be a bad idea.
+ Apart from skills and from a management hell to be mastered by end users,
+ it would be a 
+\series bold
+waste of IP addresses
+\series default
+.
+ When 
+\emph on
+external
+\emph default
+ VM customers would need to control BGP themselves, at least 3 public IP
+ addresses would be needed: each of both non-location-transparent VMs running
+ in parallel would require at least 1 public IP for external 
+\family typewriter
+ssh
+\family default
+ access etc, which is 2 in total, and a third public IP for BGP handover,
+ carrying the workload traffic.
+ Notice that public IPv4 addresses are a scarce resource.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ A good virtualization platform must provide 
+\series bold
+full location transparency
+\series default
+ of the VMs, without user intervention.
+ Only a single public IP per VM is then required, which automatically follows
+ the current geo-location of 
+\emph on
+the
+\emph default
+ single per-user
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+At the passive / secondary side, only the LV replica is updated.
+ No VM is started there.
+ Thus no additional VM is requiring CPU and RAM resources.
+ In contrast, 2 non-location-transparent VMs responsible for replication
+ would essentially 
+\series bold
+double the necessary compute resources
+\series default
+.
+ In addition, total disk space allocation for multiple 
+\family typewriter
+/mars
+\family default
+ instances instead of a shared one would be much higher.
+ All of these would result in a 
+\series bold
+massive cost increase
+\series default
+.
+\end_layout
+
+\end_inset
+
+ VM instance running at the same time.
+ This is already standard for local VM handover in the same datacenter.
+ No serious VM user would accept manual IP renumbering work, or responsibility
+ for routing changes, when his VM is suddenly running on a different hypervisor,
+ just because another customer used some more RAM, or because some hardware
+ went defective.
+ For unknown reasons, a few people are however expecting a similar effort
+ and similar skills from their (internal or external) VM customers as soon
+ as geo-redundancy comes into play.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ BGP or a sister protocol is a 
+\emph on
+must
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The 1&1 Ionos ShaHoLin setup (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Positive-Example:-ShaHoLin"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) is a striking example that BGP and its control by hypervisors is possible
+ in large scale.
+\end_layout
+
+\end_inset
+
+ for geo-redundant VMs.
+ It should be automatically controlled by the storage or by the hypervisor
+ layer, instead of by end users.
+ When storage and hypervisors are anyway managed by sysadmins, users should
+ not notice where their VM is currently running (see 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Location-transparency"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ In addition, managed geo-control may become a sold feature.
+ Customers can then 
+\emph on
+trigger
+\emph default
+ automatic handover of the geo-location with a single click (provided that
+ both locations are healthy).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+
+\series bold
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+OPEX Cost Savings by Managed Geo-Location Transparency
+\end_layout
+
+\end_inset
+
+
+\series default
+When using a geo-redundant 
+\family typewriter
+RemoteSharding
+\family default
+ or 
+\family typewriter
+FlexibleSharding
+\family default
+ model, passive-side hypervisors do not carry any workload.
+ Thus they may be powered off, until they are needed again.
+ Only the corresponding passive storage boxes need to remain powered all
+ the time.
+\end_layout
+
+\begin_layout Plain Layout
+However, this can only work when 
+\emph on
+managed
+\emph default
+ geo-location transparency is implemented.
+ Otherwise, end users would get a 
+\emph on
+pair of
+\emph default
+ VMs instead of a single VM, running all the time, in order to be able to
+ manage geo-redundancy themselves.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Manager Briefing
+\end_layout
+
+\end_inset
+
+Never accept a proposal to use MARS or any other replication system inside
+ of VMs.
+\end_layout
+
+\begin_layout Plain Layout
+
+\series bold
+Insist on fully managed geo-location transparency
+\series default
+ from the viewpoint of VM users.
+ It is even 
+\series bold
+considerably cheaper
+\series default
+ at OPEX, since unnecessary doubling of the number of concurrently running
+ VM instances is avoided.
+\end_layout
+
+\begin_layout Plain Layout
+Do not call any VM system 
+\begin_inset Quotes eld
+\end_inset
+
+geo-redundant
+\begin_inset Quotes erd
+\end_inset
+
+ if it misses this simple standard requirement.
+ It should not require any political discussions at all (since local location
+ transparency is standard at local VM farms for decades).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Managed BGP makes you independent from the OS running inside of VMs.
+ For example, Windows guests will become geo-redundant without modification.
+\end_layout
+
 \begin_layout Section
 Granularity at Architecture
 \begin_inset CommandInset label

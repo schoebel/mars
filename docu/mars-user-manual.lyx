@@ -419,8 +419,8 @@ name "sec:Typical-MARS-replication"
 \end_layout
 
 \begin_layout Standard
-Typical recommended usage is replication of multiple Logical Volumes (LVs),
- similar to DRBD:
+Typical recommended usage is replication of multiple Logical Volumes (LVs)
+ directly at bare metal (never inside of VMs), similar to DRBD:
 \end_layout
 
 \begin_layout Standard
@@ -1113,8 +1113,8 @@ noprefix "false"
 \end_layout
 
 \begin_layout Standard
-Typically, you will install MARS at many servers for replication of many
- LVs 
+Typically, you will install MARS at many bare metal servers for replication
+ of many LVs 
 \emph on
 between
 \begin_inset Foot
@@ -1146,12 +1146,26 @@ mars-architecture-guide.pdf
 
 \emph default
  multiple datacenters.
+ Do 
+\emph on
+not
+\emph default
+ use MARS inside of VMs (see explanation of Dijkstra's layering rules in
+ 
+\family typewriter
+mars-architecture-guide.pdf
+\family default
+).
 \end_layout
 
 \begin_layout Standard
 You can use MARS both at dedicated storage servers (e.g.
  for serving Windows clients over iSCSI), or at standalone Linux servers
- where CPU and storage are not separated.
+ where CPU and storage are 
+\emph on
+not
+\emph default
+ separated.
 \end_layout
 
 \begin_layout Standard
@@ -1632,6 +1646,54 @@ better
 
 \end_inset
 
+ Do not import the block device for 
+\family typewriter
+/mars/
+\family default
+ over iSCSI.
+ This would sacrifice both reliability and performance.
+ MARS is constructed for exploiting a hardware BBU cache with a typical
+ IO parallelism degree of 1000 parallel IO requests, over fast local DMA.
+ See also section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:IO-Performance-Tuning"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Consequence: never run MARS inside of a VM (other than for functional component
+ testing).
+ See also Dijkstra's layering rules in 
+\family typewriter
+mars-architecture-guide.pdf
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
  Notice that the filesystem 
 \family typewriter
 /mars/
@@ -1663,7 +1725,7 @@ blackbox
 \family typewriter
 marsadm
 \family default
- interface is supposed to remain stable.
+ interface and its primitive macros are supposed to remain stable.
 \end_layout
 
 \begin_layout Standard
@@ -1734,8 +1796,8 @@ status open
 \begin_layout Plain Layout
 There is fundamental argument: network traffic between datacenters belongs
  to a higher level than a single component like MARS.
- Thus its security requirements must be solved at that level, but not at
- the level of MARS.
+ Thus its security requirements must be solved at that higher level, but
+ not at the lower level of MARS.
 \end_layout
 
 \end_inset
@@ -2233,7 +2295,7 @@ INSTALL
 \family typewriter
 mars.ko
 \family default
- kernel module to all of your cluster nodes, but also the 
+ kernel module to all of your bare metal cluster nodes, but also the 
 \family typewriter
 marsadm
 \family default
@@ -2481,8 +2543,8 @@ name "sec:Setup-Primary-and"
 \end_layout
 
 \begin_layout Standard
-If you already have some production data on your servers via LVM, you may
- skip some of the following subsections.
+If you already have some production data on your bare metal servers via
+ LVM, you may skip some of the following subsections.
 \end_layout
 
 \begin_layout Standard
@@ -2543,8 +2605,21 @@ name "subsec:Setup-Hardware"
 \end_layout
 
 \begin_layout Standard
-When using hardware RAID controllers, you will need to build your RAID sets
- with the corresponding tools.
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not use MARS inside of VMs.
+ Only use at bare metal!
+\end_layout
+
+\begin_layout Standard
+When using hardware RAID controllers with hardware BBU (as is highly recommended
+), you will need to build your RAID sets with the corresponding tools.
 \end_layout
 
 \begin_layout Standard
@@ -2613,8 +2688,8 @@ name "subsec:Setup-LVM"
 
 \end_inset
 
- Execute the following instructions only once after hardware deployment,
- or if you want to re-install your server.
+ Execute the following instructions only once after bare metal hardware
+ deployment, or if you want to re-install your server.
  Otherwise, you may delete existing data.
 \end_layout
 
@@ -2706,7 +2781,7 @@ name "subsec:Setup-your-Cluster"
 \end_layout
 
 \begin_layout Standard
-For your cluster, you need at least two nodes.
+For your cluster, you need at least two bare metal nodes.
  In the following, they will be called hostA and hostB.
  In the beginning, hostA will have the 
 \family typewriter
@@ -3276,7 +3351,7 @@ mydata
 \end_layout
 
 \begin_layout Standard
-You may have some alreadypre-existing 
+You may have some already pre-existing 
 \family typewriter
 /dev/lv/mydata
 \family default
@@ -3590,7 +3665,7 @@ starting
 
 \end_inset
 
-By default, MARS uses the so-called 
+ By default, MARS uses the so-called 
 \begin_inset Quotes eld
 \end_inset
 
@@ -33310,6 +33385,19 @@ name "chap:Technical-Data-MARS"
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not use MARS inside of VMs.
+ Only use at bare metal!
+\end_layout
+
+\begin_layout Standard
 MARS  has some built-in limitations which should be overcome
 \begin_inset Foot
 status open
@@ -33328,11 +33416,11 @@ Some internal algorithms are quadratic.
 \end_layout
 
 \begin_layout Itemize
-maximum 10 nodes per cluster
+maximum 4 nodes per cluster
 \end_layout
 
 \begin_layout Itemize
-maximum 10 resources per cluster
+maximum 20 resources per cluster
 \end_layout
 
 \begin_layout Itemize
