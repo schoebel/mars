@@ -80,6 +80,11 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable81
+	* Minor doc improvement: explain why running MARS inside of VMs
+	  is a bad idea. Explain fully managed geo-location transparency
+	  of VMs.
+
 mars0.1astable80
 	* Compatibility up to kernels <= 4.14.
 	  Attention! There is a bug in upstream kernels >= 4.11, leading
