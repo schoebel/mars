@@ -7003,31 +7003,8 @@ separate replication layer at bare metal
  is the correct solution, e.g.
  using dedicated storage boxes, or directly replicating at hypervisor hardware
  when using local storage (as is the case at ShaHoLin).
- Not only for performance reasons and for resource allocation
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Another argument: resource sharing in 
-\family typewriter
-/mars
-\family default
-.
- Each VM would require its own instance of 
-\family typewriter
-/mars
-\family default
-, while a per-storage or per-hypervisor MARS instance can 
-\emph on
-share
-\emph default
- its disk space.
- MARS has been explicitly constructed with resource sharing in mind.
-\end_layout
-
-\end_inset
-
- reasons, MARS is explicitly constructed for running on 
+ Not only for performance reasons and for resource allocation reasons, MARS
+ is explicitly constructed for running on 
 \series bold
 bare metal
 \series default
@@ -7056,6 +7033,24 @@ functional component testing
 
 \end_inset
 
+.
+ A single storage-level or hypervisor-level MARS instance can 
+\emph on
+share
+\emph default
+ a single 
+\family typewriter
+/mars
+\family default
+ filesystem instance for multiple resources, while a multitude of per-VM
+ 
+\family typewriter
+/mars
+\family default
+ instances would induce a waste of storage space by 
+\emph on
+factors
+\emph default
 .
  See also description of hardware requirements in 
 \family typewriter
