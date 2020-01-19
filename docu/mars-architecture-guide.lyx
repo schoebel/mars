@@ -10033,13 +10033,72 @@ Another important purpose is
 \series bold
 providing shared memory
 \series default
+ for syscalls like 
+\family typewriter
+mmap()
+\family default
 .
 \end_layout
 
 \end_inset
 
-: they are reducing the load onto the storage by exploitation of fast RAM.
- A well-tuned cache can yield high cache hit ratios, typically 99%.
+: they are speeding up your application while reducing the load onto the
+ storage by exploitation of fast RAM.
+ For the vast majority of typical
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Of course, there exist some exceptions.
+ For example, capturing 100GBit network traffic in realtime and then writing
+ such a massive data stream to a local disk will not profit from local caching,
+ but is 
+\emph on
+slowed down
+\emph default
+ by the overhead of contemporary kernel memory architectures.
+ See for example Christoph Lameter's presentation at LCA2020.
+ In this case, data is never accessed twice, thus the 
+\series bold
+locality of reference
+\series default
+ is at it's worst-case extreme, where caching cannot help 
+\emph on
+by concept
+\emph default
+.
+ At implementation level, a solution is to use Direct IO on big physical
+ memory chunks.
+ Direct IO is designed for bypassing the page cache of the kernel, and can
+ co-exist with other applications utilizing the caches.
+ Suchalike corner-case exceptions are 
+\emph on
+strengthening
+\emph default
+ Denning's WorkingSet theory (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), since the observed behaviour is 
+\emph on
+predicted
+\emph default
+ by his theory.
+\end_layout
+
+\end_inset
+
+ workstation or server applications, which typically show good 
+\series bold
+locality of reference
+\series default
+, a well-tuned cache can yield high cache hit ratios, typically 99%.
  In some cases (as observed in practice) even more than 99.9%.
 \end_layout
 
