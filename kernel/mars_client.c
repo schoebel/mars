@@ -527,9 +527,10 @@ int receiver_thread(void *data)
 {
 	struct client_channel *ch = data;
 	struct client_output *output = ch->output;
+	struct client_brick *brick = output->brick;
 	int status = 0;
 
-        while (!brick_thread_should_stop()) {
+        while (brick->power.button && !brick_thread_should_stop()) {
 		struct mars_cmd cmd = {};
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a = NULL;
@@ -548,7 +549,8 @@ int receiver_thread(void *data)
 		status = mars_recv_struct(&ch->socket, &cmd, mars_cmd_meta);
 		MARS_IO("got cmd = %d status = %d\n", cmd.cmd_code, status);
 		if (status <= 0) {
-			if (!mars_socket_is_alive(&ch->socket)) {
+			if (brick->power.button &&
+			    !mars_socket_is_alive(&ch->socket)) {
 				MARS_DBG("socket is dead\n");
 				brick_msleep(1000);
 				continue;
