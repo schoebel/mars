@@ -911,7 +911,8 @@ static int aio_submit_thread(void *data)
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			atomic_read(&tinfo->queued_sum) > 0,
+			atomic_read(&tinfo->queued_sum) > 0 ||
+			tinfo->should_terminate,
 			HZ / 4);
 
 		mref_a = _dequeue(tinfo);
