@@ -600,6 +600,7 @@ static int aio_event_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
 	struct aio_output *output = tinfo->output;
+	struct aio_brick *brick = output->brick;
 	struct aio_threadinfo *other = &output->tinfo[2];
 	struct io_event *events;
 	int err = -ENOMEM;
@@ -622,7 +623,9 @@ static int aio_event_thread(void *data)
 		int count;
 		int i;
 		struct lamport_time timeout = {
-			.tv_sec = 1,
+			.tv_nsec =
+				tinfo->should_terminate ||
+				!brick->power.button ? 0 : 100000,
 		};
 
 		if (unlikely(!(void*)output->ctxp)) {
