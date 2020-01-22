@@ -530,6 +530,7 @@ int receiver_thread(void *data)
 	struct client_brick *brick = output->brick;
 	int status = 0;
 
+	atomic_inc(&brick->receiver_count);
         while (brick->power.button && !brick_thread_should_stop()) {
 		struct mars_cmd cmd = {};
 		struct list_head *tmp;
@@ -673,6 +674,7 @@ int receiver_thread(void *data)
 	}
 
 	mars_shutdown_socket(&ch->socket);
+	atomic_dec(&brick->receiver_count);
 	return status;
 }
 
@@ -793,6 +795,7 @@ static int sender_thread(void *data)
 
 	if (atomic_inc_return(&sender_count) == 1)
 		mars_limit_reset(&client_limiter);
+	atomic_inc(&brick->sender_count);
 
         while (brick->power.button && !brick_thread_should_stop()) {
 		struct list_head *tmp = NULL;
@@ -940,6 +943,7 @@ static int sender_thread(void *data)
 
 	wake_up_interruptible_all(&output->bundle.sender_event);
 	MARS_DBG("sender terminated\n");
+	atomic_dec(&brick->sender_count);
 	return status;
 }
 
