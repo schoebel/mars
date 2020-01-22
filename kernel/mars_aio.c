@@ -568,7 +568,8 @@ int aio_sync_thread(void *data)
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			atomic_read(&tinfo->queued_sum) > 0,
+			atomic_read(&tinfo->queued_sum) > 0 ||
+			tinfo->should_terminate,
 			HZ / 4);
 
 		mutex_lock(&tinfo->mutex);
