@@ -966,7 +966,11 @@ static int client_switch(struct client_brick *brick)
 		if (brick->power.led_off)
 			goto done;
 		mars_power_led_on((void*)brick, false);
+		if (atomic_read(&brick->sender_count))
+			goto done;
 		_kill_bundle(&output->bundle);
+		if (atomic_read(&brick->receiver_count))
+			goto done;
 		_do_timeout_all(output, true);
 		output->got_info = false;
 		brick->connection_state = 0;
