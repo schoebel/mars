@@ -2269,7 +2269,6 @@ sub log_purge_res {
     lprint_stderr "  or after similar operations.\n";
   }
   finish_links();
-  _wait_delete();
 }
 
 sub try_to_avoid_splitbrain {
@@ -3324,7 +3323,10 @@ sub leave_res_phase2 {
   _wait_delete();
   $force = 0; # this would be too dangerous
   log_purge_res($cmd, $res);
-  finish_links();
+}
+
+sub leave_res_phase3 {
+  my ($cmd, $res) = @_;
   _wait_delete();
   system("rm -f $mars/resource-$res/log-*") if $host eq $real_host;
   _systemd_trigger($cmd);
@@ -4090,7 +4092,6 @@ sub invalidate_res_phase5 {
   my ($cmd, $res) = @_;
   $force = 0; # this would be too dangerous
   log_purge_res(@_);
-  finish_links();
 }
 
 sub invalidate_res_phase6 {
@@ -6277,6 +6278,8 @@ my %cmd_table =
        \&leave_res_phase1,
        "switch state",
        \&leave_res_phase2,
+       "purge logfiles",
+       \&leave_res_phase3,
        "wait for deletions",
       ],
    "delete-resource"
