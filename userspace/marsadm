@@ -298,14 +298,24 @@ sub _scan_resources {
 	"resources for '$host'\n" if $verbose;
 }
 
+sub alphanum_cmp {
+  my ($aa, $bb) = ($a, $b);
+  $aa =~ s/([0-9]+)/sprintf("%012d",$1)/eg;
+  $bb =~ s/([0-9]+)/sprintf("%012d",$1)/eg;
+  return $aa cmp $bb;
+}
+
+#print sort alphanum_cmp ("z", "a3", "a21");
+#exit 0;
+
 sub get_all_resources {
   _scan_resources() unless %all_resources;
-  return sort(keys(%all_resources));
+  return sort alphanum_cmp keys(%all_resources);
 }
 
 sub get_member_resources {
   _scan_resources() unless %all_resources;
-  return sort(keys(%member_resources));
+  return sort alphanum_cmp keys(%member_resources);
 }
 
 ##################################################################
@@ -434,7 +444,7 @@ sub get_template_files {
       }
     }
   }
-  return sort(keys(%template_names));
+  return sort alphanum_cmp keys(%template_names);
 }
 
 sub get_instance_files {
@@ -462,7 +472,7 @@ sub get_systemd_files {
       $systemd_files{$systemd_name} = $systemd_file;
     }
   }
-  return sort(keys(%systemd_names));
+  return sort alphanum_cmp keys(%systemd_names);
 }
 
 sub systemctl {
@@ -835,7 +845,7 @@ sub __systemd_commit {
   my %act_files = get_instance_files($systemd_target_dir);
   my %old_files = get_instance_files($systemd_var_dir);
   my %new_files = get_instance_files("$systemd_var_dir.new");
-  foreach my $old_target (sort(keys(%old_files))) {
+  foreach my $old_target (sort alphanum_cmp keys(%old_files)) {
     next if defined($new_files{$old_target});
     next if !defined($act_files{$old_target});
     lprint "-- marking '$old_target' for removal\n" if $verbose > 2;
@@ -848,7 +858,7 @@ sub __systemd_commit {
     lwarn "Cannot copy new unit instances from '$systemd_var_dir' to '$systemd_target_dir'\n";
     return ();
   }
-  foreach my $new_target (sort(keys(%new_files))) {
+  foreach my $new_target (sort alphanum_cmp keys(%new_files)) {
     next if defined($old_files{$new_target});
     lprint "-- enabling new '$new_target'\n" if $verbose > 2;
     my $unit = `basename "$new_target"`;
@@ -872,7 +882,7 @@ sub __systemd_generate_all {
   # Always add all plain templates
   %referenced_units = ();
   my $count = 0;
-  foreach my $template_name (sort(keys(%template_files))) {
+  foreach my $template_name (sort alphanum_cmp keys(%template_files)) {
     next if $template_name =~ m/($systemd_incape|$systemd_escape)/;
     $count += make_systemd_unit($cmd, "UNDEFINED_RESOURCE", $template_name);
   }
@@ -890,7 +900,7 @@ sub __systemd_generate_all {
   my %done_units;
   for (;;) {
     my $old_count = $count;
-    foreach my $target (sort(keys(%referenced_units))) {
+    foreach my $target (sort alphanum_cmp keys(%referenced_units)) {
       next if $done_units{$target};
       $count += make_systemd_unit($cmd, undef, $target);
       $done_units{$target} = 1;
@@ -907,7 +917,7 @@ sub __systemd_commit_ops {
   my $cmd = shift;
   my %changes = @_;
   my $deleted = 0;
-  foreach my $target (sort(keys(%changes))) {
+  foreach my $target (sort alphanum_cmp keys(%changes)) {
     my $action = $changes{$target};
     if ($action < 0) {
       lprint "Removing old template instance '$target'\n" if $verbose;
@@ -951,7 +961,7 @@ sub __systemd_fingerprint {
   my $text = "";
   # Fingerprint all source templates
   get_template_files();
-  foreach my $template_file (sort(keys(%template_names))) {
+  foreach my $template_file (sort alphanum_cmp keys(%template_names)) {
     my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
 	$atime,$mtime,$ctime,$blksize,$blocks) = stat($template_file);
     $text .= "$size,$mtime,$template_file\n";
@@ -1419,7 +1429,7 @@ sub wait_cluster {
   my $start_time = mars_time();
   my %old_status = get_alive_links($res, "time", $hosts);
   _trigger($hosts =~ m/\*/ ? 3 : 2);
-  lprint "Ping and wait for answers from " . join(",", sort(keys(%old_status))) . "\n" if %old_status;
+  lprint "Ping and wait for answers from " . join(",", sort alphanum_cmp keys(%old_status)) . "\n" if %old_status;
   my $delta = $window > 0 ? $window / 2 : 30;
   while (1) {
     my $dead_count = 0;
@@ -2109,7 +2119,7 @@ sub detect_splitbrain {
   if ($ok) { # check for duplicate logfiles
     my @logs = glob("$mars/resource-$res/log-*");
     my $oldnr = -1;
-    foreach my $path (sort(@logs)) {
+    foreach my $path (sort alphanum_cmp @logs) {
       $path =~ m:/log-([0-9]+):;
       my $nr = $1;
       if ($nr == $oldnr) {
@@ -2256,7 +2266,7 @@ sub log_purge_res {
     _create_delete($file);
   }
   my $count = 0;
-  foreach my $log (sort(keys(%logs))) {
+  foreach my $log (sort alphanum_cmp keys(%logs)) {
     my $nr = $logs{$log};
     next if $nr < 0 || -e "$basedir/$log";
     lprint_stderr "info: logfile '$log' is referenced ($nr), but not present.\n";
@@ -3364,7 +3374,7 @@ sub logrotate_res {
   my @paths = glob("$mars/resource-$res/log-*-$host");
   my $last;
   if (@paths) {
-    @paths = sort(@paths);
+    @paths = sort alphanum_cmp @paths;
     $last = pop(@paths);
   } else {
     lwarn "no logfile exists on '$host' for resource '$res'\n";
@@ -3565,7 +3575,7 @@ sub logdelete_res {
     unlink($leftlink);
   }
   my @paths = glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
-  @paths = sort(@paths);
+  @paths = sort alphanum_cmp @paths;
   my ($min_deletable, $max_deletable) = _get_deletable_logfiles(@_);
   lprint "min     deletable logfile number: $min_deletable\n" if $verbose;
   lprint "min non-deletable logfile number: $max_deletable\n" if $verbose;
@@ -4525,7 +4535,7 @@ sub eval_fn {
       return "";
     }
     if (/^dump[-_]?vars$/) { # write to stderr
-      foreach my $key (sort(keys(%$env))) {
+      foreach my $key (sort alphanum_cmp keys(%$env)) {
 	next if $key =~ m/^__.*__$/;
 	my $val = $$env{$key};
 	lprint_stderr "$key='$val'\n";
@@ -4737,7 +4747,7 @@ sub eval_fn {
       my @peers = glob("$mars/ips/ip-*");
       return scalar(@peers) if defined($do_count);
       my $list = "";
-      foreach my $peer (sort(@peers)) {
+      foreach my $peer (sort alphanum_cmp @peers) {
 	$peer =~ s:^$mars/ips/ip-::;
 	$list .= "$peer\n";
       }
@@ -4748,7 +4758,7 @@ sub eval_fn {
       my @peers = glob($$env{"resdir"} . "/data-*");
       return scalar(@peers) if defined($do_count);
       my $list = "";
-      foreach my $peer (sort(@peers)) {
+      foreach my $peer (sort alphanum_cmp @peers) {
 	$peer =~ s:^.*/data-::;
 	$list .= "$peer\n";
       }
@@ -4765,7 +4775,7 @@ sub eval_fn {
       map { s:^$mars/resource-(.*?)/data-.*:$1:; } @list;
       my $list = "";
       my $old = "";
-      foreach my $item (sort(@list)) {
+      foreach my $item (sort alphanum_cmp @list) {
 	$list .= "$item\n" if $item ne $old;
 	$old = $item;
       }
@@ -5170,7 +5180,7 @@ sub eval_fn {
       $arg1 = parse_macro($arg1, $env);
       $arg1 = $$env{"host"} unless $arg1;
       my $fetch_glob = $$env{"resdir"} . "/version-*-$arg1";
-      my @paths = sort(glob($fetch_glob));
+      my @paths = sort alphanum_cmp glob($fetch_glob);
       return -1 if !@paths;
       my $fetch = pop(@paths);
       return get_link_stamp($fetch);
@@ -6019,7 +6029,7 @@ my %trivial_globs =
   );
 
 my $glob = "";
-foreach my $new_glob (sort(keys(%trivial_globs))) {
+foreach my $new_glob (sort alphanum_cmp keys(%trivial_globs)) {
   $glob .= "," if $glob;
   $glob .= $new_glob;
 }
@@ -6996,7 +7006,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
 <command> =
 ";
   my $item_count = 0;
-  foreach my $cmdname (sort(keys(%cmd_table))) {
+  foreach my $cmdname (sort alphanum_cmp keys(%cmd_table)) {
     my $list = $cmd_table{$cmdname};
     next unless ref($list) eq "ARRAY";
     my @copy = @$list;
@@ -7036,7 +7046,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
 
 <complex_macroname> =
 ";
-  foreach my $macroname (sort(keys(%complex_macros))) {
+  foreach my $macroname (sort alphanum_cmp keys(%complex_macros)) {
     print "  $macroname\n";
   }
 
@@ -7044,7 +7054,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
 
 <primitive_macroname> =
 ";
-  foreach my $glob (sort(keys(%trivial_globs))) {
+  foreach my $glob (sort alphanum_cmp keys(%trivial_globs)) {
     my $txt = $trivial_globs{$glob};
     print "  $glob\n";
     print "    $txt\n" if $txt;
@@ -7258,7 +7268,7 @@ sub do_all_res {
     my @total_list = glob("$mars/ips/ip-*");
     my $total_count = scalar(@total_list);
     call_hook(!$force, "all-pre", $cmd, "all", @_);
-    foreach $res (@res_list) {
+    foreach $res (sort alphanum_cmp @res_list) {
       next unless -e "$res/data-$host";
       $any_member++;
       $res =~ s/^.*\/resource-(.*)$/$1/;
