@@ -3349,6 +3349,8 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       my_id(),
 			       parent_path,
 			       my_id());
+	if (!rot->trans_brick && trans_brick)
+		clear_vals(rot->msgs);
 	rot->trans_brick = (void*)trans_brick;
 	status = -ENOENT;
 	if (!trans_brick) {
