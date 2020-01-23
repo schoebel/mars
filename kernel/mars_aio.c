@@ -407,6 +407,7 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 	} else {
 		MARS_ERR("error = %d\n", res);
 	}
+	wake_up_interruptible_all(&output->tinfo[1].event);
 
 done:
 	return res;
@@ -478,6 +479,7 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 				unuse_fake_mm();
 			}
 		}
+		wake_up_interruptible_all(&tinfo->event);
 
 		// wait for termination
 		MARS_DBG("waiting for thread %d ...\n", i);
@@ -648,8 +650,15 @@ static int aio_event_thread(void *data)
 		count = sys_io_getevents(output->ctxp, 1, MARS_MAX_AIO_READ, events, &timeout);
 		set_fs(oldfs);
 
-		if (likely(count > 0)) {
+		if (count > 0) {
 			atomic_sub(count, &output->submit_count);
+		} else if (!count) {
+			wait_event_interruptible_timeout(
+				tinfo->event,
+				atomic_read(&output->submit_count) > 0 ||
+				tinfo->should_terminate,
+				HZ / 4);
+			continue;
 		}
 
 		for (i = 0; i < count; i++) {
