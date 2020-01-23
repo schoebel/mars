@@ -2281,6 +2281,14 @@ sub log_purge_res {
   finish_links();
 }
 
+sub err_purge_res {
+  my ($cmd, $res) = @_;
+  foreach my $leftlink (glob("$mars/{,resource-$res/}actual-$host/msg-err-*")) {
+    lprint "  deleting '$leftlink'\n" if $verbose;
+    _create_delete($leftlink);
+  }
+}
+
 sub try_to_avoid_splitbrain {
   my ($cmd, $res, $old_primary) = @_;
   my $old_timeout = $timeout;
@@ -3013,6 +3021,8 @@ sub create_res {
 
   ldie "implausible size $size" unless $size > 4096 * 16; # smaller floppies should not exist ;)
 
+  err_purge_res($cmd, $res);
+
   my $primary;
   my $replay_nr = -1;
   if ($create) {
@@ -3333,11 +3343,13 @@ sub leave_res_phase2 {
   _wait_delete();
   $force = 0; # this would be too dangerous
   log_purge_res($cmd, $res);
+  err_purge_res($cmd, $res);
 }
 
 sub leave_res_phase3 {
   my ($cmd, $res) = @_;
   _wait_delete();
+  err_purge_res($cmd, $res);
   system("rm -f $mars/resource-$res/log-*") if $host eq $real_host;
   _systemd_trigger($cmd);
 }
@@ -4102,6 +4114,7 @@ sub invalidate_res_phase5 {
   my ($cmd, $res) = @_;
   $force = 0; # this would be too dangerous
   log_purge_res(@_);
+  err_purge_res(@_);
 }
 
 sub invalidate_res_phase6 {
@@ -6405,6 +6418,11 @@ my %cmd_table =
        "Use this only if you are really desperate in trying to resolve a",
        "split brain. Use this only after reading the PDF manual!",
        \&log_purge_res,
+      ],
+   "err-purge-all"
+   => [
+       "Remove any err message from the given resources.",
+       \&err_purge_res,
       ],
    "fake-sync"
    => [
