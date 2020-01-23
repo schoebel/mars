@@ -66,7 +66,7 @@ EXPORT_SYMBOL_GPL(server_handler_count);
 
 ///////////////////////// own helper functions ////////////////////////
 
-#define HANDLER_LIMIT 64
+#define HANDLER_LIMIT 1024
 
 int handler_limit = HANDLER_LIMIT;
 int handler_nr = HANDLER_LIMIT;
