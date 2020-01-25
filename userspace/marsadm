@@ -3107,6 +3107,12 @@ sub create_res {
     }
   }
 
+  # purge before complaining
+  log_purge_res($cmd, $res);
+  err_purge_res($cmd, $res);
+  finish_links();
+  _wait_delete();
+
   # check for remains from former incidents
   my $max_retry = 3;
   while ($max_retry-- > 0) {
