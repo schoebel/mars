@@ -3519,6 +3519,7 @@ sub _wait_delete {
   return if $dry_run;
   for (;;) {
     my $deleted = get_link("$mars/todo-global/deleted-$real_host");
+    $deleted =~ s/^0+//;
     my ($min_nr, $delete_nr) = _get_delete_nr("$mars/todo-global");
     last if $deleted >= $delete_nr;
     lprint "waiting for deletions to apply locally....\n";
