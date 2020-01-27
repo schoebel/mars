@@ -2241,6 +2241,7 @@ restart:
 	}
 	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
 		struct mars_brick *brick;
+		struct lamport_time now;
 		int count;
 		int status;
 
@@ -2268,6 +2269,15 @@ restart:
 		count = atomic_read(&brick->mref_object_layout.alloc_count);
 		if (count > 0)
 			continue;
+
+		/* only kill non-transient bricks */
+		if (brick->power.button != brick->power.led_on ||
+		    brick->power.button == brick->power.led_off) {
+			if (!brick->kill_stamp.tv_sec) {
+				brick->kill_stamp = get_real_lamport();
+				brick->kill_stamp.tv_sec += 10;
+			}
+		}
 		/* Workaround FIXME:
 		 * only kill bricks which have not been touched during the current mars_dent_work() round.
 		 * some bricks like aio seem to have races between startup and termination of threads.
@@ -2275,6 +2285,16 @@ restart:
 		 * OTOH, frequently doing useless starts/stops is no good idea.
 		 * CHECK: how to avoid too frequent switching by other means?
 		 */
+		if (!brick->kill_stamp.tv_sec) {
+			brick->kill_stamp = get_real_lamport();
+			brick->kill_stamp.tv_sec += 3;
+		}
+		now = get_real_lamport();
+		if (lamport_time_compare(&now, &brick->kill_stamp) <= 0 &&
+		    global &&
+		    global->global_power.button) {
+			continue;
+		}
 		if (brick->kill_round++ < 1) {
 			continue;
 		}

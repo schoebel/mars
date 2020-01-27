@@ -228,6 +228,7 @@ struct mars_info {
 	const char *brick_path;						\
 	struct mars_global *global;					\
 	struct lamport_time create_stamp;				\
+	struct lamport_time kill_stamp;					\
 	void **kill_ptr;						\
 	int *mode_ptr;							\
 	int kill_round;							\
