@@ -889,7 +889,28 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 		int i;
 
 		for (i = 0; i < 2; i++) {
-			status = cc->output[i]->ops->mars_get_info(cc->output[i], &cc->info[i]);
+			struct mars_output *aio_output = cc->output[i];
+			struct mars_brick *aio_brick;
+
+			if (unlikely(!aio_output)) {
+				MARS_WRN("'%s' uninitialized output %d\n",
+					 _brick->brick_path, i);
+				goto done;
+			}
+			aio_brick = aio_output->brick;
+			if (unlikely(!aio_brick)) {
+				MARS_WRN("'%s' uninitialized brick %d\n",
+					 _brick->brick_path, i);
+				goto done;
+			}
+			if (!aio_brick->power.led_on) {
+				MARS_INF("'%s' brick %d not working\n",
+					 _brick->brick_path, i);
+				goto done;
+			}
+			status = aio_output->ops->mars_get_info(
+					    aio_output,
+					    &cc->info[i]);
 			if (status < 0) {
 				MARS_WRN("cannot determine current size of '%s'\n", cc->argv[i]);
 				goto done;
