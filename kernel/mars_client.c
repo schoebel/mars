@@ -1000,11 +1000,15 @@ char *client_statistics(struct client_brick *brick, int verbose)
 			socket_count++;
 	}
 	snprintf(res, 1024,
+		 "get_info = %d "
+		 "got_info = %d "
 		 "socket_count = %d "
 		 "max_flying = %d "
 		 "io_timeout = %d | "
 		 "timeout_count = %d "
 		 "fly_count = %d\n",
+		 output->get_info,
+		 output->got_info,
 		 socket_count,
 		 brick->max_flying,
 		 brick->power.io_timeout,
