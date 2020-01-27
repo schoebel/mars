@@ -29,6 +29,7 @@
 
 extern struct mars_limiter client_limiter;
 extern int global_net_io_timeout;
+extern int mars_client_info_timeout;
 extern int mars_client_abort;
 extern int max_client_channels;
 extern int max_client_bulk;

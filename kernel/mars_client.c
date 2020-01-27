@@ -39,14 +39,13 @@
 
 #define CLIENT_HASH_MAX (PAGE_SIZE / sizeof(struct list_head))
 
+int mars_client_info_timeout = 0;
+
 int mars_client_abort = 10;
-EXPORT_SYMBOL_GPL(mars_client_abort);
 
 int max_client_channels = 2;
-EXPORT_SYMBOL_GPL(max_client_channels);
 
 int max_client_bulk = 16;
-EXPORT_SYMBOL_GPL(max_client_bulk);
 
 ///////////////////////// own helper functions ////////////////////////
 
@@ -380,13 +379,15 @@ done:
 }
 
 static
-long _compute_timeout(struct client_brick *brick)
+long _compute_timeout(struct client_brick *brick, bool for_info)
 {
 	long io_timeout = brick->power.io_timeout;
 
 	if (io_timeout <= 0)
 		io_timeout = global_net_io_timeout;
-
+	if (for_info && io_timeout > mars_client_info_timeout)
+		io_timeout = mars_client_info_timeout;
+	
 	return io_timeout;
 }
 
@@ -395,12 +396,16 @@ long _compute_timeout(struct client_brick *brick)
 static int client_get_info(struct client_output *output, struct mars_info *info)
 {
 	struct client_brick *brick = output->brick;
-	long io_timeout = _compute_timeout(brick);
+	long io_timeout = _compute_timeout(brick, true);
 	int status;
 
-	output->got_info = false;
-	if (!brick->power.led_on)
+	if (!brick->power.led_on) {
+		if (output->got_info)
+			return 0;
+		output->get_info = true;
+		wake_up_interruptible_all(&output->bundle.sender_event);
 		goto timeout;
+	}
 
 	output->get_info = true;
 	wake_up_interruptible_all(&output->bundle.sender_event);
@@ -408,9 +413,10 @@ static int client_get_info(struct client_output *output, struct mars_info *info)
 	wait_event_interruptible_timeout(output->info_event, output->got_info, io_timeout * HZ);
 timeout:
 	status = -ETIME;
-	if (output->got_info && info) {
-		memcpy(info, &output->info, sizeof(*info));
+	if (output->got_info) {
 		status = 0;
+		if (info)
+			memcpy(info, &output->info, sizeof(*info));
 	}
 	return status;
 }
@@ -685,7 +691,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 	struct list_head *tmp;
 	struct list_head *prev;
 	LIST_HEAD(tmp_list);
-	long io_timeout = _compute_timeout(brick);
+	long io_timeout = _compute_timeout(brick, false);
 	int i;
 
 	if (list_empty(anchor))
@@ -956,12 +962,16 @@ static int client_switch(struct client_brick *brick)
 		if (brick->power.led_on)
 			goto done;
 		mars_power_led_off((void*)brick, false);
-		status = _setup_bundle(&output->bundle, brick->brick_name);
-		if (likely(status >= 0)) {
-			output->get_info = true;
-			brick->connection_state = 1;
-			mars_power_led_on((void*)brick, true);
+		if (!output->bundle.sender.thread) {
+			status = _setup_bundle(&output->bundle, brick->brick_name);
+			if (likely(status >= 0)) {
+				brick->connection_state = 1;
+			}
 		}
+		if (output->bundle.sender.thread && !output->get_info) {
+			client_get_info(output, NULL);
+		}
+		mars_power_led_on((void*)brick, output->got_info);
 	} else {
 		if (brick->power.led_off)
 			goto done;
