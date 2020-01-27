@@ -2584,24 +2584,18 @@ void __mars_remote_trigger(bool do_all)
 static
 bool is_shutdown(void)
 {
-	bool res = false;
-	int used;
-	if ((used = atomic_read(&global_mshadow_count)) > 0) {
+	int used = atomic_read(&global_mshadow_count);
+
+	if (used  > 0) {
 		MARS_INF("global shutdown delayed: there are %d buffers in use, occupying %ld bytes\n", used, atomic64_read(&global_mshadow_used));
-	} else {
-		int rounds = 3;
-		while ((used = atomic_read(&mars_global_io_flying)) <= 0) {
-			if (--rounds <= 0) {
-				res = true;
-				break;
-			}
-			brick_msleep(30);
-		}
-		if (!res) {
-			MARS_INF("global shutdown delayed: there are %d IO requests flying\n", used);
-		}
+		return false;
 	}
-	return res;
+	used = atomic_read(&mars_global_io_flying);
+	if (used <= 0)
+		return true;
+
+	MARS_INF("global shutdown delayed: there are %d IO requests flying\n", used);
+	return false;
 }
 
 ///////////////////////////////////////////////////////////////////////
