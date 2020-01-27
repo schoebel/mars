@@ -1595,6 +1595,7 @@ int __make_copy(
 	};
 	int i;
 	bool switch_copy;
+	bool later_off = false;
 	int status = -EINVAL;
 
 	if (!switch_path || !global) {
@@ -1647,6 +1648,11 @@ int __make_copy(
 			make_msg(msg_pair, "cannot instantiate '%s'", cc.fullpath[i]);
 			goto done;
 		}
+		if (!aio->power.led_on) {
+			MARS_DBG("predecessor '%s' not yet on\n", cc.fullpath[i]);
+			aio->power.force_off = false;
+			later_off = true;
+		}
 
 	found:
 		cc.output[i] = aio->outputs[0];
@@ -1658,7 +1664,9 @@ int __make_copy(
 		aio->power.io_timeout = switch_copy ? 0 : 1;
 	}
 
-	switch_copy = (switch_copy && (!IS_EMERGENCY_PRIMARY() || space_using_mode));
+	switch_copy = (switch_copy &&
+		       !later_off &&
+		       (!IS_EMERGENCY_PRIMARY() || space_using_mode));
 	if (updater) {
 		status = updater(copy, switch_copy, private);
 		if (unlikely(status < 0)) {
