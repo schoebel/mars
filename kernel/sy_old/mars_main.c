@@ -4388,7 +4388,11 @@ int make_primary(void *buf, struct mars_dent *dent)
 	}
 
 	rot->todo_primary =
-		global->global_power.button && dent->new_link && !strcmp(dent->new_link, my_id());
+		global->global_power.button &&
+		_check_allow(rot->global, rot->parent_path, "attach") &&
+		dent->new_link &&
+		!strcmp(dent->new_link, my_id());
+
 	MARS_DBG("todo_primary = %d is_primary = %d\n", rot->todo_primary, rot->is_primary);
 
 	/* The primary versionlink needs to be ahead of the synced part of
