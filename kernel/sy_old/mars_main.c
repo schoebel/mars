@@ -3834,6 +3834,7 @@ int _get_free_input(struct trans_logger_brick *trans_brick)
 {
 	int nr = (((trans_brick->log_input_nr - TL_INPUT_LOG1) + 1) % 2) + TL_INPUT_LOG1;
 	struct trans_logger_input *candidate;
+
 	candidate = trans_brick->inputs[nr];
 	if (unlikely(!candidate)) {
 		MARS_ERR("input nr = %d is corrupted!\n", nr);
@@ -3841,7 +3842,7 @@ int _get_free_input(struct trans_logger_brick *trans_brick)
 	}
 	if (unlikely(candidate->is_operating || candidate->connect)) {
 		MARS_DBG("nr = %d unusable! is_operating = %d connect = %p\n", nr, candidate->is_operating, candidate->connect);
-		return -EEXIST;
+		return -EAGAIN;
 	}
 	MARS_DBG("got nr = %d\n", nr);
 	return nr;
