@@ -2719,7 +2719,9 @@ void trans_logger_log(struct trans_logger_brick *brick)
 
 	mars_power_led_on((void*)brick, true);
 
-	while (!brick_thread_should_stop() || _congested(brick)) {
+	while ((!brick->terminate &&
+		!brick_thread_should_stop()) ||
+	       _congested(brick)) {
 		int winner;
 		int nr;
 
@@ -2819,6 +2821,8 @@ void trans_logger_log(struct trans_logger_brick *brick)
 	}
 	if (!atomic_dec_return(&logger_count))
 		mars_limit_reset(&global_writeback.limiter);
+
+	brick->terminated = true;
 }
 
 ////////////////////////////// log replay //////////////////////////////
@@ -3045,6 +3049,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		int len = 0;
 
 		if (brick_thread_should_stop() ||
+		    brick->terminate ||
 		   (!brick->continuous_replay_mode && finished_pos >= brick->replay_end_pos)) {
 			status = 0; // treat as EOF
 			break;
@@ -3196,10 +3201,14 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 
 	mars_trigger();
 
-	while (!brick_thread_should_stop()) {
-		brick_msleep(500);
-	}
 	mars_limit_reset(brick->replay_limiter);
+	brick->terminated = true;
+	while (!brick_thread_should_stop()) {
+		brick_wait(brick->worker_event,
+			   brick->worker_flag,
+			   brick_thread_should_stop(),
+			   HZ / 10);
+	}
 }
 
 ///////////////////////// logger thread / switching /////////////////////////
@@ -3232,6 +3241,8 @@ int trans_logger_switch(struct trans_logger_brick *brick)
 
 	if (brick->power.button) {
 		if (!brick->thread && brick->power.led_off) {
+			brick->terminate = false;
+			brick->terminated = false;
 			mars_power_led_off((void*)brick, false);
 
 			brick->thread = brick_thread_create(trans_logger_thread, output, "mars_logger%d", index++);
@@ -3243,9 +3254,16 @@ int trans_logger_switch(struct trans_logger_brick *brick)
 	} else {
 		mars_power_led_on((void*)brick, false);
 		if (brick->thread) {
-			MARS_INF("stopping thread...\n");
-			brick_thread_stop(brick->thread);
-			brick->thread = NULL;
+			brick->terminate = true;
+			brick_wake(&brick->worker_event, brick->worker_flag);
+			brick_wake(&brick->caller_event, brick->caller_flag);
+			if (brick->terminated) {
+				MARS_INF("stopping thread...\n");
+				brick_thread_stop(brick->thread);
+				brick->thread = NULL;
+			} else if (!brick->power.led_off) {
+				return -EAGAIN;
+			}
 		}
 	}
 	return 0;

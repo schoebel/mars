@@ -243,6 +243,9 @@ struct trans_logger_brick {
 	bool   delay_callers;
 	bool caller_flag;
 	bool worker_flag;
+	/* termination */
+	bool terminate;
+	bool terminated;
 };
 
 struct trans_logger_output {
