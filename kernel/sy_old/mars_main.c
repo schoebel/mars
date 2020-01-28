@@ -3948,6 +3948,9 @@ void _change_trans(struct mars_rotate *rot)
 }
 
 static
+int _stop_trans(struct mars_rotate *rot);
+
+static
 int _start_trans(struct mars_rotate *rot)
 {
 	struct trans_logger_brick *trans_brick;
@@ -3977,6 +3980,13 @@ int _start_trans(struct mars_rotate *rot)
 	if (trans_brick->power.button || !trans_brick->power.led_off) {
 		_change_trans(rot);
 		status = 0;
+		goto done;
+	}
+
+	/* Safeguard */
+	status = _stop_trans(rot);
+	if (unlikely(status < 0)) {
+		MARS_DBG("stop status=%d\n", status);
 		goto done;
 	}
 
@@ -4053,12 +4063,13 @@ done:
 }
 
 static
-int _stop_trans(struct mars_rotate *rot, const char *parent_path)
+int _stop_trans(struct mars_rotate *rot)
 {
 	struct trans_logger_brick *trans_brick = rot->trans_brick;
+	const char *parent_path = rot->parent_path;
 	int status = 0;
 
-	if (!trans_brick) {
+	if (!trans_brick || !parent_path) {
 		goto done;
 	}
 
@@ -4246,7 +4257,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		MARS_DBG("replay_mode = %d replay_code = %d is_primary = %d do_stop = %d\n", trans_brick->replay_mode, trans_brick->replay_code, rot->is_primary, (int)do_stop);
 
 		if (do_stop) {
-			status = _stop_trans(rot, parent->d_path);
+			status = _stop_trans(rot);
 		} else {
 			_change_trans(rot);
 		}
