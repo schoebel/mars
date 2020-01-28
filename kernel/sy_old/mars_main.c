@@ -1925,9 +1925,9 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		make_msg(msg_pair, "disabling fetch from unspecified peer / no primary designated");
 		do_start = false;
 	}
-	if (do_start && !global->global_power.button) {
-		MARS_DBG("disabling fetch due to rmmod\n");
-		make_msg(msg_pair, "disabling fetch due to rmmod");
+	if (do_start && !_check_allow(rot->global, rot->parent_path, "attach")) {
+		MARS_DBG("disabling fetch due to detach / rmmod\n");
+		make_msg(msg_pair, "disabling fetch due to detach / rmmod");
 		do_start = false;
 	}
 #if 0
