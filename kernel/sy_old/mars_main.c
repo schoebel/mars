@@ -3888,6 +3888,7 @@ void _rotate_trans(struct mars_rotate *rot)
 	// try to setup new log
 	if (log_nr == trans_brick->new_input_nr &&
 	    rot->next_relevant_log &&
+	    _check_allow(rot->global, rot->parent_path, "attach") &&
 	    (rot->next_relevant_log->d_serial == trans_brick->inputs[log_nr]->inf.inf_sequence + 1 ||
 	     trans_brick->cease_logging) &&
 	    (next_nr = _get_free_input(trans_brick)) >= 0) {
