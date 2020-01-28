@@ -46,6 +46,17 @@
 #define MARS_MAX_AIO      512
 #define MARS_MAX_AIO_READ 32
 
+/* Self-tune aio_max_nr when possible.
+ * This works only when the pre-patch has
+ * EXPORT_SYNBOL_GPL(aio_max_nr) and has
+ * defined HAS_AIO_MAX.
+*/
+#ifdef HAS_AIO_MAX
+static DEFINE_MUTEX(aio_max_lock);
+int aio_max_nr_current = 0;
+int aio_max_nr_max = 0;
+#endif
+
 struct timing_stats timings[3] = {};
 
 struct threshold aio_submit_threshold = {
@@ -761,6 +772,11 @@ void _destroy_ioctx(struct aio_output *output)
 		atomic_dec(&ioctx_count);
 		MARS_DBG("ioctx count = %d status = %d\n", atomic_read(&ioctx_count), err);
 		output->ctxp = 0;
+#ifdef HAS_AIO_MAX
+		mutex_lock(&aio_max_lock);
+		aio_max_nr_current -= MARS_MAX_AIO;
+		mutex_unlock(&aio_max_lock);
+#endif
 	}
 
 	fd = output->fd;
@@ -870,6 +886,19 @@ int _create_ioctx(struct aio_output *output)
 		MARS_ERR("cannot fake mm\n");
 		goto done;
 	}
+
+#ifdef HAS_AIO_MAX
+	/* Self-tune aio_max_nr when possible. */
+	mutex_lock(&aio_max_lock);
+	aio_max_nr_current += MARS_MAX_AIO;
+	if (aio_max_nr_current > aio_max_nr_max) {
+		int diff = aio_max_nr_current - aio_max_nr_max;
+
+		aio_max_nr += diff;
+		aio_max_nr_max = aio_max_nr_current;
+	}
+	mutex_unlock(&aio_max_lock);
+#endif
 
 	MARS_DBG("ioctx count = %d old = %p\n", atomic_read(&ioctx_count), (void*)output->ctxp);
 	output->ctxp = 0;
