@@ -1125,7 +1125,7 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 	 */
 	status = brick->ops->brick_switch(brick);
 
-	if (val != oldval) {
+	if (val != oldval || status < 0) {
 		mars_trigger();
 	}
 
