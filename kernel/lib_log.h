@@ -253,7 +253,7 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, bool sloppy, 
 struct log_status {
 	// interfacing
 	wait_queue_head_t *signal_event;
-	bool              *signal_flag;
+	int               *signal_flag;
 	// tunables
 	loff_t start_pos;
 	loff_t end_pos;

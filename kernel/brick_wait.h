@@ -30,26 +30,32 @@
 #define brick_wait(wq, flag, condition, timeout)			\
 ({									\
 	unsigned long __tmout = (timeout);				\
+	int __old_flag;							\
 									\
 	might_sleep();							\
-	(flag) = false;							\
-	smp_wmb();							\
+	smp_rmb();							\
+	__old_flag = (flag);						\
+									\
 	while (!(condition)) {						\
+		int __new_flag;						\
+									\
 		__tmout = wait_event_interruptible_timeout(		\
 					wq,				\
-					({ smp_rmb(); (flag); }),	\
+					({ smp_rmb();			\
+					  __new_flag = (flag);		\
+					  __old_flag != __new_flag; }),	\
 					__tmout);			\
 		if (__tmout <= 1)					\
 			break;						\
-		(flag) = false;						\
-		smp_wmb();						\
+		__old_flag = __new_flag;				\
 	}								\
 	__tmout;							\
 })
 
 #define brick_wake(wq, flag)						\
 ({									\
-	(flag) = true;							\
+	smp_rmb();							\
+	(flag)++;							\
 	smp_wmb();							\
 	wake_up_interruptible_all(wq);					\
 })
