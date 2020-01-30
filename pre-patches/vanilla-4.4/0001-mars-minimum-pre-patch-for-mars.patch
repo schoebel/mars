@@ -1,24 +1,33 @@
-From 162f2a2d592d4fc279320e8239ec51011223a21d Mon Sep 17 00:00:00 2001
+From a0c696015640ceda26748129ad3fe74505355131 Mon Sep 17 00:00:00 2001
 From: Thomas Schoebel-Theuer <tst@1und1.de>
-Date: Mon, 22 Aug 2016 12:54:44 +0200
+Date: Thu, 30 Jan 2020 10:48:12 +0100
 Subject: [PATCH] mars: minimum pre-patch for mars
 
 Mostly introduces some EXPORT_SYMBOL().
 Should have almost no impact onto the kernel.
 ---
- fs/aio.c                   | 5 +++++
+ fs/aio.c                   | 6 ++++++
  fs/namei.c                 | 5 +++++
  fs/open.c                  | 2 ++
  fs/utimes.c                | 2 ++
+ include/linux/aio.h        | 1 +
  include/uapi/linux/major.h | 1 +
  mm/page_alloc.c            | 2 ++
- 6 files changed, 17 insertions(+)
+ 7 files changed, 19 insertions(+)
 
 diff --git a/fs/aio.c b/fs/aio.c
-index 155f842..a0af087 100644
+index 7187d03aa0bc..bb7d68e19ef3 100644
 --- a/fs/aio.c
 +++ b/fs/aio.c
-@@ -1342,6 +1342,7 @@ SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
+@@ -194,6 +194,7 @@ struct aio_kiocb {
+ static DEFINE_SPINLOCK(aio_nr_lock);
+ unsigned long aio_nr;		/* current system wide number of aio requests */
+ unsigned long aio_max_nr = 0x10000; /* system wide maximum number of aio requests */
++EXPORT_SYMBOL_GPL(aio_max_nr);
+ /*----end sysctl variables---*/
+ 
+ static struct kmem_cache	*kiocb_cachep;
+@@ -1364,6 +1365,7 @@ SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
  out:
  	return ret;
  }
@@ -26,7 +35,7 @@ index 155f842..a0af087 100644
  
  /* sys_io_destroy:
   *	Destroy the aio_context specified.  May cancel any outstanding 
-@@ -1378,6 +1379,7 @@ SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
+@@ -1400,6 +1402,7 @@ SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
  	pr_debug("EINVAL: invalid context id\n");
  	return -EINVAL;
  }
@@ -34,7 +43,7 @@ index 155f842..a0af087 100644
  
  typedef ssize_t (rw_iter_op)(struct kiocb *, struct iov_iter *);
  
-@@ -1621,6 +1623,7 @@ long do_io_submit(aio_context_t ctx_id, long nr,
+@@ -1643,6 +1646,7 @@ long do_io_submit(aio_context_t ctx_id, long nr,
  	percpu_ref_put(&ctx->users);
  	return i ? i : ret;
  }
@@ -42,7 +51,7 @@ index 155f842..a0af087 100644
  
  /* sys_io_submit:
   *	Queue the nr iocbs pointed to by iocbpp for processing.  Returns
-@@ -1710,6 +1713,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
+@@ -1732,6 +1736,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
  
  	return ret;
  }
@@ -50,16 +59,16 @@ index 155f842..a0af087 100644
  
  /* io_getevents:
   *	Attempts to read at least min_nr events and up to nr events from
-@@ -1739,3 +1743,4 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
+@@ -1761,3 +1766,4 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
  	}
  	return ret;
  }
 +EXPORT_SYMBOL(sys_io_getevents);
 diff --git a/fs/namei.c b/fs/namei.c
-index 209ca77..12fe67c 100644
+index a4ed9c337c21..e32a7e29fc17 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -3631,6 +3631,7 @@ SYSCALL_DEFINE2(mkdir, const char __user *, pathname, umode_t, mode)
+@@ -3688,6 +3688,7 @@ SYSCALL_DEFINE2(mkdir, const char __user *, pathname, umode_t, mode)
  {
  	return sys_mkdirat(AT_FDCWD, pathname, mode);
  }
@@ -67,7 +76,7 @@ index 209ca77..12fe67c 100644
  
  /*
   * The dentry_unhash() helper will try to drop the dentry early: we
-@@ -3759,6 +3760,7 @@ SYSCALL_DEFINE1(rmdir, const char __user *, pathname)
+@@ -3816,6 +3817,7 @@ SYSCALL_DEFINE1(rmdir, const char __user *, pathname)
  {
  	return do_rmdir(AT_FDCWD, pathname);
  }
@@ -75,7 +84,7 @@ index 209ca77..12fe67c 100644
  
  /**
   * vfs_unlink - unlink a filesystem object
-@@ -3912,6 +3914,7 @@ SYSCALL_DEFINE1(unlink, const char __user *, pathname)
+@@ -3969,6 +3971,7 @@ SYSCALL_DEFINE1(unlink, const char __user *, pathname)
  {
  	return do_unlinkat(AT_FDCWD, pathname);
  }
@@ -83,7 +92,7 @@ index 209ca77..12fe67c 100644
  
  int vfs_symlink(struct inode *dir, struct dentry *dentry, const char *oldname)
  {
-@@ -3969,6 +3972,7 @@ SYSCALL_DEFINE2(symlink, const char __user *, oldname, const char __user *, newn
+@@ -4026,6 +4029,7 @@ SYSCALL_DEFINE2(symlink, const char __user *, oldname, const char __user *, newn
  {
  	return sys_symlinkat(oldname, AT_FDCWD, newname);
  }
@@ -91,7 +100,7 @@ index 209ca77..12fe67c 100644
  
  /**
   * vfs_link - create a new link
-@@ -4462,6 +4466,7 @@ SYSCALL_DEFINE2(rename, const char __user *, oldname, const char __user *, newna
+@@ -4519,6 +4523,7 @@ SYSCALL_DEFINE2(rename, const char __user *, oldname, const char __user *, newna
  {
  	return sys_renameat2(AT_FDCWD, oldname, AT_FDCWD, newname, 0);
  }
@@ -100,10 +109,10 @@ index 209ca77..12fe67c 100644
  int vfs_whiteout(struct inode *dir, struct dentry *dentry)
  {
 diff --git a/fs/open.c b/fs/open.c
-index 157b994..c4e77b1 100644
+index 5ba3fca9886b..6f34cd29527c 100644
 --- a/fs/open.c
 +++ b/fs/open.c
-@@ -563,6 +563,7 @@ SYSCALL_DEFINE2(chmod, const char __user *, filename, umode_t, mode)
+@@ -582,6 +582,7 @@ SYSCALL_DEFINE2(chmod, const char __user *, filename, umode_t, mode)
  {
  	return sys_fchmodat(AT_FDCWD, filename, mode);
  }
@@ -111,7 +120,7 @@ index 157b994..c4e77b1 100644
  
  static int chown_common(struct path *path, uid_t user, gid_t group)
  {
-@@ -648,6 +649,7 @@ SYSCALL_DEFINE3(lchown, const char __user *, filename, uid_t, user, gid_t, group
+@@ -667,6 +668,7 @@ SYSCALL_DEFINE3(lchown, const char __user *, filename, uid_t, user, gid_t, group
  	return sys_fchownat(AT_FDCWD, filename, user, group,
  			    AT_SYMLINK_NOFOLLOW);
  }
@@ -120,7 +129,7 @@ index 157b994..c4e77b1 100644
  SYSCALL_DEFINE3(fchown, unsigned int, fd, uid_t, user, gid_t, group)
  {
 diff --git a/fs/utimes.c b/fs/utimes.c
-index aa138d6..4a1f4a8 100644
+index cb771c30d102..8f2bc7fde055 100644
 --- a/fs/utimes.c
 +++ b/fs/utimes.c
 @@ -1,3 +1,4 @@
@@ -128,7 +137,7 @@ index aa138d6..4a1f4a8 100644
  #include <linux/compiler.h>
  #include <linux/file.h>
  #include <linux/fs.h>
-@@ -181,6 +182,7 @@ retry:
+@@ -167,6 +168,7 @@ retry:
  out:
  	return error;
  }
@@ -136,8 +145,20 @@ index aa138d6..4a1f4a8 100644
  
  SYSCALL_DEFINE4(utimensat, int, dfd, const char __user *, filename,
  		struct timespec __user *, utimes, int, flags)
+diff --git a/include/linux/aio.h b/include/linux/aio.h
+index 9eb42dbc5582..1dccb3fbec69 100644
+--- a/include/linux/aio.h
++++ b/include/linux/aio.h
+@@ -13,6 +13,7 @@ typedef int (kiocb_cancel_fn)(struct kiocb *);
+ 
+ /* prototypes */
+ #ifdef CONFIG_AIO
++#define HAS_AIO_MAX
+ extern void exit_aio(struct mm_struct *mm);
+ extern long do_io_submit(aio_context_t ctx_id, long nr,
+ 			 struct iocb __user *__user *iocbpp, bool compat);
 diff --git a/include/uapi/linux/major.h b/include/uapi/linux/major.h
-index 620252e..61a665c 100644
+index 620252e69b44..61a665cdb420 100644
 --- a/include/uapi/linux/major.h
 +++ b/include/uapi/linux/major.h
 @@ -148,6 +148,7 @@
@@ -149,7 +170,7 @@ index 620252e..61a665c 100644
  #define RAW_MAJOR		162
  
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 2bcdfbf..4d04d84 100644
+index df589416ace6..2992b1cc6f97 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -239,6 +239,7 @@ compound_page_dtor * const compound_page_dtors[] = {
@@ -160,7 +181,7 @@ index 2bcdfbf..4d04d84 100644
  int user_min_free_kbytes = -1;
  
  static unsigned long __meminitdata nr_kernel_pages;
-@@ -6089,6 +6090,7 @@ static void __setup_per_zone_wmarks(void)
+@@ -6179,6 +6180,7 @@ static void __setup_per_zone_wmarks(void)
  	/* update totalreserve_pages */
  	calculate_totalreserve_pages();
  }
@@ -169,5 +190,5 @@ index 2bcdfbf..4d04d84 100644
  /**
   * setup_per_zone_wmarks - called when min_free_kbytes changes
 -- 
-2.9.2
+2.25.0
 

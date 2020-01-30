@@ -1,4 +1,4 @@
-From 85cddec25f60fc694d07242f63945cb2afe7d91e Mon Sep 17 00:00:00 2001
+From d7f9de8fc02d49e82add6449b0de0656f6dabf2b Mon Sep 17 00:00:00 2001
 From: Thomas Schoebel-Theuer <tst@1und1.de>
 Date: Mon, 22 Aug 2016 12:54:44 +0200
 Subject: [PATCH] mars: minimum pre-patch for mars
@@ -6,19 +6,28 @@ Subject: [PATCH] mars: minimum pre-patch for mars
 Mostly introduces some EXPORT_SYMBOL().
 Should have almost no impact onto the kernel.
 ---
- fs/aio.c                   | 5 +++++
+ fs/aio.c                   | 6 ++++++
  fs/namei.c                 | 5 +++++
  fs/open.c                  | 2 ++
  fs/utimes.c                | 2 ++
+ include/linux/aio.h        | 1 +
  include/uapi/linux/major.h | 1 +
  mm/page_alloc.c            | 2 ++
- 6 files changed, 17 insertions(+)
+ 7 files changed, 19 insertions(+)
 
 diff --git a/fs/aio.c b/fs/aio.c
-index b37e86c..f88cf7b 100644
+index b37e86c54a36..4dc393a9b272 100644
 --- a/fs/aio.c
 +++ b/fs/aio.c
-@@ -1309,6 +1309,7 @@ SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
+@@ -160,6 +160,7 @@ struct kioctx {
+ static DEFINE_SPINLOCK(aio_nr_lock);
+ unsigned long aio_nr;		/* current system wide number of aio requests */
+ unsigned long aio_max_nr = 0x10000; /* system wide maximum number of aio requests */
++EXPORT_SYMBOL_GPL(aio_max_nr);
+ /*----end sysctl variables---*/
+ 
+ static struct kmem_cache	*kiocb_cachep;
+@@ -1309,6 +1310,7 @@ SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
  out:
  	return ret;
  }
@@ -26,7 +35,7 @@ index b37e86c..f88cf7b 100644
  
  /* sys_io_destroy:
   *	Destroy the aio_context specified.  May cancel any outstanding 
-@@ -1343,6 +1344,7 @@ SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
+@@ -1343,6 +1345,7 @@ SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
  	pr_debug("EINVAL: io_destroy: invalid context id\n");
  	return -EINVAL;
  }
@@ -34,7 +43,7 @@ index b37e86c..f88cf7b 100644
  
  typedef ssize_t (aio_rw_op)(struct kiocb *, const struct iovec *,
  			    unsigned long, loff_t);
-@@ -1624,6 +1626,7 @@ long do_io_submit(aio_context_t ctx_id, long nr,
+@@ -1624,6 +1627,7 @@ long do_io_submit(aio_context_t ctx_id, long nr,
  	percpu_ref_put(&ctx->users);
  	return i ? i : ret;
  }
@@ -42,7 +51,7 @@ index b37e86c..f88cf7b 100644
  
  /* sys_io_submit:
   *	Queue the nr iocbs pointed to by iocbpp for processing.  Returns
-@@ -1714,6 +1717,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
+@@ -1714,6 +1718,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
  
  	return ret;
  }
@@ -50,13 +59,13 @@ index b37e86c..f88cf7b 100644
  
  /* io_getevents:
   *	Attempts to read at least min_nr events and up to nr events from
-@@ -1743,3 +1747,4 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
+@@ -1743,3 +1748,4 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
  	}
  	return ret;
  }
 +EXPORT_SYMBOL(sys_io_getevents);
 diff --git a/fs/namei.c b/fs/namei.c
-index b1b1781..aa3ef2d 100644
+index b1b1781faca1..aa3ef2d54b28 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -4391,12 +4391,17 @@ EXPORT_SYMBOL(unlock_rename);
@@ -78,7 +87,7 @@ index b1b1781..aa3ef2d 100644
  EXPORT_SYMBOL(dentry_unhash);
  EXPORT_SYMBOL(generic_readlink);
 diff --git a/fs/open.c b/fs/open.c
-index 3827b63..c9d390d 100644
+index 3827b632d713..c9d390d33b17 100644
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -518,6 +518,7 @@ SYSCALL_DEFINE2(chmod, const char __user *, filename, umode_t, mode)
@@ -98,7 +107,7 @@ index 3827b63..c9d390d 100644
  SYSCALL_DEFINE3(fchown, unsigned int, fd, uid_t, user, gid_t, group)
  {
 diff --git a/fs/utimes.c b/fs/utimes.c
-index f4fb7ec..6afbba8 100644
+index f4fb7eca10e8..6afbba82f6eb 100644
 --- a/fs/utimes.c
 +++ b/fs/utimes.c
 @@ -1,3 +1,4 @@
@@ -114,8 +123,20 @@ index f4fb7ec..6afbba8 100644
  
  SYSCALL_DEFINE4(utimensat, int, dfd, const char __user *, filename,
  		struct timespec __user *, utimes, int, flags)
+diff --git a/include/linux/aio.h b/include/linux/aio.h
+index d9c92daa3944..0706fad42946 100644
+--- a/include/linux/aio.h
++++ b/include/linux/aio.h
+@@ -70,6 +70,7 @@ static inline void init_sync_kiocb(struct kiocb *kiocb, struct file *filp)
+ 
+ /* prototypes */
+ #ifdef CONFIG_AIO
++#define HAS_AIO_MAX
+ extern ssize_t wait_on_sync_kiocb(struct kiocb *iocb);
+ extern void aio_complete(struct kiocb *iocb, long res, long res2);
+ struct mm_struct;
 diff --git a/include/uapi/linux/major.h b/include/uapi/linux/major.h
-index 6a8ca98..faf6692 100644
+index 6a8ca98c9a96..faf6692896dd 100644
 --- a/include/uapi/linux/major.h
 +++ b/include/uapi/linux/major.h
 @@ -146,6 +146,7 @@
@@ -127,7 +148,7 @@ index 6a8ca98..faf6692 100644
  #define RAW_MAJOR		162
  
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 7abab3b..ff37656 100644
+index 8927c8d0ff4e..c7175bb8ebe0 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -206,6 +206,7 @@ static char * const zone_names[MAX_NR_ZONES] = {
@@ -138,7 +159,7 @@ index 7abab3b..ff37656 100644
  int user_min_free_kbytes;
  
  static unsigned long __meminitdata nr_kernel_pages;
-@@ -5670,6 +5671,7 @@ static void __setup_per_zone_wmarks(void)
+@@ -5673,6 +5674,7 @@ static void __setup_per_zone_wmarks(void)
  	/* update totalreserve_pages */
  	calculate_totalreserve_pages();
  }
@@ -147,5 +168,5 @@ index 7abab3b..ff37656 100644
  /**
   * setup_per_zone_wmarks - called when min_free_kbytes changes
 -- 
-2.9.2
+2.25.0
 
