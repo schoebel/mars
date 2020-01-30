@@ -26,7 +26,9 @@
 
 #include <linux/time.h>
 #include <linux/ktime.h>
+#ifndef CURRENT_TIME
 #include <linux/timekeeping.h>
+#endif
 
 /* Adapt to upstream commits
  * 8758a240e2d74c5932ab51a73377e6507b7fd441
