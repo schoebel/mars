@@ -670,9 +670,10 @@ another
 \noindent
 In addition, this guide explains the ideas behind the OpenSource components
  Football on top of MARS.
- It can be used for replication over short to very long distances, as well
- as for load balancing via background data migration while your services
- are running.
+ It can be used for cost-reduced load balancing of non-(geo)redundant setups,
+ as well as for geo-replication + migration over short to very long distances.
+ Load balancing and hardware lifecycle / datacenter defragmentation works
+ via background data migration while your services keep running.
 \end_layout
 
 \begin_layout Chapter
@@ -6980,19 +6981,12 @@ name "subsec:Inappropriate-Replication-Layering"
 \end_layout
 
 \begin_layout Standard
-For unknown reasons, 
-\emph on
-several
-\emph default
- people have tried 
-\emph on
-independently from each other
-\emph default
- to use MARS inside of VMs.
- Some of these people were outside of 1&1 Ionos.
- Others were trying this even against explicit recommendations from the
- author of MARS.
- Suchalike cannot work.
+Several people have independently tried to use MARS within VMs.
+ This may look like a reasonable idea, but has a number of disadvantages,
+ and it ignores the operational recommendations for MARS, and it contradicts
+ to Dijkstra’s layering rules.
+ Please be aware that this kind of layering is not a restriction of MARS,
+ but a fundamental issue for any kind of replication mechanism.
 \end_layout
 
 \begin_layout Standard
@@ -7000,7 +6994,7 @@ Instead, creation of a
 \series bold
 separate replication layer at bare metal
 \series default
- is the correct solution, e.g.
+ is the strongly recommended solution, e.g.
  using dedicated storage boxes, or directly replicating at hypervisor hardware
  when using local storage (as is the case at ShaHoLin).
  Not only for performance reasons and for resource allocation reasons, MARS
@@ -7188,7 +7182,7 @@ several
 \emph on
 realtime
 \emph default
-, and even for each single IO request.
+, and for each single IO request.
  People seem to understand that 
 \series bold
 realtime behaviour
@@ -7260,8 +7254,8 @@ Standard problem: missed interrupts, or interrupts not delivered in-time.
 
 \end_inset
 
- For some unknown reason, a few people seem to expect that MARS would be
- able to work miracles there.
+ For unknown reasons, a few people seem to expect that MARS would be able
+ to work miracles there.
 \end_layout
 
 \end_inset
