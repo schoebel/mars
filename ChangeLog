@@ -80,6 +80,37 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable82
+	* Major improvement: the mars_main kernel thread is now working
+	  non-blocking in practically all relevant cases. Some more cases
+	  will be addressed in future.
+	  Testing with 32 resources in parallel is now working, and even
+	  64 resources appear to work in the lab, although somewhat slower
+	  (on typical server iron).
+	  "marsadm primary all" is now much faster.
+	  More future improvements to come. Currently, "marsadm primary all"
+	  uses an internal barrier synchronisation model, which may lead
+	  to unnecessary waiting time for faster resources. There are
+	  plans to address this in future releases.
+	  ATTENTION! You will need NEW VERSIONS of your pre-patch.
+	  This will automatically adjust /proc/sys/fs/aio-max-nr to higher
+	  values when needed. If you don't use the new pre-patch, you will
+	  need to tune /proc/sys/fs/aio-max-nr yourself. Otherwise
+	  you will get serious operational deadlocks due to virtual
+	  resource limitations, even with only 32 resources, but a
+	  higher number of replicas.
+	  Since there is no practical experience yet (the biggest known
+	  productive installation uses only 24 resources), I do not yet
+	  increase the official limits as documented in the appendix of
+	  mars-user-manual.pdf.
+	  Although very slow due to some O(n^2) algorithms, 128 resources
+	  are just surviving now, without bombing or deadlocking, but are
+	  not yet really usable.
+	  Therefore, do not try to stretch the official limits too much.
+	  Please report any success stories (or problems) in case you
+	  are using some more resources _productively_.
+	* Minor doc improvements. New slides from LCA2020 added.
+
 mars0.1astable81
 	* Minor doc improvement: explain why running MARS inside of VMs
 	  is a bad idea. Explain fully managed geo-location transparency
