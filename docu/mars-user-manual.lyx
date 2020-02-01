@@ -26022,7 +26022,8 @@ nr_requests=1000
 \begin_layout Standard
 However, some sysadmins might be tempted to question why the NOOP scheduler
  has been used.
- On the internet, there are a ton of claims that CFQ is much better.
+ On the internet, there are a ton of claims that other IO schedulers like
+ CFQ are much better.
 \end_layout
 
 \begin_layout Standard
@@ -26080,8 +26081,53 @@ contradictory decisions
 \end_layout
 
 \begin_layout Standard
-These contradictory scheduling decisions may lead to problems in certain
+These contradictory IO scheduling decisions may lead to problems in certain
  cases and scenarios.
+\end_layout
+
+\begin_layout Standard
+There is another risk of interference with a third IO scheduler, which is
+ MARS' internal asymmetric writeback scheduler.
+ The latter is currently well-tuned for co-working with a BBU cache and
+ its internal scheduler, running on bare metal.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Never use MARS inside of VMs! There you will have 
+\emph on
+several
+\emph default
+ additional IO schedulers and further types of IO bottlenecks
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Example: data container formats like 
+\family typewriter
+qcow2
+\family default
+ can act as serious bottlenecks.
+ Never place 
+\family typewriter
+/mars
+\family default
+ on top of them! Potential exceptions (after well-founded investigations)
+ are functional testing, and certain non-critical workstation-like workloads.
+ In general, never plan to place unknown or enterprise-critical workloads
+ on top of them!
+\end_layout
+
+\end_inset
+
+ inbetween, even if you try to disable some of them.
 \end_layout
 
 \begin_layout Standard
@@ -26112,6 +26158,11 @@ blkreplay
 really
 \emph default
  improving things.
+ Notice that device driver restrictions like 
+\family typewriter
+nr_requests
+\family default
+ may also work similarly to an IO scheduler.
  When possible, use your real workload, captured with 
 \family typewriter
 blktrace
