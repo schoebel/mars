@@ -169,6 +169,8 @@ my $ssh_probe = "uname -a";
 my $rsync_opts = "-av --exclude='.deleted-*'";
 my $kernel_version = 0;
 my $kernel_features_version = 0;
+my $kernel_strategy_version = 0;
+my $kernel_flags_version = ~0x0;
 
 ##################################################################
 
@@ -318,6 +320,77 @@ for (my $i = 0; $i < 20; $i++) {
 }
 my $match_fn_head = qr"\%([^\\\s{}()\[\]]*)(?=\{)"s;
 my $match_fn = qr"$match_fn_head(?:\{($match_inner)\})"s;
+
+# keep this in sync with mars.h definition of MREF_FLAGS
+my %STATUS_FLAGS =
+  (
+   "UPTODATE"          => 0x00000001,
+   "READING"           => 0x00000002,
+   "WRITING"           => 0x00000004,
+   "WRITE"             => 0x00000008,
+   "MAY_WRITE"         => 0x00000010,
+   "SKIP_SYNC"         => 0x00000020,
+   "NODATA"            => 0x00000040,
+  );
+
+my %FEATURES_FLAGS =
+  (
+   "CHKSUM_MD5_OLD"    => 0x00010000,
+   "CHKSUM_MD5"        => 0x00020000,
+   "CHKSUM_CRC32C"     => 0x00040000,
+   "CHKSUM_CRC32"      => 0x00080000,
+   "CHKSUM_SHA1"       => 0x00100000,
+
+   "COMPRESS_LZO"      => 0x01000000,
+   "COMPRESS_LZ4"      => 0x02000000,
+   "COMPRESS_ZLIB"     => 0x04000000,
+  );
+
+my %FLAGS_FEATURES;
+
+my $chksum_features = 0x0;
+my $compress_features = 0x0;
+
+sub featuresflags2txt {
+  my ($flags, $skip_unknown) = @_;
+  $flags = 0x0 unless (defined($flags) && $flags ne "");
+  $flags = hex($flags) if $flags =~ m/^0x/;
+  my $txt = "";
+  for (my $mask = 0x1; $mask < (1 << 32); $mask <<= 1) {
+    my $bit = $flags & $mask;
+    next unless $bit;
+    if (defined($FLAGS_FEATURES{$bit})) {
+      $txt .= "|" if $txt;
+      $txt .= $FLAGS_FEATURES{$bit};
+    } elsif (!defined($skip_unknown)) {
+      $txt .= "|" if $txt;
+      $txt .= sprintf("0x%x", $bit);
+    }
+  }
+  return $txt;
+}
+
+sub txt2featuresflags {
+  my ($cmd, $txt) = @_;
+  my $flags = 0x0;
+  foreach my $this_txt (split(/\s*[|]\s*/, $txt)) {
+    chomp $this_txt;
+    $this_txt =~ s/^\s+//;
+    ldie "Digest names must start with 'CHKSUM_'" if ($cmd =~ m/digest/ && $this_txt !~ m/^CHKSUM/);
+    if (defined($FEATURES_FLAGS{$this_txt})) {
+      $flags |= $FEATURES_FLAGS{$this_txt};
+    } elsif ($this_txt =~ m/^0x[0-9a-f]+/) {
+      $flags |= hex($this_txt);
+    } elsif ($this_txt =~ m/^0[0-9]+/) {
+      $flags |= oct($this_txt);
+    } elsif ($this_txt =~ m/^[0-9]+$/) {
+      $flags |= $this_txt;
+    } else {
+      ldie "Unknown symbolic feature flag '$this_txt'\n";
+    }
+  }
+  return sprintf("0x%08x", $flags);
+}
 
 ##################################################################
 
@@ -1294,6 +1367,14 @@ sub finish_links {
 # global checks
 
 sub get_global_versions {
+  unless (%FLAGS_FEATURES) {
+    foreach my $txt (keys(%FEATURES_FLAGS)) {
+      my $mask = $FEATURES_FLAGS{$txt};
+      $FLAGS_FEATURES{$mask} = $txt;
+      $chksum_features |= $mask if $txt =~ m/^CHKSUM/;
+      $compress_features |= $mask if $txt =~ m/^COMPRESS/;
+    }
+  }
   unless (defined($ARGV[0]) && $ARGV[0] =~ m/cluster|cat/) {
     $kernel_version = get_link("$mars/tree-$host", 1);
     if ($kernel_version && $user_version != $kernel_version) {
@@ -1310,11 +1391,24 @@ sub get_global_versions {
   foreach my $link (lamport_glob("$mars/features-*")) {
     my $features = get_link($link);
     next unless (defined($features) && $features);
-    $features =~ m/^([0-9]+)/;
+    $features =~ m/^([0-9]+),?([0-9]*),?([x0-9a-f]*)/;
     $features = $1;
+    my $strategy = $2;
+    my $flags = $3;
     next unless $features > 0;
     if (!$kernel_features_version || $features < $kernel_features_version) {
       $kernel_features_version = $features;
+    }
+    if (defined($strategy) && $strategy) {
+      $kernel_strategy_version = $strategy if $strategy < $kernel_strategy_version;
+    } else {
+      $kernel_strategy_version = 0;
+    }
+    if (defined($flags) && $flags ne "") {
+      $flags = hex($flags) if $flags =~ m/^0x/;;
+      $kernel_flags_version &= $flags;
+    } else {
+      $kernel_flags_version = 0x0;
     }
   }
   my $compat_path = "$mars/compat-deletions";
@@ -2857,6 +2951,25 @@ sub set_connect_pref_list {
   }
   check_id_list($list, 1);
   set_link($list, $dst);
+}
+
+sub set_defaults {
+  my ($cmd, $res, $value) = @_;
+  my $key = $cmd;
+  $key =~ s/set-(global-)?//;
+  my $path = "$mars/defaults/$key";
+  if ($res) {
+    check_res_member($cmd, $res) if $res;
+    $path = "$mars/resource-$res/defaults/$key";
+  }
+  if ($value) {
+    my $flags = txt2featuresflags($cmd, $value);
+    lprint "Set '$path' to '$flags'\n";
+    set_link($flags, $path);
+  } else {
+    lprint "Delete '$path'\n";
+    _create_delete($path);
+  }
 }
 
 sub emergency_limit_res {
@@ -5081,9 +5194,90 @@ sub eval_fn {
       return $count if $type eq "count";
       return $result;
     }
+    if (/^potential[-_]?features$/) {
+      my $all_flags = ~0x0;
+      my $result = featuresflags2txt($all_flags, 1);
+      return $result;
+    }
+    if (/^(implemented|usable)[-_]?(features|compressions|digests)$/) {
+      my $op = $1;
+      my $restrict = $2;
+      $op  = "features" if $op eq "implemented";
+      my $path = "$mars/$op-" . $$env{"host"};
+      my $str = get_link($path, 2);
+      my $flags;
+      if ($str =~ m/,(0x[0-9a-f]*)/) {
+	$flags = $1;
+      }
+      $flags = 0x0 unless (defined($flags) && $flags ne "");
+      $flags = hex($flags) if $flags =~ m/^0x/;
+      if ($restrict =~ m/compressions/) {
+	$flags &= $compress_features;
+      } elsif ($restrict =~ m/digests/) {
+	$flags &= $chksum_features;
+      }
+      my $result = featuresflags2txt($flags, 1);
+      return $result;
+    }
+    if (/^(enabled-(log|net)-compressions|disabled-(log|net)-digests)$/) {
+      my $op = $1;
+      my $path = "$mars/defaults/$op";
+      my $flags = get_link($path, 2);
+      $flags = 0x0 unless (defined($flags) && $flags ne "");
+      $flags = hex($flags) if $flags =~ m/^0x/;
+      #NYI
+      #$path = "$mars/resource-" . $$env{"res"} . "/defaults/$op";
+      #my $res_flags = get_link($path, 2);
+      #if (defined($res_flags) && $res_flags ne "") {
+	#$res_flags = hex($res_flags) if $res_flags =~ m/^0x/;
+	#if ($op =~ m/enabled/) {
+	  #$flags |= $res_flags;
+	#} else {
+	  #$flags = $res_flags;
+	#}
+      #}
+      if ($op =~ m/compressions/) {
+	$flags &= $compress_features;
+      } elsif ($op =~ m/digests/) {
+	$flags &= $chksum_features;
+      }
+      my $unusable = $flags & ~$kernel_flags_version;
+      if ($unusable > 0) {
+	my $txt = featuresflags2txt($unusable);
+	lwarn "features '$txt' are not compiled into the kernel module\n";
+      }
+      my $result = featuresflags2txt($flags);
+      return $result;
+    }
+    if (/^used-((log|net)-(compression|digest))$/) {
+      my $op = $1;
+      my $path = "$mars/used-$op-" . $$env{"host"};
+      my $flags = get_link($path, 2);
+      $flags = 0x0 unless (defined($flags) && $flags ne "");
+      $flags = hex($flags) if $flags =~ m/^0x/;
+      if ($op =~ m/compression/) {
+	$flags &= $compress_features;
+      } elsif ($op =~ m/digest/) {
+	$flags &= $chksum_features;
+      }
+      my $result = featuresflags2txt($flags);
+      return $result;
+    }
     if (/^(tree|features|)[-_]?version$/) {
       my $op = $1;
-      return get_link("$mars/$op-" . $$env{"host"}, 2);
+      my $result = get_link("$mars/$op-" . $$env{"host"}, 2);
+      if ($result =~ m/^([^,]*,[^,]*,)(0x[0-9a-z]+),(0x[0-9a-z]+)/p) {
+	my $res1 = $1;
+	my $res2 = $2;
+	my $res3 = $3;
+	my $rest = $POSTMATCH;
+	$result = $res1 .
+	  featuresflags2txt($res2) .
+	    "," .
+	      featuresflags2txt($res3) .
+		$rest;
+      }
+      return $result;
     }
     if (/^is[-_]?alive$/) {
       my $peer = parse_macro($arg1, $env);
@@ -5742,11 +5936,25 @@ my %complex_macros =
 
    "default-resource"
    => "%if{%{res}}{"
-   .    "%{res} %human-numbers{}{ }{ }{%resource-size{}} [%count-resource-members{%{res}}/%count-cluster-members{}]"
+   .    "%{res} %human-numbers{}{ }{ }{%resource-size{}} "
+   .    "[%count-resource-members{%{res}}/%count-cluster-members{}]"
    .  "}",
 
    "default-global"
    => "%call{comminfo}",
+
+   "default-header"
+   => "%if{%usable-compressions{}}{"
+   .    "used-log-compression=\"%used-log-compression{}\" (usable: \"%usable-compressions{}\" enabled: \"%enabled-log-compressions{}\")\n"
+   .    "used-net-compression=\"%used-net-compression{}\" (usable: \"%usable-compressions{}\" enabled: \"%enabled-net-compressions{}\")\n"
+   .  "}"
+   .  "%if{%usable-digests{}}{"
+   .    "used-log-digest=\"%used-log-digest{}\" (usable: \"%usable-digests{}\" disabled: \"%disabled-log-digests{}\")\n"
+   .    "used-net-digest=\"%used-log-digest{}\" (usable: \"%usable-digests{}\" disabled: \"%disabled-net-digests{}\")\n"
+   .  "}",
+
+   "default-footer"
+   => "",
 
    "1and1"
    => "%if{%{res}}{"
@@ -6235,6 +6443,16 @@ my %trivial_globs =
    => "",
    "{alive,fetch,replay,work}-{timestamp,age,lag}"
    => "",
+   "{potential,implemented,usable}-features"
+   => "",
+   "{implemented,usable}-{digests,compressions}"
+   => "",
+   "enabled-{log|net}-compressions"
+   => "",
+   "disabled-{log|net}-digests"
+   => "",
+   "used-{log,net}-{digest,compression}"
+   => "",
    "{tree,features}-version"
    => "",
 
@@ -6585,6 +6803,64 @@ my %cmd_table =
        "a better concept somewhen.",
        "Shows the outcome of set-connect-pref-list.",
        \&set_connect_pref_list,
+      ],
+   "set-global-enabled-log-compressions"
+   => [
+       "usage: set-global-enabled-log-compressions <features>",
+       "Tell the whole cluster which compression features to use globally",
+       "for logfile compression. The effective value can be checked via",
+       "\"marsadm view-enabled-log-compressions\".",
+       "See \"marsadm view-potential-features\" and",
+       "\"marsadm --help\" for a list of compression feature names,",
+       "which must be separated by | symbols.",
+       \&set_defaults,
+      ],
+   "set-global-enabled-net-compressions"
+   => [
+       "usage: set-global-enabled-net-compressions <features>",
+       "Tell the whole cluster which compression features to use globally for",
+       "network transport compression. This is independent from log compression.",
+       "The effective value can be checked via",
+       "\"marsadm view-enabled-log-compressions\".",
+       "See \"marsadm view-potential-features\" and",
+       "\"marsadm --help\" for a list of compression feature names,",
+       "which must be separated by | symbols.",
+       \&set_defaults,
+      ],
+   "set-global-disabled-log-digests"
+   => [
+       "usage: set-global-disabled-log-digests <features>",
+       "Tell the whole cluster which checksumming digests to disable globally",
+       "for the payload in transaction logfiles.",
+       "The effective value can be checked via \"marsadm view-disabled-log-digests\".",
+       "See \"marsadm view-potential-features\" and",
+       "\"marsadm --help\" for a list of digest feature names,",
+       "which must be separated by | symbols.",
+       \&set_defaults,
+      ],
+   "set-global-disabled-net-digests"
+   => [
+       "usage: set-global-disabled-net-digests <features>",
+       "Tell the whole cluster which checksumming digests to disable globally",
+       "for cluster-wide data comparisons, like fast full-sync.",
+       "The effective value can be checked via \"marsadm view-disabled-net-digests\".",
+       "See \"marsadm view-potential-features\" and",
+       "\"marsadm --help\" for a list of digest feature names,",
+       "which must be separated by | symbols.",
+       \&set_defaults,
+      ],
+   "set-disabled-digests"
+   => [
+       "verbose 99", # NYI
+       "usage: set-disabled-digests <resource_name> <features>",
+       "Tell the whole cluster which checksumming digests to disable at the",
+       "resource <resource_name>, potentially overriding the global value",
+       "as set by set-global-disabled-digests.",
+       "The effective value can be checked via \"marsadm view-disabled-digests\".",
+       "See \"marsadm view-potential-features\" and",
+       "\"marsadm --help\" for a list of digest feature names,",
+       "which must be separated by | symbols.",
+       \&set_defaults,
       ],
    "log-rotate"
    => [
@@ -7336,6 +7612,17 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     print "    $txt\n" if $txt;
   }
 
+  print "
+
+<features> =
+";
+  my $nr = 0;
+  foreach my $flagname (sort alphanum_cmp keys(%FEATURES_FLAGS)) {
+    print " |\n" if ($nr++);
+    print "  $flagname";
+  }
+  print "\n";
+
   exit 0;
 }
 
@@ -7515,6 +7802,11 @@ if ($cmd =~ "show|cron") {
 } elsif ($cmd =~ m/^set-.*-value$/) {
   $res = shift @args || helplist "numeric argument is missing\n";
   ldie "argument '$res' isn't numeric\n" unless $res =~ m/^[0-9.]+$/;
+} elsif ($cmd =~ m/^set-global-/) {
+  $res = "";
+} elsif ($cmd =~ m/^set-/) {
+  $res = shift @args || helplist "resource argument is missing\n";
+  check_id_list($res);
 } elsif ($cmd =~ m/^(join|merge)-cluster$/) {
   $res = shift @args || helplist "peer argument is missing\n";
 } elsif (!($cmd =~ m/^(create|split|leave|wait|update)-cluster|merge-cluster-list|create-uuid|cat|[a-z]+-file|trigger/)) {
@@ -7530,7 +7822,7 @@ my %checked_res;
 sub do_one_res {
   my $func = shift;
   my ($cmd, $res) = @_;
-  if ($cmd =~ m/^cat|-file$|-list$|-link$|-value$/) { # no resource argument
+  if ($cmd =~ m/^cat|^set-global-|-file$|-list$|-link$|-value$/) { # no resource argument
   } elsif (!$checked_res{"$cmd$res"}) {
     $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|merge|leave|wait)-cluster|(create|join)-resource|show/);
     check_res_member($cmd, $res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(merge|leave|wait)-cluster|-purge-|^show|^view/);
@@ -7615,11 +7907,19 @@ sub do_all_res {
 
 if ($cmd =~ m/^(view|pretty)/) {
   lwarn "mars kernel module is not loaded\n" unless is_module_loaded();
-  do_all_res(\&view_cmd, 1, $cmd, $res, @args);
   if ($res eq "all" && $cmd =~ m/^view-?(.*)/) {
-    my $global_macro_name = $1 ? "$1-global" : "default-global";
+    my $global_macro_name = $1 ? "$1-header" : "default-header";
     my $global_macro = get_macro($global_macro_name, 1);
     view_cmd($global_macro_name, "", @args) if $global_macro;
+  }
+  do_all_res(\&view_cmd, 1, $cmd, $res, @args);
+  if ($res eq "all" && $cmd =~ m/^view-?(.*)/) {
+    my $prefix = $1;
+    foreach my $suffix ("global", "footer") {
+      my $global_macro_name = $prefix ? "${prefix}-$suffix" : "default-$suffix";
+      my $global_macro = get_macro($global_macro_name, 1);
+      view_cmd($global_macro_name, "", @args) if $global_macro;
+    }
   }
   finish_links();
   get_alive_links("all", "alive", "*", 1);
