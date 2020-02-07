@@ -2823,6 +2823,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		mars_limit_reset(&global_writeback.limiter);
 
 	brick->terminated = true;
+	mars_trigger();
 }
 
 ////////////////////////////// log replay //////////////////////////////
@@ -3199,10 +3200,10 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		brick_msleep(1000);
 	}
 
-	mars_trigger();
-
 	mars_limit_reset(brick->replay_limiter);
 	brick->terminated = true;
+	mars_trigger();
+
 	while (!brick_thread_should_stop()) {
 		brick_wait(brick->worker_event,
 			   brick->worker_flag,
