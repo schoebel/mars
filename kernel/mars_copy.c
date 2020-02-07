@@ -868,6 +868,7 @@ static int _copy_thread(void *data)
 
 	_clear_all_mref(brick);
 	brick->terminated = true;
+	mars_trigger();
 	MARS_DBG("--------------- copy_thread done.\n");
 	return 0;
 }
