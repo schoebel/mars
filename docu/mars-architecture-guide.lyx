@@ -4991,6 +4991,1809 @@ any
 \end_layout
 
 \begin_layout Section
+Kirchhoff's Law: Suitability of Storage Networks
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Kirchhoff-Suitability-of-Storage-Networks"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+When storage networks are used at certain architectures, they will have
+ some impact which is widely under-estimated.
+ Disregarding this impact can lead to serious problems, up to major project
+ failures, and may induce 
+\series bold
+high cost
+\series default
+ for problem compensation.
+\end_layout
+
+\begin_layout Standard
+The most important fundamental law for any type of network is 
+\series bold
+Kirchhoff's first law
+\series default
+ (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Kirchhoff's_circuit_laws
+\end_layout
+
+\end_inset
+
+), shortly called Kirchhoff's law.
+ It does not only hold in electrical engineering, but also in information
+ theory, and in computer networking
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In strong sense, Kirchhoff's law is only valid when there is no 
+\emph on
+internal
+\emph default
+ traffic 
+\emph on
+between
+\emph default
+ network switches / routers, and between internal and external nodes.
+ In practice, ICMP and similar traffic is very low, typically only a few
+ percent or permille (as long as there are no major misconfigurations or
+ attacks).
+ Therefore, we can neglect these special cases and treat Kirchhoff's law
+ as 
+\emph on
+approximately
+\emph default
+ valid.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Quote
+The sum of all 
+\emph on
+actually successful
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In the presence of low-level communication errors or packet loss, there
+ may be some unsuccessful traffic, which need not obey Kirchhoff's law.
+ However, these flows do not contribute to the overall functionality provided
+ by the network.
+ Thus they can be ignored in this high-level architectural consideration.
+\end_layout
+
+\end_inset
+
+ ingoing data flows into an abitrary sub-network, or into a single network
+ compenent (e.g.
+ a router or a switch) equals the sum of all actually outgoing traffic flows.
+\end_layout
+
+\begin_layout Standard
+For simplicity, the following graphics shows only one way of an 
+\emph on
+actual
+\emph default
+ full-duplex data flow:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/kirchhoff.fig
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Kirchhoff's law is a very universal natural law.
+ It holds in many places at the same time.
+ It is not only valid for each and every single network switch and/or router
+ (independently from each other), but also for complete sub-networks, and
+ even approximately for the internet as a whole.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset VSpace vfill
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Datacenter Coupling of 2,000 Servers each
+\end_layout
+
+\end_inset
+
+Typical servers have uplinks with a capacity of 10 GBit/s.
+ For coupling of 2,000 servers in datacenter A with another 2,000 servers
+ in datacenter B, such that anyone can (at least potentially) talk to anyone
+ else, a lot of intermediate switches and backbone wires are needed.
+ Typically, backbones and datacenter interconnects are built with 100 GBit/s
+ technology.
+ The following graphics displays the wire capacities:
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/example-datacenter-coupling.fig
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Notice: 2,000 uplinks with a capacity of 10 GBit/s each are summing up
+ to a total uplink capacity of 20,000 GBit/s, which is bigger than the backbone
+ capacity of 200 GBit/s by a factor of 100.
+ Now Kirchhoff's law comes into play: the 
+\emph on
+actual
+\emph default
+ data flow is limited to 200 GBit/s, due to the bottleneck inbetween the
+ two datacenters.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+In other words, the 
+\series bold
+Network Overprovisioning Factor = NOF 
+\series default
+is 20,000 / 200 = 100 in this example
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In general, the NOF must be computed for each pair of (sender,receiver).
+ Only in very symmetric corner cases, like explained here for didactic reasons,
+ the NOF is globally unique.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ A network bottleneck with a ratio of 1:100 means: if only 1% of the servers
+ would be sending data with full speed, the whole network would be already
+ at its limits.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In practice, network traffic is almost never equally distributed, but varies
+ heavily over time.
+ 
+\series bold
+Timely bursts
+\series default
+ are occurring regularly, flooding their respective uplinks.
+ If such bursts are occurring at only 1% of the servers, queueing theory
+ (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Queueing_theory
+\end_layout
+
+\end_inset
+
+) will come into play: somewhere in the overall system, 
+\series bold
+spontanous queues
+\series default
+ will start to form.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Queueing theory says that any queue will grow 
+\emph on
+indefinitely
+\emph default
+ whenever the arrival rate 
+\begin_inset Formula $\lambda$
+\end_inset
+
+ is 
+\emph on
+permanently
+\emph default
+ higher than the departure rate 
+\begin_inset Formula $\mu$
+\end_inset
+
+.
+ During 
+\emph on
+permanent
+\emph default
+ overload, this is 
+\emph on
+approximately
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In practice, queues are limited, and congestion control algorithms will
+ also limit their length (see TCP window sizes etc).
+\end_layout
+
+\end_inset
+
+ the case.
+ As a consequence from those spontanous queues forming anywhere in the complex
+ system, 
+\series bold
+network latencies
+\series default
+ will rise up.
+ Example, observed in practice: depending on the number of machines causing
+ traffic jam by overload, iSCSI latencies may climb up from tenths of millisecon
+ds, sometimes up to several seconds (measured with 
+\family typewriter
+blktrace
+\family default
+ and visualized with 
+\family typewriter
+blkreplay
+\family default
+).
+\end_layout
+
+\begin_layout Plain Layout
+This is also called 
+\series bold
+jitter
+\series default
+ (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Jitter
+\end_layout
+
+\end_inset
+
+), or PDV = Packet Delay Variation.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ iSCSI and similar TCP-based protocols are known for 
+\series bold
+over-reacting
+\series default
+ on jitter produced by spontanous queues, since their internal queueing
+ discipline is FIFO-like.
+ Result of too high latencies / jitter: customers will be dissatisfied with
+ their application behaviour.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Often a 
+\begin_inset Quotes eld
+\end_inset
+
+rescue
+\begin_inset Quotes erd
+\end_inset
+
+ comes from the 
+\series bold
+application burst behaviour
+\series default
+: when bursts are relatively short with respect to pauses between bursts,
+ the resulting latencies may be less disturbing, because the queues will
+ get a chance to drain.
+ However, the network will 
+\series bold
+depend on the application behaviour
+\series default
+, and thus will become 
+\series bold
+flaky = unreliable
+\series default
+ in general.
+ When it 
+\begin_inset Quotes eld
+\end_inset
+
+appears to work
+\begin_inset Quotes erd
+\end_inset
+
+, you are just in 
+\series bold
+good luck
+\series default
+.
+ Since application behaviour is non-predictable in general, your luck may
+ change at any time, forming a 
+\series bold
+risk
+\series default
+ from a management perspective.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In general, a network dimensioned with NOF 
+\begin_inset Formula $\gg1$
+\end_inset
+
+ is 
+\series bold
+not capable of carrying realtime traffic
+\series default
+.
+ Consequently, storage networks must not be built in such a way.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset VSpace vfill
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Many network protocols from the storage area, like iSCSI, NFS, glusterfs,
+ etc, are heavily reacting at PDV / jitter produced by spontanous queues.
+ Notice that Kirchhoff's law is the real reason behind the observation that
+ these protocols are often working over point-to-point connections (e.g.
+ crossover cables) where NOF=1, but often show up some problems in complex
+ networks when NOF 
+\begin_inset Formula $\gg1$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset VSpace vfill
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+NOF of a Storage Network
+\end_layout
+
+\end_inset
+
+In the following example, we assume to have a 
+\emph on
+dedicated
+\emph default
+ storage network, interconnecting 200 clients to a high-speed storage server.
+ This time, Kirchhoff's law tells us that the network overprovisioning factor
+ is 
+\begin_inset Quotes eld
+\end_inset
+
+only
+\begin_inset Quotes erd
+\end_inset
+
+ NOF = 10:
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/example-storage-network.fig
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+Now the question is: is this type of network capable of realtime IO traffic?
+ Will this storage network be reliable?
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ There is a clear answer: NO.
+ With an overprovisioning factor of 10, it is 
+\emph on
+possible
+\emph default
+ to overload the storage network by forming spontanous queues, for example
+ when more than 10% of all servers are reading or writing big chunks of
+ data.
+ Suchalike can happen very easily, for example when masses of page cache
+ data are dirtified in a very short time in the Linux kernel.
+ See the example story in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ where customers pressing the 
+\begin_inset Quotes eld
+\end_inset
+
+save
+\begin_inset Quotes erd
+\end_inset
+
+ button were inducing spontanous page cache dirtifications in masses.
+ Another possibility are databases with a huge number of transaction commits
+ running in parallel.
+ Although each single commit may involve a relatively low number of IOs,
+ 
+\emph on
+huge masses
+\emph default
+ of them may also lead to network congestion during peaks.
+ Database administrators will confirm that commits are very sensitive to
+ PDV / jitter.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ The only 
+\emph on
+reliable
+\emph default
+ way to achieve realtime capabilities in a storage network would be lowering
+ the overprovisioning factor down to NOF 
+\begin_inset Formula $\approx$
+\end_inset
+
+ 1.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Except when using crossover cables rack-to-rack, this would make the storage
+ network 
+\series bold
+very expensive
+\series default
+, as soon as some hundreds or thousands of servers need to be coupled with
+ storage boxes over a routed network.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset VSpace vfill
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Pitfalls: VLANS and ROCEv2 and Spine-Leaf Architectures
+\end_layout
+
+\end_inset
+
+As mentioned in this guide at several places, realtime storage networks
+ should always be built as 
+\series bold
+physically separate networks
+\series default
+, in order to lower the NOF as much as possible.
+ Here are some common pitfalls which may easily turn out counter-productive:
+\end_layout
+
+\begin_layout Enumerate
+VLANs and other methods for 
+\series bold
+network virtualization
+\series default
+ are a method for 
+\emph on
+isolation
+\emph default
+ of multiple sources of traffic from each other.
+ As a result, realtime storage network traffic can be 
+\emph on
+non-functionally disturbed
+\emph default
+ by other traffic, as soon as they are 
+\emph on
+sharing
+\emph default
+ some physical resources.
+ Unfortunately, (internal) customers cannot see the reasons for this, because
+ the 
+\emph on
+virtual
+\emph default
+ network structures are isolating them from each other 
+\emph on
+functionally
+\emph default
+, although the disturbance is at non-functional level.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ As said: realtime storage networks should always be built as 
+\series bold
+physically separate networks
+\series default
+, each by each, and over 
+\series bold
+shortest possible physical distances
+\series default
+.
+ Their NOF should be as low as possible.
+ Consequently, VLANS are not necessary, since there would be an 1:1 ratio
+ between virtual and physical LANs.
+\end_layout
+
+\begin_layout Enumerate
+At the moment (2020), a hype cycle is starting with new network protocols
+ like ROCEv2 claiming (or at least psychologically suggesting) that they
+ would be able to guarantee predictable / realtime behaviour over conventional
+ IP networks.
+ Do not believe in such hypes.
+ Kirchhoff's law is a 
+\emph on
+natural law
+\emph default
+, which is stronger than any human-made hype.
+ Notice that Kirchhoff's law does not depend on details of traffic congestion
+ control, whether packet loss can be observed somewhere, or whether it cannot
+ be observed anymore because congestion control is 
+\emph on
+hiding
+\emph default
+ the effect.
+ ROCE and siblings should get their chance to demonstrate their merits in
+ reducing packet loss 
+\emph on
+overhead,
+\emph default
+ caused by classical IPv4 congestion control algorithms (by shifting congestion
+ control down in the OSI reference model to some lower layers).
+ However, these new protocols 
+\series bold
+cannot work miracles
+\series default
+ with respect to Kirchhoff's law.
+\end_layout
+
+\begin_layout Enumerate
+Notice that the NOF is a 
+\emph on
+relative
+\emph default
+ measure.
+ It does not change, for example when you upgrade your uplinks from old-style
+ 1 GBit/s to contemporary 10 GBit/s and also upgrade your switches and bockbones
+ from old-style 10 GBit/s to contemporary 100 GBit/s, while keeping all
+ other parameters like numbers of servers etc.
+ Intuitive explanation: by increasing the total uplink capacity, you are
+ also increasing 
+\emph on
+competition
+\emph default
+.
+ Not only your server, but all of your 
+\emph on
+neighbor
+\emph default
+ servers can also grasp more network bandwidth, thus competing at the upgraded
+ backbone in a similar way than before.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Network topologies
+\series default
+ (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Network_topology
+\end_layout
+
+\end_inset
+
+) can have a tremendous impact onto the NOF.
+ For example, star-ring hybrid
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Classical star topologies have a central hub, which can easily become a
+ bottleneck in itself.
+ In general, its internal 
+\begin_inset Quotes eld
+\end_inset
+
+collapsed backbone
+\begin_inset Quotes erd
+\end_inset
+
+ bandwidth must 
+\emph on
+also
+\emph default
+ be considered when computing the NOF.
+ This also applies to generalizations like spine-leaf topologies.
+\end_layout
+
+\end_inset
+
+ topologies or generalizations like spine-leaf topologies and many other
+ models are used for avoiding the hardware cost of a full mesh 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ network, when 
+\begin_inset Formula $n$
+\end_inset
+
+ servers are interconnected with each other such that anyone can (at least
+ potentially) talk to anyone else (see also section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Scalability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ The idea is to use only a 
+\emph on
+small
+\emph default
+ number of parallel spines, for reduction of 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ hardware cost.
+ However, such topologies increase the risk of producing 
+\emph on
+indirect cost
+\emph default
+ in a different dimension: they tend to worsen the NOF by 
+\series bold
+asymmetry
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Example: spine-leaf wires look symmetric on paper.
+ However, the 
+\emph on
+servers
+\emph default
+ are typically attached to the network in clusters or in other types of
+ 
+\emph on
+local aggregates
+\emph default
+.
+ When the leafs are interconnected via a ring-like bus structure, different
+ segments of the bus-like wheel may be loaded differently.
+ This is like a bicycle wheel, where some 
+\emph on
+external
+\emph default
+ weights are non-centrically attached onto the spines in an 
+\emph on
+asymmetric
+\emph default
+ manner.
+ In a network, this may easily create 
+\series bold
+hot spots
+\series default
+ in the space dimension, which come 
+\emph on
+on top of
+\emph default
+ the timely load peaks mentioned above.
+\end_layout
+
+\end_inset
+
+ in the actual load distribution, such that spontanous bottlenecks may arise
+ 
+\emph on
+unexpectedly
+\emph default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset VSpace vfill
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Varieties of NOF
+\end_layout
+
+\end_inset
+
+It must be stressed that there exists no global NOF limit for all types
+ of applications and workloads and networks.
+ Here is an extreme example where a rather huge NOF can be tolerated in
+ practice:
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/example-cellphone-network.fig
+	width 90col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+Although each single cellphone has a rather low data rate (1 MBit in this
+ example), there are huge numbers of them spread over the world.
+ In this example, we have 2 billions of them, leading to a grand total uplink
+ capacity of 2,000,000 GBit/s.
+ By assuming that the internet backbone would be totally dedicated to this
+ type of application (no other shared
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+By assuming that the shared backbone lines are occupied by 10%, the effective
+ backbone bandwidth would drop to 20 GBit/s.
+ As a result, the NOF would rise to 100,000 in this example.
+\end_layout
+
+\end_inset
+
+ traffic occurring there), the NOF would be 2,000,000 / 200 = 10,000.
+ Although this is a really huge overbooking, it does typically work in practice
+ (as long as no DDOS attacks from bot nets are mixing up the scene).
+ Why aren't there similar problems in practice than with the above storage
+ network example?
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ The key point is: smartphone users do not expect realtime behaviour.
+ The latencies in their local radio networks are anyway in the range of
+ 100ms, sometimes up to seconds, e.g.
+ when the radio signal strength is bad.
+ Mobile users are adapted to such mobile network behaviour, without complaining
+ in huge masses.
+ Thus, adding a few more ms latency produced by the internet backbone and/or
+ by the datacenter network will not make a big difference to them.
+ They are humans, where an additional latency of 100ms or more can be tolerated,
+ since reading and understanding the web pages will take even longer.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In contrast, a NOF of 10,000 would be completely unbearable in a loaded
+ production realtime storage network.
+ This is a striking example that realtime requirements versus non-realtime
+ requirements can make a 
+\emph on
+huge
+\emph default
+ difference, requiring totally different technical means / solutions.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset VSpace vfill
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Storage networks are typically carrying 
+\series bold
+realtime traffic
+\series default
+.
+ For them, low NOF values are a must, otherwise PDV / jitter may easily
+ grow too high.
+ In some cases, like attempts to deliver 
+\series bold
+full SSD performance
+\series default
+ to external customers, the NOF requirements might be even lower than 1.
+ Notice that NFS or iSCSI workloads may have a 
+\series bold
+high internal parallelism degree
+\series default
+, even for a single customer (see some captured real-life workloads from
+ 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+www.blkreplay.org
+\end_layout
+
+\end_inset
+
+).
+ Queueing theory suggests that a NOF of 0.7 or lower might be required in
+ order to make the performance impact of a non-local storage network 
+\begin_inset Quotes eld
+\end_inset
+
+invisible
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In addition to throughput requirements, the NOF is a major influence factor
+ at the 
+\series bold
+price tag
+\series default
+ of a storage network.
+ When mixing realtime traffic with ordinary bulk network traffic, you will
+ pay the low NOF also for the ordinary traffic part.
+ This may easily lead to another cost increase, or the PDV / jitter could
+ grow higher than expected.
+ Therefore, 
+\series bold
+do not mix realtime traffic with ordinary traffic
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset VSpace vfill
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Workarounds against PDV / Jitter in Storage Networks
+\end_layout
+
+\end_inset
+
+Here are some countermeasures, in descending order of effectiveness, specificall
+y for storage networks:
+\end_layout
+
+\begin_layout Enumerate
+Simply 
+\series bold
+avoid realtime traffic
+\series default
+ over IP-based networks (and other types of non-realtime capable networks).
+ For example, use MARS + Football on 
+\family typewriter
+LocalStorage
+\family default
+.
+ Do not use realtime traffic requesters like NFS or iSCSI or DRBD etc.
+\end_layout
+
+\begin_layout Enumerate
+Do 
+\series bold
+not
+\series default
+ build 
+\series bold
+monolithic network topologies
+\series default
+ / structures, and 
+\series bold
+avoid traffic sharing
+\series default
+.
+ Storage networks, when unavoidable, should always be built as a multitude
+ of 
+\series bold
+dedicated
+\series default
+ and small (local) 
+\series bold
+islands
+\series default
+, according to the 
+\series bold
+sharding principle
+\series default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Definition-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Enumerate
+Check whether there is traffic whose timely behaviour can be improved.
+ For example, do not start nightly backups all in parallel and all at the
+ same time, but smear them over a larger time window.
+\end_layout
+
+\begin_layout Enumerate
+Check whether upgrading of outdated network technology to a contemporary
+ stage may help for improving the NOF.
+ Also, changing the network topology in the right direction might help if
+ you know what you are doing.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Blindly upgrading hardware, or 
+\begin_inset Quotes eld
+\end_inset
+
+throwing with hardware
+\begin_inset Quotes erd
+\end_inset
+
+, has never been a good strategy.
+ First check whether other measures mentioned earlier can do it not only
+ much cheaper, but also much better.
+\end_layout
+
+\begin_layout Enumerate
+Do not over-estimate the potential of 
+\series bold
+network scheduling
+\series default
+.
+ You may try better congestion control algorithms (e.g.
+ try ROCEv2 whether it 
+\emph on
+really
+\emph default
+ helps), and/or use classical traffic shaping with an appropriate 
+\series bold
+classification of realtime traffic
+\series default
+.
+ However notice: Kirchhoff's law cannot be circumvented.
+ Whenever you are improving the PDV / Jitter of one traffic class somewhere
+ via packet scheduling, you will 
+\emph on
+necessarily
+\emph default
+ worsen the PDV of 
+\emph on
+another
+\emph default
+ traffic class at the same place.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset VSpace vfill
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Potential Benefits of Network Packet Scheduling
+\end_layout
+
+\end_inset
+
+Here is a schematic explanation of the zones where scheduling (in general)
+ can improve things.
+ It also holds for the special case of network packet scheduling for a given
+ storage network:
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/potential-of-scheduling.fig
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+As long as the congestion threshold is not exceeded, you typically won't
+ need a sophisticated scheduling algorithm.
+ Practically 
+\emph on
+any
+\emph default
+ type of (reasonable) scheduling will do it, even FIFO.
+ Simply because there is nothing relevant which 
+\emph on
+needs
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice: packet scheduling makes only sense when there currently 
+\emph on
+is
+\emph default
+ a spontanous queue.
+ When no queue has formed at a certain point in time, no elaborate scheduling
+ decision is necessary at all: whenever a packet arrives, just serve it
+ 
+\emph on
+directly
+\emph default
+ without delay.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ to be scheduled.
+ By definition of the so-called 
+\begin_inset Quotes eld
+\end_inset
+
+nobrainer zone
+\begin_inset Quotes erd
+\end_inset
+
+, congestion is so low that the effort for implementation of a sophisticated
+ scheduling algorithm and its supporting infrastructure will not pay off.
+ In general, the congestion threshold depends on the application and its
+ requirements.
+ When 
+\series bold
+hard realtime
+\series default
+ behaviour would be required, the threshold might be very low, e.g.
+ at 10% or less.
+ For ordinary non-realtime applications with a well-behaving distribution
+ function, classical queuing theory as well as practical experiences are
+ suggesting that the congestion threshold may be around 30%.
+ Sometimes even 50% or more is bearable (see the above example characterization
+ of requirements for mobile phone users).
+\end_layout
+
+\begin_layout Enumerate
+Next comes the overload threshold.
+ It is characterized by a simple property: once it is exceeded, even the
+ 
+\emph on
+very best scheduling algorithm in this universe
+\emph default
+ (which would be able to predict the future
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There are academic papers on realtime scheduling with pre-assumptions on
+ predictability, such that solutions exist where the overload theshold is
+ near 100%.
+ I have never seen such a case in practice, at least not in the area of
+ storage networks.
+ In practice, 
+\emph on
+details
+\emph default
+ of application behaviour timings are not predictable.
+\end_layout
+
+\end_inset
+
+) will 
+\series bold
+not be able to help
+\series default
+ anymore.
+ For ordinary non-critical workloads, queueing theory predicts that this
+ point is around 70%.
+ For realtime-critical workloads heavily reacting onto PDV, it may be however
+ 
+\emph on
+much
+\emph default
+ lower.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ The yellow zone is the only one where scheduling can be beneficial.
+ Improvements by better scheduling algorithms will not change the size of
+ the zone, but will move the 
+\emph on
+actual incident threshold
+\emph default
+ a little bit rightwards.
+ Depending on the concrete use case, the size of the yellow zone may be
+ big, or rather small.
+ In general, its size may depend on further factors like the 
+\emph on
+inherent parallelism degree of the application workload
+\emph default
+, and on further factors mentioned in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Influence-Factors-Scalability"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Warning: in some corner cases, the size of this zone might be even near
+ zero.
+ Do not invest huge amounts of money into scheduling unless you have determined
+ its size 
+\begin_inset Formula $\approx$
+\end_inset
+
+ potential in advance.
+\end_layout
+
+\begin_layout Enumerate
+The incident zone is characterized by the queuing behaviour, where queues
+ and their effects are dominating the scene.
+ Scheduling cannot help here much more, the system is simply overloaded
+ too much.
+\end_layout
+
+\begin_layout Enumerate
+The last zone is easy to understand: you cannot 
+\emph on
+permanently
+\emph default
+ povide less resources to your applications 
+\emph on
+in weighted average
+\emph default
+ than is 
+\emph on
+necessary
+\emph default
+ for providing the service / its SLA.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Notice: this 
+\emph on
+looks
+\emph default
+ like a rather 
+\emph on
+static
+\emph default
+ model.
+ In practice, DDOS attacks and other dynamic runtime behaviour, such as
+ PDV peaks resulting from a high NOF, may completely change the game.
+ Thus the graphics has to be interpreted as a 
+\emph on
+dynamic
+\emph default
+ one.
+ The point 
+\begin_inset Quotes eld
+\end_inset
+
+100% loaded
+\begin_inset Quotes erd
+\end_inset
+
+ must not be determined according to 
+\emph on
+unweighted average
+\emph default
+ behaviour, but according to your 
+\emph on
+concrete SLAs
+\emph default
+ applied to your 
+\emph on
+concrete load distribution
+\emph default
+, or approximately due to 
+\series bold
+near-worst-case
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Caution TCO waste: blindly taking worst-case behaviour in place of well-defined
+ SLAs is a major pitfall.
+ When peak behaviour is spanning a few orders of magnitude (e.g.
+ exponentinal distributions according to Zipf's law), and when there are
+ no well-defined SLAs such that extreme 
+\emph on
+but short
+\emph default
+ peaks can be ignored, TCO may be worsened by 
+\emph on
+factors
+\emph default
+ due to 
+\series bold
+over-engineering
+\series default
+.
+\end_layout
+
+\end_inset
+
+ behaviour
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ When your input application workload (as such) has some 
+\series bold
+load peaks
+\series default
+ which are 
+\emph on
+higher
+\emph default
+ than the average load by 
+\emph on
+several orders of magnitude
+\emph default
+, scheduling will typically not help much more.
+ Typical iSCSI workloads from external customers are behaving like this
+ (e.g.
+ when many of them are starting their nightly backups around the same time,
+ and it is not prevented by contract plus some governance).
+ In simplest case, load peaks may result from reboots with 
+\series bold
+cold caches
+\series default
+.
+ Your complex shared storage network needs to be dimensioned according to
+ the load peaks, in order to prevent a few 
+\begin_inset Quotes eld
+\end_inset
+
+pig customers
+\begin_inset Quotes erd
+\end_inset
+
+ or a DDOS attack from missing your SLAs, or from tearing down masses of
+ ordinary customers.
+ This means 
+\series bold
+expensive over-engineering
+\series default
+ by 
+\emph on
+factors
+\emph default
+.
+ In the context of factors by 
+\emph on
+orders of magnitude
+\emph default
+, the 
+\emph on
+relative
+\emph default
+ size of the yellow zone does not play a big role anymore.
+ Your money pocket needs to be deep anyway.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not trust some frequently heard arguments, claiming that you just would
+ need huge masses of customers, then the total load distribution would become
+ smooth.
+ This need not apply to peaks.
+ As observed at ShaHoLin, where several thousands of customers are concentrated
+ onto each LXC container, the 
+\emph on
+average
+\emph default
+ IOPS demand of a container is around 70, while 
+\series bold
+load peaks
+\series default
+ can easily go up to several thousands of IOPS.
+ This is about 2 orders of magnitude.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ ShaHoLin's storage doesn't suffer from Kirchhoff's law and all the other
+ problems discussed in this section, since it uses 
+\family typewriter
+LocalStorage
+\family default
+.
+ Load balancing is done via MARS + Football, which has no realtime requirements
+ onto the network.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Typical real-life timely load distributions aren't purely Gaussian or Markov.
+ They are a 
+\emph on
+mixture
+\emph default
+ of 
+\emph on
+many
+\emph default
+ influences.
+ Among them is Zipf's law, which means 
+\series bold
+exponential distribution
+\series default
+ within some boundaries.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Of course, you might 
+\emph on
+artificially limit
+\emph default
+ your customer's IOPS in such a way that expensive over-engineering is avoided.
+ But then you have given up the above goal of high performance, and in some
+ sense you have relaxed the 
+\begin_inset Quotes eld
+\end_inset
+
+realtime requirements
+\begin_inset Quotes erd
+\end_inset
+
+ onto your storage network.
+ Consequently, you shouldn't buy expensive SSDs anymore in masses
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+This may be a TCO pitfall.
+ Some people are apparently using SSDs for 
+\emph on
+compensation
+\emph default
+ of a fraction of problems, which are most likely caused by their high-NOF
+ storage network.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset VSpace vfill
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Advice on Storage Networks
+\end_layout
+
+\end_inset
+
+For each type of application workload behaviour, the 
+\series bold
+storage network overprovisioning factor NOF
+\series default
+ is an important key parameter, following from 
+\series bold
+Kirchhoff's law
+\series default
+.
+ When it grows too high for a certain use case, the 
+\series bold
+incident rate
+\series default
+ will grow.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Depending on storage network topology, low NOF can turn out very expensive.
+ Do not neglect its influence at business cases!
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not build monolithic storage networks.
+ Never build a storage network as a non-dedicated / shared network.
+ Never mix realtime storage IO traffic with ordinary traffic, because it
+ would induce a 
+\series bold
+risk
+\series default
+ that both traffic types can disturb each other.
+ Never use VLANs or similar network virtualization techniques for storage
+ networks, which can easily create such a traffic-type mix on the physical
+ wires.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ This guide shows you a solution: how to 
+\series bold
+get rid of realtime-capable storage networks
+\series default
+ 
+\emph on
+at all
+\emph default
+.
+ Load balancing via background data migration (e.g.
+ using Football) does neither require realtime IO behaviour, nor does it
+ require a dedicated storage network.
+ In addition, background data migration traffic is VLAN / spine-leaf friendly
+ and can be combined with traffic shaping.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
 Layering Rules and their Importance
 \begin_inset CommandInset label
 LatexCommand label
