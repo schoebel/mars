@@ -3499,7 +3499,7 @@ specific
 \emph default
  type of network, such as a costly 
 \series bold
-storage network
+dedicated storage network
 \series default
  which must be capable of transporting masses of IO operations in 
 \series bold
@@ -3804,6 +3804,17 @@ any dedicated storage network
 \emph default
  at all.
  Therefore, it is also more reliable (when using comparable technology).
+ See also section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Enumerate
@@ -12078,13 +12089,23 @@ create
 
 \begin_layout Standard
 \noindent
-Compared to local RAID storage, spindle load distribution over a storage
- network is typically 
+Compared to local RAID storage, spindle load distribution over a dedicated
+ realtime storage network is typically 
 \emph on
 costing
 \emph default
  some performance, by introduction of additional latencies and potential
- bottlenecks.
+ bottlenecks (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Standard
@@ -12527,7 +12548,22 @@ bigger performance potential
 \begin_layout Standard
 In other words: local SAS busses are capable of realtime IO transfers over
  very short distances (enclosure-to-enclosure), while an expensive IP storage
- network isn't realtime (due to packet loss).
+ network with NOF 
+\begin_inset Formula $\gg1$
+\end_inset
+
+ isn't realtime (due to congestion control and/or packet loss, see section
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
  SAS busses are 
 \emph on
 constructed
@@ -12795,7 +12831,17 @@ expensive
 \series bold
 increasing risk
 \series default
-.
+ (see also section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
 \end_layout
 
 \end_inset
@@ -12825,8 +12871,18 @@ dedicated
 \end_layout
 
 \begin_layout Itemize
-Because storage networks are heavily reacting to high latencies and packet
- loss, they often need to be dimensioned for the 
+Because dedicated storage networks are heavily reacting to high latencies
+ and packet loss (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), they often need to be dimensioned for the 
 \series bold
 worst case
 \series default
@@ -13545,7 +13601,18 @@ exceptional(!)
 \emph on
 regularly
 \emph default
-, but only for clear cases of emergency!
+, but only for clear cases of emergency! See also explanation of NOF in
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \end_inset
@@ -13939,7 +14006,18 @@ actual
 not
 \series default
  the preferred model for MARS operations in large scale.
- Following is a compromize.
+ Following is a compromize, which tries to minimize the NOF explained in
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -15012,6 +15090,29 @@ LocalSharding
 We assume that the storage network (when present) forms no bottleneck.
  Network implementations like TCP/IP versus Infiniband or similar are thus
  ignored.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ This is roughly equivalent to NOF = 1 as explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ Although technically possible, this can grow extremely expensive.
 \end_layout
 
 \begin_layout Itemize
@@ -17463,7 +17564,18 @@ not
 \emph on
 avoid
 \emph default
- real-time storage network traffic.
+ real-time storage network traffic, due to reasons explained in section
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
  Instead, the load-balancing problem is addressed via 
 \series bold
 background data migration
@@ -20551,7 +20663,8 @@ Hardware dimensioning
 \end_layout
 
 \begin_layout Enumerate
-Only for architectures relying on a storage network: network 
+Only for architectures relying on a dedicated realtime storage network:
+ network 
 \series bold
 throughput
 \series default
@@ -20567,7 +20680,11 @@ bottlenecks
 \series bold
 queueing
 \series default
- behaviour / congestion control / 
+ behaviour / 
+\series bold
+congestion control
+\series default
+ / 
 \series bold
 packet loss
 \series default
@@ -20578,6 +20695,16 @@ packet loss
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, and theoretical explanation in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
 plural "false"
 caps "false"
 noprefix "false"
@@ -20871,7 +20998,18 @@ Efficiency projects
 \end_inset
 
 .
- You will need to dimension a dedicated storage network for all of this.
+ You will need to dimension a dedicated storage network for all of this,
+ such that the NOF as explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ will not grow too high.
 \end_layout
 
 \begin_layout Standard
@@ -21246,8 +21384,8 @@ architectural
  Alone their current electrical power cost, including cooling, is more than
  the current sysadmin manpower cost.
  Datacenter operations would also increase.
- On top, a dedicated storage network and its administration cost would also
- be needed.
+ On top, a properly dimensioned dedicated storage network and its administration
+ cost would also be needed.
 \end_layout
 
 \begin_layout Standard
@@ -21555,6 +21693,17 @@ Dimensioning of the
 network
 \series default
 : throughput, latencies, queueing behaviour.
+ See NOF in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -23737,8 +23886,19 @@ indirectly
 \emph default
  attached via Ethernet or Infiniband or another rack-to-rack transport,
  both latencies and throughput will become worse.
- Depending on further factors and influences, the overall bottleneck may
- shift to the network.
+ Depending on further factors and influences, such as a too high NOF (see
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), the overall bottleneck may shift to the network, and it may become worse
+ over-propotionally.
 \end_layout
 
 \begin_layout Standard
@@ -23754,6 +23914,17 @@ increasing distance
 , both latencies (laws of Einstein) and throughput (laws of energy needed
  for compensation of SNR = signal to noise ratio) are becoming worse.
  Distance matters.
+ Kirchhoff's law (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) also matters.
 \end_layout
 
 \begin_layout Plain Layout
@@ -26653,6 +26824,16 @@ reference "chap:Cloud-Storage"
 
 \end_inset
 
+ and section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
 ).
  Probably, for replication of whole clusters over long distances DRBD and
  MARS could be stacked: using DRBD on top for MARS for active-active clustering
@@ -27150,8 +27331,18 @@ systematically
 
 \end_inset
 
- When coupling whole datacenters via some thousands of DRBD connections,
- any (short) network loss will almost certainly increase the re-sync network
+ When coupling whole datacenters via some thousands of DRBD connections
+ (see the example scenario in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), any (short) network loss will almost certainly increase the re-sync network
  load each time the outage appears to be over.
  As a consequence, overload may be 
 \emph on
@@ -28027,8 +28218,19 @@ We have experimented with extremely large TCP send/receive buffers plus
  lines between the USA and Europe.
  Yes, it is possible to improve the behaviour to some degree.
  But magic does not happen.
- Natural laws like Einstein's laws will always hold.
- You simply cannot travel faster than the speed of light.
+ Natural laws like Einstein's laws and Kirchhoff's laws (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) will always hold.
+ You simply cannot travel faster than the speed of light, and you cannot
+ bypass the information theoretic limits of your transport media.
 \end_layout
 
 \begin_layout Standard
@@ -33199,7 +33401,17 @@ noprefix "false"
 responsible for the whole storage of a divison or of the company
 \series default
  is a very bad idea.
- It will 
+ Besides the NOF risks explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, it can easily 
 \series bold
 bind you for decades
 \series default
@@ -37779,7 +37991,17 @@ network
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
- behaviour.
+ behaviour, or disregarding of Kirchhoff's laws (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
 \begin_inset Newline newline
 \end_inset
 
