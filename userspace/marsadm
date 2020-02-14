@@ -1399,6 +1399,25 @@ sub __systemd_commit {
   return %changes;
 }
 
+# THINK:
+# Would per-resource incremental template generation be better?
+# Yes, it would scale better, but would it be _correct_?
+#
+# The problem is that the macro processor is Turing-complete.
+#
+# Thus there might be non-trivial cross-dependencies between generated
+# unit files. Potentially even cross-resource dependencies.
+# These might for example depend on non-trivial if conditions,
+# potentially even purely dynamic environment variables, or whatever.
+#
+# At the moment, the complete transitive closure is re-computed once
+# a small detail has changed. This is on the safe side, but not optimal.
+# There is certainly room for improvement. However be cautious
+# with respect to correctness under all cirumstances.
+#
+# Knuth is cited: "I can do it in half the time if it doesn't have
+# to be correct".
+
 sub __systemd_generate_all {
   my ($cmd) = @_;
   return unless -d $mars;
