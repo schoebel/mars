@@ -1519,6 +1519,8 @@ sub __systemd_fingerprint {
 
 sub is_systemd_generate_necessary {
   my $cmd = shift;
+  # do not generate after forking
+  return 0 if $child_prefix;
   my $text = __systemd_fingerprint();
   system("mkdir -p $marsadm_var_dir");
   my $varfile = "$marsadm_var_dir/systemd.status";
@@ -1532,7 +1534,7 @@ sub is_systemd_generate_necessary {
   }
   if ($text eq $old_text) {
     lprint "systemd template generation not necessary.\n" if $verbose;
-    return 0 unless $force;
+    return 0 unless ($force && $cmd ne "primary");
     lprint "Forcing template generation...\n";
   }
   if (!open(OUT, "> $varfile.tmp")) {
