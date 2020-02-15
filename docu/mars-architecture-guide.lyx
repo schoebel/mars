@@ -2898,8 +2898,18 @@ eventually consistent
 \end_layout
 
 \begin_layout Standard
-A detailed analysis of consequences from this definition is in secction
+A detailed analysis of consequences from this definition are in sections
  
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Suitability-of-Architectures"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "sec:Requirements-for-Cloud"
@@ -3346,7 +3356,18 @@ noprefix "false"
 \end_inset
 
 .
- Cloud storage is
+ According to 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Cloud_storage
+\end_layout
+
+\end_inset
+
+ and several other definitions in the literature, cloud storage is
 \end_layout
 
 \begin_layout Description
@@ -3383,6 +3404,135 @@ durable
 eventually consistent
 \series default
  with regard to data replicas.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Some people are confusing cloud storage with other types of storage.
+ Please read the above definition 
+\emph on
+carefully
+\emph default
+.
+ For example, requirement (4) is clearly stating that replicas need not
+ have realtime consistency properties.
+ Unfortunately, some advocates are incorrectly claiming that replicas would
+ need to be updated and/or usable for failover in 
+\emph on
+realtime
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+From (4) it becomes clear that failover in 
+\emph on
+realtime
+\emph default
+ to a 
+\emph on
+strictly consistent
+\emph default
+ replica is explicitly 
+\emph on
+not
+\emph default
+ requested.
+ Requiring suchalike in addition would lead to a 
+\emph on
+contradiction
+\emph default
+ with the above definition.
+ This extends to 
+\emph on
+eventually consistent
+\emph default
+.
+ Even when respecting the CAP theorem by prefering A in front of C, 
+\emph on
+realtime
+\emph default
+ requirements for failover to an 
+\emph on
+old
+\emph default
+ version / replica are 
+\emph on
+not
+\emph default
+ implied.
+ A 
+\emph on
+realtime
+\emph default
+ interpretation of A simply does not make sense in the presence of (3) and
+ (4).
+ In order to remain honest and fair, the timescale requirements for achieving
+ A must not artificially tightened stronger than those implied by (4).
+\end_layout
+
+\end_inset
+
+, otherwise it wouldn't be cloud storage.
+ By using a wrong definition at concept or architecture level, it is possible
+ to screw up whole product lines, at least in the financial dimension: 
+\series bold
+realtime requirements are expensive
+\series default
+ to achieve, leading to 
+\series bold
+unnecessary cost increases
+\series default
+ up to 
+\emph on
+orders of magnitude
+\emph default
+.
+ It is one of the 
+\series bold
+central ideas
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Distribution is mentioned in requirements (1) and (2).
+ According to the CAP theorem and its sister theorems, distribution is even
+ an 
+\series bold
+antagonist
+\series default
+ to realtime requirements.
+\end_layout
+
+\end_inset
+
+
+\series bold
+ of cloud storage
+\series default
+ to get rid of realtime requirements at those places where it is reasonable.
+ More on (unnecessary) realtime requirements and its financial consequences
+ see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -3521,6 +3671,22 @@ background data migration
 any
 \emph default
  network has some bottlenecks.
+ Requirement (4) is even 
+\emph on
+suggesting
+\emph default
+ that costly realtime requirements are not needed everywhere.
+ See also section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -3595,36 +3761,20 @@ noprefix "false"
 
 \end_inset
 
- Notice that the definition says nothing about the 
+ The definition says nothing concrete about the 
 \series bold
 time scale
 \series default
- of operations
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Go down to a time scale of microseconds.
- You will then notice that typical IO operations will require several hundreds
- of machine instructions between IO request 
+ of operations, except (4) which is 
 \emph on
-submission
+explicitly permitting
 \emph default
- and the corresponding IO request 
+ a relatively coarse timescale for replicas.
+ We are 
 \emph on
-completion
+explicitly encouraged
 \emph default
-.
- This is not only true for local IO.
- In network clusters like Ceph, it will involve much more work, like creation
- of network packets, and lead to additional IO latencies implied by the
- network packet transfer latencies.
-\end_layout
-
-\end_inset
-
-.
- In general, we are free to implement certain operations, such as 
+ to implement certain operations, such as 
 \series bold
 background data migration
 \series default
@@ -3633,7 +3783,17 @@ background data migration
 \series bold
 major cost reduction
 \series default
-, as well as 
+ (see relaxation of realtime requirements in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), as well as 
 \series bold
 improving reliability
 \series default
