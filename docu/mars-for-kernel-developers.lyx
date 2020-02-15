@@ -354,8 +354,8 @@ Eventually Consistent
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -1260,8 +1260,8 @@ ntp
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -1345,8 +1345,8 @@ key -> value
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -1376,8 +1376,8 @@ key
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -1511,8 +1511,8 @@ marsadm {get,set}-link
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -1538,8 +1538,8 @@ marsadm {get,set}-link
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 

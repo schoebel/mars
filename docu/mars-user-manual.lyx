@@ -865,8 +865,8 @@ MARS Think
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -945,8 +945,8 @@ fast-forward
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -1035,8 +1035,8 @@ started in parallel
 \begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -1732,8 +1732,8 @@ marsadm
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -2500,8 +2500,8 @@ absolutely
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -3118,8 +3118,8 @@ marsadm cron
 \begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -3147,8 +3147,8 @@ userspace/cron.d/
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -3587,8 +3587,8 @@ Trying to mount unintitialized LV data is bad practice.
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -3660,8 +3660,8 @@ starting
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -3916,8 +3916,8 @@ all
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -3933,8 +3933,8 @@ marsadm view all
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -4132,8 +4132,8 @@ resize
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -4153,8 +4153,8 @@ reference "subsec:Creating-your-own"
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -4617,8 +4617,8 @@ flags
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -4668,8 +4668,8 @@ can fix any remaining problems (and, of course, you can also switchover
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -5801,8 +5801,8 @@ contrib/example-scripts/check-mars-switchable.sh
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -5933,8 +5933,8 @@ umount /dev/mars/mydata
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -5983,8 +5983,8 @@ hanging umounts
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -6066,8 +6066,8 @@ reference "sec:systemd-Templates"
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -6173,8 +6173,8 @@ directly
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -6216,8 +6216,8 @@ marsadm delete-resource
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -6264,8 +6264,8 @@ reference "sec:systemd-Templates"
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -6304,8 +6304,8 @@ ng the information for you.
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -6334,8 +6334,8 @@ view-replinfo
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -6360,8 +6360,8 @@ safety measure
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -6455,8 +6455,8 @@ marsadm pause-fetch mydata
 \begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -6568,8 +6568,8 @@ marsadm primary --force mydata
 \begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -6830,8 +6830,8 @@ log-rotate
 \begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -6944,8 +6944,8 @@ very last
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -7435,8 +7435,8 @@ marsadm join-resource mydata /dev/vg/mydata
 \begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -7540,8 +7540,8 @@ stuck
 \begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -8005,8 +8005,8 @@ xfs_growfs /mountpoint/of/mydata
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -8375,8 +8375,8 @@ log-delete-all
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -8414,8 +8414,8 @@ rm -rf $(find /mars/ -name
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -8447,8 +8447,8 @@ marsadm up all
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -8477,8 +8477,8 @@ exactly that(!)
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -8746,8 +8746,8 @@ total size
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -8859,8 +8859,8 @@ MARS has some mechanism for throttling bulk writers whenever the network
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -9363,8 +9363,8 @@ If you have more than 2 replicas in total: proceed with step 4 at hostC,
 \begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -10787,8 +10787,8 @@ In order to override the automatic IP detection and.to explicitly tell the
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -11516,8 +11516,8 @@ maged –force
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -11643,8 +11643,8 @@ together(!)
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -11870,8 +11870,8 @@ split-cluster
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -13134,8 +13134,8 @@ log-delete
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -13172,8 +13172,8 @@ y state will be gone, and you will no longer be able to guess consistency
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -13533,8 +13533,8 @@ no guarantee
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -13948,8 +13948,8 @@ detach
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -14146,8 +14146,8 @@ Postcondition: the local disk belonging to $res is no longer in use.
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -14289,8 +14289,8 @@ guaranteed
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -15326,8 +15326,8 @@ Postcondition: any transfer of (parts of) transaction logfiles which are
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -15701,8 +15701,8 @@ Postcondition: any (parts of) transaction logfiles which are present at
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -16101,8 +16101,8 @@ Postcondition: any local replay operations of transaction logfiles to the
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -16720,8 +16720,8 @@ resume-fetch-local
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -17122,8 +17122,8 @@ pause-fetch-local
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -17640,8 +17640,8 @@ detach
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -17956,8 +17956,8 @@ In case a split brain is already detected at the initial situation, the
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -18171,8 +18171,8 @@ A common misconception is when people think that they can keep their filesystem
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -18198,8 +18198,8 @@ primary --force
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -18298,8 +18298,8 @@ reference "subsec:Split-Brain-Resolution"
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -18393,8 +18393,8 @@ correct
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -18578,8 +18578,8 @@ uniquely
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -18723,8 +18723,8 @@ reference "subsec:Forced-Switching"
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -19060,8 +19060,8 @@ leave-resource
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -23007,8 +23007,8 @@ nodes in the cluster have sent a status update of their version of the symlink
 \begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -23697,8 +23697,8 @@ noprefix "false"
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -26505,8 +26505,8 @@ blktrace
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -26743,8 +26743,8 @@ e of HDDs, but not of SSDs.
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -26760,8 +26760,8 @@ e of HDDs, but not of SSDs.
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -26991,8 +26991,8 @@ punish
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -27081,8 +27081,8 @@ temporary
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -27312,8 +27312,8 @@ syslog_flood_recovery_s
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -27339,8 +27339,8 @@ every
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -27648,8 +27648,8 @@ tcp_keepidle
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -28382,8 +28382,8 @@ systemd
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -28475,8 +28475,8 @@ must not
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -28511,8 +28511,8 @@ varname
 \begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -28690,8 +28690,8 @@ marsadm set-systemd-unit mydata vol-mydata.mount
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -28718,8 +28718,8 @@ marsadm set-systemd-unit mydata another-mountdir-mydata.mount
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -28889,8 +28889,8 @@ race condition
 \begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -29180,8 +29180,8 @@ ordinary
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -29199,8 +29199,8 @@ automatically
 
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -29314,8 +29314,8 @@ bird
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -29386,8 +29386,8 @@ marsadm get-systemd-unit
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -29506,8 +29506,8 @@ marsadm view-default mydata
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -30411,8 +30411,8 @@ replay-pos
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -31450,8 +31450,8 @@ These rules are hopefully simple and intuitive.
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -35127,8 +35127,8 @@ join-resource
 \begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -35358,8 +35358,8 @@ s.
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -35745,8 +35745,8 @@ join-resource
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -35977,8 +35977,8 @@ marsadm join-resource $res
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -36022,8 +36022,8 @@ modprobe
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -36050,8 +36050,8 @@ log-delete-all
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
@@ -36199,8 +36199,8 @@ resume-replay
 \begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
+	lyxscale 9
+	scale 5
 
 \end_inset
 
