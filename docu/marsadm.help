@@ -23,6 +23,17 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     'delete-resource'.
   --verbose
     Increase speakyness of some commands.
+  --parallel
+    Only resonable when combined with "all".
+    For each resource, fork() a sub-process running independently
+    from other resources. May seepd up handover a lot.
+    However, several cluster managers are known to have problems
+    with a high parallelism degree (up to deadlocks).
+    Only use this after thorough testing in combination with your
+    whole operation stack!
+  --parallel=<number>
+    Like --parallel, but limit the parallelism degree to the given
+    number of parallel processes.
   --logger=/path/to/usr/bin/logger
     Use an alternative syslog messenger.
     When empty, disable syslogging.
@@ -165,6 +176,10 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   down
     usage: down <resource_name>
     Shortcut for detach + pause-sync + pause-fetch + pause-replay.
+
+  err-purge-all
+    usage: err-purge-all <resource_name>
+    Remove any err message from the given resources.
 
   get-emergency-limit
     usage: get-emergency-limit <resource_name>
