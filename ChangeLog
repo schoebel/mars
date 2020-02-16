@@ -80,6 +80,23 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable83
+	* Major improvement: new marsadm option --parallel can drastically
+	  speed up handover, provided that the rest of your infrastructure
+	  can deal with parallelism. Several cluster managers are
+	  known to have problems with that. So be careful, do not
+	  blindly use this feature!
+	  Future releases will try to improve the systemd interface
+	  such that parallelism is possible without problems.
+	* Doc updates: describe dimensioning of storage networks
+	  and its realtime behaviour, at the background of Kirchhoff's
+	  law. Neglecting this may lead to much higher cost than
+	  necessary, and may lead to a variety of operational problems,
+	  up to failures of projects.
+	  Also, working with wrong definitions of Cloud Storage can lead
+	  to a similar effect.
+	  Recommended reading!
+
 mars0.1astable82
 	* Major improvement: the mars_main kernel thread is now working
 	  non-blocking in practically all relevant cases. Some more cases
