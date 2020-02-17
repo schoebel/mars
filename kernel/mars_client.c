@@ -681,6 +681,7 @@ int receiver_thread(void *data)
 
 	mars_shutdown_socket(&ch->socket);
 	atomic_dec(&brick->receiver_count);
+	mars_trigger();
 	return status;
 }
 
