@@ -5154,6 +5154,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 			   rot->sync_brick->copy_last > rot->flip_pos) {
 			do_start = false;
 			rot->flip_start = jiffies + mars_sync_flip_interval * HZ;
+			mars_trigger();
 		}
 	} else {
 		rot->flip_start = 0;
