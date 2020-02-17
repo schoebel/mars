@@ -2397,7 +2397,8 @@ int peer_thread(void *data)
 			peer->socket.s_recv_abort = mars_peer_abort;
 			MARS_DBG("successfully opened socket to '%s'\n", real_peer);
 			clear_vals(peer_pairs);
-			brick_msleep(100);
+			peer->to_remote_trigger = true;
+			mars_trigger();
 			continue;
 		} else {
 			const char *new_peer;
