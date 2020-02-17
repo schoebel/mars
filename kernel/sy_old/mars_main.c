@@ -3141,6 +3141,8 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	// report success
 	res = true;
 	MARS_DBG("VERSION OK '%s' -> '%s'\n", own_versionlink_path, own_versionlink);
+	mars_trigger();
+	mars_remote_trigger();
 
  done:
 	brick_string_free(old_host);
