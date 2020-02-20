@@ -2524,8 +2524,10 @@ restart:
 		}
 		// only kill bricks which have no resources allocated
 		count = atomic_read(&brick->mref_object_layout.alloc_count);
-		if (count > 0)
+		if (count > 0) {
+			mars_trigger();
 			continue;
+		}
 
 		/* only kill non-transient bricks */
 		if (brick->power.button != brick->power.led_on ||
@@ -2550,9 +2552,11 @@ restart:
 		if (lamport_time_compare(&now, &brick->kill_stamp) <= 0 &&
 		    global &&
 		    global->global_power.button) {
+			mars_trigger();
 			continue;
 		}
 		if (brick->kill_round++ < 1) {
+			mars_trigger();
 			continue;
 		}
 
@@ -2560,8 +2564,10 @@ restart:
 		mars_power_button(brick, false, true);
 
 		/* wait until actually off */
-		if (!brick->power.led_off)
+		if (!brick->power.led_off) {
+			mars_trigger();
 			continue;
+		}
 
 		if (global) {
 			up_write(&global->brick_mutex);
