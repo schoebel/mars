@@ -29,7 +29,7 @@
  */
 #define brick_wait(wq, flag, condition, timeout)			\
 ({									\
-	unsigned long __tmout = (timeout);				\
+	long __tmout = (timeout);					\
 	int __old_flag;							\
 									\
 	might_sleep();							\
