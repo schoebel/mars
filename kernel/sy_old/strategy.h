@@ -99,7 +99,7 @@ struct mars_dent {
 extern const struct meta mars_kstat_meta[];
 extern const struct meta mars_dent_meta[];
 
-#define MARS_GLOBAL_HASH 32
+#define MARS_GLOBAL_HASH 128
 
 struct mars_global {
 	struct rw_semaphore dent_mutex;
@@ -109,7 +109,6 @@ struct mars_global {
 	struct list_head dent_quick_anchor;
 	struct list_head brick_anchor;
 	wait_queue_head_t main_event;
-	struct list_head dent_hash_anchor[MARS_GLOBAL_HASH];
 	int global_version;
 	int deleted_my_border;
 	int old_deleted_my_border;
@@ -117,6 +116,7 @@ struct mars_global {
 	int deleted_min;
 	int trigger_mode;
 	bool main_trigger;
+	struct list_head dent_hash_anchor[MARS_GLOBAL_HASH];
 };
 
 extern void _init_mars_global(struct mars_global *global);
