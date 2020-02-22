@@ -88,6 +88,7 @@ extern char *my_id(void);
 	struct kstat old_stat;						\
 	char *new_link;							\
 	char *old_link;							\
+	struct mars_global *d_subtree;					\
 	void (*d_private_destruct)(void *private);			\
 	void *d_private;
 

@@ -1686,6 +1686,38 @@ bool dir_path_is_in(const char *path, const char *list)
 	return res;
 }
 
+#define MARS_PREFIX_RESOURCE    "/mars/resource-"
+
+static
+bool has_subtree_prefix(const char *path)
+{
+	bool res;
+
+	res = !strncmp(path,
+		       MARS_PREFIX_RESOURCE,
+		       sizeof(MARS_PREFIX_RESOURCE) - 1);
+	return res;
+}
+
+static
+const char *subtree_prefix(const char *path)
+{
+	char *copy = brick_strdup(path);
+	char *tmp = copy;
+	int count = 3;
+
+	while (*tmp) {
+		if (*tmp++ != '/')
+			continue;
+		if (--count > 0)
+			continue;
+		tmp[-1] = '\0';
+		return copy;
+	}
+	brick_string_free(copy);
+	return NULL;
+}
+
 static
 int _op_scan(struct say_channel **say_channel,
 	     struct mars_global *global,
@@ -2023,12 +2055,40 @@ struct mars_dent *_mars_find_dent(struct list_head *anchor, const char *path, bo
 	return res;
 }
 
-struct mars_dent *mars_find_dent(struct mars_global *global, const char *path)
+static
+struct mars_dent *__mars_find_dent(struct mars_global *global,
+				   const char *path,
+				   bool recursive)
 {
-	struct mars_dent *res;
+	struct mars_dent *res = NULL;
 
 	if (!global)
 		return NULL;
+
+	if (recursive && has_subtree_prefix(path)) {
+		const char *prefix = subtree_prefix(path);
+
+		if (prefix) {
+			struct mars_dent *sub;
+
+			down_write(&global->dent_mutex);
+			sub = _mars_find_dent(&global->dent_quick_anchor, prefix, false);
+			if (!sub) {
+				sub = _mars_find_dent(&global->dent_anchor, prefix, true);
+				if (sub) {
+					list_del_init(&sub->dent_quick_link);
+					list_add(&sub->dent_quick_link, &global->dent_quick_anchor);
+				}
+			}
+			up_write(&global->dent_mutex);
+			if (sub && sub->d_subtree)
+				res = __mars_find_dent(sub->d_subtree,
+						       path, false);
+		}
+		brick_string_free(prefix);
+		if (res)
+			return res;
+	}
 
 	down_read(&global->dent_mutex);
 	res = _mars_find_dent(&global->dent_quick_anchor, path, false);
@@ -2047,6 +2107,11 @@ struct mars_dent *mars_find_dent(struct mars_global *global, const char *path)
 	}
 	up_write(&global->dent_mutex);
 	return res;
+}
+
+struct mars_dent *mars_find_dent(struct mars_global *global, const char *path)
+{
+	return __mars_find_dent(global, path, true);
 }
 EXPORT_SYMBOL_GPL(mars_find_dent);
 
@@ -2072,6 +2137,13 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 	CHECK_HEAD_EMPTY(&dent->dent_hash_link);
 	CHECK_HEAD_EMPTY(&dent->dent_quick_link);
 	CHECK_HEAD_EMPTY(&dent->brick_list);
+
+	if (dent->d_subtree) {
+		mars_free_dent_all(dent->d_subtree,
+				   &dent->d_subtree->dent_anchor);
+		brick_mem_free(dent->d_subtree);
+		dent->d_subtree = NULL;
+	}
 
 	for (i = 0; i < MARS_ARGV_MAX; i++) {
 		brick_string_free(dent->d_argv[i]);
