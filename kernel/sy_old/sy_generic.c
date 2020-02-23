@@ -1558,6 +1558,30 @@ int _op_forward(struct say_channel **say_channel,
 	return total_status;
 }
 
+static
+void _op_remove(struct say_channel **say_channel,
+		struct mars_global *global)
+{
+	struct list_head *tmp;
+	struct list_head *prev;
+
+	down_write(&global->dent_mutex);
+	for (tmp = global->dent_anchor.prev, prev = tmp->prev; tmp != &global->dent_anchor; tmp = prev, prev = prev->prev) {
+		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
+		if (!dent->d_killme)
+			continue;
+
+		bind_to_dent(dent, say_channel);
+
+		MARS_DBG("killing dent '%s'\n", dent->d_path);
+		list_del_init(&dent->dent_link);
+		list_del_init(&dent->dent_hash_link);
+		list_del_init(&dent->dent_quick_link);
+		mars_free_dent(NULL, dent);
+	}
+	up_write(&global->dent_mutex);
+}
+
 int mars_dent_work(struct mars_global *global,
 		   char *path_list,
 		   int allocsize,
@@ -1581,7 +1605,6 @@ int mars_dent_work(struct mars_global *global,
 	struct say_channel *say_channel = NULL;
 	struct list_head *tmp;
 	struct list_head *next;
-	struct list_head *prev;
 	int rounds = 0;
 	int status;
 	int total_status = 0;
@@ -1678,22 +1701,7 @@ restart:
 	 * Needs to be done in reverse order because later d_parent pointers may
 	 * reference earlier list members.
 	 */
-	down_write(&global->dent_mutex);
-	MARS_IO("removal pass\n");
-	for (tmp = global->dent_anchor.prev, prev = tmp->prev; tmp != &global->dent_anchor; tmp = prev, prev = prev->prev) {
-		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
-		if (!dent->d_killme)
-			continue;
-
-		bind_to_dent(dent, &say_channel);
-
-		MARS_DBG("killing dent '%s'\n", dent->d_path);
-		list_del_init(&dent->dent_link);
-		list_del_init(&dent->dent_hash_link);
-		list_del_init(&dent->dent_quick_link);
-		mars_free_dent(NULL, dent);
-	}
-	up_write(&global->dent_mutex);
+	_op_remove(&say_channel, global);
 
 	bind_to_dent(NULL, &say_channel);
 
