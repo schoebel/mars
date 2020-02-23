@@ -1877,6 +1877,10 @@ void _op_remove(struct say_channel **say_channel,
 	down_write(&global->dent_mutex);
 	for (tmp = global->dent_anchor.prev, prev = tmp->prev; tmp != &global->dent_anchor; tmp = prev, prev = prev->prev) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
+
+		if (dent->d_subtree)
+			_op_remove(NULL, dent->d_subtree);
+
 		if (!dent->d_killme)
 			continue;
 		if (dent->d_child_count)
@@ -1884,7 +1888,8 @@ void _op_remove(struct say_channel **say_channel,
 		if (!list_empty(&dent->brick_list))
 			continue;
 
-		bind_to_dent(dent, say_channel);
+		if (say_channel)
+			bind_to_dent(dent, say_channel);
 
 		MARS_DBG("killing dent '%s'\n", dent->d_path);
 		list_del_init(&dent->dent_link);
