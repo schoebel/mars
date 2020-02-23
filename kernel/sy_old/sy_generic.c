@@ -1529,6 +1529,65 @@ bool dir_path_is_in(const char *path, const char *list)
 }
 
 static
+int _op_scan(struct say_channel **say_channel,
+	     struct mars_global *global,
+	     char *path_list,
+	     int allocsize,
+	     mars_dent_checker_fn checker,
+	     int maxdepth,
+	     int version,
+	     bool *found_dir,
+	     bool has_dir_list)
+{
+	struct list_head *tmp;
+	int total_status = 0;
+
+	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
+		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
+		int status;
+
+		// treat any member only once during this invocation
+		if (dent->d_version == version)
+			continue;
+		dent->d_version = version;
+
+		bind_to_dent(dent, say_channel);
+
+		//MARS_IO("reading inode '%s'\n", dent->d_path);
+		status = get_inode(dent->d_path, dent);
+		total_status |= status;
+
+		// mark gone dents for removal
+		if (unlikely(status < 0) && list_empty(&dent->brick_list))
+			dent->d_killme = true;
+
+		// recurse into subdirectories by inserting into the flat list
+		if (S_ISDIR(dent->new_stat.mode) &&
+		    dent->d_depth <= maxdepth &&
+		    (!has_dir_list || 
+		     dent->d_depth > 0 ||
+		     dir_path_is_in(dent->d_path, path_list))) {
+			struct mars_cookie sub_cookie = {
+				.global = global,
+				.checker = checker,
+				.path = dent->d_path,
+				.allocsize = allocsize,
+				.parent = dent,
+				.tmp_anchor = LIST_HEAD_INIT(sub_cookie.tmp_anchor),
+				.depth = dent->d_depth + 1,
+			};
+			*found_dir = true;
+			status = _mars_readdir(&sub_cookie);
+			total_status |= status;
+			if (status < 0) {
+				MARS_INF("forward: status %d on '%s'\n", status, dent->d_path);
+			}
+		}
+	}
+	return total_status;
+}
+
+static
 int _op_forward(struct say_channel **say_channel,
 		struct mars_global *global,
 		mars_dent_worker_fn worker,
@@ -1635,9 +1694,7 @@ int mars_dent_work(struct mars_global *global,
 		.depth = 0,
 	};
 	struct say_channel *say_channel = NULL;
-	struct list_head *tmp;
 	int rounds = 0;
-	int status;
 	int total_status = 0;
 	bool found_dir;
 	bool has_dir_list = false;
@@ -1670,46 +1727,14 @@ restart:
 	 * forward-reference other dents, and it would be a pity if
 	 * some inodes were not available or were outdated.
 	 */
-	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
-		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
-		// treat any member only once during this invocation
-		if (dent->d_version == version)
-			continue;
-		dent->d_version = version;
+	total_status |=
+		_op_scan(&say_channel,
+			 global, path_list,
+			 allocsize, checker,
+			 maxdepth,
+			 version,
+			 &found_dir, has_dir_list);
 
-		bind_to_dent(dent, &say_channel);
-
-		//MARS_IO("reading inode '%s'\n", dent->d_path);
-		status = get_inode(dent->d_path, dent);
-		total_status |= status;
-
-		// mark gone dents for removal
-		if (unlikely(status < 0) && list_empty(&dent->brick_list))
-			dent->d_killme = true;
-
-		// recurse into subdirectories by inserting into the flat list
-		if (S_ISDIR(dent->new_stat.mode) &&
-		    dent->d_depth <= maxdepth &&
-		    (!has_dir_list || 
-		     dent->d_depth > 0 ||
-		     dir_path_is_in(dent->d_path, path_list))) {
-			struct mars_cookie sub_cookie = {
-				.global = global,
-				.checker = checker,
-				.path = dent->d_path,
-				.allocsize = allocsize,
-				.parent = dent,
-				.tmp_anchor = LIST_HEAD_INIT(sub_cookie.tmp_anchor),
-				.depth = dent->d_depth + 1,
-			};
-			found_dir = true;
-			status = _mars_readdir(&sub_cookie);
-			total_status |= status;
-			if (status < 0) {
-				MARS_INF("forward: status %d on '%s'\n", status, dent->d_path);
-			}
-		}
-	}
 	bind_to_dent(NULL, &say_channel);
 
 	if (found_dir && ++rounds < 10) {
