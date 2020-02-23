@@ -1725,6 +1725,7 @@ int _op_scan(struct say_channel **say_channel,
 	     int allocsize,
 	     mars_dent_checker_fn checker,
 	     int maxdepth,
+	     bool use_subtree,
 	     int version,
 	     bool *found_dir,
 	     bool has_dir_list,
@@ -1742,7 +1743,8 @@ int _op_scan(struct say_channel **say_channel,
 			continue;
 		dent->d_version = version;
 
-		bind_to_dent(dent, say_channel);
+		if (say_channel)
+			bind_to_dent(dent, say_channel);
 
 		//MARS_IO("reading inode '%s'\n", dent->d_path);
 		status = get_inode(dent->d_path, dent, some_ordered);
@@ -1752,7 +1754,10 @@ int _op_scan(struct say_channel **say_channel,
 		if (unlikely(status < 0) && list_empty(&dent->brick_list))
 			dent->d_killme = true;
 
-		// recurse into subdirectories by inserting into the flat list
+		/* Recurse into subdirectories.
+		 * Insert either into the flat list, or create
+		 * a new subtree.
+		 */
 		if (S_ISDIR(dent->new_stat.mode) &&
 		    dent->d_depth <= maxdepth &&
 		    (!has_dir_list || 
@@ -1769,12 +1774,30 @@ int _op_scan(struct say_channel **say_channel,
 				.depth = dent->d_depth + 1,
 				.some_ordered = some_ordered,
 			};
+
+			if (say_channel && use_subtree && 
+			    has_subtree_prefix(dent->d_path)) {
+				if (!dent->d_subtree) {
+					dent->d_subtree = alloc_mars_global();
+				}
+				sub_cookie.global = dent->d_subtree;
+			}
 			*found_dir = true;
 			status = _mars_readdir(&sub_cookie);
 			total_status |= status;
 			if (status < 0) {
 				MARS_INF("forward: status %d on '%s'\n", status, dent->d_path);
 			}
+			if (dent->d_subtree)
+				total_status |=
+					_op_scan(NULL,
+						 dent->d_subtree,
+						 path_list,
+						 allocsize, checker,
+						 maxdepth, use_subtree,
+						 version,
+						 found_dir, has_dir_list,
+						 false);
 		}
 	}
 	return total_status;
@@ -1944,6 +1967,7 @@ int mars_get_dent_list(struct mars_global *global,
 			 allocsize,
 			 checker,
 			 maxdepth,
+			 false,
 			 version,
 			 &found_dir,
 			 has_dir_list,
@@ -2012,7 +2036,7 @@ restart:
 		_op_scan(&say_channel,
 			 global, path_list,
 			 allocsize, checker,
-			 maxdepth,
+			 maxdepth, use_subtree,
 			 version,
 			 &found_dir,
 			 has_dir_list,
