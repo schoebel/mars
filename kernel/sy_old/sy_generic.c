@@ -1528,6 +1528,36 @@ bool dir_path_is_in(const char *path, const char *list)
 	return res;
 }
 
+static
+int _op_forward(struct say_channel **say_channel,
+		struct mars_global *global,
+		mars_dent_worker_fn worker,
+		void *buf,
+		bool w_fl1, bool w_fl2)
+{
+	struct list_head *tmp;
+	struct list_head *next;
+	int total_status = 0;
+
+	down_read(&global->dent_mutex);
+	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
+		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
+		int status;
+
+		up_read(&global->dent_mutex);
+
+		brick_yield();
+
+		bind_to_dent(dent, say_channel);
+
+		status = worker(buf, dent, w_fl1, w_fl2);
+		down_read(&global->dent_mutex);
+		total_status |= status;
+	}
+	up_read(&global->dent_mutex);
+	return total_status;
+}
+
 int mars_dent_work(struct mars_global *global,
 		   char *path_list,
 		   int allocsize,
@@ -1639,26 +1669,8 @@ restart:
 	 * Here is a chance to mark some dents for removal
 	 * (or other types of non-destructive operations)
 	 */
-	down_read(&global->dent_mutex);
-	MARS_IO("prep pass\n");
-	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
-		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
-
-		up_read(&global->dent_mutex);
-
-		brick_yield();
-
-		bind_to_dent(dent, &say_channel);
-
-		//MARS_IO("forward prepare '%s'\n", dent->d_path);
-		status = worker(buf, dent, true, false);
-		if (status) {
-			//MARS_IO("forward treat '%s' status = %d\n", dent->d_path, status);
-		}
-		down_read(&global->dent_mutex);
-		total_status |= status;
-	}
-	up_read(&global->dent_mutex);
+	total_status |=
+		_op_forward(&say_channel, global, worker, buf, true, false);
 
 	bind_to_dent(NULL, &say_channel);
 
