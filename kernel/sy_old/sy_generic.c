@@ -1800,11 +1800,24 @@ int _op_forward(struct say_channel **say_channel,
 
 		brick_yield();
 
-		bind_to_dent(dent, say_channel);
+		if (say_channel)
+			bind_to_dent(dent, say_channel);
 
+		/* Caution: the order is important.
+		 * First visit the parent, then descend into
+		 * the subtree (when present).
+		 */
 		status = worker(buf, dent, w_fl1, w_fl2);
-		down_read(&global->dent_mutex);
 		total_status |= status;
+
+		if (dent->d_subtree)
+			total_status |=
+				_op_forward(NULL,
+					    dent->d_subtree,
+					    worker, buf,
+					    w_fl1, w_fl2);
+
+		down_read(&global->dent_mutex);
 	}
 	up_read(&global->dent_mutex);
 	return total_status;
