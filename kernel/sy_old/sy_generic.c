@@ -1707,29 +1707,12 @@ restart:
 
 	/* Forward pass.
 	*/
-	down_read(&global->dent_mutex);
-	MARS_IO("forward pass\n");
-	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
-		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
-		up_read(&global->dent_mutex);
-
-		brick_yield();
-
-		bind_to_dent(dent, &say_channel);
-
-		//MARS_IO("forward treat '%s'\n", dent->d_path);
-		status = worker(buf, dent, false, false);
-		if (status) {
-			//MARS_IO("forward treat '%s' status = %d\n", dent->d_path, status);
-		}
-		down_read(&global->dent_mutex);
-		total_status |= status;
-	}
-	bind_to_dent(NULL, &say_channel);
+	total_status |=
+		_op_forward(&say_channel, global, worker, buf, false, false);
 
 	/* Backward pass.
 	*/
-	MARS_IO("backward pass\n");
+	down_read(&global->dent_mutex);
 	for (tmp = global->dent_anchor.prev, next = tmp->prev; tmp != &global->dent_anchor; tmp = next, next = next->prev) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		up_read(&global->dent_mutex);
