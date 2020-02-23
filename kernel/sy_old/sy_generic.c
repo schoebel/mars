@@ -1842,7 +1842,19 @@ int _op_backward(struct say_channel **say_channel,
 
 		brick_yield();
 
-		bind_to_dent(dent, say_channel);
+		if (say_channel)
+			bind_to_dent(dent, say_channel);
+
+		/* Caution: the order is important.
+		 * When running backwards, we first need to
+		 * descend into the subtree (when present)
+		 * before visiting the parent.
+		 */
+		if (dent->d_subtree)
+			total_status |=
+				_op_backward(NULL,
+					    dent->d_subtree,
+					    worker, buf);
 
 		status = worker(buf, dent, false, true);
 		down_read(&global->dent_mutex);
