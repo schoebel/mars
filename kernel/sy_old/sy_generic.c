@@ -1559,6 +1559,38 @@ int _op_forward(struct say_channel **say_channel,
 }
 
 static
+int _op_backward(struct say_channel **say_channel,
+		 struct mars_global *global,
+		 mars_dent_worker_fn worker,
+		 void *buf)
+{
+	struct list_head *tmp;
+	struct list_head *next;
+	int total_status = 0;
+
+	down_read(&global->dent_mutex);
+	for (tmp = global->dent_anchor.prev, next = tmp->prev; tmp != &global->dent_anchor; tmp = next, next = next->prev) {
+		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
+		int status;
+
+		up_read(&global->dent_mutex);
+
+		brick_yield();
+
+		bind_to_dent(dent, say_channel);
+
+		status = worker(buf, dent, false, true);
+		down_read(&global->dent_mutex);
+		total_status |= status;
+		if (status < 0) {
+			MARS_INF("backwards: status %d on '%s'\n", status, dent->d_path);
+		}
+	}
+	up_read(&global->dent_mutex);
+	return total_status;
+}
+
+static
 void _op_remove(struct say_channel **say_channel,
 		struct mars_global *global)
 {
@@ -1604,7 +1636,6 @@ int mars_dent_work(struct mars_global *global,
 	};
 	struct say_channel *say_channel = NULL;
 	struct list_head *tmp;
-	struct list_head *next;
 	int rounds = 0;
 	int status;
 	int total_status = 0;
@@ -1712,27 +1743,8 @@ restart:
 
 	/* Backward pass.
 	*/
-	down_read(&global->dent_mutex);
-	for (tmp = global->dent_anchor.prev, next = tmp->prev; tmp != &global->dent_anchor; tmp = next, next = next->prev) {
-		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
-		up_read(&global->dent_mutex);
-
-		brick_yield();
-
-		bind_to_dent(dent, &say_channel);
-
-		//MARS_IO("backward treat '%s'\n", dent->d_path);
-		status = worker(buf, dent, false, true);
-		if (status) {
-			//MARS_IO("backward treat '%s' status = %d\n", dent->d_path, status);
-		}
-		down_read(&global->dent_mutex);
-		total_status |= status;
-		if (status < 0) {
-			MARS_INF("backwards: status %d on '%s'\n", status, dent->d_path);
-		}
-	}
-	up_read(&global->dent_mutex);
+	total_status |=
+		_op_backward(&say_channel, global, worker, buf);
 
 	bind_to_dent(NULL, &say_channel);
 
