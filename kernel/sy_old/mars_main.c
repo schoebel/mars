@@ -6318,7 +6318,8 @@ static int _main_thread(void *data)
 					"/mars",
 					sizeof(struct mars_dent),
 					main_checker, main_worker,
-					mars_global, 3);
+					mars_global,
+					3, true);
 		mars_global->deleted_border = mars_global->deleted_min;
 		MARS_DBG("-------- worker deleted_min = %d status = %d\n",
 			 mars_global->deleted_min, status);

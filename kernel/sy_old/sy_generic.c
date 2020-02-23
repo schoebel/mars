@@ -1930,7 +1930,8 @@ int mars_dent_work(struct mars_global *global,
 		   mars_dent_checker_fn checker,
 		   mars_dent_worker_fn worker,
 		   void *buf,
-		   int maxdepth)
+		   int maxdepth,
+		   bool use_subtree)
 {
 	static int version = 0;
 	char *startname = brick_strdup(path_list);

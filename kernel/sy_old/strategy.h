@@ -141,7 +141,14 @@ extern void bind_to_dent(struct mars_dent *dent, struct say_channel **ch);
 typedef int (*mars_dent_checker_fn)(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel);
 typedef int (*mars_dent_worker_fn)(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction);
 
-extern int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker_fn checker, mars_dent_worker_fn worker, void *buf, int maxdepth);
+extern int mars_dent_work(struct mars_global *global,
+			  char *dirname,
+			  int allocsize,
+			  mars_dent_checker_fn checker,
+			  mars_dent_worker_fn worker,
+			  void *buf,
+			  int maxdepth,
+			  bool use_subtree);
 extern int mars_get_dent_list(struct mars_global *global,
 			      char *path_list,
 			      int allocsize,
