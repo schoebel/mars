@@ -3081,6 +3081,7 @@ sub create_res {
 
   my $primary;
   my $replay_nr = -1;
+  my $use_rsync = 0;
   if ($create) {
     mkdir($resdir);
     ldie "could not create resource '$res'\n" unless -d $resdir;
@@ -3101,6 +3102,7 @@ sub create_res {
 	# first check whether symlink information appears to be recent enough
 	last if recent_cluster($cmd, $res, $primary);
 	# for safety, fetch newest infos from last known primary
+	$use_rsync++;
 	rsync_cmd($primary, "--max-size=1 --update $primary:$mars/resource-$res/ $mars/resource-$res/", $res, 1);
 	last;
       }
@@ -3112,6 +3114,7 @@ sub create_res {
       my $peer = shift @peers;
       next if $peer eq $host;
       next if $peer eq $real_host;
+      $use_rsync++;
       rsync_cmd($peer, "--max-size=1 --update $peer:$mars/resource-$res $mars/", 1);
       $primary = _get_designated_primary($res, 1);
       $max_retry--;
@@ -3263,7 +3266,9 @@ sub create_res {
     _set_replaylink($resdir, $replay_nr, $primary, "");
     set_link("0", "$resdir/syncstatus-$host");
     finish_links();
-    rsync_cmd($primary, "--max-size=1 --update $file $primary:$mars/resource-$res/", 1);
+    if ($use_rsync) {
+      rsync_cmd($primary, "--max-size=1 --update $file $primary:$mars/resource-$res/", 1);
+    }
     # Re-read the primary replaylink because it might have log-rotated in the meantime
     wait_cluster($cmd, $res, $primary);
     my $replay = get_link("$resdir/replay-$primary");
