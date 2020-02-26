@@ -1352,7 +1352,7 @@ sub mars_time {
 my $timeout_val = undef;
 
 sub sleep_timeout {
-  my $sleeptime = shift || 5;
+  my $sleeptime = shift || 1;
   my $continue = shift;
   if ($timeout < 0) {
     sleep($sleeptime);
@@ -3200,7 +3200,6 @@ sub create_res {
       }
       finish_links();
       _wait_delete();
-      sleep(5);
       next;
     }
     lwarn "First cleanup.\n";
@@ -4140,7 +4139,7 @@ sub wait_umount_res {
     }
     last if !$sum;
     lprint "device for resource '$res' is $sum times in use on $host\n";
-    sleep_timeout(3);
+    sleep_timeout(1);
   }
   lprint "OK, device for resource '$res' is not in use.\n";
 }
