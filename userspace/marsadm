@@ -3579,6 +3579,8 @@ sub _replace_delete {
   return $new;
 }
 
+my $nr_deletions = 0;
+
 sub _create_delete {
   my ($target) = @_;
   ldie "cannot delete: '$target' is no absolute path\n" unless $target =~ m:^/:;
@@ -3586,11 +3588,14 @@ sub _create_delete {
   my $new = _replace_delete($global_path, $target);
   lprint "create symlink $new -> $target\n" if $verbose;
   set_link($target, $new);
+  $nr_deletions++;
 }
 
 sub _wait_delete {
   return if $dry_run;
   lwarn "Do not run this in --parallel mode\n" if $child_prefix;
+  return if !$nr_deletions;
+  $nr_deletions = 0;
   for (;;) {
     my $deleted = get_link("$mars/todo-global/deleted-$real_host");
     $deleted =~ s/^0+//;
