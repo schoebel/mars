@@ -121,6 +121,7 @@ struct mars_global {
 	int old_deleted_my_border;
 	int deleted_border;
 	int deleted_min;
+	int trigger_mode;
 	bool main_trigger;
 };
 

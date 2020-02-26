@@ -1023,9 +1023,10 @@ struct mars_global *mars_global = NULL;
 EXPORT_SYMBOL_GPL(mars_global);
 
 static
-void __mars_trigger(void)
+void __mars_trigger(int mode)
 {
 	if (mars_global) {
+		mars_global->trigger_mode |= mode;
 		mars_global->main_trigger = true;
 		wake_up_interruptible_all(&mars_global->main_event);
 	}

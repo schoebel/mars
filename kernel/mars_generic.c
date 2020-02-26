@@ -354,7 +354,7 @@ EXPORT_SYMBOL_GPL(mars_power_led_off);
 
 // init stuff
 
-void (*_mars_trigger)(void) = NULL;
+void (*_mars_trigger)(int) = NULL;
 EXPORT_SYMBOL_GPL(_mars_trigger);
 
 struct mm_struct *mm_fake = NULL;

@@ -118,7 +118,9 @@ int trigger_sysctl_handler(
 			int code = 0;
 
 			sscanf(tmp, "%d", &code);
-			if (code > 0) {
+			if (code >= 8) {
+				mars_full_trigger(code);
+			} else if (code > 0) {
 				mars_trigger();
 			}
 			if (code > 2) {

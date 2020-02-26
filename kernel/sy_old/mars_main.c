@@ -1785,6 +1785,7 @@ struct mars_peerinfo {
 	bool from_remote_trigger;
 	bool do_communicate;
 	bool do_additional;
+	bool do_entire_once;
 	bool doing_additional;
 };
 
@@ -2428,6 +2429,7 @@ int peer_thread(void *data)
 			peer->to_remote_trigger = false;
 			cmd.cmd_code = CMD_GETENTS;
 			if ((!peer->do_additional || peer->do_communicate) &&
+			    !peer->do_entire_once &&
 			    mars_resource_list) {
 				char *dir_list;
 
@@ -2439,6 +2441,7 @@ int peer_thread(void *data)
 				cmd.cmd_str1 = dir_list;
 			} else {
 				cmd.cmd_str1 = brick_strdup("/mars");
+				peer->do_entire_once = false;
 			}
 			MARS_DBG("fetching dents from '%s' paths '%s'\n",
 				 peer->peer, cmd.cmd_str1);
@@ -2629,6 +2632,26 @@ void __mars_remote_trigger(bool do_all)
 	up_read(&peer_lock);
 
 	MARS_DBG("triggered %d peers\n", count);
+	wake_up_interruptible_all(&remote_event);
+}
+
+static
+void __mars_full_trigger(int mode)
+{
+	struct list_head *tmp;
+	int count = 0;
+
+	down_read(&peer_lock);
+	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
+		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
+
+		if (mode & 8)
+			peer->do_entire_once = true;
+		count++;
+	}
+	up_read(&peer_lock);
+
+	MARS_DBG("full trigger %d peers\n", count);
 	wake_up_interruptible_all(&remote_event);
 }
 
@@ -6170,6 +6193,7 @@ static int _main_thread(void *data)
 
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
 		struct list_head *tmp;
+		int trigger_mode;
 		int status;
 		loff_t memlimit;
 
@@ -6264,6 +6288,11 @@ static int _main_thread(void *data)
 
 		_global.main_trigger = false;
 		additional_peers(mars_run_additional_peers - mars_running_additional_peers);
+		trigger_mode = _global.trigger_mode;
+		_global.trigger_mode = 0;
+		if (trigger_mode) {
+			__mars_full_trigger(trigger_mode);
+		}
 	}
 
 done:
