@@ -1495,6 +1495,36 @@ sub update_cluster {
   wait_cluster($cmd, $res, "*", 0, 8);
 }
 
+sub is_cluster_recent {
+  my ($cmd, $res, $hosts) = @_;
+  my $dead_count = 0;
+  my $alive_count = 0;
+  my $unknown_count = 0;
+  my $now = mars_time();
+  my %status = get_alive_links($res, "time", $hosts);
+  foreach my $peer (keys(%status)) {
+    next if $peer eq $host;
+    if ($status{$peer} + $window/2 >= $now) {
+      $alive_count++;
+    } elsif ($status{$peer} + $window < $now) {
+      $dead_count++;
+    } else {
+      $unknown_count++;
+    }
+  }
+  return ($dead_count, $alive_count, $unknown_count);
+}
+
+sub recent_cluster {
+  my $cmd = shift;
+  my $res = shift || "all";
+  my $hosts = shift || "*";
+  my ($dead_count, $alive_count, $unknown_count) = is_cluster_recent($cmd, $res, $hosts);
+  return 1 if (!$dead_count && !$unknown_count);
+  wait_cluster($cmd, $res, $hosts, 0);
+  return 0;
+}
+
 ##################################################################
 
 # syntactic checks
@@ -3060,10 +3090,16 @@ sub create_res {
     # Reason: newer kernel modules will fetch non-member resource infos less frequently.
     # Therefore we shift some responsibility for non-member -> member transitions to userspace.
     my @peers = map { m:^$mars/ips/ip-(.+):; $1 } glob("$mars/ips/ip-*");
-    $primary = _get_designated_primary($res, 1);
+    for (my $retry = 0; $retry < 3; $retry++) {
+      $primary = _get_designated_primary($res, 1);
+      last if (defined($primary) && $primary);
+      wait_cluster($cmd, $res, "*", 0, 8);
+    }
     my $max_retry = 5;
     for (;;) {
       if ($primary && $primary ne "(none)") {
+	# first check whether symlink information appears to be recent enough
+	last if recent_cluster($cmd, $res, $primary);
 	# for safety, fetch newest infos from last known primary
 	rsync_cmd($primary, "--max-size=1 --update $primary:$mars/resource-$res/ $mars/resource-$res/", $res, 1);
 	last;
