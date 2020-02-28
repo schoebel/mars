@@ -2003,6 +2003,7 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	struct mars_rotate *rot;
 	const char *switch_path = NULL;
 	struct copy_brick *fetch_brick;
+	int repair_log_seq = -1;
 	int status = 0;
 
 	// correct the remote size when necessary
@@ -2057,6 +2058,15 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 			status = _update_file(parent, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
 			MARS_DBG("re-update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 		}
+	/* Try to self-repair any damaged logfiles.
+	 */
+	} else if ((rot->is_log_damaged | rot->log_is_really_damaged) &&
+		   rot->replay_mode && !rot->todo_primary &&  rot->allow_update &&
+		   rot->replay_link &&
+		   parse_logfile_name(rot->replay_link->d_name, &repair_log_seq, NULL) &&
+		   repair_log_seq == remote_dent->d_serial) {
+		status = _update_file(parent, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
+		MARS_DBG("REPAIR '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 	} else if (!rot->fetch_serial && rot->allow_update &&
 		   !rot->is_primary && !rot->old_is_primary &&
 		   (!rot->preferred_peer || !strcmp(rot->preferred_peer, peer)) &&
