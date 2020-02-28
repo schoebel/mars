@@ -1081,12 +1081,15 @@ int parse_logfile_name(const char *str, int *seq, const char **host)
 	int len_host;
 
 	*seq = 0;
-	*host = NULL;
+	if (host)
+		*host = NULL;
 
 	count = sscanf(str, "log-%d-%n", seq, &len);
 	if (unlikely(count != 1)) {
 		MARS_ERR("bad logfile name '%s', count=%d, len=%d\n", str, count, len);
 		return 0;
+	} else if (!host) {
+		return -1;
 	}
 
 	_host = brick_strdup(str + len);
