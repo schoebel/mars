@@ -1907,6 +1907,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	const char *argv[2] = { tmp, file };
 	struct copy_brick *copy = NULL;
 	struct key_value_pair *msg_pair = find_key(rot->msgs, "inf-fetch");
+	loff_t start_pos;
 	bool do_start = true;
 	int status = -ENOMEM;
 
@@ -1953,7 +1954,16 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		do_start = false;
 	}
 
-	MARS_DBG("src = '%s' dst = '%s' do_start=%d\n", tmp, file, do_start);
+	/* Self-correct logfile when necessary
+	 */
+	start_pos = -1;
+	if (do_start && (rot->is_log_damaged | rot->log_is_really_damaged)) {
+		start_pos = 0;
+		MARS_INF("Trying to repair damaged logfile '%s'\n", file);
+	}
+
+	MARS_DBG("src = '%s' dst = '%s' start_pos=%lld do_start=%d\n",
+		 tmp, file, start_pos, do_start);
 
 	status = __make_copy(global,
 			     NULL,
@@ -1962,7 +1972,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 			     NULL,
 			     argv,
 			     msg_pair,
-			     -1,
+			     start_pos,
 			     -1, 
 			     false, false, false, true,
 			     &copy,
