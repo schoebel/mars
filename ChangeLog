@@ -80,6 +80,14 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable84
+	* Major improvement: try to automatically self-repair
+	  any defective logfile at secondaries, by fetching again
+	  from primary.
+	  This can only work when the version at the primary is
+	  healthy.
+	  When successful, "invalidate" is no longer necessary.
+
 mars0.1astable83
 	* Major improvement: new marsadm option --parallel can drastically
 	  speed up handover, provided that the rest of your infrastructure
