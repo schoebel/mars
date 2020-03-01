@@ -122,6 +122,28 @@ sub lamport_glob {
   return @result;
 }
 
+sub link_exists {
+  my $path = shift;
+  return 0 unless -l $path;
+  my $val = readlink($path);
+  return 0 unless defined($val);
+  return 0 if $val eq ".deleted";
+  return 1;
+}
+
+sub file_exists {
+  my $path = shift;
+  return 1 if -f $path;
+  return 0;
+}
+
+sub any_exists {
+  my $path = shift;
+  return 1 if file_exists($path);
+  return 1 if link_exists($path);
+  return 0;
+}
+
 ##################################################################
 
 # global variables
@@ -1311,7 +1333,7 @@ sub get_alive_links {
 	my $self = `dirname $check`;
 	chomp $self;
 	$self .= "/data-$host";
-	$common++ if -e $self;
+	$common++ if any_exists($self);
       }
       next unless $common;
     }
@@ -1626,8 +1648,8 @@ sub check_sizes {
 
 sub check_res_member {
   my ($cmd, $res) = @_;
-  if (! -l "$mars/resource-$res/data-$host") {
-    if (-l "$mars/resource-$res/replay-$host") {
+  if (! link_exists("$mars/resource-$res/data-$host")) {
+    if (link_exists("$mars/resource-$res/replay-$host")) {
       lwarn "Resource '$res' seems to have been destroyed.\n";
       lwarn "Nevertheless, a replay link exists for host '$host'.\n";
       lwarn "This can happen after 'leave-resource --host=$host' while host $host was active.\n";
@@ -1646,7 +1668,7 @@ sub check_res_member {
 sub _sync_finished {
   my ($res, $peer) = @_;
   my $lnk = "$mars/resource-$res/syncstatus-$peer";
-  return 0 unless lstat($lnk);
+  return 0 unless link_exists($lnk);
   my $syncstatus = get_link($lnk, 1);
   my $size = get_link("$mars/resource-$res/size");
   return 0 if ($size <= 0);
@@ -1988,7 +2010,7 @@ sub get_amount {
       my $file = sprintf("%s/log-%09d-%s", $resdir, $logpos, $host);
       my @stat = stat($file);
       my $val = 0;
-      if (@stat) {
+      if (@stat && file_exists($file)) {
 	$val = $stat[7];
 	$ok = 1;
       } else {
@@ -2354,7 +2376,7 @@ sub log_purge_res {
   my $count = 0;
   foreach my $log (sort alphanum_cmp keys(%logs)) {
     my $nr = $logs{$log};
-    next if $nr < 0 || -e "$basedir/$log";
+    next if $nr < 0 || any_exists("$basedir/$log");
     lprint_stderr "info: logfile '$log' is referenced ($nr), but not present.\n";
     $count++;
   }
@@ -2896,8 +2918,8 @@ sub join_cluster {
   my ($cmd, $peer) = @_;
   ldie "Cannot join myself (peer='$peer', host='$host')\n" if $peer eq $host;
   ldie "Directory $mars is missing\n" unless -d $mars;
-  ldie "A valid tree signature '$mars/tree-$host' already exists, thus it appears you are already a cluster member! This cannot be overridden, other by using a freshly created /mars/ filesystem.\n" if -l "$mars/tree-$host";
-  ldie "A cluster UUD '$mars/uuid' already exists, thus it appears you are already a cluster member! This cannot be overridden, other by using a freshly created /mars/ filesystem.\n" if -l "$mars/uuid";
+  ldie "A valid tree signature '$mars/tree-$host' already exists, thus it appears you are already a cluster member! This cannot be overridden, other by using a freshly created /mars/ filesystem.\n" if link_exists("$mars/tree-$host");
+  ldie "A cluster UUD '$mars/uuid' already exists, thus it appears you are already a cluster member! This cannot be overridden, other by using a freshly created /mars/ filesystem.\n" if link_exists("$mars/uuid");
   if (lamport_glob("$mars/resource-*") or lamport_glob("$mars/ips/*")) {
     ldie "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless $force;
   }
@@ -2939,7 +2961,7 @@ sub merge_cluster {
   ldie "No peer argument given" unless $peer;
   ldie "Cannot merge myself (peer='$peer', host='$host')\n" if $peer eq $host;
   ldie "Directory $mars is missing\n" unless -d $mars;
-  ldie "A cluster UUD '$mars/uuid' does not exist. Please use 'join-cluster instead.\n" unless -l "$mars/uuid";
+  ldie "A cluster UUD '$mars/uuid' does not exist. Please use 'join-cluster instead.\n" unless link_exists("$mars/uuid");
   # check connections
   my $check_cmd = "uname -a";
   system("$check_cmd") == 0 or ldie "oops, 'uname is not installed'\n";
@@ -2969,7 +2991,7 @@ sub merge_cluster {
     lprint "No resource name checking necessary.\n";
     lprint "Operation '$cmd' will therfore work logically idempotent.\n";
   } else {
-    if (-l "$mars/tree-$peer") {
+    if (link_exists("$mars/tree-$peer")) {
       lwarn "A valid tree signature '$mars/tree-$peer' already exists, thus it appears to be already merged!\n";
       ldie "Aborting for saftey. Override via --force only if you know what you are doing!\n" unless $force;
     }
@@ -3001,7 +3023,7 @@ sub merge_cluster {
     }
     # INTERNAL, for debugging and error analysis: backup the old uuid symlink
     my $backup = "$backup_dir/uuid-backups";
-    system("mkdir -p $backup; cp -a $mars/uuid $backup/") unless -l "$backup/uuid";
+    system("mkdir -p $backup; cp -a $mars/uuid $backup/") unless link_exists("$backup/uuid");
   }
   # Start the "hot phase"
   my $rsync_cmd = "--max-size=1";
@@ -3065,7 +3087,7 @@ sub create_res {
     }
     lprint "creating new resource '$res'\n";
   } else {
-    if ( -l "$resdir/data-$host") {
+    if (link_exists("$resdir/data-$host")) {
       lwarn "resource '$res' has been already joined -- this is dangerous!\n";
       ldie "refusing dangerous operation\n" unless $force;
     } else {
@@ -3162,7 +3184,7 @@ sub create_res {
     $primary = _get_designated_primary($res);
     ldie "Sorry, joining is only possible if a designated primary exists.\n" if $primary eq "(none)";
     ldie "implausible state: I ($host) am already designated primary of resource '$res' which I just wanted to join\n" if $primary eq $host;
-    ldie "my ip '$ip' is not registered -- please run 'join-cluster' first\n" unless -l "$mars/ips/ip-$host";
+    ldie "my ip '$ip' is not registered -- please run 'join-cluster' first\n" unless link_exists("$mars/ips/ip-$host");
     check_sync_startable(@_);
     my $replay = get_link("$resdir/replay-$primary");
     if ($replay =~ m/^log-([0-9]+)-/) {
@@ -3181,7 +3203,7 @@ sub create_res {
       next if $old_res eq $res;
       my $old_name = get_link($old_dev);
       if ($old_name eq $appear) {
-	if ( -l "$mars/resource-$old_res/data-$host") {
+	if (link_exists("$mars/resource-$old_res/data-$host")) {
 	  ldie "device '/dev/mars/$old_name' is already present in joined resource '$old_res'\n";
 	} else {
 	  lwarn "device '/dev/mars/$old_name' is already present in another unjoined resource '$old_res' -- this does no harm, but may be confusing.\n";
@@ -3238,7 +3260,7 @@ sub create_res {
 
   my $file = "$resdir/data-$host";
   if (!$dev) {
-    lwarn "file '$file' already exists - reusing\n" if -l $file;
+    lwarn "link '$file' already exists - reusing\n" if link_exists($file);
     lprint "setup sparse file '$file' with size $size\n";
     open(OUT, ">>", $file) or ldie "could not open '$file'\n";
     truncate(OUT, $size) or ldie "truncate to size $size failed\n";
@@ -3421,11 +3443,11 @@ sub leave_res_phase1 {
   _create_delete("$mars/resource-$res/data-$host");
   _create_delete("$mars/resource-$res/syncstatus-$host");
   my $syncpos = "$mars/resource-$res/syncpos-$host";
-  _create_delete($syncpos) if -l $syncpos;
+  _create_delete($syncpos) if link_exists($syncpos);
   my $skip_check = "$mars/resource-$res/skip-check-$host";
-  _create_delete($skip_check) if -l $skip_check;
+  _create_delete($skip_check) if link_exists($skip_check);
   my $vstatus = "$mars/resource-$res/verifystatus-$host";
-  _create_delete($vstatus) if -l $vstatus;
+  _create_delete($vstatus) if link_exists($vstatus);
   _create_delete("$mars/resource-$res/device-$host");
   _create_delete("$mars/resource-$res/actsize-$host");
   foreach my $dir (lamport_glob("$mars/resource-$res/*-$host/")) {
@@ -3515,7 +3537,7 @@ sub logrotate_res {
   my $nr = $last;
   $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
   my $next = sprintf("$mars/resource-$res/log-%09d-$host", $nr + 1);
-  ldie "logfile '$next' already exists\n" if -e $next;
+  ldie "logfile '$next' already exists\n" if file_exists($next);
   system("touch $next") unless $dry_run;
   my $startnr = get_link("$mars/resource-$res/maxnr", 1);
   $startnr = $nr + 1 if ($nr >= $startnr);
@@ -4068,7 +4090,7 @@ sub primary_phase0b {
   # open-count will then go down to zero, hopefully somewhen.
   my $watch = "$mars/resource-$res/systemd-want";
   my $action = "";
-  if (-l $watch) {
+  if (link_exists($watch)) {
     $action = "system(\"touch -h $watch\");";
     my $response_path = "$mars/resource-$res/userspace/systemd-status-stop-$old";
     $action .= "\$action_status = get_link(\"$response_path\");";
@@ -4461,7 +4483,7 @@ sub show_cmd {
   $res = "*" if !$res || $res eq "all";
   my $glob = "$mars/{ips/ip-$host,alive-$host,emergency-$host,rest-space-$host,resource-$res/{device,primary,size,actsize-$host,syncstatus-$host,replay-$host,actual-$host/*,todo-$host/*}}";
   foreach my $link (lamport_glob($glob)) {
-    next unless -l $link;
+    next unless link_exists($link);
     my $res = get_link($link);
     my $short = $link;
     $short =~ s:^$mars/::;
@@ -7467,7 +7489,8 @@ sub do_all_res {
     my $total_count = scalar(@total_list);
     call_hook(!$force, "all-pre", $cmd, "all", @_) if $do_abort;
     foreach $res (@res_list) {
-      next unless -e "$mars/resource-$res/data-$host";
+      my $check ="$mars/resource-$res/data-$host";
+      next unless (any_exists($check));
       $any_member++;
       $res =~ s/^.*\/resource-(.*)$/$1/;
       next if defined($skip_res{$res});
