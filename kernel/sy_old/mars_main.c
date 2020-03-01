@@ -39,7 +39,7 @@
 /* In contrast, this _should_ be updated when _compatible_ features
  * are added.
  */
-#define OPTIONAL_FEATURES_VERSION "2"
+#define OPTIONAL_FEATURES_VERSION "3"
 
 // disable this only for debugging!
 #define RUN_PEERS
@@ -549,6 +549,7 @@ enum {
 	CL_GBL_ACTUAL_ITEMS,
 	CL_TREE,
 	CL_FEATURES,
+	CL_COMPAT_DELETIONS, /* transient, to re-disappear */
 	CL_EMERGENCY,
 	CL_REST_SPACE,
 	// resource definitions
@@ -5397,6 +5398,15 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 	return 0;
 }
 
+/* transient, to re-disappear */
+static
+int get_compat_deletions(void *buf, struct mars_dent *dent)
+{
+	if (dent && dent->new_link)
+		sscanf(dent->new_link, "%d", &compat_deletions);
+	return 0;
+}
+
 static
 int make_res(void *buf, struct mars_dent *dent)
 {
@@ -5652,6 +5662,15 @@ static const struct main_class main_classes[] = {
 		.cl_len = 9,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
+	},
+	/* transient, to re-disappear */
+	[CL_COMPAT_DELETIONS] = {
+		.cl_name = "compat-deletions",
+		.cl_len = 16,
+		.cl_type = 'l',
+		.cl_hostcontext = false,
+		.cl_father = CL_ROOT,
+		.cl_forward = get_compat_deletions,
 	},
 	/* Indicate whether filesystem is full
 	 */

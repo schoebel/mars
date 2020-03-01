@@ -31,6 +31,9 @@
 
 #define MARS_ARGV_MAX 4
 
+/* transient, to re-disappear */
+extern int compat_deletions;
+
 extern loff_t global_total_space;
 extern loff_t global_remaining_space;
 
