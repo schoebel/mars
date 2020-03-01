@@ -633,9 +633,12 @@ int mars_unlink(const char *path)
 
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_unlink);
 
-int mars_symlink(const char *oldpath, const char *newpath, const struct lamport_time *stamp, uid_t uid)
+static
+int mars_symlink(const char *oldpath, const char *newpath,
+		 const struct lamport_time *stamp,
+		 uid_t uid,
+		 bool ordered)
 {
 	char *tmp = backskip_replace(newpath, '/', true, "/.tmp-"); 
 	mm_segment_t oldfs;
@@ -658,13 +661,20 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct lamport_
 
 	oldfs = get_fs();
 	set_fs(get_ds());
+
+	status = vfs_lstat((char*)newpath, &stat);
+	/* When ordered, obey the Lamport condition.
+	 */
+	if (ordered && status >= 0 && stamp &&
+	    lamport_time_compare(&stat.mtime, stamp) > 0)
+		goto done_fs;
+
 	/* Some filesystems have only full second resolution.
 	 * Thus it may happen that the new timestamp is not
 	 * truly moving forward when called twice shortly.
 	 * This is a _workaround_, to be replaced by a better
 	 * method somewhen.
 	 */
-	status = vfs_lstat((char*)newpath, &stat);
 	if (status >= 0 &&
 	    !stamp &&
 	    !stat.mtime.tv_nsec &&
@@ -695,13 +705,13 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct lamport_
 		set_lamport(&times[0]);
 		status = mars_rename(tmp, newpath);
 	}
+ done_fs:
 	set_fs(oldfs);
 	brick_string_free(tmp);
 
 done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_symlink);
 
 char *mars_readlink(const char *newpath)
 {
@@ -931,7 +941,7 @@ int ordered_unlink(const char *path, const struct lamport_time *stamp, int seria
 		MARS_DBG("creating / updating marker '%s' mtime=%lu.%09lu\n",
 			 marker_path,
 			 stamp->tv_sec, stamp->tv_nsec);
-		status = mars_symlink(serial_str, marker_path, stamp, 0);
+		status = mars_symlink(serial_str, marker_path, stamp, 0, false);
 	}
 	if (marker_status < 0 ||
 	    lamport_time_compare(stamp, &stat.mtime) >= 0) {
@@ -969,7 +979,7 @@ int ordered_symlink(const char *oldpath, const char *newpath, const struct lampo
 	}
 
 	(void)mars_unlink(marker_path);
-	status = mars_symlink(oldpath, newpath, stamp, uid);
+	status = mars_symlink(oldpath, newpath, stamp, uid, false);
 
  done:
 	mutex_unlock(&ordered_lock);
@@ -1185,7 +1195,7 @@ int get_inode(char *newpath, struct mars_dent *dent)
 	    S_ISLNK(dent->new_stat.mode)) {
 		char *val = mars_readlink(newpath);
 		if (val) {
-			mars_symlink(val, newpath, &tmp.mtime, 0);
+			mars_symlink(val, newpath, &tmp.mtime, 0, false);
 			brick_string_free(val);
 		}
 	}

@@ -197,10 +197,6 @@ extern void mars_sync(void);
 extern int mars_mkdir(const char *path);
 extern int mars_rmdir(const char *path);
 extern int mars_unlink(const char *path);
-extern int mars_symlink(const char *oldpath,
-			const char *newpath,
-			const struct lamport_time *stamp,
-			uid_t uid);
 extern char *mars_readlink(const char *newpath);
 extern int mars_rename(const char *oldpath, const char *newpath);
 extern int mars_chmod(const char *path, mode_t mode);
