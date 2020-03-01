@@ -886,6 +886,8 @@ EXPORT_SYMBOL_GPL(mars_remaining_space);
 
 /* Timestamp Ordering */
 
+/* Description of the OLD odering method:
+ */
 /* Timestamp ordering (e.g. via Lamport Clock) is easy when
  * the object exists.
  * When unlink() comes into play, it becomes more complex:
@@ -896,9 +898,14 @@ EXPORT_SYMBOL_GPL(mars_remaining_space);
  * Idea: use a substitute object ".deleted-$object".
  */
 
+int compat_deletions = 1;
+
 static DEFINE_MUTEX(ordered_lock);
 
-int ordered_unlink(const char *path, const struct lamport_time *stamp, int serial, int mode)
+static
+int compat_ordered_unlink(const char *path,
+			  const struct lamport_time *stamp,
+			  int serial, int mode)
 {
 	struct kstat stat;
 	char serial_str[32];
@@ -934,7 +941,10 @@ int ordered_unlink(const char *path, const struct lamport_time *stamp, int seria
 	return status;
 }
 
-int ordered_symlink(const char *oldpath, const char *newpath, const struct lamport_time *stamp)
+static
+int compat_ordered_symlink(const char *oldpath,
+			   const char *newpath,
+			   const struct lamport_time *stamp)
 {
 	struct kstat stat;
 	struct lamport_time now;
@@ -968,6 +978,18 @@ int ordered_symlink(const char *oldpath, const char *newpath, const struct lampo
 	return status;
 }
 
+/* NEW timestamp ordering method.
+ * Timestamp ordering (e.g. via Lamport Clock) is easy when
+ * the object exists.
+ * When unlink() comes into play, it becomes more complex:
+ * where to store the timestamp of the object when it is
+ * deleted?
+ * The new method simply uses a special value MARS_DELETED_STR
+ * as a marker for symlinks.
+ * In order to prevent long-term accumulation of suchalike
+ * "zombie" symlinks, some cleanup via unlink() is necessary.
+ * We offload cleanup to "marsadm cron".
+ */
 
 char *ordered_readlink(const char *path)
 {
@@ -977,6 +999,29 @@ char *ordered_readlink(const char *path)
 		*res = '\0';
 	}
 	return res;
+}
+
+int ordered_unlink(const char *path,
+		   const struct lamport_time *stamp,
+		   int serial, int mode)
+{
+	if (compat_deletions)
+		return compat_ordered_unlink(path, stamp, serial, mode);
+
+	return ordered_symlink(MARS_DELETED_STR, path, stamp);
+}
+
+int ordered_symlink(const char *oldpath,
+		    const char *newpath,
+		    const struct lamport_time *stamp)
+{
+	int status;
+
+	if (compat_deletions)
+		return compat_ordered_symlink(oldpath, newpath, stamp);
+
+	status = mars_symlink(oldpath, newpath, stamp, true);
+	return status;
 }
 
 //////////////////////////////////////////////////////////////
