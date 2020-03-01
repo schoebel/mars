@@ -108,6 +108,22 @@ sub lwarn {
 
 ##################################################################
 
+# basic helpers
+
+sub lamport_glob {
+  my $expr = shift;
+  my @result =();
+  my @raw_glob = glob($expr);
+  foreach my $path (@raw_glob) {
+    my $val = readlink($path);
+    next if (defined($val) && $val eq ".deleted");
+    push @result, $path;
+  }
+  return @result;
+}
+
+##################################################################
+
 # global variables
 
 my $Id = '$Id$ ';
@@ -242,7 +258,7 @@ sub _try_exec {
 sub _try_exec_dir {
   my ($subdir, $cmd, $args, $abort) = @_;
   return unless -d $subdir;
-  foreach my $sub_path (glob("$subdir/*")) {
+  foreach my $sub_path (lamport_glob("$subdir/*")) {
     next if $sub_path =~ m:~$:;
     _try_exec($sub_path, $cmd, $args, $abort);
   }
@@ -287,10 +303,10 @@ my %all_resources;
 my %member_resources;
 
 sub _scan_resources {
-  foreach my $res (glob("$mars/resource-*/{data,replay,systemd}-*")) {
+  foreach my $res (lamport_glob("$mars/resource-*/{data,replay,systemd}-*")) {
     next unless $res =~ s:^$mars/resource-(.*?)/.*:$1:;
     $all_resources{$res} = 1;
-    if (glob("$mars/resource-$res/{data,replay,systemd}-$host")) {
+    if (lamport_glob("$mars/resource-$res/{data,replay,systemd}-$host")) {
       $member_resources{$res} = 1;
     }
   }
@@ -434,7 +450,7 @@ sub get_template_files {
       my $subdir = "$dir/$systemd_subdir";
       $subdir = $dir unless -d $subdir;
       next unless -d $subdir;
-      foreach my $template_file (glob("$subdir/*.{$systemd_suffixes}")) {
+      foreach my $template_file (lamport_glob("$subdir/*.{$systemd_suffixes}")) {
 	my $template_name = `basename '$template_file'`;
 	chomp $template_name;
 	next unless $template_name;
@@ -453,7 +469,7 @@ sub get_instance_files {
   my ($dir) = @_;
   my $glob = "$dir/*.{$systemd_suffixes}";
   my %instance_files;
-  foreach my $instance_file (glob($glob)) {
+  foreach my $instance_file (lamport_glob($glob)) {
     my $instance_name = `basename '$instance_file'`;
     chomp $instance_name;
     $instance_files{$instance_name} = $instance_file;
@@ -466,7 +482,7 @@ my %systemd_files;
 
 sub get_systemd_files {
   if (!%systemd_names) {
-    foreach my $systemd_file (glob("{$systemd_system_dirs}/*.{$systemd_suffixes}")) {
+    foreach my $systemd_file (lamport_glob("{$systemd_system_dirs}/*.{$systemd_suffixes}")) {
       next if $systemd_file =~ m:$systemd_target_dir:;
       my $systemd_name = `basename '$systemd_file'`;
       chomp $systemd_name;
@@ -691,7 +707,7 @@ sub set_systemd_want {
     }
   }
   my $unit_glob = "$mars/resource-$res/systemd-*-unit";
-  unless (glob($unit_glob)) {
+  unless (lamport_glob($unit_glob)) {
     lwarn "Resource '$res' has no configured systemd units.\n";
     lwarn "First configure the resource with marsadm set-systemd-unit.\n";
     ldie "Refusing to set systemd-want.\n" unless $force;
@@ -705,7 +721,7 @@ sub set_systemd_want {
 sub systemd_present {
   my ($cmd, $res) = @_;
   my $unit_glob = "$mars/resource-$res/systemd-*-unit";
-  return "" unless glob($unit_glob);
+  return "" unless lamport_glob($unit_glob);
   my $want_path = "$mars/resource-$res/systemd-want";
   my $want = get_link($want_path, 2);
   return $want;
@@ -892,7 +908,7 @@ sub __systemd_generate_all {
   my @res_list = get_member_resources();
   # Create initial systemd units
   foreach my $res (@res_list) {
-    foreach my $unit_link (glob("$mars/resource-$res/systemd-*-unit")) {
+    foreach my $unit_link (lamport_glob("$mars/resource-$res/systemd-*-unit")) {
       my $target = get_link($unit_link);
       $count += make_systemd_unit($cmd, $res, $target);
     }
@@ -935,7 +951,7 @@ sub __systemd_commit_ops {
   }
   systemctl("daemon-reload");
   # Activate all *.path triggers
-  for my $unit_path (glob("$systemd_target_dir/*mars*.path")) {
+  for my $unit_path (lamport_glob("$systemd_target_dir/*mars*.path")) {
     my $unit = `basename "$unit_path"`;
     chomp $unit;
     lprint "==== Activate path watcher '$unit'\n"if $verbose;
@@ -974,13 +990,13 @@ sub __systemd_fingerprint {
   foreach my $res (@res_list) {
     $text .= "$res\n";
     my $unit_glob = "$mars/resource-$res/systemd-*-unit";
-    foreach my $unit_link (glob($unit_glob)) {
+    foreach my $unit_link (lamport_glob($unit_glob)) {
       $text .= get_link($unit_link, 1) . "\n";
     }
   }
   # Fingerprint resulting templates (protect against external modifications)
   $text .= "#\n";
-  foreach my $unit_file (glob($systemd_target_dir)) {
+  foreach my $unit_file (lamport_glob($systemd_target_dir)) {
     my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
 	$atime,$mtime,$ctime,$blksize,$blocks) = stat($unit_file);
     $text .= "$size,$mtime,$unit_file\n";
@@ -1270,13 +1286,13 @@ sub get_alive_links {
   my $non_participating = shift || 0;
   $res = "*" if $res eq "all";
   my %cand;
-  foreach my $path (glob("$mars/ips/ip-$hosts")) {
+  foreach my $path (lamport_glob("$mars/ips/ip-$hosts")) {
     $path =~ m:/ip-(.*):;
     my $peer = $1;
     $cand{$peer} = 1;
   }
   my %peers;
-  foreach my $path (glob("$mars/resource-$res/data-*")) {
+  foreach my $path (lamport_glob("$mars/resource-$res/data-*")) {
     $path =~ m:/data-(.*):;
     my $peer = $1;
     next unless $peer;
@@ -1287,7 +1303,7 @@ sub get_alive_links {
     next unless $cand{$peer};
     # peer must be participating in the same resources
     if (!$non_participating) {
-      my @other = glob("$mars/resource-$res/data-$peer");
+      my @other = lamport_glob("$mars/resource-$res/data-$peer");
       next unless @other;
       # I must be participating in some of the _same_ resources
       my $common = 0;
@@ -1310,7 +1326,7 @@ sub get_alive_links {
     $glob = "$mars/$alive-{" . join(',', keys(%peers)) . "}";
   }
   my %links;
-  foreach my $path (glob($glob)) {
+  foreach my $path (lamport_glob($glob)) {
     $path =~ m:/$alive-(.+):;
     my $peer = $1;
     $links{$peer} = get_link($path, 1);
@@ -1564,7 +1580,7 @@ sub check_res {
     # DO WHAT I MEAN: try to substitute a device name for a badly given resource name if it is unique
     my $count = 0;
     my $found;
-    my @tests = glob("$mars/resource-*/device-$host");
+    my @tests = lamport_glob("$mars/resource-*/device-$host");
     foreach my $test (@tests) {
       my $target = get_link($test, 2);
       if ($target eq $res) {
@@ -1573,7 +1589,7 @@ sub check_res {
       }
     }
     if (!$count) {
-      @tests = glob("$mars/resource-*/_direct-*-$host");
+      @tests = lamport_glob("$mars/resource-*/_direct-*-$host");
       foreach my $test (@tests) {
 	my $target = get_link($test, 2);
 	$target =~ s/^.*,//;
@@ -1887,7 +1903,7 @@ sub _get_minmax {
   my ($res, $glob, $take_symlink) = @_;
   my $min = -1;
   my $max = -1;
-  my @paths = glob($glob) or lwarn "cannot find '$glob'\n";
+  my @paths = lamport_glob($glob) or lwarn "cannot find '$glob'\n";
   foreach my $path (@paths) {
     my $nr = $path;
     if ($take_symlink) {
@@ -1977,7 +1993,7 @@ sub get_amount {
 	$ok = 1;
       } else {
 	my $glob = sprintf("%s/log-%09d-*", $resdir, $logpos);
-	foreach $file (glob($glob)) {
+	foreach $file (lamport_glob($glob)) {
 	  my @tstat = stat($file);
 	  if (@tstat && $tstat[7] > $val) {
 	    @stat = @tstat;
@@ -1988,7 +2004,7 @@ sub get_amount {
       }
       if (!$only_files) {
 	my $glob = sprintf("%s/version-%09d-*", $resdir, $logpos);
-	foreach $file (glob($glob)) {
+	foreach $file (lamport_glob($glob)) {
 	  my $vers_link = get_link($file, 1);
 	  if ($vers_link && $vers_link =~ m;,([0-9]+):;) {
 	    my $nval = $1;
@@ -2148,7 +2164,7 @@ sub detect_splitbrain {
   return $detected_splits{$res} if defined($detected_splits{$res});
   my $basedir = "$mars/resource-$res";
   my $ok = 1;
-  my @list = glob("$mars/resource-$res/replay-*");
+  my @list = lamport_glob("$mars/resource-$res/replay-*");
   my @hosts = map { $_ =~ s:.*/replay-::; $_ } @list;
   foreach my $host1 (@hosts) {
     foreach my $host2 (@hosts) {
@@ -2187,7 +2203,7 @@ sub detect_splitbrain {
     }
   }
   if ($ok) { # check for duplicate logfiles
-    my @logs = glob("$mars/resource-$res/log-*");
+    my @logs = lamport_glob("$mars/resource-$res/log-*");
     my $oldnr = -1;
     foreach my $path (sort alphanum_cmp @logs) {
       $path =~ m:/log-([0-9]+):;
@@ -2274,7 +2290,7 @@ sub log_purge_res {
   my %start_logs;
   my $start_count = 0;
   my $basedir = "$mars/resource-$res";
-  foreach my $data (glob("$basedir/{data,replay}-*")) {
+  foreach my $data (lamport_glob("$basedir/{data,replay}-*")) {
     $data =~ m:/(data|replay)-(.+):;
     my $peer = $2;
     my $replay = "$basedir/replay-$peer";
@@ -2290,7 +2306,7 @@ sub log_purge_res {
     return;
   }
   my %logs;
-  foreach my $file (glob("$basedir/version-*")) {
+  foreach my $file (lamport_glob("$basedir/version-*")) {
     $file =~ m:/(version-([0-9]+)-([^,]+)): or ldie "bad path '$file'\n";
     my $cand = $1;
     my $nr = $2;
@@ -2313,7 +2329,7 @@ sub log_purge_res {
     lwarn "deleting foreign object from peer '$from' because you said --force\n" if $from ne $host;
     _create_delete($file);
   }
-  foreach my $file (glob("$basedir/log-*")) {
+  foreach my $file (lamport_glob("$basedir/log-*")) {
     $file =~ m:/(log-[0-9]+-(.*)): or ldie "bad path '$file'\n";
     my $log = $1;
     my $from = $2;
@@ -2353,7 +2369,7 @@ sub log_purge_res {
 
 sub err_purge_res {
   my ($cmd, $res) = @_;
-  foreach my $leftlink (glob("$mars/{,resource-$res/}actual-$host/msg-err-*")) {
+  foreach my $leftlink (lamport_glob("$mars/{,resource-$res/}actual-$host/msg-err-*")) {
     lprint "  deleting '$leftlink'\n" if $verbose;
     _create_delete($leftlink);
   }
@@ -2371,7 +2387,7 @@ sub try_to_avoid_splitbrain {
     return 0;
   }
   # now try to prevent producing a _new_ split brain situation....
-  my @host_list = glob("$mars/resource-$res/replay-*");
+  my @host_list = lamport_glob("$mars/resource-$res/replay-*");
   return 0 if scalar(@host_list) < 2;
     my ($min, $max) = get_minmax_versions($res);
     my $vers_glob = sprintf("$mars/resource-$res/version-%09d-*", $max);
@@ -2395,7 +2411,7 @@ sub try_to_avoid_splitbrain {
     if ($primary eq "(none)") {
       # try to determine the old primary when unique
       my $glob_logs = sprintf("$mars/resource-$res/log-%09d-*", $max);
-      my @candidates = glob($glob_logs);
+      my @candidates = lamport_glob($glob_logs);
       if (scalar(@candidates) == 1) {
 	my $log_path = pop @candidates;
 	if ($log_path =~ m:/log-[0-9]+-(.+)$:) {
@@ -2440,7 +2456,7 @@ sub try_to_avoid_splitbrain {
       }
     } else {
       # old primary is unknown: we have no chance, other than comparing _all_ versions.
-      my @versions = glob($vers_glob);
+      my @versions = lamport_glob($vers_glob);
       my $first = get_link(shift @versions);
       while (@versions) {
 	my $next = get_link(shift @versions);
@@ -2513,7 +2529,7 @@ sub _get_actual_primary {
   my $dev = "/dev/mars/$name";
   return $real_host if -b $dev;
   # The following old code is CONCEPTUALLY WRONG for split-brain situations (see NOTE above)
-  my @primary_links = glob("$mars/resource-$res/actual-*/is-primary");
+  my @primary_links = lamport_glob("$mars/resource-$res/actual-*/is-primary");
   my $primary;
   foreach my $link (@primary_links) {
     if (my $val = get_link($link)) {
@@ -2552,7 +2568,7 @@ sub _get_designated_primary {
 
 sub get_peers {
   my ($res) = @_;
-  my @list = glob("$mars/resource-$res/data-*");
+  my @list = lamport_glob("$mars/resource-$res/data-*");
   return map { $_ =~ s:$mars/resource-$res/data-::; $_ } @list;
 }
 
@@ -2592,7 +2608,7 @@ sub _get_text {
   my ($glob, $regex, $do_print, $get_count) = @_;
   my $text = "";
   my $count = 0;
-  foreach my $path (glob($glob)) {
+  foreach my $path (lamport_glob($glob)) {
     open(IN, "<", $path) or next;
     while (my $line = <IN>) {
       # use regex e.g. for fetching only errors and warnings
@@ -2730,7 +2746,7 @@ sub _set_replaylink {
 
 sub lowlevel_ls_host_ips {
   my ($cmd) = @_;
-  for my $path (glob("$mars/ips/ip-*")) {
+  for my $path (lamport_glob("$mars/ips/ip-*")) {
     $path =~ m:/ip-(.*):;
     my $peer = $1;
     my $ip = get_link($path, 1);
@@ -2882,7 +2898,7 @@ sub join_cluster {
   ldie "Directory $mars is missing\n" unless -d $mars;
   ldie "A valid tree signature '$mars/tree-$host' already exists, thus it appears you are already a cluster member! This cannot be overridden, other by using a freshly created /mars/ filesystem.\n" if -l "$mars/tree-$host";
   ldie "A cluster UUD '$mars/uuid' already exists, thus it appears you are already a cluster member! This cannot be overridden, other by using a freshly created /mars/ filesystem.\n" if -l "$mars/uuid";
-  if (glob("$mars/resource-*") or glob("$mars/ips/*")) {
+  if (lamport_glob("$mars/resource-*") or lamport_glob("$mars/ips/*")) {
     ldie "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless $force;
   }
   ldie "mars module is loaded, please unload first\n" if is_module_loaded();
@@ -2890,7 +2906,7 @@ sub join_cluster {
   rsync_cmd($peer, "--max-size=1 --update $peer:$mars/ $mars/");
   # check uniqness of IPs
   my %ips = ();
-  foreach my $other_ip_path (glob("$mars/ips/*")) {
+  foreach my $other_ip_path (lamport_glob("$mars/ips/*")) {
     my $other_ip = get_link($other_ip_path, 1);
     my $other_host = $other_ip_path;
     $other_host =~ s:.*/ip-::;
@@ -2906,8 +2922,8 @@ sub join_cluster {
 sub merge_cluster {
   my ($cmd, $peer) = @_;
   my $uuid = readlink("$mars/uuid");
-  my @resources = glob("$mars/resource-*");
-  my @ip_links = glob("$mars/ips/*");
+  my @resources = lamport_glob("$mars/resource-*");
+  my @ip_links = lamport_glob("$mars/ips/*");
   if ($cmd =~ m/-list/) {
     print "UUID: $uuid\n";
     print "IPs:\n";
@@ -3002,15 +3018,15 @@ sub leave_cluster {
   my ($cmd) = @_;
   ldie "mars kernel module is not loaded. This is needed for communication with some other hosts!\n" if !is_module_loaded();
   my $check = "/mars/resource-*/data-$host";
-  ldie "I am member of some resources\n" if glob($check) && !$force;
+  ldie "I am member of some resources\n" if lamport_glob($check) && !$force;
   wait_cluster($cmd) unless $force;
-  foreach my $path (glob("$mars/actual-*/*-$host")) {
+  foreach my $path (lamport_glob("$mars/actual-*/*-$host")) {
     _create_delete($path);
   }
   _create_delete("$mars/ips/ip-$host");
   finish_links();
   wait_cluster($cmd) unless $force;
-  foreach my $path (glob("$mars/actual-*/*-$host")) {
+  foreach my $path (lamport_glob("$mars/actual-*/*-$host")) {
     _create_delete($path);
   }
   _create_delete("$mars/todo-global/deleted-$host");
@@ -3020,10 +3036,10 @@ sub leave_cluster {
     sleep_timeout(3, 1);
   }
   system("rmmod mars") if $host eq $real_host;
-  foreach my $path (glob("$mars/{,resource-*/}{todo,actual}-*/*-$host")) {
+  foreach my $path (lamport_glob("$mars/{,resource-*/}{todo,actual}-*/*-$host")) {
     unlink($path);
   }
-  foreach my $path (glob("$mars/{,resource-*/}{todo,actual}-$host")) {
+  foreach my $path (lamport_glob("$mars/{,resource-*/}{todo,actual}-$host")) {
     rmdir($path); # at least try it
   }
 }
@@ -3040,7 +3056,7 @@ sub create_res {
   if ($create) {
     if (-d $resdir) {
       lwarn "resource directory '$res' already exists\n";
-      my @host_list = glob("$resdir/replay-*");
+      my @host_list = lamport_glob("$resdir/replay-*");
       if (@host_list) {
 	my $h_list = join(',', map({ $_ =~ s:.*/replay-::; $_; } (@host_list)));
 	lwarn "DANGER: hosts '$h_list' are already member of resource '$res'.\n";
@@ -3102,7 +3118,7 @@ sub create_res {
     # For safety, try to get the very newest infos.
     # Reason: newer kernel modules will fetch non-member resource infos less frequently.
     # Therefore we shift some responsibility for non-member -> member transitions to userspace.
-    my @peers = map { m:^$mars/ips/ip-(.+):; $1 } glob("$mars/ips/ip-*");
+    my @peers = map { m:^$mars/ips/ip-(.+):; $1 } lamport_glob("$mars/ips/ip-*");
     for (my $retry = 0; $retry < 3; $retry++) {
       $primary = _get_designated_primary($res, 1);
       last if (defined($primary) && $primary);
@@ -3158,7 +3174,7 @@ sub create_res {
 
   # check for uniqeness of $appear
   if ($appear) {
-    foreach my $old_dev (glob("$mars/resource-*/device-$host")) {
+    foreach my $old_dev (lamport_glob("$mars/resource-*/device-$host")) {
       $old_dev =~ m:/resource-([^/]+)/:;
       next unless defined($1);
       my $old_res = $1;
@@ -3173,7 +3189,7 @@ sub create_res {
       }
     }
     # warn if devices are named differently throughout the cluster
-    foreach my $old_dev (glob("$resdir/device-*")) {
+    foreach my $old_dev (lamport_glob("$resdir/device-*")) {
       my $old_name = get_link($old_dev);
       if ($old_name ne $appear) {
 	$old_dev =~ m:/device-(.+)$:;
@@ -3194,7 +3210,7 @@ sub create_res {
   my $max_retry = 3;
   while ($max_retry-- > 0) {
     my @remains = ();
-    foreach my $remain (glob("$resdir/{log,version}-*-$host")) {
+    foreach my $remain (lamport_glob("$resdir/{log,version}-*-$host")) {
       if (!$create) {
 	$remain =~ m/-([0-9]+)-$host/;
 	my $nr = $1;
@@ -3301,19 +3317,19 @@ sub split_cluster {
   my $ips_backup = "$backup_dir/ips-backup";
   system("mkdir -p $ips_backup") and ldie "OOps";
   system("cp -a $mars/ips/* $ips_backup/");
-  foreach my $peer (glob("$ips_backup/ip-*")) {
+  foreach my $peer (lamport_glob("$ips_backup/ip-*")) {
     $peer =~ s:^$ips_backup/ip-::;
     ssh_cmd($peer, $ssh_probe);
   }
   lprint "Creating IP backups...\n";
   # create ips backup
-  foreach my $peer (glob("$ips_backup/ip-*")) {
+  foreach my $peer (lamport_glob("$ips_backup/ip-*")) {
     $peer =~ s:^$ips_backup/ip-::;
     next if $peer eq $host;
     rsync_cmd($peer, "--max-size=1 --update $peer:$mars/ips/ $ips_backup/", 1);
   }
   system("cp -a $mars/ips/* $ips_backup/");
-  my @peers = map { $_ =~ s:^$ips_backup/ip-::; $_ } (glob("$ips_backup/ip-*"));
+  my @peers = map { $_ =~ s:^$ips_backup/ip-::; $_ } (lamport_glob("$ips_backup/ip-*"));
   ldie "Empty peer list\n" unless @peers;
   foreach my $peer (@peers) {
     next if $peer eq $host;
@@ -3377,7 +3393,7 @@ sub leave_res_phase0 {
   my ($cmd, $res) = @_;
   check_not_primary(@_) unless $force;
   my $errors = 0;
-  foreach my $tmp (glob("$mars/resource-$res/todo-$host/*")) {
+  foreach my $tmp (lamport_glob("$mars/resource-$res/todo-$host/*")) {
     next if $tmp =~ m:/delete:;
     my $status = get_link($tmp, 2);
     if ($status) {
@@ -3385,7 +3401,7 @@ sub leave_res_phase0 {
       $errors++;
     }
   }
-  foreach my $tmp (glob("$mars/resource-$res/actual-$host/{is-,logfile-}*")) {
+  foreach my $tmp (lamport_glob("$mars/resource-$res/actual-$host/{is-,logfile-}*")) {
     my $status = get_link($tmp);
     if ($status) {
       lwarn "running status '$tmp' is not off\n";
@@ -3412,8 +3428,8 @@ sub leave_res_phase1 {
   _create_delete($vstatus) if -l $vstatus;
   _create_delete("$mars/resource-$res/device-$host");
   _create_delete("$mars/resource-$res/actsize-$host");
-  foreach my $dir (glob("$mars/resource-$res/*-$host/")) {
-    foreach my $tmp (glob("${dir}*")) {
+  foreach my $dir (lamport_glob("$mars/resource-$res/*-$host/")) {
+    foreach my $tmp (lamport_glob("${dir}*")) {
       _create_delete($tmp);
     }
     _create_delete($dir);
@@ -3446,7 +3462,7 @@ sub delete_res {
     lprint "resource directory '$basedir' does no longer exist.\n";
     return;
   }
-  my @host_list = glob("$basedir/replay-*");
+  my @host_list = lamport_glob("$basedir/replay-*");
   my $cnt = scalar(@host_list);
   if ($cnt > 0) {
     my $h_list = join(',', map({ $_ =~ s:.*/replay-::;} (@host_list)));
@@ -3469,7 +3485,7 @@ sub logrotate_res {
   unless ($force) {
     return if check_primary($cmd, $res, 0, 1);
   }
-  my @paths = glob("$mars/resource-$res/log-*-$host");
+  my @paths = lamport_glob("$mars/resource-$res/log-*-$host");
   my $last;
   if (@paths) {
     @paths = sort alphanum_cmp @paths;
@@ -3510,14 +3526,14 @@ sub _get_deletable_logfiles {
   my ($cmd, $res) = @_;
   my $min = -1;
   my $max = -1;
-  my @log_paths = glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
+  my @log_paths = lamport_glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
   foreach my $path (@log_paths) {
     $path =~ m/\/log-([0-9]+)-/;
     my $nr = $1;
     $min = $nr if ($nr < $min || $min < 0);
     $max = $nr if ($nr > $max || $max < 0);
   }
-  my @paths = glob("$mars/resource-$res/replay-*") or ldie "cannot find any replay symlinks\n";
+  my @paths = lamport_glob("$mars/resource-$res/replay-*") or ldie "cannot find any replay symlinks\n";
   foreach my $path (@paths) {
     my $target = get_link($path);
     $target =~ m/^log-([0-9]+)/;
@@ -3534,13 +3550,13 @@ sub _get_delete_nr {
   return @{$delete_nrs{$basedir}} if defined($delete_nrs{$basedir});
   my $min_nr = 0;
   my $max_nr = 0;
-  foreach my $path (glob("$basedir/deleted-*")) {
+  foreach my $path (lamport_glob("$basedir/deleted-*")) {
     my $link = get_link($path, 1);
     $link =~ m/0*([0-9]+)/;
     $min_nr = $1 if (defined($1) && ($1 < $min_nr || !$min_nr));
     $max_nr = $1 if (defined($1) && $1 > $max_nr);
   }
-  my @deletes = glob("$basedir/delete-*");
+  my @deletes = lamport_glob("$basedir/delete-*");
   foreach my $path (@deletes) {
     $path =~ m:/delete-0*([0-9]+):;
     $max_nr = $1 if (defined($1) && $1 > $max_nr);
@@ -3574,7 +3590,7 @@ my %del_targets;
 sub _replace_delete {
   my ($basedir, $target) = @_;
   if (!$del_dirs{$basedir}) {
-    foreach my $link (glob("$basedir/delete-*")) {
+    foreach my $link (lamport_glob("$basedir/delete-*")) {
       my $targ = readlink($link);
       $del_targets{$targ} = $link;
     }
@@ -3634,13 +3650,13 @@ sub logdelete_res {
   my $start_time = mars_time();
   # keep internal backups for 1 week
   my $keep_backups = 24 * 7;
-  foreach my $leftlink (glob("$mars/backup*")) {
+  foreach my $leftlink (lamport_glob("$mars/backup*")) {
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * $keep_backups < $start_time;
     lprint "  unlink '$leftlink'\n" if $verbose;
     system("rm -rf $leftlink");
   }
-  foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.tmp,.deleted,delete,work}-*")) {
+  foreach my $leftlink (lamport_glob("$mars/{,resource-$res/}{,*/}{.tmp,.deleted,delete,work}-*")) {
     # remove outdated .deleted-* markers
     if ($leftlink =~ m:/.deleted-:) {
       my $info = get_link($leftlink, 2);
@@ -3652,7 +3668,7 @@ sub logdelete_res {
 	}
 	# compute the minimum border
 	my $border = 0;
-	foreach my $deleted_link (glob($todo_glob)) {
+	foreach my $deleted_link (lamport_glob($todo_glob)) {
 	  my $limit = get_link($deleted_link, 2);
 	  next if !$limit || $limit <= 1;
 	  $border = $limit if (!$border || $limit < $border);
@@ -3668,7 +3684,7 @@ sub logdelete_res {
     lprint "  unlink '$leftlink'\n" if $verbose;
     unlink($leftlink);
   }
-  foreach my $leftlink (glob("$mars/{,resource-$res/}actual-*/msg-*")) {
+  foreach my $leftlink (lamport_glob("$mars/{,resource-$res/}actual-*/msg-*")) {
     if ($leftlink =~ m:/msg-conncetion-from-:) {
       lprint "  unlink deprecated '$leftlink'\n" if $verbose;
       unlink($leftlink);
@@ -3679,7 +3695,7 @@ sub logdelete_res {
     lprint "  unlink '$leftlink'\n" if $verbose;
     unlink($leftlink);
   }
-  my @paths = glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
+  my @paths = lamport_glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
   @paths = sort alphanum_cmp @paths;
   my ($min_deletable, $max_deletable) = _get_deletable_logfiles(@_);
   lprint "min     deletable logfile number: $min_deletable\n" if $verbose;
@@ -3704,7 +3720,7 @@ sub logdelete_res {
 
     _create_delete($first);
   }
-  my @versionlinks = glob("$mars/resource-$res/version-*");
+  my @versionlinks = lamport_glob("$mars/resource-$res/version-*");
   # dont remove versionlinks during split-brain as long as possible
   if (scalar(@versionlinks) < $max_deletions / 8 &&
       !detect_splitbrain($res, 1)) {
@@ -3722,12 +3738,12 @@ sub logdelete_res {
 
   # remove outdated split-cluster remains
   my %peers;
-  foreach my $path (glob("$mars/ips/ip-*")) {
+  foreach my $path (lamport_glob("$mars/ips/ip-*")) {
     $path =~ m:/ip-(.*):;
     my $peer = $1;
     $peers{$peer} = 1;
   }
-  foreach my $leftlink (glob("$mars/{,resource-$res/}todo-*/deleted-*")) {
+  foreach my $leftlink (lamport_glob("$mars/{,resource-$res/}todo-*/deleted-*")) {
     $leftlink =~ m:/deleted-(.*):;
     my $peer = $1;
     next if $peers{$peer};
@@ -3804,7 +3820,7 @@ sub attach_res_phase2 {
 sub fetch_global_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd =~ m/disconnect|pause/);
-  my @paths = glob("$mars/resource-$res/todo-*/");
+  my @paths = lamport_glob("$mars/resource-$res/todo-*/");
   for my $path (@paths) {
     _switch($cmd, $res, "$path/connect", !$pause);
   }
@@ -3821,7 +3837,7 @@ sub pause_sync_global_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd =~ m/pause/);
   check_sync_startable(@_) if !$pause;
-  my @paths = glob("$mars/resource-$res/todo-*/");
+  my @paths = lamport_glob("$mars/resource-$res/todo-*/");
   for my $path (@paths) {
     _switch($cmd, $res, "$path/sync", !$pause);
   }
@@ -3838,7 +3854,7 @@ sub pause_sync_local_res {
 sub pause_replay_global_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd =~ m/pause/);
-  my @paths = glob("$mars/resource-$res/todo-*/");
+  my @paths = lamport_glob("$mars/resource-$res/todo-*/");
   for my $path (@paths) {
     _switch($cmd, $res, "$path/replay", !$pause);
   }
@@ -3955,7 +3971,7 @@ sub primary_phase0 {
       lprint "Allowing handover in cases of sync: ignore_sync=$ignore_sync\n" if $ignore_sync;
       check_sync_finished($res, $host, $ignore_sync);
       # also check that other secondaries won't loose their sync primary
-      my @names = glob("$mars/resource-$res/data-*");
+      my @names = lamport_glob("$mars/resource-$res/data-*");
       # for k <= 2 replicas, the previous check must have been sufficient
       if (scalar(@names) > 2) {
 	my $allow_anyway = ($force || $ignore_sync);
@@ -4168,7 +4184,7 @@ sub wait_umount_res {
   my ($cmd, $res) = @_;
   while (1) {
     my $sum = 0;
-    foreach my $path (glob("$mars/resource-$res/actual-$host/open-count")) {
+    foreach my $path (lamport_glob("$mars/resource-$res/actual-$host/open-count")) {
       $sum += get_link($path);
     }
     last if !$sum;
@@ -4216,7 +4232,7 @@ sub invalidate_res_phase3 {
 
   set_link("0", $dst);
   finish_links(); # opportunity for errors => don't continue
-  for my $vers_path (glob("$mars/resource-$res/version-*-$host")) {
+  for my $vers_path (lamport_glob("$mars/resource-$res/version-*-$host")) {
     $vers_path =~ m:/version-([0-9]+):;
     my $this_nr = $1;
     _create_delete($vers_path) if $this_nr >= $replay_nr;
@@ -4287,7 +4303,7 @@ my %resize_new_size;
 
 sub get_possible_size {
   my ($cmd, $res) = @_;
-  my @actsizes = glob("$mars/resource-$res/actsize-*");
+  my @actsizes = lamport_glob("$mars/resource-$res/actsize-*");
   lwarn "resource $res has no actsize-* symlinks\n" unless @actsizes;
   my $possible_size = 0;
   foreach my $actsize (@actsizes) {
@@ -4408,7 +4424,7 @@ sub mars_state_cmd {
 
   if ($primary eq "(none)") {
     my $min = 0;
-    foreach my $path (glob("$mars/resource-$res/log-*")) {
+    foreach my $path (lamport_glob("$mars/resource-$res/log-*")) {
       my $nr = $path;
       $nr =~ s:^.*[a-z]+-([0-9]+)(-[^/]*)?$:$1:;
       if ($nr > $min) {
@@ -4444,7 +4460,7 @@ sub show_cmd {
   my ($cmd, $res) = @_;
   $res = "*" if !$res || $res eq "all";
   my $glob = "$mars/{ips/ip-$host,alive-$host,emergency-$host,rest-space-$host,resource-$res/{device,primary,size,actsize-$host,syncstatus-$host,replay-$host,actual-$host/*,todo-$host/*}}";
-  foreach my $link (glob($glob)) {
+  foreach my $link (lamport_glob($glob)) {
     next unless -l $link;
     my $res = get_link($link);
     my $short = $link;
@@ -4877,7 +4893,7 @@ sub eval_fn {
     # list objects
     if (/^(count[-_]?)?cluster[-_]?members$/) {
       my $do_count = $1;
-      my @peers = glob("$mars/ips/ip-*");
+      my @peers = lamport_glob("$mars/ips/ip-*");
       return scalar(@peers) if defined($do_count);
       my $list = "";
       foreach my $peer (sort alphanum_cmp @peers) {
@@ -4888,7 +4904,7 @@ sub eval_fn {
     }
     if (/^(count[-_]?)?resource[-_]?members$/) {
       my $do_count = $1;
-      my @peers = glob($$env{"resdir"} . "/data-*");
+      my @peers = lamport_glob($$env{"resdir"} . "/data-*");
       return scalar(@peers) if defined($do_count);
       my $list = "";
       foreach my $peer (sort alphanum_cmp @peers) {
@@ -4904,7 +4920,7 @@ sub eval_fn {
 	$peer = parse_macro($arg1, $env);
 	$peer = $$env{"host"} unless $peer;
       }
-      my @list = glob("$mars/resource-*/data-$peer");
+      my @list = lamport_glob("$mars/resource-*/data-$peer");
       map { s:^$mars/resource-(.*?)/data-.*:$1:; } @list;
       my $list = "";
       my $old = "";
@@ -4964,7 +4980,7 @@ sub eval_fn {
       $glob .= "/actual-" . $$env{"host"} . "/msg-$specific*";
       my $result = "";
       my $count = 0;
-      foreach my $msg_path (glob($glob)) {
+      foreach my $msg_path (lamport_glob($glob)) {
 	my $val = get_link($msg_path, 1);
 	if ($shorten) {
 	  # skip uninteresting messages
@@ -5260,7 +5276,7 @@ sub eval_fn {
     if (/^deletable[-_]?size$/) {
       my ($min, $max) = _get_deletable_logfiles($_, $$env{"res"});
       my $sum = 0;
-      foreach my $path (glob("$mars/resource-" . $$env{"res"} . "/log-*")) {
+      foreach my $path (lamport_glob("$mars/resource-" . $$env{"res"} . "/log-*")) {
 	$path =~ m/\/log-([0-9]+)-/;
 	my $nr = $1;
 	next if $nr < $min or $nr >= $max;
@@ -5271,7 +5287,7 @@ sub eval_fn {
     }
     if (/^occupied[-_]?size$/) {
       my $sum = 0;
-      foreach my $path (glob("$mars/resource-" . $$env{"res"} . "/log-*")) {
+      foreach my $path (lamport_glob("$mars/resource-" . $$env{"res"} . "/log-*")) {
 	$path =~ m/\/log-([0-9]+)-/;
 	my @stat = stat($path);
 	$sum += $stat[7];
@@ -5313,7 +5329,7 @@ sub eval_fn {
       $arg1 = parse_macro($arg1, $env);
       $arg1 = $$env{"host"} unless $arg1;
       my $fetch_glob = $$env{"resdir"} . "/version-*-$arg1";
-      my @paths = sort alphanum_cmp glob($fetch_glob);
+      my @paths = sort alphanum_cmp lamport_glob($fetch_glob);
       return -1 if !@paths;
       my $fetch = pop(@paths);
       return get_link_stamp($fetch);
@@ -5379,7 +5395,7 @@ sub eval_fn {
       my $arg2 = shift;
       my $varname = parse_macro($arg2, $env);
       my $arg3 = shift;
-      my @list = glob($paths);
+      my @list = lamport_glob($paths);
       my $result = "";
       if ($op eq "get") {
 	my $delim = parse_macro($arg3, $env);
@@ -6166,7 +6182,7 @@ foreach my $new_glob (sort alphanum_cmp keys(%trivial_globs)) {
   $glob .= "," if $glob;
   $glob .= $new_glob;
 }
-foreach my $name (glob("{$glob}")) {
+foreach my $name (lamport_glob("{$glob}")) {
   $view_macros{$name} = "\%primitive-$name\{\%\{1}}";
 }
 
@@ -7447,7 +7463,7 @@ sub do_all_res {
     my $any_success = 0;
     my $any_fail = 0;
     my $any_member = 0;
-    my @total_list = glob("$mars/ips/ip-*");
+    my @total_list = lamport_glob("$mars/ips/ip-*");
     my $total_count = scalar(@total_list);
     call_hook(!$force, "all-pre", $cmd, "all", @_) if $do_abort;
     foreach $res (@res_list) {
