@@ -1204,6 +1204,7 @@ sub get_link {
     lwarn "cannot read symlink '$path'\n" if $unchecked == 1;
     $result = "";
   }
+  $result = "" if $result eq ".deleted";
   return $result;
 }
 
