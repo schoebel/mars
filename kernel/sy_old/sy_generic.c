@@ -977,6 +977,17 @@ int ordered_symlink(const char *oldpath, const char *newpath, const struct lampo
 	return status;
 }
 
+
+char *ordered_readlink(const char *path)
+{
+	char *res = mars_readlink(path);
+
+	if (!strcmp(res, MARS_DELETED_STR)) {
+		*res = '\0';
+	}
+	return res;
+}
+
 //////////////////////////////////////////////////////////////
 
 // thread binding

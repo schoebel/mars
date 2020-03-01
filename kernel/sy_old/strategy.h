@@ -209,6 +209,10 @@ extern void mars_remaining_space(const char *fspath, loff_t *total, loff_t *rema
 
 /* Timestamp Ordering */
 
+#define MARS_DELETED_STR ".deleted"
+
+extern char *ordered_readlink(const char *path);
+
 extern int ordered_unlink(const char *path,
 			  const struct lamport_time *stamp,
 			  int serial,

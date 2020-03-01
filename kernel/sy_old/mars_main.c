@@ -1129,12 +1129,12 @@ int compare_replaylinks(struct mars_rotate *rot, const char *hosta, const char *
 		goto done;
 	}
 
-	a = mars_readlink(linka);
+	a = ordered_readlink(linka);
 	if (unlikely(!a || !a[0])) {
 		MARS_ERR_TO(rot->log_say, "cannot read replaylink '%s'\n", linka);
 		goto done;
 	}
-	b = mars_readlink(linkb);
+	b = ordered_readlink(linkb);
 	if (unlikely(!b || !b[0])) {
 		MARS_ERR_TO(rot->log_say, "cannot read replaylink '%s'\n", linkb);
 		goto done;
@@ -1208,7 +1208,7 @@ int _update_link_when_necessary(struct mars_rotate *rot, const char *type, const
 	/* Check whether something really has changed (avoid
 	 * useless/disturbing timestamp updates)
 	 */
-	check = mars_readlink(new);
+	check = ordered_readlink(new);
 	if (check && !strcmp(check, old)) {
 		MARS_DBG("%s symlink '%s' -> '%s' has not changed\n", type, old, new);
 		res = 0;
@@ -1278,7 +1278,7 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 			      inf->inf_sequence > rot->inf_prev_sequence + 1) &&
 			     rot->inf_prev_sequence != 0)) {
 			char *skip_path = path_make("%s/skip-check-%s", rot->parent_path, my_id());
-			char *skip_link = mars_readlink(skip_path);
+			char *skip_link = ordered_readlink(skip_path);
 			char *msg = "";
 			int skip_nr = -1;
 			int nr_char = 0;
@@ -1303,7 +1303,7 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 			MARS_ERR("no MEM\n");
 			goto out;
 		}
-		prev_link = mars_readlink(prev);
+		prev_link = ordered_readlink(prev);
 		rot->inf_prev_sequence = inf->inf_sequence;
 	}
 
@@ -2482,7 +2482,7 @@ int peer_thread(void *data)
 					peer->peer);
 				goto free_and_restart;
 			}
-			my_uuid = mars_readlink("/mars/uuid");
+			my_uuid = ordered_readlink("/mars/uuid");
 			if (unlikely(!my_uuid)) {
 				MARS_ERR("cannot determine my own uuid for peer %s\n", peer->peer);
 				make_msg(peer_pairs, "cannot determine my own uuid");
@@ -2925,7 +2925,7 @@ void _create_new_logfile(const char *path)
 static
 const char *__get_link_path(const char *_linkpath, const char **linkpath)
 {
-	const char *res = mars_readlink(_linkpath);
+	const char *res = ordered_readlink(_linkpath);
 
 	if (linkpath)
 		*linkpath = _linkpath;
@@ -4912,7 +4912,7 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 		 */
 		syncpos_path = path_make("%s/syncpos-%s", rot->parent_path, my_id());
 		peer_replay_path = path_make("%s/replay-%s", rot->parent_path, peer);
-		peer_replay_link = mars_readlink(peer_replay_path);
+		peer_replay_link = ordered_readlink(peer_replay_path);
 		if (unlikely(!peer_replay_link || !peer_replay_link[0])) {
 			MARS_ERR("cannot read peer replay link '%s'\n", peer_replay_path);
 			goto done;
