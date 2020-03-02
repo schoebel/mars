@@ -739,8 +739,20 @@ char *mars_readlink(const char *newpath)
 #else
 	inode = path.dentry->d_inode;
 #endif
-	if (unlikely(!inode || !S_ISLNK(inode->i_mode))) {
+	if (unlikely(!inode)) {
 		MARS_ERR("link '%s' has invalid inode\n", newpath);
+		status = -EINVAL;
+		goto done_put;
+	}
+	if (S_ISDIR(inode->i_mode)) {
+		/* fail silently: this can happen during
+		 * deletions of directories
+		 */
+		status = -EINVAL;
+		goto done_put;
+	}
+	if (!S_ISLNK(inode->i_mode)) {
+		MARS_WRN("'%s' is no symlink\n", newpath);
 		status = -EINVAL;
 		goto done_put;
 	}
