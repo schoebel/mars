@@ -1145,6 +1145,7 @@ struct mars_cookie {
 	mars_dent_checker_fn checker;
 	char *path;
 	struct mars_dent *parent;
+	struct list_head tmp_anchor;
 	int allocsize;
 	int depth;
 	bool hit;
@@ -1309,12 +1310,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 //      remove_this
 #endif
 //      end_remove_this
-	struct mars_global *global = cookie->global;
-	struct list_head *anchor = &global->dent_anchor;
-	struct list_head *start = anchor;
-	struct list_head *hash_anchor;
 	struct mars_dent *dent;
-	struct list_head *tmp;
 	char *newpath;
 	int hash;
 	int prefix = 0;
@@ -1335,8 +1331,6 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 
 	pathlen = strlen(cookie->path);
 	newpath = brick_string_alloc(pathlen + namlen + 2);
-	if (unlikely(!newpath))
-		goto err_mem0;
 	memcpy(newpath, cookie->path, pathlen);
 	newpath[pathlen++] = '/';
 	memcpy(newpath + pathlen, name, namlen);
@@ -1344,8 +1338,6 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	newpath[pathlen] = '\0';
 
 	dent = brick_zmem_alloc(cookie->allocsize);
-	if (unlikely(!dent))
-		goto err_mem1;
 
 	dent->d_class = class;
 	dent->d_serial = serial;
@@ -1353,7 +1345,41 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 
 	hash = (class + serial + d_type + pathlen * 7 + namlen * 13) % MARS_GLOBAL_HASH;
 	dent->d_hash = hash;
-	hash_anchor = &global->dent_hash_anchor[hash];
+	dent->d_name = brick_string_alloc(namlen + 1);
+	memcpy(dent->d_name, name, namlen);
+	dent->d_name[namlen] = '\0';
+	dent->d_rest = brick_strdup(dent->d_name + prefix);
+	newpath = NULL;
+
+	INIT_LIST_HEAD(&dent->dent_link);
+	INIT_LIST_HEAD(&dent->dent_hash_link);
+	INIT_LIST_HEAD(&dent->dent_quick_link);
+	INIT_LIST_HEAD(&dent->brick_list);
+
+	list_add(&dent->dent_link, &cookie->tmp_anchor);
+
+	dent->d_type = d_type;
+	dent->d_class = class;
+	dent->d_serial = serial;
+	dent->d_killme = false;
+	dent->d_use_channel = use_channel;
+	dent->d_depth = cookie->depth;
+	dent->d_global = cookie->global;
+
+	brick_string_free(newpath);
+	return 0;
+}
+
+static
+void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
+{
+	struct mars_global *global = cookie->global;
+	struct list_head *anchor = &global->dent_anchor;
+	struct list_head *start = anchor;
+	struct list_head *hash_anchor;
+	struct list_head *tmp;
+
+	hash_anchor = &global->dent_hash_anchor[dent->d_hash];
 
 	tmp = anchor->next;
 	while (tmp != anchor) {
@@ -1361,7 +1387,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		int cmp = dent_compare(test, dent);
 
 		if (!cmp) {
-			brick_mem_free(dent);
+			mars_free_dent(global, dent);
 			dent = test;
 			goto found;
 		}
@@ -1394,7 +1420,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 			}
 			cmp = dent_compare(test, dent);
 			if (!cmp) {
-				brick_mem_free(dent);
+				mars_free_dent(global, dent);
 				dent = test;
 				goto found;
 			}
@@ -1407,21 +1433,6 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	}
 
 	/* not found: finish dent and insert into data stuctures */
-	dent->d_name = brick_string_alloc(namlen + 1);
-	if (unlikely(!dent->d_name))
-		goto err_mem2;
-	memcpy(dent->d_name, name, namlen);
-	dent->d_name[namlen] = '\0';
-	dent->d_rest = brick_strdup(dent->d_name + prefix);
-	if (unlikely(!dent->d_rest))
-		goto err_mem3;
-
-	newpath = NULL;
-
-	INIT_LIST_HEAD(&dent->dent_link);
-	INIT_LIST_HEAD(&dent->dent_hash_link);
-	INIT_LIST_HEAD(&dent->dent_quick_link);
-	INIT_LIST_HEAD(&dent->brick_list);
 
 	list_add(&dent->dent_link, start);
 
@@ -1437,29 +1448,23 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	list_add(&dent->dent_hash_link, start);
 
 found:
-	dent->d_type = d_type;
-	dent->d_class = class;
-	dent->d_serial = serial;
 	if (dent->d_parent)
 		dent->d_parent->d_child_count--;
 	dent->d_parent = cookie->parent;
 	if (dent->d_parent)
 		dent->d_parent->d_child_count++;
-	dent->d_depth = cookie->depth;
-	dent->d_global = global;
-	dent->d_killme = false;
-	dent->d_use_channel = use_channel;
-	brick_string_free(newpath);
-	return 0;
+}
 
-err_mem3:
-	brick_mem_free(dent->d_name);
-err_mem2:
-	brick_mem_free(dent);
-err_mem1:
-	brick_string_free(newpath);
-err_mem0:
-	return -ENOMEM;
+static
+void _mars_order_all(struct mars_cookie *cookie)
+{
+	while (!list_empty(&cookie->tmp_anchor)) {
+		struct list_head *tmp = cookie->tmp_anchor.next;
+		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
+
+		list_del_init(tmp);
+		_mars_order(cookie, dent);
+	}
 }
 
 static int _mars_readdir(struct mars_cookie *cookie)
@@ -1506,6 +1511,9 @@ static int _mars_readdir(struct mars_cookie *cookie)
 	}
 
 	filp_close(f, NULL);
+
+	_mars_order_all(cookie);
+
 	return status;
 }
 
@@ -1536,6 +1544,7 @@ int mars_dent_work(struct mars_global *global,
 		.checker = checker,
 		.path = startname,
 		.parent = NULL,
+		.tmp_anchor = LIST_HEAD_INIT(cookie.tmp_anchor),
 		.allocsize = allocsize,
 		.depth = 0,
 	};
@@ -1606,6 +1615,7 @@ restart:
 				.path = dent->d_path,
 				.allocsize = allocsize,
 				.parent = dent,
+				.tmp_anchor = LIST_HEAD_INIT(sub_cookie.tmp_anchor),
 				.depth = dent->d_depth + 1,
 			};
 			found_dir = true;
