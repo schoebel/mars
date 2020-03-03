@@ -3658,6 +3658,17 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 
 	if (unlikely(rot->aio_info.current_size < *oldpos_start)) {
 		status = -EBADF;
+		/* Allow primary --force even when logfiles are truncated / damaged.
+		 */
+		if (rot->todo_primary && !rot->is_primary &&
+		    !rot->fetch_brick &&
+		    !_check_allow(global, parent->d_path, "connect") &&
+		    _check_allow(rot->global, rot->parent_path, "attach")) {
+			MARS_WRN("FORCING transaction log '%s' %lld < %lld as finished\n",
+				 rot->aio_dent->d_path,
+				 rot->aio_info.current_size, *oldpos_start);
+			status = 1;
+		}
 		goto done;
 	}
 
