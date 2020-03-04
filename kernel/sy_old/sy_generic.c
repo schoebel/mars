@@ -1201,7 +1201,7 @@ struct mars_cookie {
 };
 
 static
-int get_inode(char *newpath, struct mars_dent *dent)
+int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 {
 	mm_segment_t oldfs;
 	int status;
@@ -1280,6 +1280,15 @@ int get_inode(char *newpath, struct mars_dent *dent)
 			brick_string_free(dent->old_link);
 			dent->old_link = dent->new_link;
 			dent->new_link = link;
+		}
+		/* Treat deleted dents as non-existing.
+		 * Killing will be done later via ->killme.
+		 */
+		if (!get_deleted &&
+		    status >= 0 &&
+		    dent->new_link &&
+		    !strcmp(dent->new_link, MARS_DELETED_STR)) {
+			status = -ENOENT;
 		}
 	done_put:
 		path_put(&path);
@@ -1370,7 +1379,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 
 	cookie->hit = true;
 
-	if (name[0] == '.') {
+	if (!name || !*name || name[0] == '.') {
 		return 0;
 	}
 
@@ -1523,7 +1532,6 @@ void _mars_order_all(struct mars_cookie *cookie)
 	while (!list_empty(&cookie->tmp_anchor)) {
 		struct list_head *tmp = cookie->tmp_anchor.next;
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
-
 		list_del_init(tmp);
 		/* When some_ordered: only sort links spawning
 		 * a .cl_forward action (with some unimportant exceptions).
@@ -1559,6 +1567,18 @@ void _mars_order_all(struct mars_cookie *cookie)
 			if (dent->d_parent)
 				dent->d_parent->d_child_count++;
 		} else {
+			char *check;
+
+			/* Do not add _new_ dents when deleted.
+			 * Existing ones are treated in get_inode().
+			 */
+			check = mars_readlink(dent->d_path);
+			if (check && !strcmp(check, MARS_DELETED_STR)) {
+				brick_string_free(check);
+				mars_free_dent(cookie->global, dent);
+				continue;
+			}
+			brick_string_free(check);
 			_mars_order(cookie, dent);
 		}
 	}
@@ -1665,7 +1685,7 @@ int _op_scan(struct say_channel **say_channel,
 		bind_to_dent(dent, say_channel);
 
 		//MARS_IO("reading inode '%s'\n", dent->d_path);
-		status = get_inode(dent->d_path, dent);
+		status = get_inode(dent->d_path, dent, some_ordered);
 		total_status |= status;
 
 		// mark gone dents for removal
