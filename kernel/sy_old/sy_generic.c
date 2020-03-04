@@ -1144,10 +1144,12 @@ struct mars_cookie {
 	struct mars_global *global;
 	mars_dent_checker_fn checker;
 	char *path;
+	struct mars_dent *check_parent;
 	struct mars_dent *parent;
 	struct list_head tmp_anchor;
 	int allocsize;
 	int depth;
+	bool some_ordered;
 	bool hit;
 };
 
@@ -1325,7 +1327,12 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		return 0;
 	}
 
-	class = cookie->checker(cookie->parent, name, namlen, d_type, &prefix, &serial, &use_channel);
+	class = cookie->checker(cookie->check_parent,
+				name, namlen,
+				d_type,
+				&prefix,
+				&serial,
+				&use_channel);
 	if (class < 0)
 		return 0;
 
@@ -1455,15 +1462,72 @@ found:
 		dent->d_parent->d_child_count++;
 }
 
+static inline
+void _list_connect(struct list_head *a, struct list_head *b)
+{
+	a->next = b;
+	b->prev = a;
+}
+
 static
 void _mars_order_all(struct mars_cookie *cookie)
 {
+	LIST_HEAD(later_anchor);
+
 	while (!list_empty(&cookie->tmp_anchor)) {
 		struct list_head *tmp = cookie->tmp_anchor.next;
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 
 		list_del_init(tmp);
-		_mars_order(cookie, dent);
+		/* When some_ordered: only sort links spawning
+		 * a .cl_forward action (with some unimportant exceptions).
+		 * In addition, the alive and time links need to
+		 * come last, for race avoidance.
+		 * The rest needs not to be sorted, saving CPU.
+		 */
+		if (cookie->some_ordered &&
+		    !S_ISDIR(dent->new_stat.mode) &&
+		    strncmp(dent->d_name, "ip-", 3) &&
+		    strncmp(dent->d_name, "resource-", 9) &&
+		    strncmp(dent->d_name, "data-", 5) &&
+		    strncmp(dent->d_name, "work-", 5) &&
+		    strncmp(dent->d_name, "size", 4) &&
+		    strncmp(dent->d_name, "primary", 7) &&
+		    strncmp(dent->d_name, "connect", 8) &&
+		    strncmp(dent->d_name, "syncstatus-", 11) &&
+		    strncmp(dent->d_name, "log-", 4) &&
+		    strncmp(dent->d_name, "replay-", 7) &&
+		    strncmp(dent->d_name, "device-", 7) &&
+		    /* further sorted items */
+		    strncmp(dent->d_name, "uuid", 4) &&
+		    strncmp(dent->d_name, "alive-", 6) &&
+		    true) {
+			/* time-* must be the very last items */
+			if (strncmp(dent->d_name, "time-", 5))
+				list_add(&dent->dent_link, &later_anchor);
+			else
+				list_add_tail(&dent->dent_link, &later_anchor);
+			if (dent->d_parent)
+				dent->d_parent->d_child_count--;
+			dent->d_parent = cookie->parent;
+			if (dent->d_parent)
+				dent->d_parent->d_child_count++;
+		} else {
+			_mars_order(cookie, dent);
+		}
+	}
+	/* Append the whole unordered list.
+	 * This is done on return from recursion, so searching
+	 * remains possible.
+	 */
+	if (!list_empty(&later_anchor)) {
+		struct list_head *a = cookie->global->dent_anchor.prev;
+		struct list_head *b = later_anchor.next;
+		struct list_head *c = later_anchor.prev;
+		struct list_head *d = &cookie->global->dent_anchor;
+
+		_list_connect(a, b);
+		_list_connect(c, d);
 	}
 }
 
@@ -1537,7 +1601,8 @@ int _op_scan(struct say_channel **say_channel,
 	     int maxdepth,
 	     int version,
 	     bool *found_dir,
-	     bool has_dir_list)
+	     bool has_dir_list,
+	     bool some_ordered)
 {
 	struct list_head *tmp;
 	int total_status = 0;
@@ -1572,9 +1637,11 @@ int _op_scan(struct say_channel **say_channel,
 				.checker = checker,
 				.path = dent->d_path,
 				.allocsize = allocsize,
-				.parent = dent,
+				.check_parent = dent,
+				.parent = some_ordered ? NULL : dent,
 				.tmp_anchor = LIST_HEAD_INIT(sub_cookie.tmp_anchor),
 				.depth = dent->d_depth + 1,
+				.some_ordered = some_ordered,
 			};
 			*found_dir = true;
 			status = _mars_readdir(&sub_cookie);
@@ -1737,7 +1804,9 @@ restart:
 			 allocsize, checker,
 			 maxdepth,
 			 version,
-			 &found_dir, has_dir_list);
+			 &found_dir,
+			 has_dir_list,
+			 false);
 
 	bind_to_dent(NULL, &say_channel);
 
