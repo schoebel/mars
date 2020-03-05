@@ -636,6 +636,7 @@ struct mars_rotate {
 	int fetch_round;
 	int fetch_serial;
 	int fetch_next_serial;
+	int repair_log_seq;
 	int split_brain_serial;
 	int split_brain_round;
 	int fetch_next_is_available;
@@ -2003,7 +2004,6 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	struct mars_rotate *rot;
 	const char *switch_path = NULL;
 	struct copy_brick *fetch_brick;
-	int repair_log_seq = -1;
 	int status = 0;
 
 	// correct the remote size when necessary
@@ -2062,9 +2062,7 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	 */
 	} else if ((rot->is_log_damaged | rot->log_is_really_damaged) &&
 		   rot->replay_mode && !rot->todo_primary &&  rot->allow_update &&
-		   rot->replay_link &&
-		   parse_logfile_name(rot->replay_link->d_name, &repair_log_seq, NULL) &&
-		   repair_log_seq == remote_dent->d_serial) {
+		   rot->repair_log_seq == remote_dent->d_serial) {
 		status = _update_file(parent, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
 		MARS_DBG("REPAIR '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 	} else if (!rot->fetch_serial && rot->allow_update &&
@@ -3269,6 +3267,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	}
 
 	replay_link = (void*)mars_find_dent(global, replay_path);
+	rot->repair_log_seq = -1;
 	if (unlikely(!replay_link || !replay_link->new_link)) {
 		MARS_DBG("replay status symlink '%s' does not exist (%p)\n", replay_path, replay_link);
 		rot->allow_update = false;
@@ -3280,6 +3279,9 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	if (unlikely(status < 0)) {
 		goto done;
 	}
+	parse_logfile_name(replay_link->d_argv[0],
+			   &rot->repair_log_seq, NULL);
+
 	rot->replay_link = replay_link;
 
 	/* Fetch AIO dentry of the logfile.
@@ -4270,6 +4272,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 				!global->global_power.button ||
 				!_check_allow(global, parent->d_path, "allow-replay") ||
 				!_check_allow(global, parent->d_path, "attach") ;
+
 		} else {
 			do_stop =
 				!rot->if_brick &&
