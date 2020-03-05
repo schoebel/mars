@@ -1661,6 +1661,10 @@ void _op_remove(struct say_channel **say_channel,
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		if (!dent->d_killme)
 			continue;
+		if (dent->d_child_count)
+			continue;
+		if (!list_empty(&dent->brick_list))
+			continue;
 
 		bind_to_dent(dent, say_channel);
 
