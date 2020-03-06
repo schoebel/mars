@@ -131,6 +131,11 @@ typedef int (*mars_dent_checker_fn)(struct mars_dent *parent, const char *name, 
 typedef int (*mars_dent_worker_fn)(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction);
 
 extern int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker_fn checker, mars_dent_worker_fn worker, void *buf, int maxdepth);
+extern int mars_get_dent_list(struct mars_global *global,
+			      char *path_list,
+			      int allocsize,
+			      mars_dent_checker_fn checker,
+			      int maxdepth);
 extern struct mars_dent *mars_find_dent(struct mars_global *global, const char *path);
 extern void mars_kill_dent(struct mars_global *global, struct mars_dent *dent);
 extern void mars_free_dent(struct mars_global *global, struct mars_dent *dent);

@@ -361,12 +361,6 @@ int _set_server_bio_params(struct mars_brick *_brick, void *private)
 }
 
 static
-int dummy_worker(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction)
-{
-	return 0;
-}
-
-static
 int handler_thread(void *data)
 {
 	struct mars_global handler_global = {
@@ -503,13 +497,11 @@ int handler_thread(void *data)
 				brick_msleep(1000);
 			}
 
-			status = mars_dent_work(
+			status = mars_get_dent_list(
 				&handler_global,
 				path,
 				sizeof(struct mars_dent),
 				main_checker,
-				dummy_worker,
-				&handler_global,
 				3);
 
 			up(&dent_limit_sem);

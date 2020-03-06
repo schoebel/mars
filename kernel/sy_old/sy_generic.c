@@ -1744,6 +1744,60 @@ void _op_remove(struct say_channel **say_channel,
 	up_write(&global->dent_mutex);
 }
 
+/* Stripped-down version for peer metadata exchange
+ */
+int mars_get_dent_list(struct mars_global *global,
+		   char *path_list,
+		   int allocsize,
+		   mars_dent_checker_fn checker,
+		   int maxdepth)
+{
+	static int version = 0;
+	char *startname = brick_strdup(path_list);
+	struct mars_cookie cookie = {
+		.global = global,
+		.checker = checker,
+		.path = startname,
+		.tmp_anchor = LIST_HEAD_INIT(cookie.tmp_anchor),
+		.allocsize = allocsize,
+		.depth = 0,
+		.some_ordered = true,
+	};
+	struct say_channel *say_channel = NULL;
+	char *ptr;
+	int total_status;
+	bool found_dir = false;
+	bool has_dir_list = false;
+
+	ptr = strchr(startname, '|');
+	if (ptr) {
+		*ptr = '\0';
+		has_dir_list = true;
+	}
+
+	global->global_version = ++version;
+
+	down_write(&global->dent_mutex);
+
+	total_status = _mars_readdir(&cookie);
+
+	total_status =
+		_op_scan(&say_channel,
+			 global,
+			 path_list,
+			 allocsize,
+			 checker,
+			 maxdepth,
+			 version,
+			 &found_dir,
+			 has_dir_list,
+			 true);
+
+	up_write(&global->dent_mutex);
+
+	return total_status;
+}
+
 int mars_dent_work(struct mars_global *global,
 		   char *path_list,
 		   int allocsize,
@@ -1759,7 +1813,6 @@ int mars_dent_work(struct mars_global *global,
 		.global = global,
 		.checker = checker,
 		.path = startname,
-		.parent = NULL,
 		.tmp_anchor = LIST_HEAD_INIT(cookie.tmp_anchor),
 		.allocsize = allocsize,
 		.depth = 0,
