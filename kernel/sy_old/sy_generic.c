@@ -2627,8 +2627,12 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_kill_brick_all);
 
-int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *anchor, bool use_dent_link, const struct mars_brick_type *type, bool even_on)
+int mars_kill_brick_when_possible(struct mars_global *global,
+				  bool use_dent_link,
+				  const struct mars_brick_type *type,
+				  bool even_on)
 {
+	struct list_head *anchor = &global->brick_anchor;
 	int return_status = 0;
 	struct list_head *tmp;
 

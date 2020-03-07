@@ -169,7 +169,10 @@ extern struct mars_brick *mars_make_brick(struct mars_global *global, struct mar
 extern int mars_free_brick(struct mars_brick *brick);
 extern int mars_kill_brick(struct mars_brick *brick);
 extern int mars_kill_brick_all(struct mars_global *global, struct list_head *anchor, bool use_dent_link);
-extern int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *anchor, bool use_dent_link, const struct mars_brick_type *type, bool even_on);
+extern int mars_kill_brick_when_possible(struct mars_global *global,
+					 bool use_dent_link,
+					 const struct mars_brick_type *type,
+					 bool even_on);
 
 // mid-level brick instantiation (identity is based on path strings)
 

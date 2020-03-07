@@ -6336,30 +6336,24 @@ static int _main_thread(void *data)
 
 		if (!mars_global->global_power.button) {
 			status = mars_kill_brick_when_possible(mars_global,
-							       &mars_global->brick_anchor,
 							       false, (void*)&copy_brick_type, true);
 			MARS_DBG("kill copy bricks (when possible) = %d\n", status);
 		}
 
 		status = mars_kill_brick_when_possible(mars_global,
-						       &mars_global->brick_anchor,
 						       false, NULL, false);
 		MARS_DBG("kill main bricks (when possible) = %d\n", status);
 
 		status = mars_kill_brick_when_possible(mars_global,
-						       &mars_global->brick_anchor,
 						       false, (void*)&client_brick_type, true);
 		MARS_DBG("kill client bricks (when possible) = %d\n", status);
 		status = mars_kill_brick_when_possible(mars_global,
-						       &mars_global->brick_anchor,
 						       false, (void*)&aio_brick_type, true);
 		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
 		status = mars_kill_brick_when_possible(mars_global,
-						       &mars_global->brick_anchor,
 						       false, (void*)&sio_brick_type, true);
 		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
 		status = mars_kill_brick_when_possible(mars_global,
-						       &mars_global->brick_anchor,
 						       false, (void*)&bio_brick_type, true);
 		MARS_DBG("kill bio    bricks (when possible) = %d\n", status);
 

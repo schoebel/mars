@@ -407,7 +407,6 @@ int handler_thread(void *data)
 			}
 
 			status = mars_kill_brick_when_possible(handler_global,
-							       &handler_global->brick_anchor,
 							       false, NULL, true);
 			MARS_DBG("kill handler bricks (when possible) = %d\n", status);
 		}
@@ -854,7 +853,6 @@ static int _server_thread(void *data)
 			show_statistics(server_global, "server");
 
 		status = mars_kill_brick_when_possible(server_global,
-						       &server_global->brick_anchor,
 						       false, NULL, true);
 		MARS_DBG("kill server bricks (when possible) = %d\n", status);
 
