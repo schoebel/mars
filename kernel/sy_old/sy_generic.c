@@ -2628,7 +2628,7 @@ done:
 EXPORT_SYMBOL_GPL(mars_kill_brick_all);
 
 int mars_kill_brick_when_possible(struct mars_global *global,
-				  const struct mars_brick_type *type,
+				  const struct mars_brick_type *type_list[],
 				  bool even_on)
 {
 	struct list_head *anchor = &global->brick_anchor;
@@ -2647,10 +2647,6 @@ restart:
 
 		brick = container_of(tmp, struct mars_brick, global_brick_link);
 
-		// only kill the right brick types
-		if (type && brick->type != type) {
-			continue;
-		}
 		// only kill marked bricks
 		if (!brick->killme) {
 			continue;
@@ -2662,6 +2658,25 @@ restart:
 		if (!even_on && (brick->power.button || !brick->power.led_off)) {
 			continue;
 		}
+
+		/* Only kill the right brick types
+		 */
+		if (type_list) {
+			int index = 0;
+			const struct mars_brick_type *this_type = type_list[index++];
+			bool matches = false;
+
+			while (this_type) {
+				if (this_type == brick->type) {
+					matches = true;
+					break;
+				}
+				this_type = type_list[index++];
+			}
+			if (!matches)
+				continue;
+		}
+
 		// only kill bricks which have no resources allocated
 		count = atomic_read(&brick->mref_object_layout.alloc_count);
 		if (count > 0) {

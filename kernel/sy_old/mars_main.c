@@ -6268,6 +6268,14 @@ static int _main_thread(void *data)
 
         while (mars_global->global_power.button ||
 	       !list_empty(&mars_global->brick_anchor)) {
+		static const struct mars_brick_type *type_list[] = {
+			(void *)&copy_brick_type,
+			(void *)&client_brick_type,
+			(void *)&aio_brick_type,
+			(void *)&sio_brick_type,
+			(void *)&bio_brick_type,
+			NULL
+		};
 		struct list_head *tmp;
 		int trigger_mode;
 		int status;
@@ -6336,26 +6344,18 @@ static int _main_thread(void *data)
 
 		if (!mars_global->global_power.button) {
 			status = mars_kill_brick_when_possible(mars_global,
-							       (void*)&copy_brick_type, true);
-			MARS_DBG("kill copy bricks (when possible) = %d\n", status);
+							       type_list,
+							       true);
+		} else {
+			status = mars_kill_brick_when_possible(mars_global,
+							       type_list + 1,
+							       true);
 		}
+		MARS_DBG("kill any  bricks (when possible) = %d\n", status);
 
 		status = mars_kill_brick_when_possible(mars_global,
 						       NULL, false);
 		MARS_DBG("kill main bricks (when possible) = %d\n", status);
-
-		status = mars_kill_brick_when_possible(mars_global,
-						       (void*)&client_brick_type, true);
-		MARS_DBG("kill client bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(mars_global,
-						       (void*)&aio_brick_type, true);
-		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(mars_global,
-						       (void*)&sio_brick_type, true);
-		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(mars_global,
-						       (void*)&bio_brick_type, true);
-		MARS_DBG("kill bio    bricks (when possible) = %d\n", status);
 
 		if ((long long)jiffies + mars_rollover_interval * HZ >= last_rollover) {
 			last_rollover = jiffies;
