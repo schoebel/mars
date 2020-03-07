@@ -2628,7 +2628,6 @@ done:
 EXPORT_SYMBOL_GPL(mars_kill_brick_all);
 
 int mars_kill_brick_when_possible(struct mars_global *global,
-				  bool use_dent_link,
 				  const struct mars_brick_type *type,
 				  bool even_on)
 {
@@ -2646,11 +2645,8 @@ restart:
 		int count;
 		int status;
 
-		if (use_dent_link) {
-			brick = container_of(tmp, struct mars_brick, dent_brick_link);
-		} else {
-			brick = container_of(tmp, struct mars_brick, global_brick_link);
-		}
+		brick = container_of(tmp, struct mars_brick, global_brick_link);
+
 		// only kill the right brick types
 		if (type && brick->type != type) {
 			continue;

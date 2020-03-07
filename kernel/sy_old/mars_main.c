@@ -6336,25 +6336,25 @@ static int _main_thread(void *data)
 
 		if (!mars_global->global_power.button) {
 			status = mars_kill_brick_when_possible(mars_global,
-							       false, (void*)&copy_brick_type, true);
+							       (void*)&copy_brick_type, true);
 			MARS_DBG("kill copy bricks (when possible) = %d\n", status);
 		}
 
 		status = mars_kill_brick_when_possible(mars_global,
-						       false, NULL, false);
+						       NULL, false);
 		MARS_DBG("kill main bricks (when possible) = %d\n", status);
 
 		status = mars_kill_brick_when_possible(mars_global,
-						       false, (void*)&client_brick_type, true);
+						       (void*)&client_brick_type, true);
 		MARS_DBG("kill client bricks (when possible) = %d\n", status);
 		status = mars_kill_brick_when_possible(mars_global,
-						       false, (void*)&aio_brick_type, true);
+						       (void*)&aio_brick_type, true);
 		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
 		status = mars_kill_brick_when_possible(mars_global,
-						       false, (void*)&sio_brick_type, true);
+						       (void*)&sio_brick_type, true);
 		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
 		status = mars_kill_brick_when_possible(mars_global,
-						       false, (void*)&bio_brick_type, true);
+						       (void*)&bio_brick_type, true);
 		MARS_DBG("kill bio    bricks (when possible) = %d\n", status);
 
 		if ((long long)jiffies + mars_rollover_interval * HZ >= last_rollover) {
