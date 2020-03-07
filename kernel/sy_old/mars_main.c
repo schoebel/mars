@@ -3334,7 +3334,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	if (unlikely(!rot->log_say)) {
 		char *name = path_make("%s/logstatus-%s", parent_path, my_id());
 		if (likely(name)) {
-			rot->log_say = make_channel(name, false);
+			rot->log_say = make_channel(name, true);
 			brick_string_free(name);
 		}
 	}
@@ -6250,6 +6250,8 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 	return 0;
 }
 
+#define SAY_TEST_STR CONFIG_MARS_LOGDIR "/5.total.log"
+
 static int _main_thread(void *data)
 {
 	long long last_rollover = jiffies;
@@ -6276,10 +6278,16 @@ static int _main_thread(void *data)
 			(void *)&bio_brick_type,
 			NULL
 		};
+		struct kstat dummy;
+		int say_status;
 		struct list_head *tmp;
 		int trigger_mode;
 		int status;
 		loff_t memlimit;
+
+		say_status = mars_stat(SAY_TEST_STR, &dummy, true);
+		if (!say_status)
+			init_say();
 
 		MARS_DBG("-------- NEW ROUND %d ---------\n", atomic_read(&server_handler_count));
 
@@ -6528,6 +6536,11 @@ static int __init init_main(void)
 		return -ENOENT;
 	}
 
+	/* This must come first to be effective */
+	status = mars_stat(SAY_TEST_STR, &dummy, true);
+	if (!status)
+		init_say();
+
 #ifdef MARS_HAS_PREPATCH
 	// bump the min_free limit
 	if (min_free_kbytes < new_limit)
@@ -6535,8 +6548,6 @@ static int __init init_main(void)
 #endif
 
 	printk(KERN_INFO "loading MARS, BUILDTAG=%s BUILDHOST=%s BUILDDATE=%s\n", BUILDTAG, BUILDHOST, BUILDDATE);
-
-	init_say(); // this must come first
 
 	/* be careful: order is important!
 	 */

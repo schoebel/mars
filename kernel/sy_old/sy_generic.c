@@ -1058,7 +1058,8 @@ void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
 				break;
 			}
 			if (test->d_use_channel && test->d_path) {
-				dent->d_say_channel = make_channel(test->d_path, true);
+				dent->d_say_channel = make_channel(test->d_path,
+								   true);
 				break;
 			}
 			test = test->d_parent;

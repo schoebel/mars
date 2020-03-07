@@ -160,7 +160,7 @@ struct say_channel *find_channel(const void *id)
 	struct say_channel *res = default_channel;
 	struct say_channel *ch;
 
-	if (cannot_schedule())
+	if (!default_channel || cannot_schedule())
 		return res;
 
 	down_read(&say_mutex);
@@ -197,7 +197,7 @@ void bind_to_channel(struct say_channel *ch, struct task_struct *whom)
 {
 	int i;
 
-	if (cannot_schedule())
+	if (!default_channel || !ch || cannot_schedule())
 		return;
 
 	down_write(&say_mutex);
@@ -230,7 +230,7 @@ struct say_channel *get_binding(struct task_struct *whom)
 	struct say_channel *ch;
 	int i;
 
-	if (cannot_schedule())
+	if (!default_channel || cannot_schedule())
 		return NULL;
 
 	down_read(&say_mutex);
@@ -253,7 +253,7 @@ void remove_binding_from(struct say_channel *ch, struct task_struct *whom)
 	bool found = false;
 	int i;
 
-	if (cannot_schedule())
+	if (!default_channel || !ch || cannot_schedule())
 		return;
 
 	down_write(&say_mutex);
@@ -273,7 +273,7 @@ EXPORT_SYMBOL_GPL(remove_binding_from);
 
 void remove_binding(struct task_struct *whom)
 {
-	if (cannot_schedule())
+	if (!default_channel || cannot_schedule())
 		return;
 
 	down_write(&say_mutex);
@@ -284,6 +284,9 @@ EXPORT_SYMBOL_GPL(remove_binding);
 
 void rollover_channel(struct say_channel *ch)
 {
+	if (!default_channel || cannot_schedule())
+		return;
+
 	if (!ch) {
 		ch = find_channel(current);
 	}
@@ -296,7 +299,7 @@ void rollover_all(void)
 {
 	struct say_channel *ch;
 
-	if (cannot_schedule())
+	if (!default_channel || cannot_schedule())
 		return;
 
 	down_read(&say_mutex);
@@ -428,6 +431,9 @@ struct say_channel *make_channel(const char *name, bool must_exist)
 	struct say_channel *res = NULL;
 	struct say_channel *ch;
 
+	if (must_exist && !default_channel)
+		return NULL;
+
 	if (cannot_schedule()) {
 		printk(KERN_ERR "trying to make channel in atomic\n");
 		return NULL;
@@ -480,6 +486,9 @@ void _say(struct say_channel *ch, int class, va_list args, bool use_args, const 
 	int rest;
 	int written;
 
+	if (!default_channel)
+		return;
+
 	if (unlikely(!ch))
 		return;
 	if (unlikely(ch->ch_delete && ch != default_channel)) {
@@ -519,6 +528,9 @@ void say_to(struct say_channel *ch, int class, const char *fmt, ...)
 {
 	va_list args;
 	unsigned long flags;
+
+	if (!default_channel)
+		return;
 
 	if (!class && !brick_say_debug)
 		return;
@@ -568,6 +580,9 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 	int orig_class;
 	va_list args;
 	unsigned long flags;
+
+	if (!default_channel)
+		return;
 
 	if (!class && !brick_say_debug)
 		return;
@@ -884,8 +899,16 @@ int _say_thread(void *data)
 
 void init_say(void)
 {
-	default_channel = make_channel(CONFIG_MARS_LOGDIR, true);
-	say_thread = kthread_create(_say_thread, NULL, "brick_say");
+	/* Only initialize once */
+	if (default_channel)
+		return;
+
+	default_channel = make_channel(CONFIG_MARS_LOGDIR, false);
+	if (!default_channel)
+		return;
+
+	if (!say_thread)
+		say_thread = kthread_create(_say_thread, NULL, "brick_say");
 	if (IS_ERR(say_thread)) {
 		say_thread = NULL;
 	} else {
