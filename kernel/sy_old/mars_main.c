@@ -6353,10 +6353,6 @@ static int _main_thread(void *data)
 		}
 		MARS_DBG("kill any  bricks (when possible) = %d\n", status);
 
-		status = mars_kill_brick_when_possible(mars_global,
-						       NULL, false);
-		MARS_DBG("kill main bricks (when possible) = %d\n", status);
-
 		if ((long long)jiffies + mars_rollover_interval * HZ >= last_rollover) {
 			last_rollover = jiffies;
 			rollover_all();

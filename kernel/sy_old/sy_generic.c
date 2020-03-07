@@ -2673,7 +2673,9 @@ restart:
 				}
 				this_type = type_list[index++];
 			}
-			if (!matches)
+			/* also kill any non-working bricks */
+			if (!matches &&
+			    (brick->power.button || !brick->power.led_off))
 				continue;
 		}
 
