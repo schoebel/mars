@@ -25460,6 +25460,10 @@ name "subsec:Cost-Arguments-from-Technology"
 
 \end_layout
 
+\begin_layout Subsubsection
+Raw Storage Price Comparison
+\end_layout
+
 \begin_layout Standard
 Here are some rough market prices for basic storage as determined around
  end of 2016 / start of 2017:
@@ -25816,6 +25820,404 @@ temporarily
 very
 \emph default
  short time.
+\end_layout
+
+\begin_layout Subsubsection
+Waste-Corrected Storage Price Comparison
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Waste-Corrected-Storage-Price"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+There is some influence from the granularity of storage (pool sizes) at
+ cost.
+ BigCluster or CentralStorage advocates are often emphasizing that larger
+ storage pools can save cost by 
+\series bold
+flexible assignment
+\series default
+, which in turn can 
+\series bold
+reduce waste
+\series default
+ (at least 
+\emph on
+potentially
+\emph default
+).
+\end_layout
+
+\begin_layout Standard
+FlexibleSharding (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:FlexibleSharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) in combination with Football can lead to a similar or even better
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Typical RemoteSharding over CentralStorage lacks easy movement of LVs between
+ shards, while Football is providing this functionality on LocalStorage.
+\end_layout
+
+\end_inset
+
+ flexibility in storage assignment, and thus to a similar reduction of waste
+ under comparable conditions.
+\end_layout
+
+\begin_layout Standard
+However, pure local storage models like LocalSharding (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Variants-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) are less flexible from a 
+\emph on
+human
+\emph default
+ point of view.
+ Do they lead to more waste from a technical viewpoint? Moving around LVs
+ via Football 
+\emph on
+can
+\emph default
+ be used for flexibility at runtime, but this is less instant, and it cannot
+ easily compensate for bigger misdimensioning between CPU capacity and storage
+ capacity.
+\end_layout
+
+\begin_layout Standard
+Experiences and statistics at 1&1 Ionos ShaHoLin with an LV to PV ratio
+ of 
+\begin_inset Formula $\approx$
+\end_inset
+
+ 7:1 (January 2020) are suggesting that the average storage waste caused
+ by non-fully automated Football
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Without a pool-optimizer, but more or less optimized 
+\begin_inset Quotes eld
+\end_inset
+
+by hand
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+ is around 8.1 PB allocated LV space from 10.7 PB of totally installed PV
+ space
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Without geo-redundancy.
+ Grand totals must be taken 
+\begin_inset Formula $\times2$
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+, which is around 24% waste in the space dimension (better to be called
+ 
+\series bold
+spare space
+\series default
+, since it is 
+\emph on
+usable
+\emph default
+).
+\end_layout
+
+\begin_layout Standard
+Notice that this comes close to the annual ShaHoLin data growth rate, which
+ is around 21%.
+ Essentially, the current spare space is similar to that.
+ It is a good idea to keep some spare space for unforeseeable impacts.
+ Also notice that this 
+\begin_inset Quotes eld
+\end_inset
+
+waste
+\begin_inset Quotes erd
+\end_inset
+
+ comes close to an intended PV filling level of around 80%, which was a
+ deliberate political decision of some advocates, and has no true technical
+ reasons.
+ Technically, higher filling levels up to the theoretical fragmentation
+ limit of 95% (see scientific literature on fragmentation) would be technically
+ possible, but for practical reasons more than 90% PV
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+All the above discussion relates to block level solely.
+ Similar arguments hold for filesystem layer, but the latter is independent
+ from architectures und thus can be completely factored out from this discussion.
+\end_layout
+
+\end_inset
+
+ filling level cannot be recommended, for 
+\emph on
+any
+\emph default
+ storage system.
+ So the current ShaHoLin waste is not far from optimal.
+\end_layout
+
+\begin_layout Standard
+Some advocates might argue that the real waste would be higher than 24%,
+ because there would be CPU waste
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In March 2020, the relative CPU consumption of all primary-side new multicontain
+er machines was 37.1% in 
+\emph on
+timely + pool average
+\emph default
+, with a climbing tendency.
+ Queueing theory suggests that an average 70% CPU utilization should not
+ be exceeded much during DDOS attacks and load peaks, in order to prevent
+ rising service times (which are rather strong SLAs monitored minutely,
+ while DDOS attacks and high-load periods typically last for hours, sometimes
+ for days).
+ Therefore, a day-and-night average of around 70 / 2 = 35% is roughly a
+ desired target value.
+ Both queuing theory and practical observation tell us that after exceeding
+ 70% CPU utilization, the system is reacting in a heavily 
+\series bold
+non-linear
+\series default
+ fashion.
+ The rather strong SLAs forces us to a moderate average CPU utilization.
+ Do not linearly extrapolate anything under such conditions! For lower SLAs,
+ somewhat higher density and thus higher CPU utilization would be possible,
+ but the potential is lower than one might expect, due to non-linearity.
+ Notice that LXC containers have almost neglectible CPU overhead, while
+ KVM / vmware would eat a noticable amount.
+ Do not compare statistics measured inside of VMs with ones gathered from
+ LXC (or other) hypervisors.
+ Do not use VM utilization 
+\emph on
+at all(!)
+\emph default
+ for conclusions about 
+\emph on
+hardware
+\emph default
+.
+ 
+\series bold
+VM-level measurements can be completely meaningless fake results
+\series default
+, telling almost nothing about the hardware!
+\end_layout
+
+\end_inset
+
+.
+ Until future FlexibleSharding is implemented, the current LocalSharding
+ leads to a fixed relationship between storage and CPU power.
+ Better dimensioning of CPU capacity would allow for bigger localstorage
+ RAID sets.
+ However, this is a non-storage price argument, using an incomparable measure.
+ As a courtesy to those advocates, we will now 
+\emph on
+assume(!)
+\emph default
+ that the 
+\begin_inset Quotes eld
+\end_inset
+
+waste
+\begin_inset Quotes erd
+\end_inset
+
+ produced by LocalStorage were around 30%
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Even higher 
+\begin_inset Quotes eld
+\end_inset
+
+estimations
+\begin_inset Quotes erd
+\end_inset
+
+ of waste differences between local and central storage would not be realistic.
+ In 
+\emph on
+any
+\emph default
+ of the architectures, 
+\series bold
+spare CPU power
+\series default
+ must be deployed.
+ Otherwise, DDOS attacks and other types of load peaks cannot be handled
+ gracefully.
+ In pure compute farms using remote storage, spare CPUs are typically not
+ counted for statistics, while at ShaHoLin both the storage and the CPU
+ power are always fully counted.
+ Do not compare statistics based on different foundations.
+ In order to really get a fundamental difference outweighting the CAPEX
+ advantages of self-built vs commercial storage, the LocalSharding model
+ would need to be 
+\series bold
+misdimensioned
+\series default
+.
+ Arguing with misdimensioning would be 
+\series bold
+unfair
+\series default
+.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+This number has to be correlated with the waste produced by other models.
+ In small CentralStorage installations, higher wastes are common, due to
+ the low number of building blocks.
+ The existing building blocks need to be set up with enough spare space
+ for future data growth.
+ When CentralStorage technology (commercial storage boxes) are used for
+ RemoteSharding on top of CentralStorage, the waste may 
+\emph on
+potentially
+\emph default
+ decline.
+ However, there remains a fundamental problem: LVs cannot easily be moved
+ 
+\emph on
+between
+\emph default
+ CentralStorage shards.
+ Therefore, some waste is necessary for allowing resizing of existing LVs
+ during runtime.
+ As a courtesy to those advocates, we now 
+\emph on
+assume(!)
+\emph default
+ that the waste in such a RemoteSharding over LocalStorage architecture
+ would be only 10%.
+ So the difference in waste would be 30% 
+\begin_inset Formula $-$
+\end_inset
+
+ 10% = 20%.
+\end_layout
+
+\begin_layout Standard
+Now what is the total price difference? As shown above, the 
+\emph on
+raw
+\emph default
+ price difference between commercial storage and self-built local storage
+ is between 300% and 1000%.
+ When multiplying this with an assumed(!) 
+\emph on
+additional
+\emph default
+ waste of 20%, the 
+\series bold
+cost for additionally wasted space
+\series default
+ would be higher for commercial storage.
+ For CAPEX invest on the 
+\emph on
+total
+\emph default
+ storage space, there would remain an advantage for LocalSharding, even
+ if the localstorage waste would be assumed as unrealistic 100% (total factor
+ 2).
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace smallskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Real cost of waste
+\end_layout
+
+\end_inset
+
+Do not take isolated arguments like waste as a central criterion for price
+ comparisons.
+ Always try to determine 
+\series bold
+TCO = Total Cost of Ownership 
+\series default
+as close as possible.
+\end_layout
+
+\begin_layout Plain Layout
+Another pitfall: do not count localstorage / LocalSharding cost by inclusion
+ of CPU power, while neglecting CPU and/or network cost for RemoteSharding
+ etc.
+ Do not trap into 
+\series bold
+unfair
+\series default
+ comparisons.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
