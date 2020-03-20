@@ -3247,8 +3247,8 @@ only one shot
 
 \begin_layout Standard
 \noindent
-First, we need to take a look at the most general possibilities how storage
- can be architecturally designed:
+We need to take a look at the most general possibilities how storage can
+ be architecturally designed:
 \end_layout
 
 \begin_layout Standard
@@ -3324,6 +3324,347 @@ noprefix "false"
 BigCluster
 \family default
  is possible.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Before looking into storage architectures, we need to consider extremely
+ important top requirements first.
+\end_layout
+
+\begin_layout Section
+Fundamental Requirements for Geo-Redundancy
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Requirements-for-Geo-Redundancy"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Some BigCluster advocates are trying to use their favourite implementation
+ for geo-distribution.
+ There is a 
+\emph on
+fundamental
+\emph default
+ misunderstanding about geo-redundancy.
+\end_layout
+
+\begin_layout Standard
+It does not suffice to distribute for example a Ceph or Swift cluster over
+ two geo-locations A and B.
+ Recall the definition of geo-redundancy from section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+: it 
+\emph on
+must
+\emph default
+ be possible to run (at least) the core business from 
+\series bold
+either A or B
+\series default
+, while the respective other location B or A is 
+\emph on
+not available
+\emph default
+ for several days or weeks, or even when the other location is 
+\series bold
+lost forever
+\series default
+ and needs to be re-constructed 
+\series bold
+physically from scratch
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+This also applies to 
+\series bold
+partial unavailability
+\series default
+ of a few servers, or of a few racks, or of a few rooms, or of some of the
+ three power phases, or to corresponding 
+\emph on
+partial
+\emph default
+ permanent losses.
+\end_layout
+
+\begin_layout Standard
+Notice: nobody can know in advance whether (parts of) datacenter B will
+ be 
+\emph on
+lost
+\emph default
+, or whether it will be A.
+\end_layout
+
+\begin_layout Standard
+Consequence: 
+\emph on
+any
+\emph default
+ replication system claiming to support geo-redundancy 
+\emph on
+must
+\emph default
+ have a 
+\series bold
+recovery operation
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+Example: in DRBD or MARS, the recovery operation is called (fast) 
+\series bold
+full-sync
+\series default
+.
+ It can be started with commands like 
+\family typewriter
+drbdadm invalidate
+\family default
+ or 
+\family typewriter
+marsadm invalidate
+\family default
+, or with replica creation operations like 
+\family typewriter
+{drbd,mars}adm join-resource
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+Notice: when you have a few petabytes of data, the recovery operation needs
+ to transfer a non-trivial amount of data over a cross-datacenter bottleneck
+ (cf section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), and will take a considerable time, typically weeks, up to months.
+ During all of this, operation must continue.
+\end_layout
+
+\begin_layout Standard
+Consequence: during recovery, the data must be 
+\series bold
+alterable
+\series default
+.
+ In other words, the recovery must work 
+\emph on
+while
+\emph default
+ the data is being modified by your running applications.
+ Data must remain 
+\series bold
+logically consistent
+\series default
+ during all of this.
+\end_layout
+
+\begin_layout Standard
+All of this must be enterprise-grade, meeting some appropriate SLAs.
+ You 
+\emph on
+cannot assume
+\emph default
+ that a certain storage implementation will reliably be able to cope with
+ geo-failure scenarios, when it isn't 
+\series bold
+explicitly constructed and 
+\emph on
+tested(!)
+\emph default
+ for geo-redundancy
+\series default
+ like MARS is.
+\end_layout
+
+\begin_layout Standard
+In addition to the storage, enough 
+\series bold
+application servers
+\series default
+ must be present at both locations A and B, and they need to know where
+ their corresponding data is.
+ When the active side is lost by a spontanous geo-disaster like an earthquake,
+ all the application servers, their services, networking functionality,
+ etc, must be successfully restarted at the other location within a reasonable
+ timeframe.
+ It must be guaranteed that all servers and services are running on the
+ right corresponding data, with the right IP addresses, etc.
+\end_layout
+
+\begin_layout Standard
+All of this needs 
+\series bold
+prepared processes
+\series default
+ in advance, for
+\end_layout
+
+\begin_layout Enumerate
+coping with planned handover and unplanned failover scenarios to KTLO =
+ Keep The Lights On, and
+\end_layout
+
+\begin_layout Enumerate
+Later recovery within a reasonable timeframe.
+\end_layout
+
+\begin_layout Standard
+These are hard requirements.
+ Recommended soft requirements like Ability for Butterfly are described
+ in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Never use any replication system inside of VMs! Suchalike attempts are
+ 
+\emph on
+fundamentally broken
+\emph default
+.
+ See section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Inappropriate-Replication-Layering"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace vfill
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Important Advice on Geo-Redundancy: Time and Cost
+\end_layout
+
+\end_inset
+
+When 
+\series bold
+geo-redundancy
+\series default
+ is required for a certain application class, it 
+\series bold
+must be constructed in
+\series default
+ from the very beginning.
+\end_layout
+
+\begin_layout Plain Layout
+If you believe that geo-redundancy would be an 
+\emph on
+optional feature
+\emph default
+ which could be added later at any time, you will 
+\series bold
+lose a lot of time and money
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+Consequence: any storage strategy in an enterprise 
+\emph on
+must
+\emph default
+ start with the question whether geo-redundancy is required, or not.
+\end_layout
+
+\begin_layout Plain Layout
+Any error in the answer will become 
+\series bold
+extremely expensive
+\series default
+ with respect to a close-to-optimal solution, typically factor 2 or more
+ for TCO; when selecting an inappropriate storage+application 
+\emph on
+fundamental architecture
+\emph default
+ like BigCluster, it may be easily much more.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Never start with a particular solution in mind.
+ 
+\series bold
+Always start with 
+\emph on
+requirements.
 \end_layout
 
 \end_inset
