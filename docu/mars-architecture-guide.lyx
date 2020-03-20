@@ -9457,6 +9457,79 @@ any other
 
 \begin_layout Standard
 \noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Another outbreak of the hell will happen on highly over-provisioned VM
+ farms when masses of VMs are starting their (geo-redundant) 
+\series bold
+recovery phase 
+\series default
+after a disaster (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Requirements-for-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) 
+\emph on
+all in parallel
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In contrast, a single 
+\family typewriter
+/mars
+\family default
+ instance at storage or hypervisor layer will 
+\emph on
+automatically
+\emph default
+ limit the sync parallelism degree to some reasonable value.
+ In addition, sync is easily controllable by sysadmins.
+\end_layout
+
+\end_inset
+
+.
+ This is not limited to DRBD or MARS full-sync, it is also a problem for
+ 
+\emph on
+any other
+\emph default
+ replication system trying to be operated in 
+\emph on
+overprovisioned
+\emph default
+ VM environments.
+ Hypervisor-level sysadmins have no control over internals of external customer
+ VMs, and thus cannot temporarily suspend the massive IO and network traffic.
+ Limiting the IO is no good solution, since it will also sacrifice ordinary
+ application performance.
+ 
+\series bold
+Simply do replication right
+\series default
+, by implementing it at the 
+\emph on
+right
+\emph default
+ layer of the Dijkstra hierarchy.
+\end_layout
+
+\begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 1
 status open
 
