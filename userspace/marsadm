@@ -7343,7 +7343,7 @@ sub expand_res_list {
   my ($cmd, $res) = @_;
   my @res_list=();
   if ($res eq "all" && $cmd !~ m/show|cat|cluster|set-link|delete-file/) {
-    @res_list = get_member_resources();
+    @res_list = get_all_resources();
   } elsif ($res =~ m/,/) {
     @res_list = split(",", $res);
   }
