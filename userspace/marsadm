@@ -32,6 +32,7 @@ umask 0077;
 # global defaults
 
 my $parallel = -1;
+my $compat_deletions = 1;
 my $threshold = 10 * 1024 * 1024;
 my $window = 60;
 my $verbose = 0;
@@ -167,6 +168,7 @@ my $ssh_opts = "-A -o StrictHostKeyChecking=no -o ConnectTimeout=5";
 my $ssh_probe = "uname -a";
 my $rsync_opts = "-av --exclude='.deleted-*'";
 my $kernel_version = 0;
+my $kernel_features_version = 0;
 
 ##################################################################
 
@@ -1291,16 +1293,34 @@ sub finish_links {
 
 # global checks
 
-unless (defined($ARGV[0]) && $ARGV[0] =~ m/cluster|cat/) {
-  $kernel_version = get_link("$mars/tree-$host", 1);
-  if ($kernel_version && $user_version != $kernel_version) {
-    lwarn "kernel_version=$kernel_version user_version=$user_version\n";
-    if ($user_version < $kernel_version) {
-      ldie "Sorry, your MARS kernel module uses version $kernel_version, but my $0 userspace version is only $user_version. That cannot work. Please upgrade your userspace scripts!\n";
-    } elsif (int($user_version) > int($kernel_version) + 1) {
-      ldie "MAJOR VERSION mismatch : only one major upgrade step is supported.\n";
+sub get_global_versions {
+  unless (defined($ARGV[0]) && $ARGV[0] =~ m/cluster|cat/) {
+    $kernel_version = get_link("$mars/tree-$host", 1);
+    if ($kernel_version && $user_version != $kernel_version) {
+      lwarn "kernel_version=$kernel_version user_version=$user_version\n";
+      if ($user_version < $kernel_version) {
+	ldie "Sorry, your MARS kernel module uses version $kernel_version, but my $0 userspace version is only $user_version. That cannot work. Please upgrade your userspace scripts!\n";
+      } elsif (int($user_version) > int($kernel_version) + 1) {
+	ldie "MAJOR VERSION mismatch : only one major upgrade step is supported.\n";
+      }
+      lwarn "using different minor versions is possible, but you should upgrade your kernel module ASAP\n";
     }
-    lwarn "using different minor versions is possible, but you should upgrade your kernel module ASAP\n";
+  }
+  # compute the mimimum of kernel features capabilities
+  foreach my $link (lamport_glob("$mars/features-*")) {
+    my $features = get_link($link);
+    next unless (defined($features) && $features);
+    $features =~ m/^([0-9]+)/;
+    $features = $1;
+    next unless $features > 0;
+    if (!$kernel_features_version || $features < $kernel_features_version) {
+      $kernel_features_version = $features;
+    }
+  }
+  my $compat_path = "$mars/compat-deletions";
+  $compat_deletions = get_link($compat_path, 2);
+  if ($kernel_features_version < 3 || !defined($compat_deletions) || $compat_deletions eq "") {
+    $compat_deletions = 1;
   }
 }
 
@@ -3639,6 +3659,11 @@ my $nr_deletions = 0;
 sub _create_delete {
   my ($target) = @_;
   ldie "cannot delete: '$target' is no absolute path\n" unless $target =~ m:^/:;
+  if (!$compat_deletions) {
+    lprint "delete '$target'\n" if $verbose;
+    set_link(".deleted", $target);
+    return;
+  }
   my $global_path = "$mars/todo-global";
   my $new = _replace_delete($global_path, $target);
   lprint "create symlink $new -> $target\n" if $verbose;
@@ -6307,6 +6332,8 @@ sub pretty_macro {
   return $txt;
 }
 
+get_global_versions();
+
 if (defined($ARGV[0]) && $ARGV[0] =~ m/^dump-(all-)?macros$/) {
   my %macros = %complex_macros;
   %macros = %view_macros if defined($1);
@@ -7199,6 +7226,11 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   --parallel=<number>
     Like --parallel, but limit the parallelism degree to the given
     number of parallel processes.
+  --delete-method=<code>
+    EXPERIMENTAL! Only for testing! This option will disappear again!
+    <code> == 0: Use new deletion method
+    <code> == 1: Use old deletion method
+    default is 1 for compatibility.
   --logger=/path/to/usr/bin/logger
     Use an alternative syslog messenger.
     When empty, disable syslogging.
@@ -7330,6 +7362,20 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg =~ m/--parallel(\s*=\s*(-?[0-9]+)?)?/) {
     $parallel = defined($2) ? $2 : 0;
+    next;
+  } elsif ($arg =~ m/--delete-method\s*=\s*([0-9]+)/) {
+    $compat_deletions = $1;
+    my $compat_path = "$mars/compat-deletions";
+    my $old = get_link($compat_path, 2);
+    if (!defined($old) || $old ne $compat_deletions) {
+      if (-d "/mars" && !$dry_run) {
+	lprint "Setting '$compat_path' to '$compat_deletions'\n";
+	set_link($compat_deletions, $compat_path);
+	finish_links();
+      } else {
+	lwarn "Cannot set '$compat_path' to '$compat_deletions'\n";
+      }
+    }
     next;
   } elsif ($arg =~ s/--verbose\s*=\s*(-?[0-9]+)/$1/) {
     $verbose = $arg;
