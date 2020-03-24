@@ -259,13 +259,13 @@ void show_vals(struct key_value_pair *start, const char *path, const char *add)
 					      start->system_stamp.tv_sec, start->system_stamp.tv_nsec, 
 					      start->lamport_stamp.tv_sec, start->lamport_stamp.tv_nsec, 
 					      start->val);
-			ordered_symlink(src, dst, NULL, 0);
+			ordered_symlink(src, dst, NULL);
 			brick_string_free(src);
 			brick_string_free(start->old_val);
 			start->old_val = start->val;
 			start->val = NULL;
 		} else {
-			ordered_symlink("OK", dst, NULL, 0);
+			ordered_symlink("OK", dst, NULL);
 			memset(&start->system_stamp, 0, sizeof(start->system_stamp));
 			memset(&start->lamport_stamp, 0, sizeof(start->lamport_stamp));
 			brick_string_free(start->old_val);
@@ -393,7 +393,7 @@ void _make_alivelink_str(const char *name, const char *src)
 		goto err;
 	}
 	MARS_DBG("'%s' -> '%s'\n", src, dst);
-	ordered_symlink(src, dst, NULL, 0);
+	ordered_symlink(src, dst, NULL);
 err:
 	brick_string_free(dst);
 }
@@ -1215,7 +1215,7 @@ int _update_link_when_necessary(struct mars_rotate *rot, const char *type, const
 		goto out;
 	}
 
-	status = ordered_symlink(old, new, NULL, 0);
+	status = ordered_symlink(old, new, NULL);
 	if (unlikely(status < 0)) {
 		MARS_ERR_TO(rot->log_say, "cannot create %s symlink '%s' -> '%s' status = %d\n", type, old, new, status);
 	} else {
@@ -1505,7 +1505,7 @@ int __show_actual(const char *path, const char *name, int val)
 		goto done;
 
 	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
-	status = ordered_symlink(src, dst, NULL, 0);
+	status = ordered_symlink(src, dst, NULL);
 
 done:
 	brick_string_free(src);
@@ -1556,7 +1556,7 @@ void _show_brick_status(struct mars_brick *test, bool shutdown)
 		return;
 	}
 
-	status = ordered_symlink(src, dst, NULL, 0);
+	status = ordered_symlink(src, dst, NULL);
 	MARS_DBG("status symlink '%s' -> '%s' status = %d\n", dst, src, status);
 	brick_string_free(dst);
 }
@@ -2144,12 +2144,6 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 			mars_chmod(remote_dent->d_path, newmode);
 			run_trigger = true;
 		}
-
-		if (__kuid_val(remote_dent->new_stat.uid) != __kuid_val(local_stat.uid) && update_ctime) {
-			MARS_DBG("lchown '%s' %d -> %d\n", remote_dent->d_path, __kuid_val(local_stat.uid), __kuid_val(remote_dent->new_stat.uid));
-			mars_lchown(remote_dent->d_path, __kuid_val(remote_dent->new_stat.uid));
-			run_trigger = true;
-		}
 #endif
 	}
 
@@ -2164,7 +2158,6 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 #ifdef MARS_HAS_PREPATCH
 			if (status >= 0) {
 				mars_chmod(remote_dent->d_path, remote_dent->new_stat.mode);
-				mars_lchown(remote_dent->d_path, __kuid_val(remote_dent->new_stat.uid));
 			}
 #endif
 		}
@@ -2177,8 +2170,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		    (!stat_ok || update_mtime)) {
 			status = ordered_symlink(remote_dent->new_link,
 						 remote_dent->d_path,
-						 &remote_dent->new_stat.mtime,
-						 __kuid_val(remote_dent->new_stat.uid));
+						 &remote_dent->new_stat.mtime);
 			MARS_DBG("create symlink '%s' -> '%s' status = %d\n", remote_dent->d_path, remote_dent->new_link, status);
 			run_trigger = true;
 			if (!status &&
@@ -4247,7 +4239,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			if (likely(new_vers && new_vval && new_path &&
 				   !mars_find_dent(global, new_path))) {
 				MARS_INF_TO(rot->log_say, "EMERGENCY: creating new logfile '%s'\n", new_path);
-				ordered_symlink(new_vval, new_vers, NULL, 0);
+				ordered_symlink(new_vval, new_vers, NULL);
 				_create_new_logfile(new_path);
 				rot->created_hole = true;
 			}
@@ -4581,7 +4573,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 		src = path_make("%lld", info.current_size);
 		dst = path_make("%s/actsize-%s", dent->d_parent->d_path, my_id());
 		if (src && dst) {
-			(void)ordered_symlink(src, dst, NULL, 0);
+			(void)ordered_symlink(src, dst, NULL);
 		}
 		brick_string_free(src);
 		brick_string_free(dst);
@@ -5362,7 +5354,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		max_serial = dent->d_serial;
 		global->deleted_my_border = max_serial;
 		snprintf(response_val, sizeof(response_val), "%09d", max_serial);
-		ordered_symlink(response_val, response_path, NULL, 0);
+		ordered_symlink(response_val, response_path, NULL);
 	}
 
  err:

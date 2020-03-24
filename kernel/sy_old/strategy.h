@@ -29,15 +29,6 @@
 
 #include "../mars.h"
 
-//      remove_this
-#ifdef KUIDT_INIT
-#define HAS_KUID
-#else
-#define __kuid_val(x) (x)
-#define __kgid_val(x) (x)
-#endif
-
-//      end_remove_this
 #define MARS_ARGV_MAX 4
 
 extern loff_t global_total_space;
@@ -200,7 +191,6 @@ extern int mars_unlink(const char *path);
 extern char *mars_readlink(const char *newpath);
 extern int mars_rename(const char *oldpath, const char *newpath);
 extern int mars_chmod(const char *path, mode_t mode);
-extern int mars_lchown(const char *path, uid_t uid);
 extern void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining);
 
 /* Timestamp Ordering */
@@ -215,8 +205,7 @@ extern int ordered_unlink(const char *path,
 			  int mode);
 extern int ordered_symlink(const char *oldpath,
 			   const char *newpath,
-			   const struct lamport_time *stamp,
-			   uid_t uid);
+			   const struct lamport_time *stamp);
 
 /////////////////////////////////////////////////////////////////////////
 

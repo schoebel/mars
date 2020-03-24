@@ -637,7 +637,6 @@ int mars_unlink(const char *path)
 static
 int mars_symlink(const char *oldpath, const char *newpath,
 		 const struct lamport_time *stamp,
-		 uid_t uid,
 		 bool ordered)
 {
 	char *tmp = backskip_replace(newpath, '/', true, "/.tmp-"); 
@@ -692,7 +691,7 @@ int mars_symlink(const char *oldpath, const char *newpath,
 	(void)sys_unlink(tmp);
 	status = sys_symlink(oldpath, tmp);
 	if (status >= 0) {
-		sys_lchown(tmp, uid, 0);
+		sys_lchown(tmp, 0, 0);
 		memcpy(&times[1], &times[0], sizeof(struct lamport_time));
 		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
 	}
@@ -816,24 +815,6 @@ int mars_chmod(const char *path, mode_t mode)
 }
 EXPORT_SYMBOL_GPL(mars_chmod);
 
-int mars_lchown(const char *path, uid_t uid)
-{
-#ifdef MARS_HAS_PREPATCH
-	mm_segment_t oldfs;
-	int status;
-	
-	oldfs = get_fs();
-	set_fs(get_ds());
-	status = sys_lchown(path, uid, 0);
-	set_fs(oldfs);
-
-	return status;
-#else
-	return -ENOSYS;
-#endif
-}
-EXPORT_SYMBOL_GPL(mars_lchown);
-
 loff_t _compute_space(struct kstatfs *kstatfs, loff_t raw_val)
 {
 	u64 fsize = kstatfs->f_frsize;
@@ -941,7 +922,7 @@ int ordered_unlink(const char *path, const struct lamport_time *stamp, int seria
 		MARS_DBG("creating / updating marker '%s' mtime=%lu.%09lu\n",
 			 marker_path,
 			 stamp->tv_sec, stamp->tv_nsec);
-		status = mars_symlink(serial_str, marker_path, stamp, 0, false);
+		status = mars_symlink(serial_str, marker_path, stamp, false);
 	}
 	if (marker_status < 0 ||
 	    lamport_time_compare(stamp, &stat.mtime) >= 0) {
@@ -953,7 +934,7 @@ int ordered_unlink(const char *path, const struct lamport_time *stamp, int seria
 	return status;
 }
 
-int ordered_symlink(const char *oldpath, const char *newpath, const struct lamport_time *stamp, uid_t uid)
+int ordered_symlink(const char *oldpath, const char *newpath, const struct lamport_time *stamp)
 {
 	struct kstat stat;
 	struct lamport_time now;
@@ -979,7 +960,7 @@ int ordered_symlink(const char *oldpath, const char *newpath, const struct lampo
 	}
 
 	(void)mars_unlink(marker_path);
-	status = mars_symlink(oldpath, newpath, stamp, uid, false);
+	status = mars_symlink(oldpath, newpath, stamp, false);
 
  done:
 	mutex_unlock(&ordered_lock);
@@ -1195,7 +1176,7 @@ int get_inode(char *newpath, struct mars_dent *dent)
 	    S_ISLNK(dent->new_stat.mode)) {
 		char *val = mars_readlink(newpath);
 		if (val) {
-			mars_symlink(val, newpath, &tmp.mtime, 0, false);
+			mars_symlink(val, newpath, &tmp.mtime, false);
 			brick_string_free(val);
 		}
 	}
@@ -2833,7 +2814,7 @@ void update_client_links(struct client_brick *brick)
 		return; // silently
 
 	sprintf(val, "%d", brick->connection_state - 1);
-	ordered_symlink(val, name, NULL, 0);
+	ordered_symlink(val, name, NULL);
 
 	brick_string_free(name);
 }
