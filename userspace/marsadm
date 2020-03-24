@@ -3670,9 +3670,9 @@ sub delete_file_cmd {
   }
 }
 
-sub logdelete_res {
+sub link_purge_res {
   my ($cmd, $res) = @_;
-  lprint "removing left-over data and symlinks...\n" if $verbose;
+  lprint "removing left-over symlinks...\n" if $verbose;
   my $start_time = mars_time();
   # keep internal backups for 1 week
   my $keep_backups = 24 * 7;
@@ -3682,6 +3682,26 @@ sub logdelete_res {
     lprint "  unlink '$leftlink'\n" if $verbose;
     system("rm -rf $leftlink");
   }
+  # new deletion method
+  my %status = get_alive_links($res, "time", "*");
+  my $min_time = $start_time;
+  foreach my $peer (keys(%status)) {
+    my $stamp = $status{$peer};
+    $min_time = $stamp if $stamp < $min_time;
+  }
+  my $clean_glob = "$mars/{,resource-$res/}{,*/}{.*,*}";
+  foreach my $path (glob($clean_glob)) {
+    next unless -l $path;
+    my $val = readlink($path);
+    next unless $val eq ".deleted";
+    my $age = get_link_stamp($path);
+    next unless $age;
+    if ($age + $window/2 < $min_time) {
+      lprint "  remove deleted '$path'\n" if $verbose;
+      unlink($path);
+    }
+  }
+  # old deletion method, hopefully to disappear somewhen in future
   foreach my $leftlink (lamport_glob("$mars/{,resource-$res/}{,*/}{.tmp,.deleted,delete,work}-*")) {
     # remove outdated .deleted-* markers
     if ($leftlink =~ m:/.deleted-:) {
@@ -3721,6 +3741,12 @@ sub logdelete_res {
     lprint "  unlink '$leftlink'\n" if $verbose;
     unlink($leftlink);
   }
+}
+
+sub logdelete_res {
+  my ($cmd, $res) = @_;
+  lprint "removing left-over $res logfiles...\n" if $verbose;
+  my $start_time = mars_time();
   my @paths = lamport_glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
   @paths = sort alphanum_cmp @paths;
   my ($min_deletable, $max_deletable) = _get_deletable_logfiles(@_);
@@ -3783,6 +3809,7 @@ sub logdelete_res {
 sub cron_res {
   my ($cmd, $res) = @_;
   $cron_mode = 1;
+  link_purge_res(@_);
   logrotate_res(@_);
   finish_links();
   sleep(5);
@@ -6586,6 +6613,11 @@ my %cmd_table =
        "Remove any err message from the given resources.",
        \&err_purge_res,
       ],
+   "link-purge-all"
+   => [
+       "Remove any .deleted links.",
+       \&link_purge_res,
+      ],
    "fake-sync"
    => [
        "verbose 1",
@@ -7455,7 +7487,7 @@ sub do_one_res {
   if ($cmd =~ m/^cat|-file$|-list$|-link$|-value$/) { # no resource argument
   } elsif (!$checked_res{"$cmd$res"}) {
     $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|merge|leave|wait)-cluster|(create|join)-resource|show/);
-    check_res_member($cmd, $res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(merge|leave|wait)-cluster|^log-purge|^show|^view/);
+    check_res_member($cmd, $res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(merge|leave|wait)-cluster|-purge-|^show|^view/);
     detect_splitbrain($res, 1);
     $checked_res{"$cmd$res"} = 1;
   }
