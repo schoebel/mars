@@ -1187,7 +1187,7 @@ sub is_link_recent {
 
 sub to_tmp {
   my $path = shift;
-  $path =~ s:^(.*)/:$1/.tmp.:;
+  $path =~ s:^(.*)/:$1/.tmp.$$.:;
   return $path;
 }
 
