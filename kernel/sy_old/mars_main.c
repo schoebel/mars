@@ -2300,6 +2300,96 @@ void report_peer_connection(struct key_value_pair *peer_pairs, bool do_additiona
 }
 
 static
+int peer_action_dent_list(struct mars_peerinfo *peer,
+			  const char *real_peer,
+			  const char *paths,
+			  struct key_value_pair *peer_pairs)
+{
+	struct mars_global tmp_global = {
+		.dent_anchor = LIST_HEAD_INIT(tmp_global.dent_anchor),
+		.dent_quick_anchor = LIST_HEAD_INIT(tmp_global.dent_quick_anchor),
+		.brick_anchor = LIST_HEAD_INIT(tmp_global.brick_anchor),
+		.global_power = {
+			.button = true,
+	  },
+		.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(tmp_global.main_event),
+	};
+	int i;
+	int status;
+
+	init_rwsem(&tmp_global.dent_mutex);
+	init_rwsem(&tmp_global.brick_mutex);
+	for (i = 0; i < MARS_GLOBAL_HASH; i++)
+		INIT_LIST_HEAD(&tmp_global.dent_hash_anchor[i]);
+
+	MARS_DBG("fetching remote dentries from '%s' '%s'\n",
+		 peer->peer, paths);
+
+	status = mars_recv_dent_list(&peer->socket, &tmp_global.dent_anchor);
+	if (unlikely(status < 0))
+		goto free;
+
+	if (likely(!list_empty(&tmp_global.dent_anchor))) {
+		LIST_HEAD(old_list);
+		struct mars_dent *peer_uuid;
+		const char *my_uuid;
+		int cmp;
+
+		MARS_DBG("got remote denties from %s\n", peer->peer);
+
+		peer_uuid = mars_find_dent(&tmp_global, "/mars/uuid");
+		if (unlikely(!peer_uuid || !peer_uuid->new_link)) {
+			MARS_ERR("peer %s has no uuid\n", peer->peer);
+			make_msg(peer_pairs, "peer '%s' has no UUID",
+				 peer->peer);
+			status = -EPROTO;
+			goto free;
+		}
+		my_uuid = ordered_readlink("/mars/uuid");
+		if (unlikely(!my_uuid)) {
+			MARS_ERR("cannot determine my own uuid for peer %s\n", peer->peer);
+			make_msg(peer_pairs, "cannot determine my own uuid");
+			status = -EPROTO;
+			goto free;
+		}
+		cmp = strcmp(peer_uuid->new_link, my_uuid);
+		if (unlikely(cmp)) {
+			MARS_ERR("UUID mismatch for peer %s, you are trying to communicate with a foreign cluster!\n", peer->peer);
+			make_msg(peer_pairs, "UUID mismatch with '%s', own cluster '%s' is trying to communicate with a foreign cluster '%s'",
+				 peer->peer,
+				 my_uuid, peer_uuid->new_link);
+			brick_string_free(my_uuid);
+			status = -EPROTO;
+			goto free;
+		}
+		brick_string_free(my_uuid);
+
+		make_msg(peer_pairs, "CONNECTED %s(%s) fetching '%s'",
+			 peer->peer, real_peer,
+			 paths);
+
+		mutex_lock(&peer->peer_lock);
+
+		list_replace_init(&peer->remote_dent_list, &old_list);
+		list_replace_init(&tmp_global.dent_anchor, &peer->remote_dent_list);
+		list_del_init(&tmp_global.dent_quick_anchor);
+
+		mutex_unlock(&peer->peer_lock);
+
+		peer->last_remote_jiffies = jiffies;
+
+		mars_trigger();
+
+		mars_free_dent_all(&tmp_global, &old_list);
+	}
+
+ free:
+	mars_free_dent_all(&tmp_global, &tmp_global.dent_anchor);
+	return status;
+}
+
+
+static
 int peer_thread(void *data)
 {
 	struct mars_peerinfo *peer = data;
@@ -2332,25 +2422,9 @@ int peer_thread(void *data)
 	}
 
         while (peer_thead_should_run(peer)) {
-		struct mars_global tmp_global = {
-			.dent_anchor = LIST_HEAD_INIT(tmp_global.dent_anchor),
-			.dent_quick_anchor = LIST_HEAD_INIT(tmp_global.dent_quick_anchor),
-			.brick_anchor = LIST_HEAD_INIT(tmp_global.brick_anchor),
-			.global_power = {
-				.button = true,
-			},
-			.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(tmp_global.main_event),
-		};
-		LIST_HEAD(old_list);
 		struct mars_cmd cmd = {
 			.cmd_int1 = peer->maxdepth,
 		};
-		int i;
-
-		init_rwsem(&tmp_global.dent_mutex);
-		init_rwsem(&tmp_global.brick_mutex);
-		for (i = 0; i < MARS_GLOBAL_HASH; i++)
-			INIT_LIST_HEAD(&tmp_global.dent_hash_anchor[i]);
 
 		if (likely(repeated)) {
 			report_peer_connection(peer_pairs, !peer->do_communicate);
@@ -2459,9 +2533,7 @@ int peer_thread(void *data)
 			goto free_and_restart;
 		}
 
-		MARS_DBG("fetching remote dentries from '%s' '%s'\n",
-			 peer->peer, cmd.cmd_str1);
-		status = mars_recv_dent_list(&peer->socket, &tmp_global.dent_anchor);
+		status = peer_action_dent_list(peer, real_peer, cmd.cmd_str1, peer_pairs);
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on receive, status = %d\n", status);
 			if (do_kill) {
@@ -2469,56 +2541,6 @@ int peer_thread(void *data)
 				_peer_cleanup(peer);
 			}
 			goto free_and_restart;
-		}
-
-		if (likely(!list_empty(&tmp_global.dent_anchor))) {
-			struct mars_dent *peer_uuid;
-			const char *my_uuid;
-			int cmp;
-
-			MARS_DBG("got remote denties from %s\n", peer->peer);
-
-			peer_uuid = mars_find_dent(&tmp_global, "/mars/uuid");
-			if (unlikely(!peer_uuid || !peer_uuid->new_link)) {
-				MARS_ERR("peer %s has no uuid\n", peer->peer);
-				make_msg(peer_pairs, "peer '%s' has no UUID",
-					peer->peer);
-				goto free_and_restart;
-			}
-			my_uuid = ordered_readlink("/mars/uuid");
-			if (unlikely(!my_uuid)) {
-				MARS_ERR("cannot determine my own uuid for peer %s\n", peer->peer);
-				make_msg(peer_pairs, "cannot determine my own uuid");
-				goto free_and_restart;
-			}
-			cmp = strcmp(peer_uuid->new_link, my_uuid);
-			if (unlikely(cmp)) {
-				MARS_ERR("UUID mismatch for peer %s, you are trying to communicate with a foreign cluster!\n", peer->peer);
-				make_msg(peer_pairs, "UUID mismatch with '%s', own cluster '%s' is trying to communicate with a foreign cluster '%s'",
-					 peer->peer,
-					 my_uuid, peer_uuid->new_link);
-				brick_string_free(my_uuid);
-				goto free_and_restart;
-			}
-			brick_string_free(my_uuid);
-
-			make_msg(peer_pairs, "CONNECTED %s(%s) fetching '%s'",
-				 peer->peer, real_peer,
-				 cmd.cmd_str1);
-
-			mutex_lock(&peer->peer_lock);
-
-			list_replace_init(&peer->remote_dent_list, &old_list);
-			list_replace_init(&tmp_global.dent_anchor, &peer->remote_dent_list);
-			list_del_init(&tmp_global.dent_quick_anchor);
-
-			mutex_unlock(&peer->peer_lock);
-
-			peer->last_remote_jiffies = jiffies;
-
-			mars_trigger();
-
-			mars_free_dent_all(&tmp_global, &old_list);
 		}
 
 		brick_string_free(cmd.cmd_str1);
@@ -2548,7 +2570,6 @@ int peer_thread(void *data)
 
 	free_and_restart:
 		brick_string_free(cmd.cmd_str1);
-		mars_free_dent_all(&tmp_global, &tmp_global.dent_anchor);
 		/* additional threads should give up immediately */
 		if (peer->do_additional && !peer->do_communicate)
 			break;
