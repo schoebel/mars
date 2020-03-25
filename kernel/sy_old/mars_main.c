@@ -2098,6 +2098,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 	int status = 0;
 	struct kstat local_stat = {};
 	bool stat_ok;
+	bool is_deleted;
 	bool update_mtime = true;
 	bool update_ctime = true;
 	bool run_trigger = false;
@@ -2122,6 +2123,9 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 
 	status = mars_stat(remote_dent->d_path, &local_stat, true);
 	stat_ok = (status >= 0);
+
+	is_deleted = remote_dent->new_link &&
+		!strcmp(remote_dent->new_link, MARS_DELETED_STR);
 
 	if (stat_ok) {
 		update_mtime = lamport_time_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) > 0;
@@ -2165,7 +2169,12 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 #endif
 		}
 	} else if (S_ISLNK(remote_dent->new_stat.mode) && remote_dent->new_link) {
-		if (!stat_ok || update_mtime) {
+		/* Important: not not create .deleted values
+		 * unless the object already exists.
+		 */
+		if (is_deleted ?
+		    (stat_ok && update_mtime) :
+		    (!stat_ok || update_mtime)) {
 			status = ordered_symlink(remote_dent->new_link,
 						 remote_dent->d_path,
 						 &remote_dent->new_stat.mtime,
@@ -6092,20 +6101,25 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 {
 	main_worker_fn worker;
 	int class = dent->d_class;
+	bool is_deleted;
 
 	if (class < 0 || class >= sizeof(main_classes)/sizeof(struct main_class)) {
 		MARS_ERR_ONCE(dent, "bad internal class %d of '%s'\n", class, dent->d_path);
 		return -EINVAL;
 	}
+
+	is_deleted = dent->new_link &&
+		!strcmp(dent->new_link, MARS_DELETED_STR);
+
 	switch (main_classes[class].cl_type) {
 	case 'd':
-		if (!S_ISDIR(dent->new_stat.mode)) {
+		if (!S_ISDIR(dent->new_stat.mode) && !is_deleted) {
 			MARS_ERR_ONCE(dent, "'%s' should be a directory, but is something else\n", dent->d_path);
 			return -EINVAL;
 		}
 		break;
 	case 'f':
-		if (!S_ISREG(dent->new_stat.mode)) {
+		if (!S_ISREG(dent->new_stat.mode) && !is_deleted) {
 			MARS_ERR_ONCE(dent, "'%s' should be a regular file, but is something else\n", dent->d_path);
 			return -EINVAL;
 		}
@@ -6128,6 +6142,10 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 			return -EINVAL;
 		}
 		break;
+	default:
+		MARS_ERR_ONCE(dent, "'%s' class %d has unimplemented type %d\n",
+			      dent->d_path, class, main_classes[class].cl_type);
+		return -EINVAL;
 	}
 	if (likely(class > CL_ROOT)) {
 		int father = main_classes[class].cl_father;
