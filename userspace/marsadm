@@ -1267,6 +1267,7 @@ sub get_alive_links {
   my $alive = shift || "alive";
   my $hosts = shift || "*";
   my $warn = shift || 0;
+  my $non_participating = shift || 0;
   $res = "*" if $res eq "all";
   my %cand;
   foreach my $path (glob("$mars/ips/ip-$hosts")) {
@@ -1285,17 +1286,19 @@ sub get_alive_links {
     # peer must be a candiate matching the hosts spec
     next unless $cand{$peer};
     # peer must be participating in the same resources
-    my @other = glob("$mars/resource-$res/data-$peer");
-    next unless @other;
-    # I must be participating in some of the _same_ resources
-    my $common = 0;
-    foreach my $check (@other) {
-      my $self = `dirname $check`;
-      chomp $self;
-      $self .= "/data-$host";
-      $common++ if -e $self;
+    if (!$non_participating) {
+      my @other = glob("$mars/resource-$res/data-$peer");
+      next unless @other;
+      # I must be participating in some of the _same_ resources
+      my $common = 0;
+      foreach my $check (@other) {
+	my $self = `dirname $check`;
+	chomp $self;
+	$self .= "/data-$host";
+	$common++ if -e $self;
+      }
+      next unless $common;
     }
-    next unless $common;
     # OK: remember peer
     $peers{$peer} = 1;
   }
@@ -1419,29 +1422,39 @@ sub wait_cond {
   }
 }
 
-# wait until some communication has occurred
+# wait until everything is recent
 sub wait_cluster {
   my $cmd = shift;
   my $res = shift || "all";
   my $hosts = shift || "*";
   my $abort = shift;
   $abort = $force unless defined($abort);
+  my $trigger_code = shift || ($hosts =~ m/\*/ ? 3 : 2);
+  my $non_participating = ($trigger_code >= 8);
   $timeout_val = undef;
   finish_links();
+  lprint "Ping $hosts\n";
+  _trigger($trigger_code);
+  my %old_status = get_alive_links($res, "time", $hosts, 0, $non_participating);
+  my $total_count = scalar(keys(%old_status));
   my $start_time = mars_time();
-  my %old_status = get_alive_links($res, "time", $hosts);
-  _trigger($hosts =~ m/\*/ ? 3 : 2);
-  lprint "Ping and wait for answers from " . join(",", sort alphanum_cmp keys(%old_status)) . "\n" if %old_status;
+  my %progress;
+  foreach my $peer (keys(%old_status)) {
+    $progress{$peer} = $non_participating ? 1 : 0;
+  }
+  lprint "Wait for answers from " . join(",", sort alphanum_cmp keys(%old_status)) . "\n" if %old_status;
   my $delta = $window > 0 ? $window / 2 : 30;
   while (1) {
     my $dead_count = 0;
     my $alive_count = 0;
     my $unknown_count = 0;
-    my %status = get_alive_links($res, "time", $hosts);
+    my %status = get_alive_links($res, "time", $hosts, 0, $non_participating);;
     my $now = mars_time();
     foreach my $peer (keys(%status)) {
       next if $peer eq $host;
-      if ($status{$peer} ne $old_status{$peer} || $status{$peer} >= $start_time) {
+      if ($status{$peer} > $old_status{$peer} &&
+	  $status{$peer} > $start_time &&
+	  $progress{$peer}-- <= 0) {
 	$alive_count++;
       } elsif ($status{$peer} + $delta < $now) {
 	$dead_count++;
@@ -1449,11 +1462,15 @@ sub wait_cluster {
 	$unknown_count++;
       }
     }
-    if (!$unknown_count) {
+    if ($unknown_count) {
+      _trigger($trigger_code);
+      # ensure more progress will happen
+      %old_status = %status;
+    } else {
       if (!$dead_count) {
-	lprint "all $alive_count peer(s) seem to be alive\n";
+	lprint "$alive_count/$total_count peer(s) seem to be alive\n";
       } else {
-	lwarn "$alive_count peer(s) seem to be alive, and $dead_count peer(s) seem to be dead / not reachable\n";
+	lwarn "$alive_count/$total_count peer(s) seem to be alive, and $dead_count peer(s) seem to be dead / not reachable\n";
 	ldie "aborting (--force was not given)\n" if $abort;
       }
       last;
@@ -1469,6 +1486,13 @@ sub wait_cluster_noforce {
     lprint "WAITING for communication\n" if $verbose;
     wait_cluster($cmd, $res, "*", 0);
   }
+}
+
+sub update_cluster {
+  my $cmd = shift;
+  my $res = shift || "all";
+  lprint "UPDATING $res\n" if $verbose;
+  wait_cluster($cmd, $res, "*", 0, 8);
 }
 
 ##################################################################
@@ -6609,6 +6633,15 @@ my %cmd_table =
        "Wait until the given condition is met on the resource, locally.",
        \&wait_cond,
       ],
+   "update-cluster"
+   => [
+       "usage: update-cluster [<resource_name>]",
+       "Fetch all the links from all joined cluster hosts.",
+       "Use this between create-resource and join-resource.",
+       "NOTICE: this is extremely useful for avoiding races when scripting",
+       "in a cluster.",
+       \&update_cluster,
+      ],
 
    # compatible keywords (or their derivatives)
    "attach"
@@ -7279,7 +7312,7 @@ if ($cmd =~ "show|cron") {
   ldie "argument '$res' isn't numeric\n" unless $res =~ m/^[0-9.]+$/;
 } elsif ($cmd =~ m/^(join|merge)-cluster$/) {
   $res = shift @args || helplist "peer argument is missing\n";
-} elsif (!($cmd =~ m/^(create|split|leave|wait)-cluster|merge-cluster-list|create-uuid|cat|[a-z]+-file|trigger/)) {
+} elsif (!($cmd =~ m/^(create|split|leave|wait|update)-cluster|merge-cluster-list|create-uuid|cat|[a-z]+-file|trigger/)) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id_list($res);
 }
