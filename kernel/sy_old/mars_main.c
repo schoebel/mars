@@ -547,8 +547,6 @@ enum {
 	CL_PEERS,
 	CL_GBL_ACTUAL,
 	CL_GBL_ACTUAL_ITEMS,
-	CL_ALIVE,
-	CL_TIME,
 	CL_TREE,
 	CL_FEATURES,
 	CL_EMERGENCY,
@@ -584,6 +582,9 @@ enum {
 	CL_REPLAYSTATUS,
 	CL_DEVICE,
 	CL_MAXNR,
+	/* these must come last for race avoidance */
+	CL_ALIVE,
+	CL_TIME,
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -5603,21 +5604,6 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'l',
 		.cl_father = CL_GBL_ACTUAL,
 	},
-	/* Indicate aliveness of all cluster paritcipants
-	 * by the timestamp of this link.
-	 */
-	[CL_ALIVE] = {
-		.cl_name = "alive-",
-		.cl_len = 6,
-		.cl_type = 'l',
-		.cl_father = CL_ROOT,
-	},
-	[CL_TIME] = {
-		.cl_name = "time-",
-		.cl_len = 5,
-		.cl_type = 'l',
-		.cl_father = CL_ROOT,
-	},
 	/* Show version indication for symlink tree.
 	 */
 	[CL_TREE] = {
@@ -5970,6 +5956,22 @@ static const struct main_class main_classes[] = {
 		.cl_len = 5,
 		.cl_type = 'l',
 		.cl_father = CL_RESOURCE,
+	},
+	/* Indicate aliveness of all cluster paritcipants
+	 * by the timestamp of this link.
+	 * These must come last for race avoidance.
+	 */
+	[CL_ALIVE] = {
+		.cl_name = "alive-",
+		.cl_len = 6,
+		.cl_type = 'l',
+		.cl_father = CL_ROOT,
+	},
+	[CL_TIME] = {
+		.cl_name = "time-",
+		.cl_len = 5,
+		.cl_type = 'l',
+		.cl_father = CL_ROOT,
 	},
 	{}
 };
