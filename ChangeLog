@@ -80,6 +80,21 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable85
+	* Minor improvement: avoid ssh / rsync at join-resource.
+	  Only when ordinary communication over over port 7777 (default)
+	  fails, fallback to ssh connections.
+	* Minor marsadm speedup by avoidance of unnecessary
+	  sleep times.
+	* Minor fix: ensure that primary --force works even when a
+	  logfile was truncated forcefully.
+	* Minor fix: use-after-free reported by KASAN, only
+	  triggerable with a future development version, not
+	  observed with the current stable version.
+	  I include it here for safeguarding.
+	* Minor doc updates. Explain fundamental requirements for
+	  geo-redundancy, and some background on cost comparisons.
+
 mars0.1astable84
 	* Major improvement: try to automatically self-repair
 	  any defective logfile at secondaries, by fetching again
