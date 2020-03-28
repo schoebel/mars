@@ -10920,7 +10920,7 @@ name "sec:Cluster-Operations"
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="9" columns="3">
+<lyxtabular version="3" rows="10" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -12140,6 +12140,102 @@ status open
 \family typewriter
 \size scriptsize
 wait-cluster
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+See section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Waiting"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+update-cluster
 \end_layout
 
 \end_inset
@@ -22850,10 +22946,25 @@ name "subsec:Waiting"
 \end_layout
 
 \begin_layout Standard
+For scripting, these commands are often needed for race avoidance.
+ MARS' symlink are not propagated 
+\emph on
+immediately
+\emph default
+ throughout the whole cluster, but will take some time (also called 
+\series bold
+eventually consistent
+\series default
+ using a so-called Lamport clock).
+ The following commands can be used for triggering a status update, and
+ then waiting until information is recent enough.
+\end_layout
+
+\begin_layout Standard
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="5" columns="3">
+<lyxtabular version="3" rows="6" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -23018,6 +23129,178 @@ nodes in the cluster have sent a status update of their version of the symlink
 ting in some of the local resources.
  This command does its best to get the current status from the other cluster
  members.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\size scriptsize
+This works only for resources which have been 
+\emph on
+already
+\emph default
+ joined.
+ It you want to do a
+\family typewriter
+ join-resource
+\family default
+, use 
+\family typewriter
+update-cluster
+\family default
+ instead for fetching / updating the not-yet-joined symlink information
+ also.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+update-cluster
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Precondition: the 
+\family typewriter
+/mars/
+\family default
+ filesystem must be mounted everywhere and it must contain a valid MARS
+ symlink tree produced by the other 
+\family typewriter
+marsadm
+\family default
+ commands.
+ The network must be healthy.
+ The kernel module must be loaded everywhere.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Postcondition: none.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Wait until 
+\emph on
+all 
+\emph default
+nodes in the 
+\emph on
+whole
+\emph default
+ cluster have sent a status update of their 
+\emph on
+full
+\emph default
+ symlink tree, including any joined or non-joined information, or until
+ timeout.
+ The default timeout is 30 s (exceptionally) and may be changed by
+\family typewriter
+ --timeout=$seconds
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+
+\size scriptsize
+ Use this before join-resource to ensure that 
+\emph on
+all
+\emph default
+ symlink information is recent.
 \end_layout
 
 \end_inset

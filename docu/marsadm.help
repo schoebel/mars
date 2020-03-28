@@ -505,6 +505,13 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     usage: up <resource_name>
     Shortcut for attach + resume-sync + resume-fetch + resume-replay.
 
+  update-cluster
+    usage: update-cluster [<resource_name>]
+    Fetch all the links from all joined cluster hosts.
+    Use this between create-resource and join-resource.
+    NOTICE: this is extremely useful for avoiding races when scripting
+    in a cluster.
+
   wait-cluster
     usage: wait-resource [<resource_name>]
     Waits until a ping-pong communication has succeeded in the
