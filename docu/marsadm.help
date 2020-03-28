@@ -34,6 +34,11 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   --parallel=<number>
     Like --parallel, but limit the parallelism degree to the given
     number of parallel processes.
+  --delete-method=<code>
+    EXPERIMENTAL! Only for testing! This option will disappear again!
+    <code> == 0: Use new deletion method
+    <code> == 1: Use old deletion method
+    default is 1 for compatibility.
   --logger=/path/to/usr/bin/logger
     Use an alternative syslog messenger.
     When empty, disable syslogging.
@@ -247,6 +252,10 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Stop being a member of the resource, and thus stop all
     replication activities. The status of the underlying disk
     will remain in its current state (whatever it is).
+
+  link-purge-all
+    usage: link-purge-all <resource_name>
+    Remove any .deleted links.
 
   log-delete
     usage: log-delete <resource_name>
