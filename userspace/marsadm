@@ -1232,6 +1232,8 @@ sub to_tmp {
 
 sub set_link {
   my ($src, $dst) = @_;
+  # safeguard trailing slashes
+  $dst =~ s:/$::;
   my $dst_tmp = to_tmp($dst);
   unlink($dst_tmp);
   symlink($src, $dst_tmp) or ldie "cannot create symlink '$dst' -> '$src'\n";
@@ -1272,10 +1274,11 @@ sub finish_links {
       unlink($link_tmp);
       next;
     }
+    # allow replacement of directories with symlinks
+    rmdir($link) if -d $link;
     unless (rename($link_tmp, $link)) {
       lwarn "cannot finalize symlink '$link'\n";
-    }
-    if ($verbose) {
+    } elsif ($verbose) {
       lprint "created symlink '$link' -> '$target'\n";
     }
     $count++;
