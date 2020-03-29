@@ -181,6 +181,7 @@ enum _MREF_FLAGS {
 	_MREF_CHKSUM_LAST,
 	_MREF_COMPRESS_LZO = 24,
 	_MREF_COMPRESS_LZ4,
+	_MREF_COMPRESS_ZLIB,
 	_MREF_COMPRESS_LAST,
 };
 
@@ -199,6 +200,7 @@ enum _MREF_FLAGS {
 #define MREF_CHKSUM_LAST     (1UL << _MREF_CHKSUM_LAST)
 #define MREF_COMPRESS_LZO    (1UL << _MREF_COMPRESS_LZO)
 #define MREF_COMPRESS_LZ4    (1UL << _MREF_COMPRESS_LZ4)
+#define MREF_COMPRESS_ZLIB   (1UL << _MREF_COMPRESS_ZLIB)
 #define MREF_CHKSUM_ANY      (MREF_CHKSUM_MD5_OLD |	\
 			      MREF_CHKSUM_MD5 |		\
 			      MREF_CHKSUM_CRC32C |	\
@@ -206,7 +208,8 @@ enum _MREF_FLAGS {
 			      MREF_CHKSUM_SHA1 |	\
 			      MREF_CHKSUM_LAST)
 #define MREF_COMPRESS_ANY     (MREF_COMPRESS_LZO |	\
-			       MREF_COMPRESS_LZ4)
+			       MREF_COMPRESS_LZ4 |	\
+			       MREF_COMPRESS_ZLIB)
 
 #define MREF_OBJECT(OBJTYPE)						\
 	CALLBACK_OBJECT(OBJTYPE);					\
@@ -548,6 +551,8 @@ extern int compress_overhead;
 
 extern __u32 available_compression_mask;
 extern __u32 usable_compression_mask;
+
+extern int mars_zlib_compression_level;
 
 extern int mars_compress(void *src_data,
 			 int src_len,

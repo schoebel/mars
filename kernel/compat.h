@@ -248,4 +248,9 @@ extern int _compat_unlink(
 #endif
 #endif
 
+#if defined(CONFIG_ZLIB_INFLATE) && defined(CONFIG_ZLIB_DEFLATE)
+#include <linux/zlib.h>
+#define HAS_ZLIB
+#endif
+
 #endif /* _MARS_COMPAT */

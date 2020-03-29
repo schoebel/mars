@@ -11,6 +11,8 @@ config MARS
 	select LZO_DECOMPRESS
 	select LZ4_COMPRESS
 	select LZ4_DECOMPRESS
+	select ZLIB_INFLATE
+	select ZLIB_DEFLATE
 	select CRYPTO_MD5
 	select CRYPTO_CRC32
 	select CRYPTO_CRC32C

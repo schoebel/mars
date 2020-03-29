@@ -645,11 +645,16 @@ __u32 available_compression_mask =
 #ifdef HAS_LZ4
 	MREF_COMPRESS_LZ4 |
 #endif
+#ifdef HAS_ZLIB
+	MREF_COMPRESS_ZLIB |
+#endif
 	0;
 
 __u32 usable_compression_mask = 0;
 
 __u32 used_compression = 0;
+
+int mars_zlib_compression_level = 3;
 
 int mars_compress(void *src_data,
 		  int src_len,
@@ -760,6 +765,55 @@ int mars_compress(void *src_data,
 		goto done;
 	}
 #endif
+#ifdef HAS_ZLIB
+	if (check_flags & MREF_COMPRESS_ZLIB) {
+		size_t zlib_deflate_wrk_size = zlib_deflate_workspacesize(MAX_WBITS, MAX_MEM_LEVEL);
+		struct z_stream_s stream = {
+			.workspace = brick_mem_alloc(zlib_deflate_wrk_size),
+		};
+		int status;
+
+		if (!dst_data) {
+			tmp_buf = brick_mem_alloc(src_len);
+		} else if (dst_len < src_len) {
+			MARS_ERR("ZLIB compression buffer too small: %d < %d\n",
+				 dst_len, src_len);
+			return 0;
+		}
+
+		status = zlib_deflateInit(&stream, mars_zlib_compression_level);
+		if (unlikely(status != Z_OK)) {
+			MARS_ERR("cannot init zlib compression stream\n");
+			goto zlib_err;
+		}
+
+		stream.next_in = src_data;
+		stream.avail_in = src_len;
+		stream.next_out = tmp_buf;
+		stream.avail_out = src_len;
+
+		status = zlib_deflate(&stream, Z_FINISH);
+		if (status != Z_STREAM_END)
+			goto zlib_err;
+
+		status = zlib_deflateEnd(&stream);
+		if (status == Z_OK && stream.total_out < src_len) {
+			used_compression = MREF_COMPRESS_ZLIB;
+			*result_flags |= MREF_COMPRESS_ZLIB;
+			res = stream.total_out;
+			/*
+			 * TODO: avoid memcpy() by swizzling the src_data pointer
+			 */
+			if (!dst_data)
+				memcpy(src_data, tmp_buf, stream.total_out);
+		}
+
+	zlib_err:
+		brick_mem_free(stream.workspace);
+		/* do not try other compression methods */
+		goto done;
+	}
+#endif
 	used_compression = 0;
 
  done:
@@ -818,6 +872,46 @@ void *mars_decompress(void *src_data,
 		MARS_ERR("bad LZ4 decompression %d != %lu to %d bytes\n",
 			 src_len, new_len, dst_len);
 #endif
+		goto err;
+	}
+#endif
+#ifdef HAS_ZLIB
+	if (check_flags & MREF_COMPRESS_ZLIB) {
+		size_t zlib_inflate_wrk_size = zlib_inflate_workspacesize();
+		struct z_stream_s stream = {
+			.workspace = brick_mem_alloc(zlib_inflate_wrk_size),
+		};
+		int status;
+
+		status = zlib_inflateInit(&stream);
+		if (unlikely(status != Z_OK)) {
+			MARS_ERR("cannot init zlib decompression stream\n");
+			goto zlib_err;
+		}
+
+		stream.next_in = src_data;
+		stream.avail_in = src_len;
+		stream.next_out = res_buf;
+		stream.avail_out = dst_len;
+
+		status = zlib_inflate(&stream, Z_FINISH);
+		if (unlikely(status != Z_STREAM_END)) {
+			MARS_ERR("bad ZLIB decompression %d (requested %d)\n",
+				 src_len, dst_len);
+			goto zlib_err;
+		}
+
+		status = zlib_inflateEnd(&stream);
+		if (likely(status == Z_OK)) {
+			brick_mem_free(stream.workspace);
+			goto done;
+		}
+
+		MARS_ERR("unfinished ZLIB decompression %d (requested %d)\n",
+			 src_len, dst_len);
+
+	zlib_err:
+		brick_mem_free(stream.workspace);
 		goto err;
 	}
 #endif
@@ -908,6 +1002,9 @@ int init_mars_compress(void)
 #endif
 #ifdef HAS_LZ4
 	benchmark_compress("lz4", MREF_COMPRESS_LZ4);
+#endif
+#ifdef HAS_ZLIB
+	benchmark_compress("zlib", MREF_COMPRESS_ZLIB);
 #endif
 	(void)benchmark_compress;
 #endif
