@@ -148,6 +148,7 @@ int cb_thread(void *data)
 		    && mref->object_cb)
 			mref->object_cb->cb_error = *brick->conn_brick->mode_ptr;
 		if (!aborted) {
+			mref->ref_flags |= enabled_net_compressions;
 			down(&brick->socket_sem);
 			status = mars_send_cb(sock, mref, cork);
 			up(&brick->socket_sem);
