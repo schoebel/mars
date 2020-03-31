@@ -1349,6 +1349,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	dent->d_class = class;
 	dent->d_serial = serial;
 	dent->d_path = newpath;
+	newpath = NULL;
 
 	hash = (class + serial + d_type + pathlen * 7 + namlen * 13) % MARS_GLOBAL_HASH;
 	dent->d_hash = hash;
@@ -1356,7 +1357,6 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	memcpy(dent->d_name, name, namlen);
 	dent->d_name[namlen] = '\0';
 	dent->d_rest = brick_strdup(dent->d_name + prefix);
-	newpath = NULL;
 
 	INIT_LIST_HEAD(&dent->dent_link);
 	INIT_LIST_HEAD(&dent->dent_hash_link);
@@ -1373,7 +1373,6 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	dent->d_depth = cookie->depth;
 	dent->d_global = cookie->global;
 
-	brick_string_free(newpath);
 	return 0;
 }
 
@@ -1988,9 +1987,8 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 	brick_string_free(dent->d_path);
 	brick_string_free(dent->old_link);
 	brick_string_free(dent->new_link);
-	if (likely(dent->d_parent)) {
+	if (dent->d_parent)
 		dent->d_parent->d_child_count--;
-	}
 	if (dent->d_private) {
 		if (dent->d_private_destruct) {
 			dent->d_private_destruct(dent->d_private);
