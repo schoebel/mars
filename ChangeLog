@@ -80,6 +80,10 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable86
+	* Minor improvement: speedup metadata traffic avoiding
+	  some O(n^2) internal algorithms.
+	  
 mars0.1astable85
 	* Minor improvement: avoid ssh / rsync at join-resource.
 	  Only when ordinary communication over over port 7777 (default)
