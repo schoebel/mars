@@ -1367,25 +1367,14 @@ int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mar
 {
 	int status;
 
-	status = desc_recv_struct(msock, mref, mars_mref_meta, __LINE__);
-	if (status < 0)
+	if (cmd->cmd_code & CMD_FLAG_HAS_DATA && !mref->ref_data) {
+		MARS_WRN("#%d no internal buffer available\n", msock->s_debug_nr);
+		status = -EINVAL;
 		goto done;
-
-	/* compatibility to old protocol */
-	_recv_deprecated(mref);
-
-	if (cmd->cmd_stamp.tv_sec)
-		set_lamport_nonstrict(&cmd->cmd_stamp);
-
-	if (cmd->cmd_code & CMD_FLAG_HAS_DATA) {
-		if (!mref->ref_data) {
-			MARS_WRN("#%d no internal buffer available\n", msock->s_debug_nr);
-			status = -EINVAL;
-			goto done;
-		}
-		MARS_IO("#%d receiving blocklen = %d\n", msock->s_debug_nr, mref->ref_len);
-		status = mars_recv_raw(msock, mref->ref_data, mref->ref_len, mref->ref_len);
 	}
+
+	status = mars_recv_mref(msock, mref, cmd);
+
 done:
 	return status;
 }
