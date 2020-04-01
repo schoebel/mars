@@ -1229,13 +1229,44 @@ static void _send_deprecated(struct mref_object *mref)
 	}
 }
 
+static
+int _mars_send_mref(struct mars_socket *msock,
+		    struct mref_object *mref,
+		    struct mars_cmd *cmd,
+		    bool cork)
+{
+	int seq = 0;
+	int status;
+
+	if (!cork || !msock->s_pos)
+		get_lamport(NULL, &cmd->cmd_stamp);
+
+	status = mars_send_cmd(msock, cmd, true);
+	if (status < 0)
+		goto done;
+
+	seq = 0;
+	status = desc_send_struct(msock,
+				  mref, mars_mref_meta,
+				  cork || cmd->cmd_code & CMD_FLAG_HAS_DATA);
+	if (status < 0)
+		goto done;
+
+	if (cmd->cmd_code & CMD_FLAG_HAS_DATA) {
+		MARS_IO("#%d sending blocklen = %d\n",
+			msock->s_debug_nr, mref->ref_len);
+		status = mars_send_raw(msock, mref->ref_data, mref->ref_len, cork);
+	}
+done:
+	return status;
+}
+
 int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cork)
 {
 	struct mars_cmd cmd = {
 		.cmd_code = CMD_MREF,
 		.cmd_int1 = mref->ref_id,
 	};
-	int seq = 0;
 	int status;
 
 	/* compatibility to old protocol */
@@ -1246,25 +1277,10 @@ int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cor
 	    !(mref->ref_flags & MREF_NODATA))
 		cmd.cmd_code |= CMD_FLAG_HAS_DATA;
 
-	if (!cork || !msock->s_pos)
-		get_lamport(NULL, &cmd.cmd_stamp);
+	status = _mars_send_mref(msock, mref, &cmd, cork);
 
-	status = mars_send_cmd(msock, &cmd, true);
-	if (status < 0)
-		goto done;
-
-	seq = 0;
-	status = desc_send_struct(msock, mref, mars_mref_meta, cork || cmd.cmd_code & CMD_FLAG_HAS_DATA);
-	if (status < 0)
-		goto done;
-
-	if (cmd.cmd_code & CMD_FLAG_HAS_DATA) {
-		status = mars_send_raw(msock, mref->ref_data, mref->ref_len, cork);
-	}
-done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_send_mref);
 
 /* This should be removed some day
  */
@@ -1332,7 +1348,6 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref, bool cork)
 		.cmd_code = CMD_CB,
 		.cmd_int1 = mref->ref_id,
 	};
-	int seq = 0;
 	int status;
 
 	/* compatibility to old protocol */
@@ -1343,26 +1358,10 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref, bool cork)
 	    !(mref->ref_flags & MREF_NODATA))
 		cmd.cmd_code |= CMD_FLAG_HAS_DATA;
 
-	if (!cork || !msock->s_pos)
-		get_lamport(NULL, &cmd.cmd_stamp);
+	status = _mars_send_mref(msock, mref, &cmd, cork);
 
-	status = mars_send_cmd(msock, &cmd, true);
-	if (status < 0)
-		goto done;
-
-	seq = 0;
-	status = desc_send_struct(msock, mref, mars_mref_meta, cork || cmd.cmd_code & CMD_FLAG_HAS_DATA);
-	if (status < 0)
-		goto done;
-
-	if (cmd.cmd_code & CMD_FLAG_HAS_DATA) {
-		MARS_IO("#%d sending blocklen = %d\n", msock->s_debug_nr, mref->ref_len);
-		status = mars_send_raw(msock, mref->ref_data, mref->ref_len, cork);
-	}
-done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_send_cb);
 
 int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd)
 {
