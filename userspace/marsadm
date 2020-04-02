@@ -1705,7 +1705,6 @@ sub check_primary_gone {
   my ($cmd, $res, $peer) = @_;
   return 0 unless (defined($peer) && $peer && $peer ne "(none)");
   return 0 if $peer eq $host;
-  for (;;) {
     my $lnk = "$mars/resource-$res/actual-$peer/is-primary";
     my $is_primary = get_link($lnk, 1);
     if (defined($is_primary) && $is_primary eq "0") {
@@ -1713,8 +1712,6 @@ sub check_primary_gone {
       return 0;
     }
     lprint "waiting for other primary host ($peer) to disappear....\n";
-    sleep_timeout();
-  }
   return 1;
 }
 
@@ -2365,23 +2362,17 @@ sub err_purge_res {
 sub try_to_avoid_splitbrain {
   my ($cmd, $res, $old_primary) = @_;
   my $old_timeout = $timeout;
-  $timeout = $window if $timeout < 0;
   $old_primary = "" if $old_primary eq "(none)";
   if (!detect_splitbrain($res, 0)) {
     lwarn "ATTENTION: you are starting a non-forced primary switchover in a split brain situation.\n";
     lwarn "ATTENTION: that's no good idea.\n";
     lwarn "ATTENTION: I will continue to do what you want.\n";
     lwarn "ATTENTION: But you are responsible for the consequences.\n";
-    $timeout = $old_timeout;
-    return;
+    return 0;
   }
   # now try to prevent producing a _new_ split brain situation....
   my @host_list = glob("$mars/resource-$res/replay-*");
-  $timeout = $old_timeout;
-  return if scalar(@host_list) < 2;
-  $timeout = $window if $timeout < 0;
-  my $old_situation = "";
-  for (;;) {
+  return 0 if scalar(@host_list) < 2;
     my ($min, $max) = get_minmax_versions($res);
     my $vers_glob = sprintf("$mars/resource-$res/version-%09d-*", $max);
     my $ok = 1;
@@ -2392,7 +2383,7 @@ sub try_to_avoid_splitbrain {
       if ($stat[9] + $window >= mars_time()) {
 	my $msg = _get_text($replay_err);
 	lwarn "cannot guarantee split brain avoidance: $msg\n";
-	last;
+	return 0;
       }
     }
     my $emergency_path = "$mars/resource-$res/actual-$host/has-emergency";
@@ -2415,7 +2406,7 @@ sub try_to_avoid_splitbrain {
     }
     if ($primary && $primary eq $host) {
       lprint "Switching back to last primary.\n";
-      last;
+      return 0;
     }
     # if the old primary is known, we can ignore all other / unrelated hosts
     if ($primary && $primary ne $host && $primary ne "(none)") {
@@ -2458,16 +2449,13 @@ sub try_to_avoid_splitbrain {
 	}
       }
     }
-    last if $ok;
+    return 0 if $ok;
     lprint "Trying to avoid split brain for $timeout s: logfile update not yet completed.\n";
     my $tpl = get_macro("replinfo");
     my $new_situation = eval_macro($cmd, $res, $tpl, @_);
     print $new_situation;
-    $timeout = $window if $new_situation ne $old_situation;
-    sleep_timeout(undef, 1);
-    $old_situation = $new_situation;
-  }
-  $timeout = $old_timeout;
+  # condition not met
+  return 1;
 }
 
 sub get_size {
@@ -4087,15 +4075,17 @@ sub primary_phase0b {
 # when necessary, switch to secondary (intermediately)
 sub primary_phase1 {
   my ($cmd, $res) = @_;
-  return if ($force and $cmd eq "primary");
+  return 0 if ($force and $cmd eq "primary");
   my $old = _get_designated_primary($res, -1);
-  return if ($old eq $host and $cmd eq "primary");
+  return 0 if ($old eq $host and $cmd eq "primary");
   my $new = "(none)";
   if (!$force and $cmd eq "primary") {
-    try_to_avoid_splitbrain($cmd, $res, $old);
+    my $status = try_to_avoid_splitbrain($cmd, $res, $old);
+    return $status if $status;
   }
-  return if $old eq $new;
+  return 0 if $old eq $new;
   _primary_res($res, $new, $old);
+  return 0;
 }
 
 my $phase2_waited = 0;
@@ -4104,25 +4094,34 @@ sub primary_phase1b {
   my ($cmd, $res) = @_;
   $phase2_waited = 0;
   finish_links();
-  return if $force;
+  return 0 if $force;
   my $old = _get_designated_primary($res, -1);
   my $status = check_primary_gone($cmd, $res, $old);
+  return $status if $status;
   if (!$force and $cmd eq "primary") {
-    try_to_avoid_splitbrain($cmd, $res, $old);
+    my $status = try_to_avoid_splitbrain($cmd, $res, $old);
+    return $status if $status;
   }
+  return 0;
 }
 
 # when necessary, wait
 sub primary_phase2 {
   my ($cmd, $res) = @_;
-  return if $force;
-  return unless $cmd eq "primary";
+  return 0 if $force;
+  return 0 unless $cmd eq "primary";
   wait_cluster($cmd) if !$phase2_waited++;
   my $old = _get_designated_primary($res, -1);
-  check_primary_gone($cmd, $res, $old);
+  return check_primary_gone($cmd, $res, $old);
+}
+
+sub primary_phase2b {
+  my ($cmd, $res) = @_;
   if (systemd_present(@_)) {
-    try_to_avoid_splitbrain($cmd, $res, $old);
+    my $old = _get_designated_primary($res, -1);
+    return try_to_avoid_splitbrain($cmd, $res, $old);
   }
+  return 0;
 }
 
 # when necessary, switch to primary
@@ -6886,12 +6885,18 @@ my %cmd_table =
        "conditionally wait for fetch off",
        \&primary_phase0b,
        "wait for systemd",
+       "LOOP",
        \&primary_phase1,
        "leave primary state",
+       "LOOP",
        \&primary_phase1b,
        "trigger remote",
+       "LOOP",
        \&primary_phase2,
-       "wait when necessary",
+       "wait for cluster when necessary",
+       "LOOP",
+       \&primary_phase2b,
+       "avoid split brain",
        \&primary_phase3,
        "switch to primary",
        \&primary_phase3b,
