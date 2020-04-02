@@ -4091,7 +4091,9 @@ sub primary_phase1 {
   my $old = _get_designated_primary($res, -1);
   return if ($old eq $host and $cmd eq "primary");
   my $new = "(none)";
-  try_to_avoid_splitbrain($cmd, $res, $old) if (!$force and $cmd eq "primary");
+  if (!$force and $cmd eq "primary") {
+    try_to_avoid_splitbrain($cmd, $res, $old);
+  }
   return if $old eq $new;
   _primary_res($res, $new, $old);
 }
@@ -4104,7 +4106,10 @@ sub primary_phase1b {
   finish_links();
   return if $force;
   my $old = _get_designated_primary($res, -1);
-  return check_primary_gone($cmd, $res, $old);
+  my $status = check_primary_gone($cmd, $res, $old);
+  if (!$force and $cmd eq "primary") {
+    try_to_avoid_splitbrain($cmd, $res, $old);
+  }
 }
 
 # when necessary, wait
