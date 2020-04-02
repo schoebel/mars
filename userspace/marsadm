@@ -7527,49 +7527,55 @@ sub wait_any_pid {
   return $pid;
 }
 
+sub do_fork {
+  my @res_list = expand_res_list($cmd, $res);
+  my $child_count = 0;
+  # only fork() when beneficial
+  if (@res_list && scalar(@res_list) > 1) {
+    foreach my $child_res (@res_list) {
+      # when necessary, limit the parallelism degree
+      if ($parallel > 0 && $child_count >= $parallel) {
+	my $done_pid = wait_any_pid(0);
+	if ($done_pid > 0) {
+	  $child_count--;
+	  delete $kid_res{$done_pid};
+	}
+      }
+      my $pid = fork();
+      ldie "Cannot fork()\n" unless defined($pid);
+      if ($pid) {
+	lprint "RESOURCE $child_res starting CHILD $pid\n";
+	$child_count++;
+	$kid_res{$pid} = $child_res;
+      } else {
+	# child: simply continue with new $res
+	$res = $child_res;
+	$child_count = 0;
+	$child_prefix = "CHILD $child_res: ";
+	lprint "STARTING\n";
+	last;
+      }
+    }
+  }
+  if ($child_count) {
+    my @wait_list = sort alphanum_cmp keys(%kid_res);
+    wait_pid_list(@wait_list);
+    lprint "EXIT $error_count\n";
+    exit($error_count);
+  }
+}
+
 if (ref($func) eq "ARRAY") {
   my @list = @$func;
   while (@list) {
     my $memb_func = shift @list;
     # check whether fork() is possible
-    if ($memb_func && $memb_func eq "FORK") {
-      $memb_func = shift @list;
-      # check whether fork() is requested
-      if ($parallel >= 0) {
-	my @res_list = expand_res_list($cmd, $res);
-	my $child_count = 0;
-	# only fork() when beneficial
-	if (@res_list && scalar(@res_list) > 1) {
-	  foreach my $child_res (@res_list) {
-	    # when necessary, limit the parallelism degree
-	    if ($parallel > 0 && $child_count >= $parallel) {
-	      my $done_pid = wait_any_pid(0);
-	      if ($done_pid > 0) {
-		$child_count--;
-		delete $kid_res{$done_pid};
-	      }
-	    }
-	    my $pid = fork();
-	    ldie "Cannot fork()\n" unless defined($pid);
-	    if ($pid) {
-	      lprint "RESOURCE $child_res starting CHILD $pid\n";
-	      $child_count++;
-	      $kid_res{$pid} = $child_res;
-	    } else {
-	      # child: simply continue with new $res
-	      $res = $child_res;
-	      $child_count = 0;
-	      $child_prefix = "CHILD $child_res: ";
-	      lprint "STARTING\n";
-	      last;
-	    }
-	  }
-	}
-	if ($child_count) {
-	  my @wait_list = sort alphanum_cmp keys(%kid_res);
-	  wait_pid_list(@wait_list);
-	  lprint "EXIT $error_count\n";
-	  exit($error_count);
+    if ($memb_func) {
+      if ($memb_func eq "FORK") {
+	$memb_func = shift @list;
+	# check whether fork() is requested
+	if ($parallel >= 0) {
+	  do_fork();
 	}
       }
     }
