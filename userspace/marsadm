@@ -2421,15 +2421,22 @@ sub try_to_avoid_splitbrain {
 	# Safeguard against artificial or missing version links
 	# (e.g. after crashes etc):
 	# when replay links are equal, we are safe.
-	my $replay_p = get_link("$mars/resource-$res/replay-$primary");
-	my $replay_h = get_link("$mars/resource-$res/replay-$host");
-	if ($replay_p eq $replay_h) {
+	my $path_p = "$mars/resource-$res/replay-$primary";
+	my $path_h = "$mars/resource-$res/replay-$host";
+	my $replay_p = get_link($path_p);
+	my $replay_h = get_link($path_h);
+	my $stamp_p = get_link_stamp($path_p);
+	my $stamp_h = get_link_stamp($path_h);
+	my $p_stamp = get_link_stamp($p_path);
+	my $stable_stamp = mars_time() - $window / 4;
+	if ($replay_p eq $replay_h &&
+	    $p_vers &&
+	    $p_stamp < $stable_stamp &&
+	    $stamp_p < $stable_stamp && $stamp_h < $stable_stamp) {
 	  # self-healing the versionlink
-	  if ($p_vers) {
-	    lwarn "Correcting the versionlink '$h_path' from '$h_vers' to '$p_vers'\n";
-	    set_link($p_vers, $h_path);
-	    finish_links();
-	  }
+	  lwarn "Correcting the versionlink '$h_path' from '$h_vers' to '$p_vers'\n";
+	  set_link($p_vers, $h_path);
+	  finish_links();
 	} else {
 	  $ok = 0;
 	}
