@@ -1702,14 +1702,20 @@ sub check_not_primary {
 }
 
 sub check_primary_gone {
-  my ($res) = @_;
+  my ($cmd, $res, $peer) = @_;
+  return 0 unless (defined($peer) && $peer && $peer ne "(none)");
+  return 0 if $peer eq $host;
   for (;;) {
-    my $pri = _get_actual_primary($res);
-    last if !$pri;
-    last if $pri eq $host;
-    lprint "waiting for other primary host ($pri) to disappear....\n";
+    my $lnk = "$mars/resource-$res/actual-$peer/is-primary";
+    my $is_primary = get_link($lnk, 1);
+    if (defined($is_primary) && $is_primary eq "0") {
+      lprint "OK, other host ($peer) is not actual primary.\n";
+      return 0;
+    }
+    lprint "waiting for other primary host ($peer) to disappear....\n";
     sleep_timeout();
   }
+  return 1;
 }
 
 sub _make_messages {
@@ -4093,8 +4099,12 @@ sub primary_phase1 {
 my $phase2_waited = 0;
 
 sub primary_phase1b {
+  my ($cmd, $res) = @_;
   $phase2_waited = 0;
   finish_links();
+  return if $force;
+  my $old = _get_designated_primary($res, -1);
+  return check_primary_gone($cmd, $res, $old);
 }
 
 # when necessary, wait
@@ -4103,9 +4113,9 @@ sub primary_phase2 {
   return if $force;
   return unless $cmd eq "primary";
   wait_cluster($cmd) if !$phase2_waited++;
-  check_primary_gone($res);
+  my $old = _get_designated_primary($res, -1);
+  check_primary_gone($cmd, $res, $old);
   if (systemd_present(@_)) {
-    my $old = _get_designated_primary($res, -1);
     try_to_avoid_splitbrain($cmd, $res, $old);
   }
 }
