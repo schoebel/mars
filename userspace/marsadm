@@ -7413,8 +7413,9 @@ sub do_one_res {
     $checked_res{"$cmd$res"} = 1;
   }
   call_hook(!$force, "pre", @_);
-  &{$func}(@_);
+  my $status = &{$func}(@_);
   call_hook(!$force, "post", @_);
+  return $status;
 }
 
 my %skip_res;
@@ -7432,16 +7433,18 @@ sub expand_res_list {
 
 sub do_all_res {
   my $func = shift;
+  my $do_abort = shift;
   my $cmd = shift;
   my $res = shift;
   my @res_list = expand_res_list($cmd, $res);
   if (@res_list) {
     ldie "Cannot combine command '$cmd' with 'all' existing resources - you must explicitly name a single new resource\n" if $cmd =~ m/create|join/;
     my $any_success = 0;
+    my $any_fail = 0;
     my $any_member = 0;
     my @total_list = glob("$mars/ips/ip-*");
     my $total_count = scalar(@total_list);
-    call_hook(!$force, "all-pre", $cmd, "all", @_);
+    call_hook(!$force, "all-pre", $cmd, "all", @_) if $do_abort;
     foreach $res (@res_list) {
       next unless -e "$mars/resource-$res/data-$host";
       $any_member++;
@@ -7452,11 +7455,24 @@ sub do_all_res {
 	my $hint = eval_macro($cmd, $res, $tpl, @_);
 	lprint "--------- resource $hint\n";
       }
+      if (!$do_abort) {
+	my $status = do_one_res($func, $cmd, $res, @_);
+	$any_fail++ if $status;
+	next;
+      }
+      # catch internal ldie() via eval{} failure
       eval {
 	do_one_res($func, $cmd, $res, @_);
 	1;
-      } and $any_success = 1 or $skip_res{$res} = 1;
+      } and
+	# eval{} has succeeded
+	$any_success = 1 or
+	  # eval{} has failed
+	  (
+	   $skip_res{$res} = 1
+	  );
     }
+    return $any_fail unless $do_abort;
     if (!$any_success) {
       if (!$any_member) {
 	lprint "I am not member of any resource\n";
@@ -7473,7 +7489,7 @@ sub do_all_res {
 
 if ($cmd =~ m/^(view|pretty)/) {
   lwarn "mars kernel module is not loaded\n" unless is_module_loaded();
-  do_all_res(\&view_cmd, $cmd, $res, @args);
+  do_all_res(\&view_cmd, 1, $cmd, $res, @args);
   if ($res eq "all" && $cmd =~ m/^view-?(.*)/) {
     my $global_macro_name = $1 ? "$1-global" : "default-global";
     my $global_macro = get_macro($global_macro_name, 1);
@@ -7568,6 +7584,7 @@ sub do_fork {
 if (ref($func) eq "ARRAY") {
   my @list = @$func;
   while (@list) {
+    my $do_loop = 0;
     my $memb_func = shift @list;
     # check whether fork() is possible
     if ($memb_func) {
@@ -7577,6 +7594,11 @@ if (ref($func) eq "ARRAY") {
 	if ($parallel >= 0) {
 	  do_fork();
 	}
+      }
+      # check whether busy-waiting loop is requested
+      if ($memb_func eq "LOOP") {
+	$memb_func = shift @list;
+	$do_loop++;
       }
     }
     # nested arrays may be used for _global_ workers
@@ -7590,12 +7612,26 @@ if (ref($func) eq "ARRAY") {
     next unless ref($memb_func) eq "CODE";
     my $headline = shift @list;
     lprint "---------------------------- $headline:\n" if defined($headline);
-    my $status = do_all_res($memb_func, $cmd, $res, @args);
+    my $start_time = mars_time();
+    my $do_abort = !$do_loop;
+    my $status;
+    for (;;) {
+      $status = do_all_res($memb_func, $do_abort, $cmd, $res, @args);
+      last if !$do_loop;
+      last if (!defined($status) || !$status);
+      # we have a busy wait condition
+      sleep(1);
+      my $now = mars_time();
+      if ($now - $start_time > $timeout) {
+	lwarn "Condition '$headline' for resources '$res' not reached withing $timeout s\n";
+	$do_abort = 1;
+      }
+    }
     last if (defined($status) && $status);
     finish_links();
   }
 } elsif (ref($func) eq "CODE") {
-  do_all_res($func, $cmd, $res, @args);
+  do_all_res($func, 1, $cmd, $res, @args);
 } else {
   ldie "internal error: command table is wrong for '$cmd'";
 }
