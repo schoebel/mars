@@ -1663,7 +1663,8 @@ sub check_sync_finished {
 }
 
 sub check_primary {
-  my ($cmd, $res, $no_designated) = @_;
+  my ($cmd, $res, $no_designated, $no_fail) = @_;
+  my $fail = 0;
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
   my $is_primary = get_link($lnk, 1);
   if (!$is_primary) { # give it a second chance
@@ -1671,10 +1672,20 @@ sub check_primary {
     my $dev = "/dev/mars/$name";
     $is_primary = 1 if -b $dev;
   }
-  ldie "for operation '$cmd' I need to be primary\n" unless $is_primary;
-  return if $no_designated;
-  my $primary = _get_designated_primary($res);
-  ldie "for operation '$cmd', I also must be the designated primary\n" unless $primary eq $host;
+  unless ($is_primary) {
+    lwarn "For operation '$cmd' I need to be primary\n";
+    $fail++;
+  }
+  if ($no_designated) {
+    my $primary = _get_designated_primary($res);
+    unless ($primary eq $host) {
+      lwarn "For operation '$cmd', I also must be the designated primary\n";
+    }
+  }
+  unless (defined($no_fail) && $no_fail) {
+    ldie "Operation '$cmd' only works at the primary side\n" if $fail;
+  }
+  return $fail;
 }
 
 sub check_not_primary {
@@ -3454,7 +3465,9 @@ sub delete_res {
 
 sub logrotate_res {
   my ($cmd, $res) = @_;
-  check_primary($cmd, $res, 1) unless $force;
+  unless ($force) {
+    return if check_primary($cmd, $res, 0, 1);
+  }
   my @paths = glob("$mars/resource-$res/log-*-$host");
   my $last;
   if (@paths) {
@@ -4274,7 +4287,7 @@ sub resize_phase0 {
     ldie "optional size argument '$new_size' must be numeric and positive\n" unless scalar($new_size) > 0;
     lprint "new size: $new_size bytes\n";
   }
-  check_primary(@_);
+  check_primary($cmd, $res, 1);
   my $my_size = get_link("$mars/resource-$res/actsize-$host");
   my $lnk = "$mars/resource-$res/size";
   my $old_size = get_link($lnk);
@@ -4302,7 +4315,7 @@ sub resize_phase1 {
   my $new_size = $resize_new_size{$res} or ldie "bad internal size value\n";
   # for safety, check again
   ldie "only increases of the size are possible!\n" if $new_size < $old_size;
-  check_primary(@_);
+  check_primary($cmd, $res, 1);
   # Mark the primary data / its size as authoritative
   my $act_lnk = "$mars/resource-$res/syncstatus-$host";
   set_link($new_size, $act_lnk);
