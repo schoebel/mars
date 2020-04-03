@@ -80,6 +80,10 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable87
+	* Minor fix: unnecessary split brain could result from a race
+	  between handover and log-rotate / cron.
+
 mars0.1astable86
 	* Minor improvement: speedup metadata traffic avoiding
 	  some O(n^2) internal algorithms.
