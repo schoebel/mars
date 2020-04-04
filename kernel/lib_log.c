@@ -565,6 +565,12 @@ restart:
 		status = logst->error_code;
 		if (status < 0)
 			goto done_put;
+		if (mref->ref_len < this_len) {
+			/* Short read. May happen when logfiles are
+			 * truncated underneath.
+			 */
+			logst->end_pos = logst->log_pos + mref->ref_len;
+		}
 		logst->read_mref = mref;
 	}
 
