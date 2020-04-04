@@ -428,11 +428,14 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 	mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
 
 done:
+	if ((mref->ref_flags & MREF_WRITE) && status >= 0)
+		mf_dirty_append(output->mf,
+				DIRTY_FINISHED,
+				mref->ref_pos + mref->ref_len);
+
 	_complete(output, mref, status);
 
 	atomic_dec(&tinfo->fly_count);
-	if ((mref->ref_flags & MREF_WRITE) && status >= 0)
-		mf_dirty_append(output->mf, DIRTY_FINISHED, mref->ref_pos + mref->ref_len);
 }
 
 /* This is called from outside
