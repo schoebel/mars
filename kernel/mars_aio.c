@@ -973,18 +973,19 @@ static int aio_submit_thread(void *data)
 
 		mref->ref_total_size = get_total_size(output);
 
-		// check for reads crossing the EOF boundary (special case)
-		if (mref->ref_timeout > 0 &&
-		    !(mref->ref_flags & MREF_WRITE) &&
+		/* Check for reads crossing the EOF boundary (special case)
+		 */
+		if (!(mref->ref_flags & MREF_WRITE) &&
 		    mref->ref_pos + mref->ref_len > mref->ref_total_size) {
-			loff_t len = mref->ref_total_size - mref->ref_pos;
-			if (len > 0) {
-				if (mref->ref_len > len)
-					mref->ref_len = len;
-			} else {
-				if (!mref_a->start_jiffies) {
+			loff_t len;
+
+			/* Timeout handling, ONLY possible for reads
+			 * beyond EOF.
+			 * Currently not used! Needed for a future feature.
+			 */
+			if (mref->ref_timeout > 0) {
+				if (!mref_a->start_jiffies)
 					mref_a->start_jiffies = jiffies;
-				}
 				if ((long long)jiffies - mref_a->start_jiffies <= mref->ref_timeout) {
 					if (atomic_read(&tinfo->queued_sum) <= 0) {
 						atomic_inc(&output->total_msleep_count);
@@ -993,10 +994,16 @@ static int aio_submit_thread(void *data)
 					_enqueue(tinfo, mref_a, MARS_PRIO_LOW, true);
 					continue;
 				}
+
 				MARS_DBG("ENODATA %lld\n", len);
 				_complete(output, mref_a, -ENODATA);
 				continue;
 			}
+			/* Shorten reads crossing EOF.
+			 */
+			len = mref->ref_total_size - mref->ref_pos;
+			if (len > 0 && mref->ref_len > len)
+				mref->ref_len = len;
 		}
 
 		sleeptime = 1;
