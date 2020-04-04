@@ -771,6 +771,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			count += st->len;
 			// check contiguity
 			if (unlikely(GET_OFFSET(pos) + st->len != COPY_CHUNK)) {
+				/* Short read detected: shorten the copy_end.
+				 */
+				brick->copy_end = pos + st->len;
 				break;
 			}
 		}
