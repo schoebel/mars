@@ -146,8 +146,21 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 		}
 		up_read(&mapfree_mutex);
 	
-		if (mf)
+		if (mf) {
+			struct inode *inode = mf->mf_filp->f_mapping->host;
+			loff_t length;
+			int i;
+
+			/* In some cases like truncated logfiles,
+			 * account for any shortenings.
+			 */
+			length = i_size_read(inode);
+			mf->mf_max = length;
+			for (i = 0; i < DIRTY_MAX; i++)
+				mf_dirty_reduce(mf, i, length);
+
 			goto done;
+		}
 	}
 
 	for (;;) {
@@ -334,6 +347,17 @@ void mf_dirty_append(struct mapfree_info *mf, enum dirty_stage stage, loff_t new
 
 	traced_writelock(&dl->dl_lock, flags);
 	if (dl->dl_length < newlen)
+		dl->dl_length = newlen;
+	traced_writeunlock(&dl->dl_lock, flags);
+}
+
+void mf_dirty_reduce(struct mapfree_info *mf, enum dirty_stage stage, loff_t newlen)
+{
+	struct dirty_length *dl = _get_dl(mf, stage);
+	unsigned long flags;
+
+	traced_writelock(&dl->dl_lock, flags);
+	if (dl->dl_length > newlen)
 		dl->dl_length = newlen;
 	traced_writeunlock(&dl->dl_lock, flags);
 }
