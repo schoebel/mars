@@ -264,6 +264,7 @@ static
 void _complete(struct aio_output *output, struct aio_mref_aspect *mref_a, int err)
 {
 	struct mref_object *mref;
+	bool was_write;
 
 	CHECK_PTR(mref_a, fatal);
 	mref = mref_a->object;
@@ -278,11 +279,18 @@ void _complete(struct aio_output *output, struct aio_mref_aspect *mref_a, int er
 		mref->ref_flags |= MREF_UPTODATE;
 	}
 
+	was_write = (mref->ref_flags & MREF_WRITE);
+	if (was_write) {
+		/* Needs to be done before callback, which might modify
+		 * mref->.+
+		 */
+		mf_dirty_append(output->mf, DIRTY_FINISHED, mref->ref_pos + mref->ref_len);
+	}
+
 	CHECKED_CALLBACK(mref, err, err_found);
 
 done:
-	if (mref->ref_flags & MREF_WRITE) {
-		mf_dirty_append(output->mf, DIRTY_FINISHED, mref->ref_pos + mref->ref_len);
+	if (was_write) {
 		atomic_dec(&output->write_count);
 	} else {
 		atomic_dec(&output->read_count);
