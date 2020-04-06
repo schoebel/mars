@@ -22629,7 +22629,7 @@ Global Parameters
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="6" columns="3">
+<lyxtabular version="3" rows="9" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -22942,7 +22942,7 @@ Set the order of preferences for connections when there are more than 2
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell multicolumn="1" alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -23025,6 +23025,420 @@ Inquiry of the preceding value.
 \end_inset
 
 
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+set-global-enabled-log-compressions
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$features
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Tell the whole cluster which compression features to use globally for logfile
+ compression.
+ The effective value can be checked via 
+\family typewriter
+marsadm view-enabled-log-compressions
+\family default
+.
+ See 
+\family typewriter
+marsadm view-potential-features
+\family default
+ and 
+\family typewriter
+marsadm --help
+\family default
+ for a list of compression feature names, which must be separated by 
+\family typewriter
+|
+\family default
+ symbols.
+ Details are described in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Data-Compression-Checksumming"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+set-global-enabled-net-compressions
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$features
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Tell the whole cluster which compression features to use globally for network
+ transport compression.
+ The effective value can be checked via 
+\family typewriter
+marsadm view-enabled-net-compressions
+\family default
+.
+ See 
+\family typewriter
+marsadm view-potential-features
+\family default
+ and 
+\family typewriter
+marsadm --help
+\family default
+ for a list of compression feature names, which must be separated by 
+\family typewriter
+|
+\family default
+ symbols.
+ Details are described in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Data-Compression-Checksumming"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+,
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+set-global-disabled-digests
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$features
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Tell the whole cluster which digests to disable globally for checksumming
+ of transaction logfile data.
+ The effective value can be checked via 
+\family typewriter
+marsadm view-disabled-digests
+\family default
+.
+ See 
+\family typewriter
+marsadm view-potential-features
+\family default
+ and 
+\family typewriter
+marsadm --help
+\family default
+ for a list of compression feature names, which must be separated by 
+\family typewriter
+|
+\family default
+ symbols.
+ Details are described in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Data-Compression-Checksumming"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+,
 \end_layout
 
 \end_inset
@@ -27199,6 +27613,598 @@ blkreplay
 \end_layout
 
 \begin_layout Section
+Data Compression and Checksumming (Digests)
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Data-Compression-Checksumming"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Data compression can reduce the amount of data which needs to be piped through
+ long-distance or other network bottlenecks.
+ It is available in newer MARS versions, starting from mars0.1astable91.
+ You also need to install the corresponding new version of 
+\family typewriter
+marsadm
+\family default
+ across the whole cluster.
+\end_layout
+
+\begin_layout Standard
+The locally compiled-in compression and checksumming features as compiled
+ into your currently running 
+\family typewriter
+mars.ko
+\family default
+ can be queried via
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+marsadm view-implemented-features
+\end_layout
+
+\begin_layout Standard
+The output may depend on your kernel compile options, such as the enabled
+ crypto algorithms of your kernel.
+ Typical output should look like
+\end_layout
+
+\begin_layout Quote
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+CHKSUM_MD5_OLD|CHKSUM_MD5|CHKSUM_CRC32C|CHKSUM_CRC32|CHKSUM_SHA1|COMPRESS_LZO|CO
+MPRESS_LZ4|COMPRESS_ZLIB
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In case you get less options, check your kernel 
+\family typewriter
+.config
+\family default
+ for the corresponding crypto algorithms, which can be compiled into your
+ kernel firmly, or as a module.
+ When necessary, re-compile your kernel with more crypto options enabled
+ (see build instructions in section 
+\begin_inset CommandInset ref
+LatexCommand formatted
+reference "sec:MARS-Kernel-Module"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+When the compile-time option 
+\family typewriter
+CONFIG_MARS_BENCHMARK=y
+\family default
+ is enabled, 
+\family typewriter
+modprobe mars
+\family default
+ will show you a list of benchmark results for each enabled crypto algorithm,
+ in units of nanoseconds.
+ Smaller numbers are better.
+ Notice that results may depend on your processor model, and on availability
+ of hardware acceleration (as supported by the crypto infrastucture of your
+ kernel).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Take the benchmark results with a grain of salt.
+ The performance of some crypto algorithms may heavily depend on the 
+\emph on
+compressibility
+\emph default
+ of the data to be compressed.
+ 
+\family typewriter
+CONFIG_MARS_BENCHMARK
+\family default
+ uses a rather artifical test data pattern, which may deviate from the compressi
+bility of your real productive data.
+ Take the results with similar caution than BOGOMIPS, which are also not
+ comparable with other benchmarks in general.
+\end_layout
+
+\begin_layout Standard
+In order to work properly, 
+\emph on
+all
+\emph default
+ cluster members must have loaded a newer version of 
+\family typewriter
+mars.ko
+\family default
+.
+ During rolling upgrade to newer MARS versions, mixed operation of different
+ MARS versions is supported, even in combination with some old versions
+ supporting only the traditional CHKSUM_MD5_OLD (which has some shortcomings
+ and should not be used anymore in future).
+ Only 
+\emph on
+common
+\emph default
+ features are actually usable.
+ You can query the commonly usable options via the commands
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+marsadm view-usable-compressions
+\end_layout
+
+\begin_layout Standard
+and
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+marsadm view-usable-digests
+\end_layout
+
+\begin_layout Standard
+These should should show you a (possibly empty) list of those options which
+ are really usable 
+\emph on
+at the moment
+\emph default
+.
+ By installing newer / better versions of 
+\family typewriter
+mars.ko
+\family default
+ and 
+\family typewriter
+marsadm
+\family default
+, the list may become longer.
+\end_layout
+
+\begin_layout Standard
+An overview of currently usable options, as well as the actually used algorithms
+, are displayed at the headings produced by 
+\family typewriter
+marsadm view all
+\family default
+.
+\end_layout
+
+\begin_layout Subsection
+Network Transport Compression
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Network-Transport-Compression"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+By default, network transport compression is disabled, since it may worsen
+ the CPU consumption.
+ You can enabled it for the whole cluster via
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+marsadm set-global-enabled-net-compressions
+\backslash
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset Quotes eld
+\end_inset
+
+COMPRESS_LZO|COMPRESS_LZ4|COMPRESS_ZLIB
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+(or a shorter list of compress options), and you can disable it globally
+ by supplying an empty list:
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+marsadm set-global-enabled-net-compressions 
+\begin_inset Quotes eld
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Notice: this will compress the 
+\emph on
+data payloads
+\emph default
+ of network traffic, both for (incremental) logfile traffic (by default
+ on port 7778), and for sync traffic (by default on port 7779).
+\end_layout
+
+\begin_layout Subsection
+Logfile Payload Compression
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Logfile-Payload-Compression"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+By default, logfile data compression is disabled, since it may worsen the
+ CPU consumption, and may worsen local IO performance.
+ You can enable it for the whole cluster via
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+marsadm set-global-enabled-log-compressions
+\backslash
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset Quotes eld
+\end_inset
+
+COMPRESS_LZO|COMPRESS_LZ4|COMPRESS_ZLIB
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+(or a shorter list of compress options), and you can disable it globally
+ by supplying an empty list:
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+marsadm set-global-enabled-log-compressions 
+\begin_inset Quotes eld
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In difference to network compression, this does not apply to sync data.
+ It compresses the logfile payload 
+\emph on
+before
+\emph default
+ it is written to the transaction logfile.
+ As a side effect, it also reduces network traffic, because the logfiles
+ are usually smaller.
+ Additionally, your 
+\family typewriter
+/mars
+\family default
+ directory may run out of space less quickly.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ However, as a major drawback, this may slow down the IO latencies of writes
+ considerably, and thus may drastically reduce local IO performance (depending
+ on performance of your crypto hardware, and on compressibility of data,
+ etc).
+ In particular, ZLIB is known to be a very slow algorithm (but to compress
+ somewhat better than others), while LZO is a very old but very fast algorithm.
+ In many cases, LZO or LZ4 are preferable.
+ Do not enable this option blindly.
+ Always observe the performance of your system afterwards.
+\end_layout
+
+\begin_layout Subsection
+Logfile Payload Digests
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Logfile-Payload-Digests"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+By default, all of these options are 
+\emph on
+enabled
+\emph default
+, because most users want to checksum the logfile data for detection of
+ hardware errors, such as BBU cache failures, or silent corruption during
+ the network transport of logfile data.
+ When your secondaries encounter a checksum mismatch, they will 
+\series bold
+\emph on
+refuse
+\emph default
+ to apply the defective data
+\series default
+, and will report 
+\family typewriter
+DefectiveLog
+\family default
+ in the 
+\family typewriter
+diskstate
+\family default
+ part of 
+\family typewriter
+marsadm view all
+\family default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Standard-marsadm-view"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+Most people view this behaviour as a 
+\emph on
+feature
+\emph default
+.
+ It protects you from some types of data corruption.
+\end_layout
+
+\begin_layout Standard
+If you want to disable some or all of the logfile digest algorithms, you
+ can do via
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+marsadm set-global-disabled-log-digests
+\backslash
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset Quotes eld
+\end_inset
+
+CHKSUM_MD5_OLD|CHKSUM_MD5|CHKSUM_CRC32C|CHKSUM_CRC32|CHKSUM_SHA1
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Disabling 
+\emph on
+all
+\emph default
+ of these options may improve local IO performance, but at the cost of less
+ reliability.
+ However, several compression algorithms are already doing some internal
+ checksumming upon decompression.
+ For maximum performance on weak hardware, it may pay off to enable compression,
+ while disabling separate digesting.
+ Please check what is the best combination for your hardware, your load,
+ etc.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ If you decide to keep the logfile digests, e.g.
+ when HA SLAs are more important than maximum performance: notice that checksumm
+ing is done at the 
+\emph on
+input
+\emph default
+ data 
+\emph on
+before
+\emph default
+ any compression is applied.
+ This increases safety against (potential / theoretical) problems with compressi
+on / decompression errors.
+\end_layout
+
+\begin_layout Subsection
+Network Payload Digests
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Network-Payload-Digests"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+By default, all of these options are 
+\emph on
+enabled
+\emph default
+, because checksumming over the network at fast full-sync cannot be disabled
+ by concept.
+ At least one of the network digests must always remain enabled.
+ If you try to disable all of them, an automatic fallback to
+\family typewriter
+ CHKSUM_MD5_OLD
+\family default
+ will occur.
+ Since this a rather slow and non-optimum algorithm, disabling the faster
+ ones (such as 
+\family typewriter
+CHKSUM_CRC32C
+\family default
+) is no good idea.
+\end_layout
+
+\begin_layout Standard
+If you want to disable some of the network digest algorithms, you can do
+ similarly to
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+marsadm set-global-disabled-net-digests
+\backslash
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset Quotes eld
+\end_inset
+
+CHKSUM_MD5|CHKSUM_CRC32C|CHKSUM_CRC32|CHKSUM_SHA1
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
 The 
 \family typewriter
 /proc/sys/mars/
@@ -30438,6 +31444,57 @@ mount
 dd
 \family default
 , or by iSCSI, etc.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+{potential,implemented,usable}-features Show a list of flag names, indicating
+ the compression / digest features (see description in section 
+\begin_inset CommandInset ref
+LatexCommand formatted
+reference "sec:Data-Compression-Checksumming"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) as either as known to the current version of marsadm, or as implemented
+ in the currently running kernel module, or as the minimum feature set currently
+ available in the whole cluster.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+{implemented,usable}-{digests,compressions} Same as before, but more specificall
+y related to either compressions or digests.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+enabled-{log|net}-compressions Show which compression features have been
+ set by 
+\family typewriter
+marsadm set-global-enabled-*-compressions
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+disabled-{log|net}-digests Show which digest features have been disabled
+ by 
+\family typewriter
+marsadm set-global-disabled-*-digests
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+used-{log,net}-{digest,compression} Show which digest or compression features
+ are currently actually used by $host, either for logfile or for network
+ purposes.
 \end_layout
 
 \begin_layout Subsubsection

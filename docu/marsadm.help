@@ -483,6 +483,43 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Set a per-resource emergency limit for disk space in /mars.
     See PDF manual for details.
 
+  set-global-disabled-log-digests
+    usage: set-global-disabled-log-digests <features>
+    Tell the whole cluster which checksumming digests to disable globally
+    for the payload in transaction logfiles.
+    The effective value can be checked via "marsadm view-disabled-log-digests".
+    See "marsadm view-potential-features" and
+    "marsadm --help" for a list of digest feature names,
+    which must be separated by | symbols.
+
+  set-global-disabled-net-digests
+    usage: set-global-disabled-net-digests <features>
+    Tell the whole cluster which checksumming digests to disable globally
+    for cluster-wide data comparisons, like fast full-sync.
+    The effective value can be checked via "marsadm view-disabled-net-digests".
+    See "marsadm view-potential-features" and
+    "marsadm --help" for a list of digest feature names,
+    which must be separated by | symbols.
+
+  set-global-enabled-log-compressions
+    usage: set-global-enabled-log-compressions <features>
+    Tell the whole cluster which compression features to use globally
+    for logfile compression. The effective value can be checked via
+    "marsadm view-enabled-log-compressions".
+    See "marsadm view-potential-features" and
+    "marsadm --help" for a list of compression feature names,
+    which must be separated by | symbols.
+
+  set-global-enabled-net-compressions
+    usage: set-global-enabled-net-compressions <features>
+    Tell the whole cluster which compression features to use globally for
+    network transport compression. This is independent from log compression.
+    The effective value can be checked via
+    "marsadm view-enabled-log-compressions".
+    See "marsadm view-potential-features" and
+    "marsadm --help" for a list of compression feature names,
+    which must be separated by | symbols.
+
   set-sync-limit-value
     usage: set-sync-limit-value <new_value>
     Set the maximum number of resources which should by syncing
@@ -554,7 +591,9 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   commstate
   cstate
   default
+  default-footer
   default-global
+  default-header
   default-resource
   diskstate
   diskstate-1and1
@@ -590,6 +629,8 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   count-{cluster,resource}-members
   deletable-size
   device-opened
+  disabled-{log|net}-digests
+  enabled-{log|net}-compressions
   errno-text
     Convert errno numbers (positive or negative) into human readable text.
   get-log-status
@@ -608,6 +649,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   summary-vector
   systemd-unit
   tree
+  used-{log,net}-{digest,compression}
   uuid
   wait-{is,todo}-{attach,sync,fetch,replay,primary}-{on,off}
   writeback-rest
@@ -618,11 +660,24 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   {disk,resource,device}-size
   {fetch,replay,work}-{lognr,logcount}
   {get,actual}-primary
+  {implemented,usable}-{digests,compressions}
   {is,todo}-{attach,sync,fetch,replay,primary}
   {my,all}-resources
+  {potential,implemented,usable}-features
   {sync,fetch,replay,work,syncpos}-{size,pos}
   {sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}
   {sync,fetch,replay}-{rate,remain}
   {time,real-time}
   {tree,features}-version
+
+
+<features> =
+  CHKSUM_CRC32 |
+  CHKSUM_CRC32C |
+  CHKSUM_MD5 |
+  CHKSUM_MD5_OLD |
+  CHKSUM_SHA1 |
+  COMPRESS_LZ4 |
+  COMPRESS_LZO |
+  COMPRESS_ZLIB
 \end{verbatim}
