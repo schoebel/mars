@@ -1568,6 +1568,7 @@ void _mars_order_all(struct mars_cookie *cookie)
 		    strncmp(dent->d_name, "uuid", 4) &&
 		    strncmp(dent->d_name, "alive-", 6) &&
 		    true) {
+			get_inode(dent->d_path, dent, true);
 			/* time-* must be the very last items */
 			if (strncmp(dent->d_name, "time-", 5))
 				list_add(&dent->dent_link, &later_anchor);
@@ -1578,7 +1579,9 @@ void _mars_order_all(struct mars_cookie *cookie)
 			dent->d_parent = cookie->parent;
 			if (dent->d_parent)
 				dent->d_parent->d_child_count++;
-		} else {
+			continue;
+		}
+		if (!cookie->some_ordered) {
 			char *check;
 
 			/* Do not add _new_ dents when deleted.
@@ -1591,8 +1594,8 @@ void _mars_order_all(struct mars_cookie *cookie)
 				continue;
 			}
 			brick_string_free(check);
-			_mars_order(cookie, dent);
 		}
+		_mars_order(cookie, dent);
 	}
 	/* Append the whole unordered list.
 	 * This is done on return from recursion, so searching
