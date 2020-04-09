@@ -217,4 +217,12 @@ extern int _compat_unlink(
 #define MARS_HAS_NEW_CRYPTO
 #endif
 
+#if defined(CONFIG_CRC32C) || defined(CONFIG_CRYPTO_CRC32C) || defined(CONFIG_CRYPTO_CRC32C_MODULE)
+#define HAS_CRC32C
+#endif
+
+#if defined(CONFIG_CRC32) || defined(CONFIG_CRYPTO_CRC32) || defined(CONFIG_CRYPTO_CRC32_MODULE)
+#define HAS_CRC32
+#endif
+
 #endif /* _MARS_COMPAT */

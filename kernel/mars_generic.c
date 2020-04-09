@@ -159,6 +159,16 @@ __u32 used_net_digest = 0;
 
 static struct crypto_shash *md5_tfm = NULL;
 
+#ifdef HAS_CRC32C
+#define CRC32C_DIGEST_SIZE 4
+static struct crypto_shash *crc32c_tfm = NULL;
+#endif
+
+#ifdef HAS_CRC32
+#define CRC32_DIGEST_SIZE  4
+static struct crypto_shash *crc32_tfm = NULL;
+#endif
+
 struct mars_sdesc {
 	struct shash_desc shash;
 	char ctx[];
@@ -235,6 +245,94 @@ void md5_digest(void *digest, void *data, int len)
 	brick_mem_free(sdesc);
 }
 
+#ifdef HAS_CRC32C
+static
+void crc32c_digest(void *digest, void *data, int len)
+{
+	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(crc32c_tfm);
+	struct mars_sdesc *sdesc = brick_mem_alloc(size);
+	const int iterations = MARS_DIGEST_SIZE / CRC32C_DIGEST_SIZE;
+	int chunksize = len / iterations;
+	int offset = 0;
+	int done_len = len;
+	int i;
+	int status;
+
+	sdesc->shash.tfm = crc32c_tfm;
+	sdesc->shash.flags = 0;
+	memset(digest, 0, MARS_DIGEST_SIZE);
+
+	/* exploit the bigger MARS_DIGEST_SIZE by computing CRC32C in chunks */
+	for (i = 0; i < iterations; i++) {
+		char this_digest[CRC32C_DIGEST_SIZE] = {};
+
+		if (i == iterations - 1)
+			chunksize = done_len;
+
+		status = crypto_shash_digest(&sdesc->shash,
+					     data + offset, chunksize,
+					     this_digest);
+		if (unlikely(status < 0)) {
+			MARS_ERR("cannot calculate crc32c chksum on %p len=%d, status=%d\n",
+				 data, chunksize,
+				 status);
+			continue;
+		}
+		memcpy(digest + i * CRC32C_DIGEST_SIZE, this_digest, CRC32C_DIGEST_SIZE);
+		offset += chunksize;
+		done_len -= chunksize;
+	}
+	if (unlikely(done_len))
+		MARS_ERR("crc32c chksum remain %d\n", done_len);
+
+	brick_mem_free(sdesc);
+}
+#endif
+
+#ifdef HAS_CRC32
+static
+void crc32_digest(void *digest, void *data, int len)
+{
+	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(crc32_tfm);
+	struct mars_sdesc *sdesc = brick_mem_alloc(size);
+	const int iterations = MARS_DIGEST_SIZE / CRC32_DIGEST_SIZE;
+	int chunksize = len / iterations;
+	int offset = 0;
+	int done_len = len;
+	int i;
+	int status;
+
+	sdesc->shash.tfm = crc32_tfm;
+	sdesc->shash.flags = 0;
+	memset(digest, 0, MARS_DIGEST_SIZE);
+
+	/* exploit the bigger MARS_DIGEST_SIZE by computing CRC32 in chunks */
+	for (i = 0; i < iterations; i++) {
+		char this_digest[CRC32_DIGEST_SIZE] = {};
+
+		if (i == iterations - 1)
+			chunksize = done_len;
+
+		status = crypto_shash_digest(&sdesc->shash,
+					     data + offset, chunksize,
+					     this_digest);
+		if (unlikely(status < 0)) {
+			MARS_ERR("cannot calculate crc32 chksum on %p len=%d, status=%d\n",
+				 data, chunksize,
+				 status);
+			continue;
+		}
+		memcpy(digest + i * CRC32_DIGEST_SIZE, this_digest, CRC32_DIGEST_SIZE);
+		offset += chunksize;
+		done_len -= chunksize;
+	}
+	if (unlikely(done_len))
+		MARS_ERR("crc32 chksum remain %d\n", done_len);
+
+	brick_mem_free(sdesc);
+}
+#endif
+
 __u32 mars_digest(__u32 digest_flags,
 		  __u32 *used_flags,
 		  void *digest,
@@ -244,6 +342,22 @@ __u32 mars_digest(__u32 digest_flags,
 	/* The order defines the preference:
 	 * place the most performant algorithms first.
 	 */
+#ifdef HAS_CRC32C
+	if (digest_flags & MREF_CHKSUM_CRC32C && crc32c_tfm) {
+		crc32c_digest(digest, data, len);
+		if (used_flags)
+			*used_flags = MREF_CHKSUM_CRC32C;
+		return MREF_CHKSUM_CRC32C;
+	}
+#endif
+#ifdef HAS_CRC32
+	if (digest_flags & MREF_CHKSUM_CRC32 && crc32_tfm) {
+		crc32_digest(digest, data, len);
+		if (used_flags)
+			*used_flags = MREF_CHKSUM_CRC32;
+		return MREF_CHKSUM_CRC32;
+	}
+#endif
 	if (digest_flags & MREF_CHKSUM_MD5 && md5_tfm) {
 		md5_digest(digest, data, len);
 		if (used_flags)
@@ -325,7 +439,44 @@ int init_mars_digest(void)
 	}
 	available_digest_mask |= MREF_CHKSUM_MD5;
 
+#ifdef HAS_CRC32C
+	crc32c_tfm = crypto_alloc_shash("crc32c", 0, 0);
+	if (unlikely(!crc32c_tfm) || IS_ERR(crc32c_tfm)) {
+		MARS_ERR("cannot alloc crc32c crypto hash, status=%ld\n",
+			 PTR_ERR(crc32c_tfm));
+		crc32c_tfm = NULL;
+	} else {
+		status = crypto_shash_digestsize(crc32c_tfm);
+		if (unlikely(status != CRC32C_DIGEST_SIZE)) {
+			MARS_ERR("crc32c bad digest size %d\n", status);
+			return -ELIBACC;
+		}
+		available_digest_mask |= MREF_CHKSUM_CRC32C;
+	}
+#endif
+#ifdef HAS_CRC32
+	crc32_tfm = crypto_alloc_shash("crc32", 0, 0);
+	if (unlikely(!crc32_tfm) || IS_ERR(crc32_tfm)) {
+		MARS_ERR("cannot alloc crc32 crypto hash, status=%ld\n",
+			 PTR_ERR(crc32_tfm));
+		crc32_tfm = NULL;
+	} else {
+		status = crypto_shash_digestsize(crc32_tfm);
+		if (unlikely(status != CRC32_DIGEST_SIZE)) {
+			MARS_ERR("crc32 bad digest size %d\n", status);
+			return -ELIBACC;
+		}
+		available_digest_mask |= MREF_CHKSUM_CRC32;
+	}
+#endif
+
 #ifdef CONFIG_MARS_BENCHMARK
+#ifdef HAS_CRC32C
+	benchmark_digest("crc32c", MREF_CHKSUM_CRC32C);
+#endif
+#ifdef HAS_CRC32
+	benchmark_digest("crc32",  MREF_CHKSUM_CRC32);
+#endif
 	benchmark_digest("md5old", MREF_CHKSUM_MD5_OLD);
 	benchmark_digest("md5",    MREF_CHKSUM_MD5);
 #endif
@@ -338,6 +489,16 @@ void exit_mars_digest(void)
 	if (md5_tfm) {
 		crypto_free_shash(md5_tfm);
 	}
+#ifdef HAS_CRC32C
+	if (crc32c_tfm) {
+		crypto_free_shash(crc32c_tfm);
+	}
+#endif
+#ifdef HAS_CRC32
+	if (crc32_tfm) {
+		crypto_free_shash(crc32_tfm);
+	}
+#endif
 }
 
 #else  /* MARS_HAS_NEW_CRYPTO */

@@ -163,6 +163,8 @@ enum _MREF_FLAGS {
 	/* Checksum bits, starting at the upper half */
 	_MREF_CHKSUM_MD5_OLD = 16,
 	_MREF_CHKSUM_MD5,
+	_MREF_CHKSUM_CRC32C,
+	_MREF_CHKSUM_CRC32,
 	_MREF_CHKSUM_LAST,
 };
 
@@ -175,9 +177,13 @@ enum _MREF_FLAGS {
 #define MREF_NODATA          (1UL << _MREF_NODATA)
 #define MREF_CHKSUM_MD5_OLD  (1UL << _MREF_CHKSUM_MD5_OLD)
 #define MREF_CHKSUM_MD5      (1UL << _MREF_CHKSUM_MD5)
+#define MREF_CHKSUM_CRC32C   (1UL << _MREF_CHKSUM_CRC32C)
+#define MREF_CHKSUM_CRC32    (1UL << _MREF_CHKSUM_CRC32)
 #define MREF_CHKSUM_LAST     (1UL << _MREF_CHKSUM_LAST)
 #define MREF_CHKSUM_ANY      (MREF_CHKSUM_MD5_OLD |	\
 			      MREF_CHKSUM_MD5 |		\
+			      MREF_CHKSUM_CRC32C |	\
+			      MREF_CHKSUM_CRC32 |	\
 			      MREF_CHKSUM_LAST)
 
 #define MREF_OBJECT(OBJTYPE)						\
