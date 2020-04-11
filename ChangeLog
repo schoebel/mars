@@ -100,6 +100,11 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable90
+	* Minor improvement: more reactiveness. This release
+	  is meant as an anchor point in case you would need
+	  a downgrade.
+
 mars0.1astable89
 	* Minor improvement: better kernel module reactiveness.
 	  More on scalability is in the dev pipeline.
