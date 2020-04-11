@@ -58,16 +58,36 @@ Release Conventions / Branches / Tagnames
 
 	WIP-* branches are for development and may be rebased onto anything
 	at any time without notice. They will disappear eventually.
+	Never use them for production!
 
-	*stable* branches mean that only bug fixes and documentation
-	updates / clarifications will be applied. Updates to the test suite /
-	new test cases potentially disguising bugs, and other minor additions
-	of debugging code / paranoia code which may lead to discovery
-	of bugs are also possible. Error messages / warnings and their
-	error class may	also be changed.
-	NO NEW FEATURES, not even minor ones, except when absolutely
-	necessary for a bugfix, or for an important usability improvement
-	(such as clearer display of errors, hints for resolving them, etc).
+	*stable* branches mean the following:
+
+	  - Heavily tested. Has to obey an HA SLA of 99.98% end-to-end,
+	    including network outages and HumanError(tm) at 1&1 Ionos
+	    ShaHoLin. Thus the _component_ SLA of MARS must be much better.
+	  - There is always an upgrade path. Simply install the new
+	    version.
+	  - Rolling upgrades (temporarily different MARS kernel module
+	    versions at primary vs secondary side) are supported.
+	    Typically, do "rmmod mars; modprobe mars" at the secondary
+	    side first, then handover, then do the same at the former
+	    primary side.
+	    Or, of course, you may combine it with (typically security-
+	    triggered) rolling kernel reboots.
+	  - marsadm may be upgraded independently from kernel
+	    (during operations, best via your favorite package manager).
+	  - Downgrade is possible *inside* of the same stable branch
+	    series.
+	  - Downgrade to _prior_ *stable* branches may be restricted,
+	    or may require some extaordinary actions.
+	    Please read this ChangeLog for details.
+
+	Example: a new future-proof internal deletion format has been
+	introduced in mars0.1astable88. It is off by default.
+	If you never activate it, you can downgrade inside of mars0.1astable*
+	as you like.
+	Only if you actually activate it, you have to obey the
+	downgrade instructions documented below.
 
 -----------------------------------
 Changelog for series 0.1a:
@@ -79,6 +99,34 @@ Changelog for series 0.1a:
 	Based on 0.1balpha4. Merged 0.1stable.
 	Now stable.
 	Receive mainly fixes.
+
+mars0.1astable88
+	* New experimental scalability feature, deactivated
+	  by default:
+	  New deletion method, uses the special symlink value
+	  ".deleted" as a marker for logically deleted symlinks.
+	  This leads to a _massive_ simplification of code,
+	  and improves scalability for future masses of
+	  resources and/or cluster hosts.
+	  After updating both mars.ko and marsadm, you may
+	  activate it via marsadm option --delete-method=0
+	  but ONLY FOR TESTING.
+	  I will tell you when it will be stable enough for
+	  production. Somewhen in future, it will hopefully
+	  become the default, and eventually the old complex code
+	  can be hopefully purged after the whole world
+	  uses the new method.
+	  Note: when never activated, it should not have any
+	  influence on old-style production. Both methods
+	  can be used in parallel on different clusters.
+	  So you can activate it on some test clusters first.
+	  Do not _directly_ rollback to old mars.ko and/or marsadm versions
+	  after activation. First deactivate the feature via
+	  --delete-method=1, then wait for a few hours until marsadm cron
+	  has done purging. "find /mars -type l -ls" must no longer report
+	  any "-> .deleted" values anywhere in the entire cluster.
+	  Then you can roll back to old releases.
+	* Doc: small update on new marsadm command link-purge-all.
 
 mars0.1astable87
 	* Minor fix: unnecessary split brain could result from a race
