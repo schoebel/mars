@@ -100,6 +100,13 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable89
+	* Minor improvement: better kernel module reactiveness.
+	  More on scalability is in the dev pipeline.
+	  For now, use marsadm --timeout=300 or similar when
+	  stretching the official limits (but don't stretch too
+	  much until I have improved all relevant parts).
+
 mars0.1astable88
 	* New experimental scalability feature, deactivated
 	  by default:
