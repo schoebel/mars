@@ -100,6 +100,19 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable91
+	* Major features, disabled by default:
+	  - Network transport compression.
+	    May improve network bottlenecks.
+	  - Transaction logfile payload compression.
+	    May improve the filling speed of /mars.
+	* Major feature, enabled by default:
+	  - More logfile checksumming digests, some
+	    consuming less CPU.
+	* Rough benchmarks, supporting you activation decisions.
+	Please read mars-user-manual.pdf for instructions.
+	Rolling updates with mixed versions are supported.
+
 mars0.1astable90
 	* Minor improvement: more reactiveness. This release
 	  is meant as an anchor point in case you would need
