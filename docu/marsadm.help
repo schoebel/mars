@@ -595,6 +595,8 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   default-global
   default-header
   default-resource
+  device-info
+  device-stats
   diskstate
   diskstate-1and1
   dstate
@@ -628,7 +630,8 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
 <primitive_macroname> =
   count-{cluster,resource}-members
   deletable-size
-  device-opened
+  device-{opened,nrflying,error}
+  device-{ops-rate,amount-rate,rate}
   disabled-{log|net}-digests
   enabled-{log|net}-compressions
   errno-text
@@ -666,7 +669,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   {potential,implemented,usable}-features
   {sync,fetch,replay,work,syncpos}-{size,pos}
   {sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}
-  {sync,fetch,replay}-{rate,remain}
+  {sync,fetch,replay}-{ops-rate,amount-rate,rate,remain}
   {time,real-time}
   {tree,features}-version
 

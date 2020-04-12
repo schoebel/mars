@@ -4195,6 +4195,16 @@ comminfo
 \labelwidthstring 00.00.0000
 
 \family typewriter
+device-info
+\family default
+ When present, shows the status of /dev/mars/mydata in human-readyble form.
+ Shows the empty string when /dev/mars/mydata is not present.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 diskstate
 \family default
  Shows the status of the underlying disk device, in the following order
@@ -31448,6 +31458,40 @@ dd
 
 \begin_layout Labeling
 \labelwidthstring 00.00.0000
+
+\family typewriter
+device-{ops,amount}-rate
+\family default
+ Show the number of current IOPS, esp.
+ the current throughput in KiB/s.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+device-nrflying
+\family default
+ Show the number of currently flying IO requests.
+ This is an indicator of queueing at the low-level device.
+ When it is permenantly very high, it may point at IO problems, such as
+ RAID degradation.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+device-error
+\family default
+ Show the negative Linux errno code of the last IO error.
+ It should be always zero.
+ When < 0 according to kernel return-code conventions, this typically indicates
+ a hardware (or network) problem.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
 {potential,implemented,usable}-features Show a list of flag names, indicating
  the compression / digest features (see description in section 
 \begin_inset CommandInset ref
@@ -32218,6 +32262,16 @@ estimated
  remaining time for completion of the respective operation.
  This is just a very raw guess.
  Units are seconds.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{sync,fetch,replay}-{ops,amount}-rate
+\family default
+ Show the current IOPS of sync / fetch / replay, or its corresponding throughput
+ in KiB/s.
 \end_layout
 
 \begin_layout Labeling
