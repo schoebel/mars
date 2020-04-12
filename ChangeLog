@@ -100,6 +100,14 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable92
+	* Major improvement from an operational perspective:
+	  "marsadm view all" now reports the current status of
+	  /dev/mars/mydata in human-readable form, including
+	  the Open status, the current IOPS, the number of currently
+	  flying IO requests = IO queue length = indicator for IO problems
+	  or overload, and any error information.
+
 mars0.1astable91
 	* Major features, disabled by default:
 	  - Network transport compression.
