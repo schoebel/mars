@@ -741,6 +741,10 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		msock->s_recv_cnt = 0;
 		if (!status) { // EOF
 			MARS_WRN("#%d got EOF from socket (done=%d, req_size=%d)\n", msock->s_debug_nr, done, maxlen - done);
+			/* Misuse EPIPE for reporting of a low-level
+			 * connection error, to be corrected by higher layers.
+			 * Do not use EPIPE anywhere else in MARS.
+			 */
 			status = -EPIPE;
 			goto err;
 		}
