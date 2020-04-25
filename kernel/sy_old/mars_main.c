@@ -69,6 +69,7 @@
 #include "../mars_sio.h"
 #include "../mars_aio.h"
 #include "../mars_trans_logger.h"
+#include "../mars_gate.h"
 #include "../mars_if.h"
 #include "mars_proc.h"
 #ifdef CONFIG_MARS_DEBUG // otherwise currently unused
@@ -849,6 +850,7 @@ struct mars_rotate {
 	struct mars_dent *next_log;
 	struct mars_dent *syncstatus_dent;
 	struct lamport_time sync_finish_stamp;
+	struct gate_brick *gate_brick;
 	struct if_brick *if_brick;
 	const char *log_from_peer;
 	const char *fetch_path;
@@ -908,6 +910,7 @@ struct mars_rotate {
 	bool is_log_damaged;
 	bool has_emergency;
 	bool log_is_really_damaged;
+	bool todo_gate;
 	struct mutex inf_mutex;
 	bool infs_is_dirty[INFS_MAX];
 	struct trans_logger_info infs[INFS_MAX];
@@ -1249,10 +1252,11 @@ done:
 }
 
 static
-int _check_switch(const char *path)
+__s64 _check_switch(const char *path)
 {
-	int res = 0;
+	__s64 res = 0;
 	const char *val_str = NULL;
+	int status;
  
  	/* Upon shutdown, treat all switches as "off"
  	 */
@@ -1262,9 +1266,14 @@ int _check_switch(const char *path)
 	val_str = ordered_readlink(path, NULL);
 	if (!val_str || !val_str[0])
  		goto done;
-	sscanf(val_str, "%d", &res);
- 	MARS_DBG("'%s' -> %d\n", path, res);
- 
+	status = sscanf(val_str, "0x%llx", &res);
+	if (status <= 0)
+		status = sscanf(val_str, "%lld", &res);
+	if (status <= 0)
+		MARS_ERR("link '%s' value '%s' is no number\n",
+			 path, val_str);
+	MARS_DBG("'%s' -> %lld\n", path, res);
+
  done:
 	brick_string_free(val_str);
 	return res;
@@ -4277,6 +4286,9 @@ int make_log_init(struct mars_dent *dent)
 	rot->has_error = false;
 	brick_string_free(rot->preferred_peer);
 
+	rot->todo_gate =
+		_check_allow(parent_path, "gate");
+
 	activate_peer(dent->d_rest, NULL, NULL, false);
 
 	if (dent->new_link)
@@ -5510,6 +5522,7 @@ int make_log_finalize(struct mars_dent *dent)
 		} else {
 			do_stop =
 				!rot->if_brick &&
+				!rot->gate_brick &&
 				!rot->is_primary &&
 				(!rot->todo_primary ||
 				 !_check_allow(parent->d_path, "attach"));
@@ -5828,6 +5841,85 @@ done:
 }
 
 static
+bool allow_dev(struct mars_rotate *rot)
+{
+	bool switch_on =
+		rot->todo_primary &&
+		rot->is_primary &&
+		rot->trans_brick &&
+		!rot->trans_brick->replay_mode &&
+		(rot->trans_brick->power.led_on ||
+		 (!rot->trans_brick->power.button && !rot->trans_brick->power.led_off)) &&
+		mars_global->global_power.button &&
+		_check_allow(rot->parent_path, "attach");
+
+	if (switch_on && rot->res_shutdown) {
+		MARS_ERR("cannot create device: resource shutdown mode is currently active\n");
+		switch_on = false;
+	}
+	return switch_on;
+}
+
+static
+int make_gate(struct mars_rotate *rot, struct mars_dent *dent)
+{
+	struct mars_dent *parent = dent->d_parent;
+	struct mars_brick *_gate_brick = (void *)rot->gate_brick;
+	__u32 inhibit_mask;
+	bool switch_on = false;
+
+	if (!parent)
+		goto done;
+
+	MARS_DBG("todo_gate=%d\n", rot->todo_gate);
+
+	if (!_gate_brick && !rot->todo_gate)
+		goto done;
+
+	switch_on =
+		(rot->gate_brick &&
+		 rot->gate_brick->outputs[0] &&
+		 rot->gate_brick->outputs[0]->nr_connected) ||
+		(rot->todo_gate &&
+		 allow_dev(rot));
+
+	MARS_DBG("switch_on=%d\n", switch_on);
+
+	_gate_brick =
+		make_brick_all(mars_global,
+			       dent,
+			       parent->d_rest,
+			       NULL,
+			       rot,
+			       (const struct generic_brick_type*)&gate_brick_type,
+			       switch_on ? 2 : -1,
+			       "%s/gate-%s",
+			       (const char *[]){"%s/replay-%s"},
+			       1,
+			       parent->d_path,
+			       my_id(),
+			       parent->d_path,
+			       my_id());
+	rot->gate_brick = (void *)_gate_brick;
+
+	if (!_gate_brick) {
+		MARS_DBG("gate not present\n");
+		goto done;
+	}
+	if (!switch_on) {
+		MARS_DBG("setting killme on gate_brick\n");
+		_gate_brick->killme = true;
+	}
+	_gate_brick->kill_ptr = (void **)&rot->gate_brick;
+	_gate_brick->rewire = true;
+	inhibit_mask = _check_allow(rot->parent_path, "gate-mask");
+	rot->gate_brick->inhibit_mask = inhibit_mask;
+
+ done:
+	return 0;
+}
+
+static
 void _show_dev(struct mars_rotate *rot)
 {
 	struct if_brick *if_brick = rot->if_brick;
@@ -5859,6 +5951,7 @@ int make_dev(struct mars_dent *dent)
 	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot = NULL;
 	struct mars_brick *dev_brick;
+	const char *prev_fmt = "%s/replay-%s";
 	bool switch_on;
 	int status = 0;
 
@@ -5885,6 +5978,12 @@ int make_dev(struct mars_dent *dent)
 		goto done;
 	}
 
+	make_gate(rot, dent);
+	if (rot->todo_gate ||
+	    (rot->gate_brick &&
+	     rot->gate_brick->power.led_on))
+		prev_fmt = "%s/gate-%s";
+
 	status = _parse_args(dent, dent->new_link, 1);
 	if (status < 0) {
 		MARS_DBG("fail\n");
@@ -5893,19 +5992,7 @@ int make_dev(struct mars_dent *dent)
 
 	switch_on =
 		(rot->if_brick && atomic_read(&rot->if_brick->open_count) > 0) ||
-		(rot->todo_primary &&
-		 rot->trans_brick &&
-		 !rot->trans_brick->replay_mode &&
-		 (rot->trans_brick->power.led_on ||
-		  (!rot->trans_brick->power.button && !rot->trans_brick->power.led_off)) &&
-		 _check_allow(rot->parent_path, "attach"));
-	if (!mars_global->global_power.button) {
-		switch_on = false;
-	}
-	if (switch_on && rot->res_shutdown) {
-		MARS_ERR("cannot create device: resource shutdown mode is currently active\n");
-		switch_on = false;
-	}
+		allow_dev(rot);
 
 	dev_brick =
 		make_brick_all(mars_global,
@@ -5916,7 +6003,7 @@ int make_dev(struct mars_dent *dent)
 			       (const struct generic_brick_type*)&if_brick_type,
 			       switch_on ? 2 : -1,
 			       "%s/device-%s", 
-			       (const char *[]){"%s/replay-%s"},
+			       &prev_fmt,
 			       1,
 			       parent->d_path,
 			       my_id(),
@@ -5932,6 +6019,7 @@ int make_dev(struct mars_dent *dent)
 		dev_brick->killme = true;
 	}
 	dev_brick->kill_ptr = (void**)&rot->if_brick;
+	dev_brick->rewire = true;
 
 done:
 	_show_dev(rot);
@@ -6669,7 +6757,11 @@ int kill_res(struct mars_dent *dent)
 	}
 
 	// this code is only executed in case of forced deletion of symlinks
-	if (rot->if_brick || rot->sync_brick || rot->fetch_brick || rot->trans_brick) {
+	if (rot->if_brick ||
+	    rot->gate_brick ||
+	    rot->sync_brick ||
+	    rot->fetch_brick ||
+	    rot->trans_brick) {
 		rot->res_shutdown = true;
 		MARS_WRN("resource '%s' has no symlinks, shutting down.\n", rot->parent_path);
 	}
