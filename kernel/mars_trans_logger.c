@@ -642,8 +642,45 @@ EXPORT_SYMBOL_GPL(global_mshadow_used);
 static noinline
 int trans_logger_get_info(struct trans_logger_output *output, struct mars_info *info)
 {
-	struct trans_logger_input *input = output->brick->inputs[TL_INPUT_READ];
-	return GENERIC_INPUT_CALL(input, mars_get_info, info);
+	struct trans_logger_brick *brick = output->brick;
+	struct trans_logger_input *input = brick->inputs[TL_INPUT_READ];
+	struct stor_state *sst = &info->stor_state;
+	int status;
+
+	status = GENERIC_INPUT_CALL(input, mars_get_info, info);
+	if (status < 0)
+		goto done;
+
+	if (!brick->log_input_nr) {
+		sst->stor_dirty = true;
+		goto done;
+	}
+
+	/* simple hash computation */
+	input = brick->inputs[brick->log_input_nr];
+	sst->stor_hash = input->inf.inf_log_pos >> _LOG_PAD_BITS;
+	sst->stor_hash ^= (__u64)input->inf.inf_sequence << 32;
+
+	if (sst->stor_dirty)
+		goto done;
+	/* at least the logfile sequence number must be set */
+	sst->stor_dirty = !sst->stor_hash;
+	if (sst->stor_dirty)
+		goto done;
+	/* do not trust during logrotate */
+	sst->stor_dirty =
+		(brick->log_input_nr != brick->old_input_nr &&
+		 brick->old_input_nr);
+	if (sst->stor_dirty)
+		goto done;
+	/* safeguard known dynamic changes */
+	sst->stor_dirty = atomic_read(&input->log_ref_count) != 0;
+	if (sst->stor_dirty)
+		goto done;
+	sst->stor_dirty = _congested(brick);
+
+ done:
+	return status;
 }
 
 static noinline

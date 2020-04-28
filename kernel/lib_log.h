@@ -100,6 +100,10 @@ struct log_header_v1 {
 
 #define OVERHEAD (START_OVERHEAD + END_OVERHEAD)
 
+/* alignment of log positions to 64bit */
+#define _LOG_PAD_BITS 3
+#define _LOG_PAD (1 << _LOG_PAD_BITS)
+
 // TODO: make this bytesex-aware.
 #define DATA_PUT(data,offset,val)				\
 	do {							\
