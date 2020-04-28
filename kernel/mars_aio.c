@@ -1101,6 +1101,8 @@ static int aio_submit_thread(void *data)
 static int aio_get_info(struct aio_output *output, struct mars_info *info)
 {
 	struct file *file;
+	struct aio_brick *brick;
+	struct aio_threadinfo *tinfo;
 
 	if (unlikely(!output ||
 		     !output->mf ||
@@ -1109,11 +1111,20 @@ static int aio_get_info(struct aio_output *output, struct mars_info *info)
 		     !file->f_mapping->host))
 		return -EINVAL;
 
+	memset(info, 0, sizeof(struct mars_info));
 	info->tf_align = 1;
 	info->tf_min_size = 1;
 	info->current_size = get_total_size(output);
 
 	MARS_DBG("determined file size = %lld\n", info->current_size);
+
+	brick = output->brick;
+	default_stor_init(&info->stor_state, brick->resource_name);
+	tinfo = &output->tinfo[0];
+	info->stor_state.stor_dirty =
+		atomic_read(&output->read_count) +
+		atomic_read(&output->write_count) +
+		atomic_read(&tinfo->queued_sum) <= 0;
 
 	return 0;
 }
