@@ -274,10 +274,28 @@ struct mref_object {
 
 // internal helper structs
 
+/* Abstract state of a location-transparent store / LV.
+ * Only test for equality is possible.
+ * stor_id must not depend on the location.
+ * stor_hash must change at any write completion (modulo 64bit hashing)
+ * using a location-independent hash function.
+ * stor_dirty indicates that the hash cannot be trusted (such as
+ * currently flying IO requests etc).
+ */
+struct stor_state {
+	struct lamport_time stor_stamp;
+	__u64               stor_id;
+	__u64               stor_hash;
+	bool                stor_dirty;
+};
+
+extern void default_stor_init(struct stor_state *ini, const char *name);
+
 struct mars_info {
 	loff_t current_size;
 	int tf_align;    // transfer alignment constraint
 	int tf_min_size; // transfer is only possible in multiples of this
+	struct stor_state stor_state;
 };
 
 // brick stuff
@@ -395,6 +413,7 @@ static const struct generic_aspect_type *BRITYPE##_aspect_types[OBJ_TYPE_MAX] = 
 	[OBJ_TYPE_MREF] = &BRITYPE##_mref_aspect_type,			\
 };									\
 
+extern const struct meta stor_state_meta[];
 extern const struct meta mars_info_meta[];
 extern const struct meta mars_mref_meta[];
 extern const struct meta mars_lamport_time_meta[];

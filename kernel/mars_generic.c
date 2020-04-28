@@ -94,13 +94,21 @@ EXPORT_SYMBOL_GPL(mref_type);
 
 // meta descriptions
 
+const struct meta stor_state_meta[] = {
+	META_INI_SUB(stor_stamp, struct stor_state, mars_lamport_time_meta),
+	META_INI(stor_id,        struct stor_state, FIELD_UINT),
+	META_INI(stor_hash,      struct stor_state, FIELD_UINT),
+	META_INI(stor_dirty,     struct stor_state, FIELD_INT),
+	{}
+};
+
 const struct meta mars_info_meta[] = {
 	META_INI(current_size,    struct mars_info, FIELD_INT),
 	META_INI(tf_align,        struct mars_info, FIELD_INT),
 	META_INI(tf_min_size,     struct mars_info, FIELD_INT),
+	META_INI_SUB(stor_state,  struct mars_info, stor_state_meta),
 	{}
 };
-EXPORT_SYMBOL_GPL(mars_info_meta);
 
 const struct meta mars_mref_meta[] = {
 	META_INI(_object_cb.cb_error, struct mref_object, FIELD_INT),
@@ -134,15 +142,12 @@ const struct meta mars_mref_meta[] = {
 	META_INI(ref_skip_sync,    struct mref_object, FIELD_INT),
 	{}
 };
-EXPORT_SYMBOL_GPL(mars_mref_meta);
 
 const struct meta mars_lamport_time_meta[] = {
 	META_INI(tv_sec,  struct lamport_time, FIELD_INT),
 	META_INI(tv_nsec, struct lamport_time, FIELD_INT),
 	{}
 };
-EXPORT_SYMBOL_GPL(mars_lamport_time_meta);
-
 
 //////////////////////////////////////////////////////////////
 
@@ -1030,6 +1035,23 @@ int init_mars_compress(void)
 static
 void exit_mars_compress(void)
 {
+}
+
+/////////////////////////////////////////////////////////////////////
+
+void default_stor_init(struct stor_state *ini, const char *name)
+{
+	int len = strlen(name);
+	unsigned char digest[MARS_DIGEST_SIZE];
+
+	get_lamport(NULL, &ini->stor_stamp);
+	mars_digest(MREF_CHKSUM_MD5_OLD,
+		    NULL,
+		    digest,
+		    name, len);
+	ini->stor_id = *(__u64 *)digest;
+	ini->stor_hash = 0;
+	ini->stor_dirty = true;
 }
 
 /////////////////////////////////////////////////////////////////////
