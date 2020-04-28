@@ -535,13 +535,32 @@ static int sio_thread(void *data)
 static int sio_get_info(struct sio_output *output, struct mars_info *info)
 {
 	struct file *file = output->mf->mf_filp;
+	struct sio_brick *brick;
+	int index;
+
 	if (unlikely(!file || !file->f_mapping || !file->f_mapping->host))
 		return -EINVAL;
 
+	memset(info, 0, sizeof(struct mars_info));
 	info->tf_align = 1;
 	info->tf_min_size = 1;
 	info->current_size = i_size_read(file->f_mapping->host);
 	MARS_DBG("determined file size = %lld\n", info->current_size);
+
+
+	brick = output->brick;
+	default_stor_init(&info->stor_state, brick->resource_name);
+	info->stor_state.stor_dirty = false;
+	for (index = 0; index <= WITH_THREAD; index++) {
+		struct sio_threadinfo *tinfo = &output->tinfo[index];
+
+		if (atomic_read(&tinfo->queue_count) +
+		    atomic_read(&tinfo->fly_count) > 0) {
+			info->stor_state.stor_dirty = true;
+			break;
+		}
+	}
+
 	return 0;
 }
 
