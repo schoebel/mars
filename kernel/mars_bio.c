@@ -306,6 +306,7 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 		goto done;
 	}
 
+	memset(info, 0, sizeof(struct mars_info));
 	info->tf_align = 512;
 	info->tf_min_size = 512;
 	q = bdev_get_queue(inode->i_bdev);
@@ -316,6 +317,12 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 	brick->total_size = i_size_read(inode);
 	info->current_size = brick->total_size;
 	MARS_DBG("determined device size = %lld\n", info->current_size);
+
+	default_stor_init(&info->stor_state, brick->resource_name);
+	info->stor_state.stor_dirty =
+		atomic_read(&brick->fly_count[0]) +
+		atomic_read(&brick->fly_count[1]) +
+		atomic_read(&brick->fly_count[2]) > 0;
 
 done:
 	return status;
