@@ -412,7 +412,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	padded_len = len;
 	if (logst->do_compress) {
 		int new_len = log_compress(logst, len, &check_flags);
-		int padded_new_len = ((new_len + 7) / 8) * 8;
+		int padded_new_len = ((new_len + (_LOG_PAD-1)) / _LOG_PAD) * _LOG_PAD;
 
 		if (new_len > 0 && padded_new_len < len) {
 			/* exchange the lengths */
