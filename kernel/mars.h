@@ -537,7 +537,7 @@ extern __u32 disabled_net_digests;
 extern __u32 mars_digest(__u32 digest_flags,
 			 __u32 *used_flags,
 			 void *digest,
-			 void *data, int len);
+			 const void *data, int len);
 
 extern void mref_checksum(struct mref_object *mref);
 

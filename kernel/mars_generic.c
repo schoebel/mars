@@ -185,7 +185,7 @@ struct mars_sdesc {
  * in this version.
  */
 static
-void md5_old_digest(void *digest, void *data, int len)
+void md5_old_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(md5_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
@@ -207,7 +207,7 @@ void md5_old_digest(void *digest, void *data, int len)
 }
 
 static
-void md5_digest(void *digest, void *data, int len)
+void md5_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(md5_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
@@ -252,7 +252,7 @@ void md5_digest(void *digest, void *data, int len)
 
 #ifdef HAS_CRC32C
 static
-void crc32c_digest(void *digest, void *data, int len)
+void crc32c_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(crc32c_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
@@ -296,7 +296,7 @@ void crc32c_digest(void *digest, void *data, int len)
 
 #ifdef HAS_CRC32
 static
-void crc32_digest(void *digest, void *data, int len)
+void crc32_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(crc32_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
@@ -340,7 +340,7 @@ void crc32_digest(void *digest, void *data, int len)
 
 #ifdef HAS_SHA1
 static
-void sha1_digest(void *digest, void *data, int len)
+void sha1_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(sha1_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
@@ -369,7 +369,7 @@ void sha1_digest(void *digest, void *data, int len)
 __u32 mars_digest(__u32 digest_flags,
 		  __u32 *used_flags,
 		  void *digest,
-		  void *data, int len)
+		  const void *data, int len)
 {
 	digest_flags &= usable_digest_mask;
 	/* The order defines the preference:
