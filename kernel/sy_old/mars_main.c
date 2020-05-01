@@ -4443,6 +4443,11 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			make_rot_msg(rot, "err-replay-stop", "logfile replay stopped with error = %d at position %lld", trans_brick->replay_code, trans_brick->replay_current_pos);
 			rot->replay_code = trans_brick->replay_code;
 			rot->log_is_really_damaged = true;
+			/* Exception: set actual position for recovery */
+			_recover_versionlink(rot,
+					     rot->current_inf.inf_host,
+					     rot->current_inf.inf_sequence,
+					     trans_brick->replay_current_pos);
 		} else if (rot->replay_code >= TL_REPLAY_RUNNING) {
 			rot->replay_code = trans_brick->replay_code;
 		}
