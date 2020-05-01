@@ -100,6 +100,10 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable93
+	* Minor improvement: in some special cases, secondaries
+	  may now follow primaries having a damaged logfile.
+
 mars0.1astable92
 	* Major improvement from an operational perspective:
 	  "marsadm view all" now reports the current status of
