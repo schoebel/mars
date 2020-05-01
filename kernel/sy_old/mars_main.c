@@ -4448,6 +4448,27 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 					     rot->current_inf.inf_host,
 					     rot->current_inf.inf_sequence,
 					     trans_brick->replay_current_pos);
+			/* Exceptionally try switchover, following a damaged
+			 * primary (only when possible)
+			 */
+			if (rot->relevant_log &&
+			    rot->next_relevant_log &&
+			    is_switchover_possible(rot,
+						   rot->relevant_log->d_path,
+						   rot->next_relevant_log->d_path,
+						   _get_tolerance(rot), false)) {
+				rot->log_is_really_damaged = false;
+				trans_brick->replay_code = -EAGAIN;
+				rot->replay_code = TL_REPLAY_RUNNING;
+				MARS_INF_TO(rot->log_say,
+					    "exceptional switchover from '%s' to '%s'\n",
+					    rot->relevant_log->d_path,
+					    rot->next_relevant_log->d_path);
+				_make_new_replaylink(rot,
+						     rot->next_relevant_log->d_rest,
+						     rot->next_relevant_log->d_serial,
+						     0);
+			}
 		} else if (rot->replay_code >= TL_REPLAY_RUNNING) {
 			rot->replay_code = trans_brick->replay_code;
 		}
