@@ -2553,6 +2553,7 @@ sub log_purge_res {
     my $peer = $2;
     my $replay = "$basedir/replay-$peer";
     my $target = get_link($replay, 1);
+    next unless $target;
     lprint "found replay link '$replay' -> '$target'\n";
     $target =~ s/,.*//;
     $start_logs{$target}++;
