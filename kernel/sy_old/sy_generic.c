@@ -2731,10 +2731,8 @@ struct mars_brick *mars_make_brick(struct mars_global *global,
 				   struct mars_dent *belongs,
 				   const void *_brick_type,
 				   const char *resource_name,
-				   const char *path, const char *_name)
+				   const char *path)
 {
-	const char *name = brick_strdup(_name);
-	const char *names[] = { name, NULL };
 	const struct generic_brick_type *brick_type = _brick_type;
 	const struct generic_input_type **input_types;
 	const struct generic_output_type **output_types;
@@ -2743,11 +2741,6 @@ struct mars_brick *mars_make_brick(struct mars_global *global,
 	int i;
 	int status;
 	
-	if (!name) {
-		MARS_ERR("cannot allocate space for name\n");
-		return NULL;
-	}
-
 	size = brick_type->brick_size +
 		(brick_type->max_inputs + brick_type->max_outputs) * sizeof(void*);
 	input_types = brick_type->default_input_types;
@@ -2788,8 +2781,11 @@ struct mars_brick *mars_make_brick(struct mars_global *global,
 	res->resource_name = brick_strdup(resource_name);
 	res->brick_path = brick_strdup(path);
 
-	status = generic_brick_init_full(res, size, brick_type, NULL, NULL, names);
-	MARS_DBG("brick '%s' init '%s' '%s' (status=%d)\n", brick_type->type_name, path, name, status);
+	status = generic_brick_init_full(res, size, brick_type, NULL, NULL);
+	MARS_DBG("brick '%s' init '%s' (status=%d)\n",
+		 brick_type->type_name,
+		 path,
+		 status);
 	if (status < 0) {
 		MARS_ERR("cannot init brick %s\n", brick_type->type_name);
 		goto err_path;
@@ -2806,7 +2802,6 @@ struct mars_brick *mars_make_brick(struct mars_global *global,
 	}
 	up_write(&global->brick_mutex);
 
-	brick_string_free(name);
 	return res;
 
 err_path:
@@ -2814,7 +2809,6 @@ err_path:
 	brick_string_free(res->brick_path);
 	brick_mem_free(res);
 err_name:
-	brick_string_free(name);
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(mars_make_brick);
@@ -3288,7 +3282,7 @@ struct mars_brick *make_brick_all(
 						belongs,
 						_client_brick_type,
 						resource_name,
-						new_path, new_name);
+						new_path);
 			if (brick) {
 				struct client_brick *_brick = (void*)brick;
 				_brick->max_flying = 10000;
@@ -3316,7 +3310,7 @@ struct mars_brick *make_brick_all(
 					belongs,
 					new_brick_type,
 					resource_name,
-					new_path, new_name);
+					new_path);
 	if (unlikely(!brick)) {
 		MARS_ERR("creation failed '%s' '%s'\n", new_path, new_name);
 		goto err;

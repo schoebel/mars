@@ -152,8 +152,7 @@ int generic_brick_init_full(
 	int size, 
 	const struct generic_brick_type *brick_type,
 	const struct generic_input_type **input_types,
-	const struct generic_output_type **output_types,
-	const char **names)
+	const struct generic_output_type **output_types)
 {
 	struct generic_brick *brick = data;
 	int status;
