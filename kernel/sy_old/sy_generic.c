@@ -1976,6 +1976,7 @@ int mars_get_dent_list(struct mars_global *global,
 
 	up_write(&global->dent_mutex);
 
+	brick_string_free(startname);
 	return total_status;
 }
 
