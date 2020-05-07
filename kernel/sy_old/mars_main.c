@@ -1876,6 +1876,7 @@ typedef int (*copy_update_fn)(struct mars_brick *copy, bool switch_on, void *pri
 
 static
 int __make_copy(struct mars_dent *belongs,
+		const char *resource_name,
 		const char *switch_path,
 		const char *copy_path,
 		const char *parent,
@@ -1943,6 +1944,7 @@ int __make_copy(struct mars_dent *belongs,
 		aio =
 			make_brick_all(mars_global,
 				       NULL,
+				       cc.fullpath[i],
 				       _set_bio_params,
 				       &clc[i],
 				       NULL,
@@ -1996,6 +1998,7 @@ int __make_copy(struct mars_dent *belongs,
 	copy =
 		make_brick_all(mars_global,
 			       belongs,
+			       resource_name,
 			       _set_copy_params,
 			       &cc,
 			       cc.fullpath[1],
@@ -2443,6 +2446,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		 tmp, file, start_pos, do_start);
 
 	status = __make_copy(NULL,
+			     parent->d_rest,
 			     do_start ? switch_path : "",
 			     copy_path,
 			     NULL,
@@ -4371,6 +4375,7 @@ int make_log_init(struct mars_dent *dent)
 	aio_brick =
 		make_brick_all(mars_global,
 			       aio_dent,
+			       parent->d_rest,
 			       _set_aio_params,
 			       NULL,
 			       aio_path,
@@ -4429,6 +4434,7 @@ int make_log_init(struct mars_dent *dent)
 	trans_brick =
 		make_brick_all(mars_global,
 			       replay_link,
+			       parent->d_rest,
 			       _set_trans_params,
 			       NULL,
 			       aio_path,
@@ -5039,6 +5045,7 @@ void _rotate_trans(struct mars_rotate *rot)
 	     trans_brick->cease_logging) &&
 	    (next_nr = _get_free_input(trans_brick)) >= 0) {
 		struct trans_logger_input *trans_input;
+		struct mars_dent *parent = rot->next_relevant_log->d_parent;
 		int status;
 		
 		MARS_DBG("start switchover %d -> %d\n", old_nr, next_nr);
@@ -5046,6 +5053,7 @@ void _rotate_trans(struct mars_rotate *rot)
 		rot->next_relevant_brick =
 			make_brick_all(mars_global,
 				       rot->next_relevant_log,
+				       parent->d_rest,
 				       _set_aio_params,
 				       NULL,
 				       rot->next_relevant_log->d_path,
@@ -5187,6 +5195,7 @@ int _start_trans(struct mars_rotate *rot)
 	rot->relevant_brick =
 		make_brick_all(mars_global,
 			       rot->relevant_log,
+			       rot->relevant_log->d_parent->d_rest,
 			       _set_aio_params,
 			       NULL,
 			       rot->relevant_log->d_path,
@@ -5736,6 +5745,7 @@ int make_bio(struct mars_dent *dent)
 	brick =
 		make_brick_all(mars_global,
 			       dent,
+			       dent->d_parent->d_rest,
 			       _set_bio_params,
 			       NULL,
 			       dent->d_path,
@@ -5913,6 +5923,7 @@ int make_dev(struct mars_dent *dent)
 	dev_brick =
 		make_brick_all(mars_global,
 			       dent,
+			       dent->d_parent->d_rest,
 			       _set_if_params,
 			       rot,
 			       dent->d_argv[0],
@@ -5993,6 +6004,7 @@ static int _make_direct(struct mars_dent *dent)
 	brick = 
 		make_brick_all(mars_global,
 			       dent,
+			       dent->d_parent->d_rest,
 			       _set_bio_params,
 			       NULL,
 			       src_path,
@@ -6012,6 +6024,7 @@ static int _make_direct(struct mars_dent *dent)
 	brick = 
 		make_brick_all(mars_global,
 			       dent,
+			       dent->d_parent->d_rest,
 			       _set_if_params,
 			       NULL,
 			       dent->d_argv[1],
@@ -6060,6 +6073,7 @@ static int _make_copy(struct mars_dent *dent)
 	switch_path = path_make("%s/todo-%s/connect", dent->d_parent->d_path, my_id());
 
 	status = __make_copy(dent,
+			     dent->d_parent->d_rest,
 			     switch_path,
 			     copy_path,
 			     dent->d_parent->d_path,
@@ -6429,6 +6443,7 @@ static int make_sync(struct mars_dent *dent)
 		};
 
 		status = __make_copy(dent,
+				     dent->d_parent->d_rest,
 				     do_start ? switch_path : "",
 				     copy_path, dent->d_parent->d_path, argv, find_key(rot->msgs, "inf-sync"),
 				     start_pos, end_pos,

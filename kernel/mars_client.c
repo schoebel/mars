@@ -1091,7 +1091,7 @@ static int client_switch(struct client_brick *brick)
 			goto done;
 		mars_power_led_off((void*)brick, false);
 		if (!output->bundle.sender.thread) {
-			status = _setup_bundle(&output->bundle, brick->brick_name);
+			status = _setup_bundle(&output->bundle, brick->resource_name);
 			if (likely(status >= 0)) {
 				brick->connection_state = 1;
 			}

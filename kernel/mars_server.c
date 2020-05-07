@@ -38,6 +38,9 @@
 #include "mars_aio.h"
 #include "mars_sio.h"
 
+#define RESOURCE_PREFIX "/mars/resource-"
+#define RESOURCE_PREFIX_LEN (sizeof(RESOURCE_PREFIX - 1))
+
 ///////////////////////// own type definitions ////////////////////////
 
 #include "mars_server.h"
@@ -542,14 +545,30 @@ int handler_thread(void *data)
 		{
 			struct mars_brick *prev;
 			const char *path = cmd.cmd_str1;
+			char *resource_name = "(none)";
+			char *to_free = NULL;
 
 			status = -EINVAL;
 			CHECK_PTR(path, err);
 			CHECK_PTR_NULL(_bio_brick_type, err);
 
+			/* extract the resource name */
+			if (!strncmp(path, RESOURCE_PREFIX, RESOURCE_PREFIX_LEN)) {
+				char *tmp;
+
+				resource_name =
+					brick_strdup(path + RESOURCE_PREFIX_LEN);
+				to_free = resource_name;
+				tmp = resource_name;
+				while (*tmp && *tmp != '/')
+					tmp++;
+				*tmp = '\0';
+			}
+
 			prev = make_brick_all(
 				handler_global,
 				NULL,
+				resource_name,
 				_set_server_bio_params,
 				NULL,
 				path,
@@ -576,6 +595,7 @@ int handler_thread(void *data)
 			status = mars_send_cmd(sock, &cmd, false);
 			old_proto_level = sock->s_common_proto_level;
 			up(&brick->socket_sem);
+			brick_string_free(to_free);
 			break;
 		}
 		case CMD_MREF:
@@ -950,6 +970,7 @@ static int port_thread(void *data)
 				     ++cookie->thread_nr);
 		brick = (void*)mars_make_brick(server_global, NULL,
 					       &server_brick_type,
+					       "none",
 					       ini_path,
 					       ini_path);
 		brick_string_free(ini_path);

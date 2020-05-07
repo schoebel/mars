@@ -2703,6 +2703,7 @@ int mars_free_brick(struct mars_brick *brick)
 	MARS_DBG("deallocate name = '%s' path = '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
 	brick_string_free(brick->brick_name);
 	brick_string_free(brick->brick_path);
+	brick_string_free(brick->resource_name);
 
 	status = generic_brick_exit_full((void*)brick);
 
@@ -2718,7 +2719,11 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_free_brick);
 
-struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *_name)
+struct mars_brick *mars_make_brick(struct mars_global *global,
+				   struct mars_dent *belongs,
+				   const void *_brick_type,
+				   const char *resource_name,
+				   const char *path, const char *_name)
 {
 	const char *name = brick_strdup(_name);
 	const char *names[] = { name, NULL };
@@ -2772,11 +2777,8 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 	get_lamport(NULL, &res->create_stamp);
 	res->global = global;
 	INIT_LIST_HEAD(&res->dent_brick_link);
+	res->resource_name = brick_strdup(resource_name);
 	res->brick_path = brick_strdup(path);
-	if (!res->brick_path) {
-		MARS_ERR("cannot grab memory for path '%s'\n", path);
-		goto err_res;
-	}
 
 	status = generic_brick_init_full(res, size, brick_type, NULL, NULL, names);
 	MARS_DBG("brick '%s' init '%s' '%s' (status=%d)\n", brick_type->type_name, path, name, status);
@@ -2799,8 +2801,8 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 	return res;
 
 err_path:
+	brick_string_free(res->resource_name);
 	brick_string_free(res->brick_path);
-err_res:
 	brick_mem_free(res);
 err_name:
 	brick_string_free(name);
@@ -3148,6 +3150,7 @@ EXPORT_SYMBOL_GPL(_sio_brick_type);
 struct mars_brick *make_brick_all(
 	struct mars_global *global,
 	struct mars_dent *belongs,
+	const char *resource_name,
 	int (*setup_fn)(struct mars_brick *brick, void *private),
 	void *private,
 	const char *new_name,
@@ -3263,7 +3266,11 @@ struct mars_brick *make_brick_all(
 			remote++;
 			MARS_DBG("substitute by remote brick '%s' on peer '%s'\n", new_name, remote);
 			
-			brick = mars_make_brick(global, belongs, _client_brick_type, new_path, new_name);
+			brick = mars_make_brick(global,
+						belongs,
+						_client_brick_type,
+						resource_name,
+						new_path, new_name);
 			if (brick) {
 				struct client_brick *_brick = (void*)brick;
 				_brick->max_flying = 10000;
@@ -3287,7 +3294,11 @@ struct mars_brick *make_brick_all(
 
 	// create it...
 	if (!brick)
-		brick = mars_make_brick(global, belongs, new_brick_type, new_path, new_name);
+		brick = mars_make_brick(global,
+					belongs,
+					new_brick_type,
+					resource_name,
+					new_path, new_name);
 	if (unlikely(!brick)) {
 		MARS_ERR("creation failed '%s' '%s'\n", new_path, new_name);
 		goto err;
