@@ -278,7 +278,6 @@ extern struct mars_brick *make_brick_all(
 	const char *resource_name,
 	int (*setup_fn)(struct mars_brick *brick, void *private),
 	void *private,
-	const char *new_name,
 	const struct generic_brick_type *new_brick_type,
 	const struct generic_brick_type *prev_brick_type[],
 	int switch_override, // -1 = off, 0 = leave in current state, +1 = create when necessary, +2 = create + switch on

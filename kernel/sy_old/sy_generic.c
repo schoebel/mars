@@ -3165,7 +3165,6 @@ struct mars_brick *make_brick_all(
 	const char *resource_name,
 	int (*setup_fn)(struct mars_brick *brick, void *private),
 	void *private,
-	const char *new_name,
 	const struct generic_brick_type *new_brick_type,
 	const struct generic_brick_type *prev_brick_type[],
 	int switch_override, // -1 = off, 0 = leave in current state, +1 = create when necessary, +2 = create + switch on
@@ -3177,7 +3176,6 @@ struct mars_brick *make_brick_all(
 {
 	va_list args;
 	const char *new_path;
-	char *_new_path = NULL;
 	struct mars_brick *brick = NULL;
 	struct mars_brick *old_brick;
 	char *paths[MAX_PREV_COUNT];
@@ -3191,14 +3189,14 @@ struct mars_brick *make_brick_all(
 			 prev_count);
 		goto err;
 	}
+	if (unlikely(!new_fmt)) {
+		MARS_ERR("internal: new_fmt is missing\n");
+		goto done;
+	}
 
 	// treat variable arguments
 	va_start(args, prev_count);
-	if (new_fmt) {
-		new_path = _new_path = vpath_make(new_fmt, &args);
-	} else {
-		new_path = new_name;
-	}
+	new_path = vpath_make(new_fmt, &args);
 	for (i = 0; i < prev_count; i++) {
 		paths[i] = vpath_make(prev_fmt[i], &args);
 	}
@@ -3241,10 +3239,9 @@ struct mars_brick *make_brick_all(
 		goto done;
 	}
 	MARS_DBG("make new brick '%s'\n", new_path);
-	if (!new_name)
-		new_name = new_path;
 
-	MARS_DBG("----> new brick type = '%s' path = '%s' name = '%s'\n", new_brick_type->type_name, new_path, new_name);
+	MARS_DBG("----> new brick type = '%s' path = '%s'\n",
+		 new_brick_type->type_name, new_path);
 
 	// get all predecessor bricks
 	for (i = 0; i < prev_count; i++) {
@@ -3313,7 +3310,7 @@ struct mars_brick *make_brick_all(
 					resource_name,
 					new_path);
 	if (unlikely(!brick)) {
-		MARS_ERR("creation failed '%s' '%s'\n", new_path, new_name);
+		MARS_ERR("creation failed '%s''\n", new_path);
 		goto err;
 	}
 	if (unlikely(brick->nr_inputs < prev_count)) {
@@ -3326,7 +3323,8 @@ struct mars_brick *make_brick_all(
 		int status;
 		status = mars_connect(brick->inputs[i], prev[i]->outputs[0]);
 		if (unlikely(status < 0)) {
-			MARS_ERR("'%s' '%s' cannot connect input %d\n", new_path, new_name, i);
+			MARS_ERR("'%s' cannot connect input %d\n",
+				 new_path, i);
 			goto err;
 		}
 	}
@@ -3365,7 +3363,7 @@ done:
 	for (i = 0; i < prev_count; i++) {
 		brick_string_free(paths[i]);
 	}
-	brick_string_free(_new_path);
+	brick_string_free(new_path);
 
 	return brick;
 }
