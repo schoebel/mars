@@ -100,6 +100,12 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable94
+	* Major regression from mars0.1astable86:
+	  Memory leak in remote communication.
+	  This could accumulate over a longer time. Please update when
+	  affected.
+
 mars0.1astable93
 	* Minor improvement: in some special cases, secondaries
 	  may now follow primaries having a damaged logfile.
