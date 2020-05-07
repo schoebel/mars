@@ -3273,10 +3273,11 @@ struct mars_brick *make_brick_all(
 	brick = NULL;
 	if ((new_brick_type == _bio_brick_type || new_brick_type == _aio_brick_type)
 	   && _client_brick_type != NULL) {
-		char *remote = strchr(new_name, '@');
+		char *remote = strchr(new_path, '@');
 		if (remote) {
 			remote++;
-			MARS_DBG("substitute by remote brick '%s' on peer '%s'\n", new_name, remote);
+			MARS_DBG("substitute by remote brick '%s' on peer '%s'\n",
+				 new_path, remote);
 			
 			brick = mars_make_brick(global,
 						belongs,
