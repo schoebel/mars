@@ -1225,7 +1225,8 @@ bool mars_check_inputs(struct mars_brick *brick)
 	if (likely(brick->type)) {
 		max_inputs = brick->type->max_inputs;
 	} else {
-		MARS_ERR("uninitialized brick '%s' '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+		MARS_ERR("uninitialized brick '%s'\n",
+			 SAFE_STR(brick->brick_path));
 		return true;
 	}
 	for (i = 0; i < max_inputs; i++) {
@@ -1277,7 +1278,8 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 		status = -EINVAL;
 		if (val) { // check all inputs
 			if (unlikely(mars_check_inputs(brick))) {
-				MARS_ERR("CANNOT SWITCH ON: brick '%s' '%s' has a turned-off predecessor\n", brick->brick_name, brick->brick_path);
+				MARS_ERR("CANNOT SWITCH ON: brick '%s' has a turned-off predecessor\n",
+					 brick->brick_path);
 				goto done;
 			}
 		} else { // check all outputs
@@ -1289,18 +1291,23 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 				 * Probabĺy it is a good idea to retain the stronger rule
 				 * as long as nobody needs the relaxed one.
 				 */
-				MARS_ERR("CANNOT SWITCH OFF: brick '%s' '%s' has a successor\n", brick->brick_name, brick->brick_path);
+				MARS_ERR("CANNOT SWITCH OFF: brick '%s' has a successor\n",
+					 brick->brick_path);
 				goto done;
 			}
 		}
 
-		MARS_DBG("brick '%s' '%s' type '%s' power button %d -> %d\n", brick->brick_name, brick->brick_path, brick->type->type_name, oldval, val);
+		MARS_DBG("brick '%s' type '%s' power button %d -> %d\n",
+			 brick->brick_path,
+			 brick->type->type_name,
+			 oldval, val);
 
 		set_button(&brick->power, val, false);
 	}
 
 	if (unlikely(!brick->ops)) {
-		MARS_ERR("brick '%s' '%s' has no brick_switch() method\n", brick->brick_name, brick->brick_path);
+		MARS_ERR("brick '%s' has no brick_switch() method\n",
+			 brick->brick_path);
 		status = -EINVAL;
 		goto done;
 	}
@@ -2682,7 +2689,8 @@ int mars_free_brick(struct mars_brick *brick)
 		maxsleep -= sleeptime;
 	}
 
-	MARS_DBG("===> freeing brick name = '%s' path = '%s'\n", brick->brick_name, brick->brick_path);
+	MARS_DBG("===> freeing brick path = '%s'\n",
+		 brick->brick_path);
 
 	global = brick->global;
 	if (global) {
@@ -2700,8 +2708,8 @@ int mars_free_brick(struct mars_brick *brick)
 		}
 	}
 
-	MARS_DBG("deallocate name = '%s' path = '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
-	brick_string_free(brick->brick_name);
+	MARS_DBG("deallocate path = '%s'\n",
+		 SAFE_STR(brick->brick_path));
 	brick_string_free(brick->brick_path);
 	brick_string_free(brick->resource_name);
 
@@ -2798,6 +2806,7 @@ struct mars_brick *mars_make_brick(struct mars_global *global,
 	}
 	up_write(&global->brick_mutex);
 
+	brick_string_free(name);
 	return res;
 
 err_path:
@@ -2818,7 +2827,9 @@ int mars_kill_brick(struct mars_brick *brick)
 	CHECK_PTR(brick, done);
 	global = brick->global;
 
-	MARS_DBG("===> killing brick %s path = '%s' name = '%s'\n", brick->type ? SAFE_STR(brick->type->type_name) : "undef", SAFE_STR(brick->brick_path), SAFE_STR(brick->brick_name));
+	MARS_DBG("===> killing brick %s path = '%s'\n",
+		 brick->type ? SAFE_STR(brick->type->type_name) : "undef",
+		 SAFE_STR(brick->brick_path));
 
 	if (unlikely(brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected)) {
 		MARS_ERR("sorry, output is in use '%s'\n", SAFE_STR(brick->brick_path));
@@ -2843,10 +2854,12 @@ int mars_kill_brick(struct mars_brick *brick)
 		if (likely(brick->type)) {
 			max_inputs = brick->type->max_inputs;
 		} else {
-			MARS_ERR("uninitialized brick '%s' '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+			MARS_ERR("uninitialized brick '%s'\n",
+				 SAFE_STR(brick->brick_path));
 		}
 
-		MARS_DBG("---> freeing '%s' '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+		MARS_DBG("---> freeing '%s'\n",
+			 SAFE_STR(brick->brick_path));
 
 		if (brick->kill_ptr)
 			*brick->kill_ptr = NULL;
@@ -2858,7 +2871,9 @@ int mars_kill_brick(struct mars_brick *brick)
 			status = mars_disconnect(input);
 			if (unlikely(status < 0)) {
 				failed = true;
-				MARS_ERR("brick '%s' '%s' disconnect %d failed, status = %d\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path), i, status);
+				MARS_ERR("brick '%s' disconnect %d failed, status = %d\n",
+					 SAFE_STR(brick->brick_path),
+					 i, status);
 			}
 		}
 		if (failed)
@@ -2866,17 +2881,20 @@ int mars_kill_brick(struct mars_brick *brick)
 		if (likely(brick->free)) {
 			status = brick->free(brick);
 			if (unlikely(status < 0)) {
-				MARS_ERR("freeing '%s' '%s' failed, status = %d\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path), status);
+				MARS_ERR("freeing '%s' failed, status = %d\n",
+					 SAFE_STR(brick->brick_path),
+					 status);
 				goto done;
 			}
 		} else {
-			MARS_ERR("brick '%s' '%s' has no destructor\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+			MARS_ERR("brick '%s' has no destructor\n",
+				 SAFE_STR(brick->brick_path));
 		}
 		status = 0;
 	} else {
 		/* This may happen regularly when bricks are shut down in parallel */
-		MARS_INF("brick '%s' '%s' is not off\n",
-			 SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+		MARS_INF("brick '%s' is not off\n",
+			 SAFE_STR(brick->brick_path));
 		status = -EUCLEAN;
 	}
 
@@ -3021,8 +3039,8 @@ restart:
 			up_write(&global->brick_mutex);
 		}
 
-		MARS_DBG("KILLING '%s' '%s'\n",
-			 brick->brick_path, brick->brick_name);
+		MARS_DBG("KILLING '%s'\n",
+			 brick->brick_path);
 		status = mars_kill_brick(brick);
 
 		if (status >= 0)
@@ -3404,7 +3422,7 @@ void _show_one(struct mars_brick *test, int *brick_count)
 	if (*brick_count) {
 		MARS_STAT("---------\n");
 	}
-	MARS_STAT("BRICK type = %s path = '%s' name = '%s' "
+	MARS_STAT("BRICK type = %s path = '%s' "
 		  "create_stamp = %lld.%09ld "
 		  "size_hint=%d "
 		  "mrefs_alloc = %d "
@@ -3415,7 +3433,6 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		  "button = %d force_off = %d off = %d on = %d\n",
 		  SAFE_STR(test->type->type_name),
 		  SAFE_STR(test->brick_path),
-		  SAFE_STR(test->brick_name),
 		  (s64)test->create_stamp.tv_sec, test->create_stamp.tv_nsec,
 		  test->mref_object_layout.size_hint,
 		  atomic_read(&test->mref_object_layout.alloc_count),
@@ -3439,7 +3456,10 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		struct mars_input *input = test->inputs[i];
 		struct mars_output *output = input ? input->connect : NULL;
 		if (output) {
-			MARS_STAT("    input %d connected with %s path = '%s' name = '%s'\n", i, SAFE_STR(output->brick->type->type_name), SAFE_STR(output->brick->brick_path), SAFE_STR(output->brick->brick_name));
+			MARS_STAT("    input %d connected with %s path = '%s'\n",
+				  i,
+				  SAFE_STR(output->brick->type->type_name),
+				  SAFE_STR(output->brick->brick_path));
 		} else {
 			MARS_STAT("    input %d not connected\n", i);
 		}

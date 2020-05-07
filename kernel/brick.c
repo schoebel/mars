@@ -167,7 +167,7 @@ int generic_brick_init_full(
 
 	// call the generic constructors
 
-	status = generic_brick_init(brick_type, brick, names ? *names++ : NULL);
+	status = generic_brick_init(brick_type, brick);
 	if (status)
 		return status;
 	data += brick_type->brick_size;
@@ -179,7 +179,6 @@ int generic_brick_init_full(
 	if (!input_types) {
 		BRICK_DBG("generic_brick_init_full: switch to default input_types\n");
 		input_types = brick_type->default_input_types;
-		names = brick_type->default_input_names;
 		if (unlikely(!input_types)) {
 			BRICK_ERR("no input types specified\n");
 			return -EINVAL;
@@ -199,7 +198,7 @@ int generic_brick_init_full(
 			return -EINVAL;
 		}
 		BRICK_DBG("generic_brick_init_full: calling generic_input_init()\n");
-		status = generic_input_init(brick, i, type, input, (names && *names) ? *names++ : type->type_name);
+		status = generic_input_init(brick, i, type, input);
 		if (status < 0)
 			return status;
 		data += type->input_size;
@@ -210,7 +209,6 @@ int generic_brick_init_full(
 	if (!output_types) {
 		BRICK_DBG("generic_brick_init_full: switch to default output_types\n");
 		output_types = brick_type->default_output_types;
-		names = brick_type->default_output_names;
 		if (unlikely(!output_types)) {
 			BRICK_ERR("no output types specified\n");
 			return -EINVAL;
@@ -229,7 +227,7 @@ int generic_brick_init_full(
 			return -EINVAL;
 		}
 		BRICK_DBG("generic_brick_init_full: calling generic_output_init()\n");
-		generic_output_init(brick, i, type, output, (names && *names) ? *names++ : type->type_name);
+		generic_output_init(brick, i, type, output);
 		if (status < 0)
 			return status;
 		data += type->output_size;

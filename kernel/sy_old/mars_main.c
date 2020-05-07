@@ -982,7 +982,7 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 #endif
 
 	}
-	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+	MARS_INF("path = '%s'\n", _brick->brick_path);
 	return 1;
 }
 
@@ -998,7 +998,7 @@ int _set_client_params(struct mars_brick *_brick, void *private)
 	struct client_cookie *clc = private;
 	client_brick->limit_mode = clc ? clc->limit_mode : false;
 	client_brick->killme = true;
-	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+	MARS_INF("path = '%s'\n", _brick->brick_path);
 	return 1;
 }
 
@@ -1016,7 +1016,7 @@ int _set_sio_params(struct mars_brick *_brick, void *private)
 	sio_brick->o_direct = false; // important!
 	sio_brick->o_fdsync = true;
 	sio_brick->killme = true;
-	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+	MARS_INF("path = '%s'\n", _brick->brick_path);
 	return 1;
 }
 
@@ -1039,7 +1039,7 @@ int _set_aio_params(struct mars_brick *_brick, void *private)
 	aio_brick->o_direct = false; // important!
 	aio_brick->o_fdsync = true;
 	aio_brick->killme = true;
-	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+	MARS_INF("path = '%s'\n", _brick->brick_path);
 	return 1;
 }
 
@@ -1065,7 +1065,7 @@ int _set_bio_params(struct mars_brick *_brick, void *private)
 	bio_brick->do_sync = BIO_SYNC;
 	bio_brick->do_unplug = BIO_UNPLUG;
 	bio_brick->killme = true;
-	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+	MARS_INF("path = '%s'\n", _brick->brick_path);
 	return 1;
 }
 
@@ -1083,7 +1083,9 @@ int _set_if_params(struct mars_brick *_brick, void *private)
 	if_brick->max_plugged = IF_MAX_PLUGGED;
 	if_brick->readahead = IF_READAHEAD;
 	if_brick->skip_sync = IF_SKIP_SYNC;
-	MARS_INF("name = '%s' path = '%s' size = %lld\n", _brick->brick_name, _brick->brick_path, if_brick->dev_size);
+	MARS_INF("path = '%s' size = %lld\n",
+		 _brick->brick_path,
+		 if_brick->dev_size);
 	return 1;
 }
 
@@ -1117,7 +1119,7 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 	copy_brick->verify_mode = cc->verify_mode;
 	copy_brick->repair_mode = true;
 	copy_brick->killme = true;
-	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+	MARS_INF("path = '%s'\n", _brick->brick_path);
 
 	/* Determine the copy area, switch on/off when necessary
 	 */
@@ -5760,7 +5762,6 @@ int make_bio(struct mars_dent *dent)
 		status = -ENXIO;
 		goto done;
 	}
-	brick->outputs[0]->output_name = dent->d_path;
 	if (brick->type == (void *)&bio_brick_type)
 		__show_actual(rot->parent_path,
 			      "disk-error",
@@ -6540,7 +6541,8 @@ static int prepare_delete(struct mars_dent *dent)
 	if (brick &&
 	    unlikely((brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected) ||
 		     (brick->type == (void*)&if_brick_type && !brick->power.led_off))) {
-		MARS_WRN("target '%s' cannot be deleted, its brick '%s' in use\n", dent->new_link, SAFE_STR(brick->brick_name));
+		MARS_WRN("target '%s' cannot be deleted, its brick '%s' in use\n",
+			 dent->new_link, SAFE_STR(brick->brick_path));
 		goto done;
 	}
 

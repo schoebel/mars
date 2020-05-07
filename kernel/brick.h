@@ -288,7 +288,6 @@ struct generic_switch {
 };
 
 #define GENERIC_BRICK(BRITYPE)						\
-	const char *brick_name;						\
 	const struct BRITYPE##_brick_type *type;			\
 	struct BRITYPE##_brick_ops *ops;				\
 	int nr_inputs;							\
@@ -305,7 +304,6 @@ struct generic_brick {
 };
 
 #define GENERIC_INPUT(BRITYPE)						\
-	const char *input_name;						\
 	struct BRITYPE##_brick *brick;					\
 	const struct BRITYPE##_input_type *type;			\
 	struct BRITYPE##_output *connect;				\
@@ -316,7 +314,6 @@ struct generic_input {
 };
 
 #define GENERIC_OUTPUT(BRITYPE)						\
-	const char *output_name;					\
 	struct BRITYPE##_brick *brick;					\
 	const struct BRITYPE##_output_type *type;			\
 	struct BRITYPE##_output_ops *ops;				\
@@ -365,9 +362,7 @@ struct generic_output_ops {
 	int max_inputs;							\
 	int max_outputs;						\
 	const struct BRITYPE##_input_type **default_input_types;	\
-	const char **default_input_names;				\
 	const struct BRITYPE##_output_type **default_output_types;	\
-	const char **default_output_names;				\
 	struct BRITYPE##_brick_ops *master_ops;				\
 	const struct generic_aspect_type **aspect_types;		\
 	const struct BRITYPE##_input_types **default_type;		\
@@ -402,9 +397,10 @@ struct generic_output_type {
 int generic_register_brick_type(const struct generic_brick_type *new_type);
 int generic_unregister_brick_type(const struct generic_brick_type *old_type);
 
-INLINE void _generic_output_init(struct generic_brick *brick, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
+INLINE void _generic_output_init(struct generic_brick *brick,
+				 const struct generic_output_type *type,
+				 struct generic_output *output)
 {
-	output->output_name = output_name;
 	output->brick = brick;
 	output->type = type;
 	output->ops = type->master_ops;
@@ -415,7 +411,6 @@ INLINE void _generic_output_init(struct generic_brick *brick, const struct gener
 INLINE void _generic_output_exit(struct generic_output *output)
 {
 	list_del_init(&output->output_head);
-	output->output_name = NULL;
 	output->brick = NULL;
 	output->type = NULL;
 	output->ops = NULL;
@@ -425,10 +420,9 @@ INLINE void _generic_output_exit(struct generic_output *output)
 #ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
 
 // you need this only if you circumvent generic_brick_init_full()
-INLINE int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick, const char *brick_name)
+INLINE int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick)
 {
 	brick->brick_index = get_nr();
-	brick->brick_name = brick_name;
 	brick->type = type;
 	brick->ops = type->master_ops;
 	brick->nr_inputs = 0;
@@ -442,7 +436,6 @@ INLINE int generic_brick_init(const struct generic_brick_type *type, struct gene
 INLINE void generic_brick_exit(struct generic_brick *brick)
 {
 	list_del_init(&brick->tmp_head);
-	brick->brick_name = NULL;
 	brick->type = NULL;
 	brick->ops = NULL;
 	brick->nr_inputs = 0;
@@ -450,13 +443,15 @@ INLINE void generic_brick_exit(struct generic_brick *brick)
 	put_nr(brick->brick_index);
 }
 
-INLINE int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input, const char *input_name)
+INLINE int generic_input_init(struct generic_brick *brick,
+			      int index,
+			      const struct generic_input_type *type,
+			      struct generic_input *input)
 {
 	if (index < 0 || index >= brick->type->max_inputs)
 		return -EINVAL;
 	if (brick->inputs[index])
 		return -EEXIST;
-	input->input_name = input_name;
 	input->brick = brick;
 	input->type = type;
 	input->connect = NULL;
@@ -469,19 +464,21 @@ INLINE int generic_input_init(struct generic_brick *brick, int index, const stru
 INLINE void generic_input_exit(struct generic_input *input)
 {
 	list_del_init(&input->input_head);
-	input->input_name = NULL;
 	input->brick = NULL;
 	input->type = NULL;
 	input->connect = NULL;
 }
 
-INLINE int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
+INLINE int generic_output_init(struct generic_brick *brick,
+			       int index,
+			       const struct generic_output_type *type,
+			       struct generic_output *output)
 {
 	if (index < 0 || index >= brick->type->max_outputs)
 		return -ENOMEM;
 	if (brick->outputs[index])
 		return -EEXIST;
-	_generic_output_init(brick, type, output, output_name);
+	_generic_output_init(brick, type, output);
 	brick->outputs[index] = output;
 	brick->nr_outputs++;
 	return 0;
@@ -578,13 +575,13 @@ extern const struct BRITYPE##_brick_type BRITYPE##_brick_type;	        \
 extern const struct BRITYPE##_input_type BRITYPE##_input_type;	        \
 extern const struct BRITYPE##_output_type BRITYPE##_output_type;        \
 									\
-INLINE void _##BRITYPE##_output_init(struct BRITYPE##_brick *brick, struct BRITYPE##_output *output, char *output_name) \
+INLINE void _##BRITYPE##_output_init(struct BRITYPE##_brick *brick,	\
+				    struct BRITYPE##_output *output)	\
 {									\
 	_generic_output_init(						\
 		(struct generic_brick*)brick,				\
 		(const struct generic_output_type*)&BRITYPE##_output_type, \
-		(struct generic_output*)output,				\
-		output_name);						\
+		(struct generic_output*)output);			\
 }									\
 
 ///////////////////////////////////////////////////////////////////////
