@@ -1806,23 +1806,23 @@ void _make_new_replaylink(struct mars_rotate *rot, char *new_host, int new_seque
 }
 
 static
-int __show_actual(const char *path, const char *name, int val)
+int __show_actual_str(const char *path,
+		      const char *name,
+		      const char *src,
+		      struct lamport_time *stamp)
 {
-	char *src;
 	char *dst = NULL;
 	int status = -EINVAL;
 
-	src = path_make("%d", val);
 	dst = path_make("%s/actual-%s/%s", path, my_id(), name);
 	status = -ENOMEM;
 	if (!dst)
 		goto done;
 
 	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
-	status = ordered_symlink(src, dst, NULL);
+	status = ordered_symlink(src, dst, stamp);
 
 done:
-	brick_string_free(src);
 	brick_string_free(dst);
 	return status;
 }
@@ -1831,19 +1831,24 @@ static
 int __show_stamp(const char *path, const char *name, struct lamport_time *stamp)
 {
 	char *src;
-	char *dst = NULL;
 	int status = -EINVAL;
 
 	src = path_make("%lld.%09ld",
 			(s64)stamp->tv_sec,
 			stamp->tv_nsec);
-	dst = path_make("%s/actual-%s/%s", path, my_id(), name);
-
-	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
-	status = ordered_symlink(src, dst, NULL);
-
+	status = __show_actual_str(path, name, src, NULL);
 	brick_string_free(src);
-	brick_string_free(dst);
+	return status;
+}
+
+int __show_actual(const char *path, const char *name, long long val)
+{
+	const char *src;
+	int status;
+
+	src = path_make("%lld", val);
+	status = __show_actual_str(path, name, src, NULL);
+	brick_string_free(src);
 	return status;
 }
 
@@ -1894,6 +1899,35 @@ void _show_rate(struct mars_rotate *rot, struct mars_limiter *limiter, const cha
 	name = path_make("amount-%s", basename);
 	__show_actual(rot->parent_path, name, limiter->lim_amount_rate);
 	brick_string_free(name);
+}
+
+static
+void _show_info(const char *parent_path,
+		struct mars_brick *brick,
+		const char *basename)
+{
+	struct mars_info info = {};
+	struct mars_output *output = brick->outputs[0];
+	char *val;
+	char *name;
+	int status;
+
+	if (!output)
+		return;
+
+	status = output->ops->mars_get_info(output, &info);
+	if (status < 0)
+		return;
+
+	val = path_make("0x%016llx,0x%016llx,%d",
+			info.stor_state.stor_id,
+			info.stor_state.stor_hash,
+			info.stor_state.stor_dirty);
+	name = path_make("state-%s", basename);
+	__show_actual_str(parent_path, name, val,
+			  &info.stor_state.stor_stamp);
+	brick_string_free(name);
+	brick_string_free(val);
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -5654,6 +5688,10 @@ done:
 	_show_rate(rot, &rot->fetch_limiter, "file_rate");
 	_show_actual(rot->parent_path, "is-syncing", rot->sync_brick && !rot->sync_brick->power.led_off);
 	_show_rate(rot, &rot->sync_limiter, "sync_rate");
+	if (rot->trans_brick)
+		_show_info(rot->parent_path,
+			   (void *)rot->trans_brick, "logger");
+
 err:
 	return status;
 }
@@ -5968,6 +6006,8 @@ void _show_dev(struct mars_rotate *rot)
 			      if_brick->error_code);
 		__show_stamp(rot->parent_path, "if-completion-stamp",
 			     &if_brick->completion_stamp);
+		__show_actual(rot->parent_path, "if-size",
+			      if_brick->dev_size);
 		open_count = atomic_read(&if_brick->open_count);
 	}
 	_show_brick_status((void *)if_brick, rot->parent_path, "if");
