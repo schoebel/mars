@@ -216,6 +216,7 @@ void if_endio(struct generic_callback *cb)
 {
 	struct if_mref_aspect *mref_a = cb->cb_private;
 	struct if_input *input;
+	struct if_brick *brick;
 	int k;
 	int error;
 
@@ -271,15 +272,14 @@ void if_endio(struct generic_callback *cb)
 		_call_bio_endio(input->brick, bio, error);
 		brick_mem_free(biow);
 	}
-	atomic_dec(&input->brick->flying_count);
+	brick = input->brick;
 	if (mref_a->object->ref_flags & MREF_WRITE) {
-		atomic_dec(&input->write_flying_count);
+		atomic_dec(&brick->write_flying_count);
 	} else {
-		atomic_dec(&input->read_flying_count);
+		atomic_dec(&brick->read_flying_count);
 	}
 #ifdef IO_DEBUGGING
 		{
-			struct if_brick *brick = input->brick;
 			char *txt = brick->ops->brick_statistics(brick, false);
 			MARS_IO("%s", txt);
 			brick_string_free(txt);
@@ -297,7 +297,7 @@ err:
 static
 void _if_unplug(struct if_input *input)
 {
-	//struct if_brick *brick = input->brick;
+	struct if_brick *brick = input->brick;
 	LIST_HEAD(tmp_list);
 	unsigned long flags;
 
@@ -343,12 +343,12 @@ void _if_unplug(struct if_input *input)
 
 		mars_trace(mref, "if_unplug");
 
-		atomic_inc(&input->brick->flying_count);
 		atomic_inc(&input->total_fire_count);
+		brick = input->brick;
 		if (mref->ref_flags & MREF_WRITE) {
-			atomic_inc(&input->write_flying_count);
+			atomic_inc(&brick->write_flying_count);
 		} else {
-			atomic_inc(&input->read_flying_count);
+			atomic_inc(&brick->read_flying_count);
 		}
 		if (mref->ref_flags & MREF_SKIP_SYNC)
 			atomic_inc(&input->total_skip_sync_count);
@@ -885,24 +885,25 @@ void if_unplug(struct request_queue *q)
 int mars_congested(void *data, int bdi_bits)
 {
 	struct if_input *input = data;
+	struct if_brick *brick = input->brick;
 	int ret = 0;
 
 #ifdef WB_STAT_BATCH /* changed by 4452226ea276e74fc3e252c88d9bb7e8f8e44bf0 */
 	if (bdi_bits & (1 << WB_sync_congested) &&
-	    atomic_read(&input->read_flying_count) > 0) {
+	    atomic_read(&brick->read_flying_count) > 0) {
 		ret |= (1 << WB_sync_congested);
 	}
 	if (bdi_bits & (1 << WB_async_congested) &&
-	    atomic_read(&input->write_flying_count) > 0) {
+	    atomic_read(&brick->write_flying_count) > 0) {
 		ret |= (1 << WB_async_congested);
 	}
 #else /* old code */
 	if (bdi_bits & (1 << BDI_sync_congested) &&
-	    atomic_read(&input->read_flying_count) > 0) {
+	    atomic_read(&brick->read_flying_count) > 0) {
 		ret |= (1 << BDI_sync_congested);
 	}
 	if (bdi_bits & (1 << BDI_async_congested) &&
-	    atomic_read(&input->write_flying_count) > 0) {
+	    atomic_read(&brick->write_flying_count) > 0) {
 		ret |= (1 << BDI_async_congested);
 	}
 #endif
@@ -961,6 +962,20 @@ done:;
 }
 
 static const struct block_device_operations if_blkdev_ops;
+
+static
+int check_io_done(struct if_brick *brick, bool do_wait)
+{
+	for (;;) {
+		int nr = atomic_read(&brick->read_flying_count) +
+			atomic_read(&brick->write_flying_count);
+
+		if (nr <= 0 || !do_wait)
+			return nr;
+		MARS_INF("%d IO requests not yet completed\n", nr);
+		brick_msleep(1000 / HZ + 1);
+	}
+}
 
 static int if_switch(struct if_brick *brick)
 {
@@ -1156,7 +1171,7 @@ static int if_switch(struct if_brick *brick)
 			status = -EBUSY;
 			goto done; // don't indicate "off" status
 		}
-		flying = atomic_read(&brick->flying_count);
+		flying = check_io_done(brick, false);
 		if (unlikely(flying > 0)) {
 			MARS_INF("device '%s' has %d flying requests, cannot shutdown\n", disk->disk_name, flying);
 			status = -EBUSY;
@@ -1165,10 +1180,7 @@ static int if_switch(struct if_brick *brick)
 		MARS_DBG("calling del_gendisk()\n");
 		del_gendisk(input->disk);
 		/* There might be subtle races */
-		while (atomic_read(&brick->flying_count) > 0) {
-			MARS_WRN("device '%s' unexpectedly has %d flying requests\n", disk->disk_name, flying);
-			brick_msleep(1000);
-		}
+		check_io_done(brick, true);
 		if (input->bdev) {
 			MARS_DBG("calling bdput()\n");
 			bdput(input->bdev);
@@ -1230,17 +1242,6 @@ static int if_open(struct block_device *bdev, fmode_t mode)
 }
 
 static
-void wait_io_done(struct if_brick *brick)
-{
-	int nr;
-
-	while ((nr = atomic_read(&brick->flying_count)) > 0) {
-		MARS_INF("%d IO requests not yet completed\n", nr);
-		brick_msleep(1000);
-	}
-}
-
-static
 //      remove_this
 #ifdef MARS_HAS_VOID_RELEASE
 //      end_remove_this
@@ -1260,10 +1261,10 @@ if_release(struct gendisk *gd, fmode_t mode)
 	MARS_INF("----------------------- CLOSE %d ------------------------------\n",
 		 nr);
 	if (nr <= 1)
-		wait_io_done(brick);
+		check_io_done(brick, true);
 
 	if (atomic_dec_and_test(&brick->open_count)) {
-		wait_io_done(brick);
+		check_io_done(brick, true);
 
 		MARS_DBG("status button=%d led_on=%d led_off=%d\n", brick->power.button, brick->power.led_on, brick->power.led_off);
 		brick->error_code = 0;
@@ -1310,8 +1311,8 @@ char *if_statistics(struct if_brick *brick, int verbose)
 		 "| "
 		 "opened = %d "
 		 "plugged = %d "
-		 "flying = %d "
-		 "(reads = %d writes = %d)\n",
+		 "flying reads = %d "
+		 "flying writes = %d\n",
 		 tmp0,
 		 tmp1,
 		 tmp2,
@@ -1324,9 +1325,8 @@ char *if_statistics(struct if_brick *brick, int verbose)
 		 atomic_read(&input->total_skip_sync_count),
 		 atomic_read(&brick->open_count),
 		 atomic_read(&input->plugged_count),
-		 atomic_read(&brick->flying_count),
-		 atomic_read(&input->read_flying_count),
-		 atomic_read(&input->write_flying_count));
+		 atomic_read(&brick->read_flying_count),
+		 atomic_read(&brick->write_flying_count));
 	return res;
 }
 
@@ -1372,7 +1372,8 @@ static int if_brick_construct(struct if_brick *brick)
 {
 	sema_init(&brick->switch_sem, 1);
 	atomic_set(&brick->open_count, 0);
-	atomic_set(&brick->flying_count, 0);
+	atomic_set(&brick->read_flying_count, 0);
+	atomic_set(&brick->write_flying_count, 0);
 	return 0;
 }
 
@@ -1397,8 +1398,6 @@ static int if_input_construct(struct if_input *input)
 	INIT_LIST_HEAD(&input->plug_anchor);
 	sema_init(&input->kick_sem, 1);
 	spin_lock_init(&input->req_lock);
-	atomic_set(&input->read_flying_count, 0);
-	atomic_set(&input->write_flying_count, 0);
 	atomic_set(&input->plugged_count, 0);
 #ifdef USE_TIMER
 	init_timer(&input->timer);

@@ -80,8 +80,6 @@ struct if_input {
 	loff_t capacity;
 	atomic_t plugged_count;
 	// only for statistics
-	atomic_t read_flying_count;
-	atomic_t write_flying_count;
 	atomic_t total_reada_count;
 	atomic_t total_read_count;
 	atomic_t total_write_count;
@@ -108,7 +106,8 @@ struct if_brick {
 	bool skip_sync;
 	// inspectable
 	atomic_t open_count;
-	atomic_t flying_count;
+	atomic_t read_flying_count;
+	atomic_t write_flying_count;
 	struct lamport_time completion_stamp;
 	struct mars_limiter io_limiter;
 	int error_code;

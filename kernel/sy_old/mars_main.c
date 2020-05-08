@@ -5011,7 +5011,8 @@ void _show_dev(struct mars_rotate *rot)
 	if (if_brick) {
 		_show_rate(rot, &if_brick->io_limiter, "if_rate");
 		__show_actual(rot->parent_path, "if-flying",
-			      atomic_read(&if_brick->flying_count));
+			      atomic_read(&if_brick->read_flying_count) +
+			      atomic_read(&if_brick->write_flying_count));
 		__show_actual(rot->parent_path, "if-state",
 			      if_brick->error_code);
 		__show_stamp(rot->parent_path, "if-completion-stamp",
