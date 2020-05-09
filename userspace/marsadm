@@ -2869,11 +2869,9 @@ sub _set_replaylink {
   if ($log_nr > 1) {
     _fake_versionlink($basedir, $log_nr - 1, $primary);
   } else {
-    my $initial;
-    for (;;) {
-      $initial = get_link("$basedir/version-000000001-$primary", 1);
-      last if $initial;
-      sleep_timeout();
+    my $initial = get_link("$basedir/version-000000001-$primary", 1);
+    unless (defined($initial) && $initial) {
+      $initial = "00000000000000000000000000000000,log-000000001-$host,0:";
     }
     set_link($initial, "$basedir/version-000000001-$host");
   }
