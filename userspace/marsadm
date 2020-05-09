@@ -5396,6 +5396,19 @@ sub eval_fn {
       $lnk = correct_path($lnk);
       return get_link($lnk, 1);
     }
+    if (/^nr[-_]?(attach|sync|fetch|replay|primary)$/) {
+      my $what = $1;
+      my $is = "is";
+      $is = "has" if $what eq "emergency";
+      my $glob = $$env{"resdir"} . "/actual-*/$is-$what";
+      $glob = correct_path($glob);
+      my $nr = 0;
+      foreach my $lnk (glob($glob)) {
+	my $val = get_link($lnk, 1);
+	$nr++ if $val;
+      }
+      return $nr;
+    }
     if (/^does$/) {
       my $what = parse_macro($arg1, $env);
       my $is = "is";
@@ -6426,7 +6439,7 @@ my %trivial_globs =
    # intended for human use
    "{all,the}-{pretty-,}{global-,}{{err,wrn,inf}-,}msg"
    => "",
-   "{is,todo}-{attach,sync,fetch,replay,primary}"
+   "{is,todo,nr}-{attach,sync,fetch,replay,primary}"
    => "",
    "is-{split-brain,consistent,emergency,orphan}"
    => "",
