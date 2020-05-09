@@ -5395,7 +5395,11 @@ Primary
 \family typewriter
 RemainsPrimary
 \family default
-, or 
+, 
+\family typewriter
+ForcedPrimary
+\family default
+ or 
 \family typewriter
 Secondary
 \family default
@@ -5428,6 +5432,25 @@ should
 /dev/mars/mydata
 \family default
  device is currently in use .
+ 
+\family typewriter
+ForcedPrimary
+\family default
+ indicates that 
+\emph on
+multiple
+\emph default
+ cluster hosts (see 
+\family typewriter
+%nr-primary{}
+\family default
+) are claiming to be in actual primary role, e.g.
+ when another one is in role 
+\family typewriter
+RemainsPrimary
+\family default
+, or when network interruption is preventing role change information from
+ propagating.
 \begin_inset Newline newline
 \end_inset
 
@@ -5539,7 +5562,7 @@ RemainsPrimary
 \begin_layout Plain Layout
 
 \family typewriter
-Primary
+Primary / ForcedPrimary
 \end_layout
 
 \end_inset
@@ -31384,6 +31407,27 @@ reference "subsec:Emergency-Mode"
 \end_inset
 
 ) has been entered for the named resource, or not.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+nr-{attach,sync,fetch,replay,primary}
+\family default
+ Show the 
+\emph on
+total number
+\emph default
+ of cluster hosts which are in corresponding state 
+\family typewriter
+%is-
+\emph on
+$something
+\emph default
+{}
+\family default
+.
 \end_layout
 
 \begin_layout Labeling

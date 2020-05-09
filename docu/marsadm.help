@@ -664,7 +664,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   {fetch,replay,work}-{lognr,logcount}
   {get,actual}-primary
   {implemented,usable}-{digests,compressions}
-  {is,todo}-{attach,sync,fetch,replay,primary}
+  {is,todo,nr}-{attach,sync,fetch,replay,primary}
   {my,all}-resources
   {potential,implemented,usable}-features
   {sync,fetch,replay,work,syncpos}-{size,pos}
