@@ -890,6 +890,7 @@ struct mars_rotate {
 	int replay_code;
 	int avoid_count;
 	int old_open_count;
+	__s32 old_inhibit_mask;
 	bool is_attached;
 	bool res_shutdown;
 	bool has_error;
@@ -5841,6 +5842,17 @@ done:
 }
 
 static
+void _show_gate(struct mars_rotate *rot)
+{
+	if (!rot->gate_brick)
+		return;
+	__show_actual(rot->parent_path, "gate-on",
+		      rot->gate_brick->power.led_on);
+	__show_actual(rot->parent_path, "gate-queued",
+		      rot->gate_brick->gate_queued);
+}
+
+static
 bool allow_dev(struct mars_rotate *rot)
 {
 	bool switch_on =
@@ -5873,7 +5885,9 @@ int make_gate(struct mars_rotate *rot, struct mars_dent *dent)
 
 	MARS_DBG("todo_gate=%d\n", rot->todo_gate);
 
-	if (!_gate_brick && !rot->todo_gate)
+	if (_gate_brick)
+		_show_gate(rot);
+	else if (!rot->todo_gate)
 		goto done;
 
 	switch_on =
@@ -5914,6 +5928,12 @@ int make_gate(struct mars_rotate *rot, struct mars_dent *dent)
 	_gate_brick->rewire = true;
 	inhibit_mask = _check_allow(rot->parent_path, "gate-mask");
 	rot->gate_brick->inhibit_mask = inhibit_mask;
+	/* early reporting when gate has changed */
+	if (inhibit_mask != rot->old_inhibit_mask) {
+		_show_gate(rot);
+		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
+	}
+	rot->old_inhibit_mask = inhibit_mask;
 
  done:
 	return 0;
