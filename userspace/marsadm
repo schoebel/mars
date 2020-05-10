@@ -2706,6 +2706,14 @@ sub _get_designated_primary {
   return $val;
 }
 
+sub is_actual_primary {
+  my ($cmd, $res, $peer) = @_;
+  $peer = $host unless (defined($peer) && $peer);
+  my $is_primary = get_link("$mars/resource-$res/actual-$peer/is-primary");
+  # notice: device presence _must not_ be used anymore.
+  return $is_primary;
+}
+
 sub get_peers {
   my ($res) = @_;
   my @list = lamport_glob("$mars/resource-$res/data-*");
@@ -4572,32 +4580,32 @@ sub resize_phase2 {
   }
 }
 
+# Remark: this is historic, and should not be used anymore.
+# However, it likely needs to be kept for DRBD similarity.
 sub role_cmd {
-  my ($cmd, $res) = @_;
-  my $primary = _get_actual_primary($res) || '(none)';
+  my ($cmd, $res, $peer) = @_;
+  $peer = $host unless (defined($peer) && $peer);
+  my $is_primary = is_actual_primary($cmd, $res, $peer);
   my $todo_primary = _get_designated_primary($res);
   my $msg = "I am actually ";
-  $msg .= ($primary eq $host) ? "primary" : "secondary";
-  if ($primary eq $todo_primary) {
-    $msg .= " and $primary is primary" if ($primary ne $host);
-  }
-  elsif ($primary ne $todo_primary) {
-    $todo_primary = "I" if ($todo_primary eq $host);
+  $msg .= $is_primary ? "primary" : "secondary";
+  if ($todo_primary ne $peer) {
     $msg .= " and $todo_primary should be primary";
   }
   lprint $msg . "\n";
 }
 
+# Deprecated. Check whether it can be removed.
 sub mars_state_cmd {
-  my ($cmd, $res) = @_;
-  my $primary = _get_actual_primary($res) || '(none)';
+  my ($cmd, $res, $peer) = @_;
+  $peer = $host unless (defined($peer) && $peer);
+  my $is_primary = is_actual_primary($cmd, $res, $peer);
   my $todo_primary = _get_designated_primary($res);
-
-  if ($primary eq $host) {
+  if ($is_primary) {
     lprint "is_primary\n";
     return;
   }
-  elsif ($todo_primary eq $host) {
+  if ($todo_primary eq $peer) {
     lprint "becoming_primary\n";
     return;
   }
@@ -4605,31 +4613,22 @@ sub mars_state_cmd {
   # secondary without ambitions to become primary
 
   my $size = get_link("$mars/resource-$res/size");
-  my $syncstatus = get_link("$mars/resource-$res/syncstatus-$host");
+  my $syncstatus = get_link("$mars/resource-$res/syncstatus-$peer");
   if ($syncstatus != $size) {
     lprint "secondary inconsistent ($syncstatus bytes of $size)\n";
     return;
   }
-
-  if ($primary eq "(none)") {
-    my $min = 0;
-    foreach my $path (lamport_glob("$mars/resource-$res/log-*")) {
-      my $nr = $path;
-      $nr =~ s:^.*[a-z]+-([0-9]+)(-[^/]*)?$:$1:;
-      if ($nr > $min) {
-	$primary = $path;
-	$primary =~ s:^.*/[a-z]+-[0-9]+-([^/]*)$:$1:;
-	$min = $nr;
-      }
-    }
+  if ($todo_primary eq "(none)") {
+    lprint "secondary\n";
+    return;
   }
-  my $primary_replay = get_link("$mars/resource-$res/replay-$primary");
-  my $host_replay = get_link("$mars/resource-$res/replay-$host");
-  if ($primary_replay eq $host_replay) {
+  my $primary_replay = get_link("$mars/resource-$res/replay-$todo_primary");
+  my $peer_replay = get_link("$mars/resource-$res/replay-$peer");
+  if ($primary_replay eq $peer_replay) {
     lprint "secondary uptodate\n";
     return;
   }
-  lprint "secondary outdated ($host_replay instead of $primary_replay)\n";
+  lprint "secondary outdated ($peer_replay instead of $primary_replay)\n";
 }
 
 sub cat_cmd {
@@ -7068,7 +7067,12 @@ my %cmd_table =
        "Deprecated old low-level tool. Don't use. Use macros instead.",
        \&mars_state_cmd,
       ],
-   "mars-state"        => \&mars_state_cmd, # deprecated
+   "mars-state"
+   => [
+       "verbose 3",
+       "Deprecated old low-level tool. Don't use. Use macros instead.",
+       \&mars_state_cmd,
+      ],
    "show-info"
    => [
        "verbose 3",
