@@ -864,7 +864,7 @@ struct mars_rotate {
 	const char *new_primary;
 	const char *prosumer_path;
 	const char *prosumer_peer;
-	const char *prosumer_remote;
+	const char *gate2prosumer;
 	const char *prosumer_server;
 	const char *prosumer_server_old;
 	const char *prosumer_peers_old;
@@ -4376,7 +4376,7 @@ void rot_destruct(void *_rot)
 		brick_string_free(rot->new_primary);
 		brick_string_free(rot->prosumer_path);
 		brick_string_free(rot->prosumer_peer);
-		brick_string_free(rot->prosumer_remote);
+		brick_string_free(rot->gate2prosumer);
 		brick_string_free(rot->prosumer_server);
 		brick_string_free(rot->prosumer_server_old);
 		brick_string_free(rot->prosumer_peers_old);
@@ -6102,6 +6102,74 @@ done:
 	return status;
 }
 
+#define __show_client_param(fmt,val)				\
+	str = path_make(fmt, prefix);				\
+	__show_actual(rot->parent_path, str, val);		\
+	brick_string_free(str);
+
+#define __show_client_stamp(fmt,stamp)				\
+	str = path_make(fmt, prefix);				\
+	val = path_make("%ld.%09ld",				\
+			stamp.tv_sec,				\
+			stamp.tv_nsec);				\
+	__show_actual_str(rot->parent_path, str, val, NULL);	\
+	brick_string_free(str);					\
+	brick_string_free(val);
+
+static
+void _show_client(struct mars_rotate *rot,
+		  struct client_brick *client,
+		  const char *prefix)
+{
+	const char *str;
+	const char *val;
+
+	if (!client) {
+		__show_client_param("%s-switch", 0);
+		__show_client_param("%s-on", 0);
+		__show_client_param("%s-activated", 0);
+		__show_client_param("%s-connection-state", 0);
+		__show_client_param("%s-socket-count", 0);
+		return;
+	}
+	__show_client_param("%s-switch", client->power.button);
+	__show_client_param("%s-on", client->power.led_on);
+	str = path_make("%s-peer-path", prefix);
+	__show_actual_str(rot->parent_path, str, client->resource_name, NULL);
+	brick_string_free(str);
+	__show_client_param("%s-connection-state", client->connection_state);
+	__show_client_param("%s-connection-error",
+			    client->connection_error);
+	__show_client_param("%s-protocol-error",
+			    client->protocol_error);
+	__show_client_param("%s-activated", client->outputs[0] ?
+			    client->outputs[0]->got_info : 0);
+	__show_client_param("%s-sender-count", atomic_read(&client->sender_count));
+	__show_client_param("%s-receiver-count", atomic_read(&client->receiver_count));
+	__show_client_param("%s-socket-count", client->socket_count);
+	__show_client_param("%s-fly-count", atomic_read(&client->fly_count));
+	__show_client_param("%s-timeout-count", atomic_read(&client->timeout_count));
+	__show_client_stamp("%s-hang-stamp", client->hang_stamp);
+	__show_client_stamp("%s-timeout-stamp", client->last_timeout_stamp);
+}
+
+static
+void _show_prosumer(struct mars_rotate *rot)
+{
+	if (!rot->prosumer_brick || !rot->prosumer_brick->resource_name)
+		return;
+
+	_show_client(rot, rot->prosumer_brick, "prosumer");
+
+	if (!rot->prosumer_peers_old ||
+	    strcmp(rot->prosumer_brick->resource_name, rot->prosumer_peers_old)) {
+		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
+		brick_string_free(rot->prosumer_peers_old);
+		rot->prosumer_peers_old =
+			brick_strdup(rot->prosumer_brick->resource_name);
+	}
+}
+
 static
 void _show_gate(struct mars_rotate *rot)
 {
@@ -6197,7 +6265,7 @@ int make_gate(struct mars_rotate *rot, struct mars_dent *dent)
 			       my_id(),
 			       parent->d_path,
 			       my_id(),
-			       rot->prosumer_remote);
+			       rot->gate2prosumer);
 	mutex_unlock(&server_connect_lock);
 	rot->gate_brick = (void *)_gate_brick;
 
@@ -6330,6 +6398,7 @@ int make_prosumer(struct mars_rotate *rot, struct mars_dent *dent)
 		ordered_symlink("(none)", path, NULL);
 		brick_string_free(path);
 		do_handover = false;
+		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
 	}
 
 	MARS_DBG("switch_on=%d kill_device=%d need_handover=%d do_handover=%d this_primary='%s' server_path='%s'\n",
@@ -6349,13 +6418,13 @@ int make_prosumer(struct mars_rotate *rot, struct mars_dent *dent)
 	    !_prosumer_brick ||
 	    (do_handover &&
 	     need_handover)) {
-		MARS_INF("prosumer handover '%s' => '%s'\n",
+		MARS_INF("prosumer init/handover '%s' => '%s'\n",
 			 rot->prosumer_server_old,
 			 rot->prosumer_server);
-		brick_string_free(rot->prosumer_remote);
+		brick_string_free(rot->gate2prosumer);
+		rot->gate2prosumer = brick_strdup(remote_path);
 		brick_string_free(rot->prosumer_server_old);
 		rot->prosumer_server_old = rot->prosumer_server;
-		rot->prosumer_remote = brick_strdup(remote_path);
 		rot->prosumer_server = brick_strdup(server_path);
 		if (!rot->prosumer_server_old)
 			rot->prosumer_server_old = brick_strdup(rot->prosumer_server);
@@ -6369,6 +6438,14 @@ int make_prosumer(struct mars_rotate *rot, struct mars_dent *dent)
 			rot->prosumer_brick->kill_ptr = (void **)&rot->prosumer_brick;
 		rot->prosumer_new = NULL;
 		need_handover = false;
+		/* Before reporting the new situation, switch (or init) the
+		 * gate connection to the new gate2prosumer location.
+		 */
+		if (rot->gate_brick)
+			rot->gate_brick->rewire = true;
+		make_gate(rot, dent);
+		_show_client(rot, NULL, "new-prosumer");
+		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
 	}
 	if (rot->prosumer_old) {
 		struct mars_brick *_prosumer_old = (void *)rot->prosumer_old;
@@ -6415,6 +6492,7 @@ int make_prosumer(struct mars_rotate *rot, struct mars_dent *dent)
 	}
 
 	prosumer_new = rot->prosumer_new;
+	_show_client(rot, prosumer_new, "new-prosumer");
 	if (prosumer_new) {
 		prosumer_new->keep_idle_sockets = switch_on;
 		prosumer_new->power.io_timeout = 10;
@@ -6439,14 +6517,18 @@ int make_prosumer(struct mars_rotate *rot, struct mars_dent *dent)
 			       0,
 			       parent->d_path,
 			       my_id(),
-			       rot->prosumer_remote);
+			       rot->gate2prosumer);
 	prosumer_brick = (void *)_prosumer_brick;
-	rot->prosumer_brick = prosumer_brick;
-
 	if (!prosumer_brick) {
 		MARS_DBG("prosumer not present\n");
+		if (rot->prosumer_brick) {
+			_show_client(rot, NULL, "prosumer");
+			mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
+		}
+		rot->prosumer_brick = NULL;
 		goto done;
 	}
+	rot->prosumer_brick = prosumer_brick;
 	prosumer_brick->keep_idle_sockets = switch_on;
 	/* When on, set the timeout to infinite.
 	 * This is necessary for prevention of IO errors reported to
@@ -6467,6 +6549,7 @@ int make_prosumer(struct mars_rotate *rot, struct mars_dent *dent)
 	}
 	prosumer_brick->kill_ptr = (void **)&rot->prosumer_brick;
 	prosumer_brick->rewire = true;
+	_show_prosumer(rot);
 
  done:
 	brick_string_free(server_path);
