@@ -131,8 +131,14 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 	 */
 	if (!*tmp_spec)
 		goto done;
+	if (*tmp_spec == '(') {
+		/* fail silently, this can happen with "(none)" */
+		status = -EINVAL;
+		goto done;
+	}
 	if (*tmp_spec != ':') {
 		unsigned char u0 = 0, u1 = 0, u2 = 0, u3 = 0;
+
 		status = sscanf(tmp_spec, "%hhu.%hhu.%hhu.%hhu", &u0, &u1, &u2, &u3);
 		if (status != 4) {
 			MARS_ERR("invalid sockaddr IP syntax '%s', status = %d\n", tmp_spec, status);
