@@ -1300,6 +1300,7 @@ char *if_statistics(struct if_brick *brick, int verbose)
 	if (!res)
 		return NULL;
 	snprintf(res, 512,
+		 "disk = %p "
 		 "total reada = %d "
 		 "reads = %d "
 		 "mref_reads = %d (%d%%) "
@@ -1313,6 +1314,7 @@ char *if_statistics(struct if_brick *brick, int verbose)
 		 "plugged = %d "
 		 "flying reads = %d "
 		 "flying writes = %d\n",
+		 input->disk,
 		 tmp0,
 		 tmp1,
 		 tmp2,
