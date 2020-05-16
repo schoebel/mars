@@ -545,6 +545,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 			 brick->status_event,
 			 brick->power.led_on,
 			 1 * HZ);
+		brick_yield();
 		goto check_brick_status;
 	}
 
@@ -643,6 +644,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 			int this_len = 0;
 			unsigned long flags;
 
+			brick_yield();
 			mref = NULL;
 			mref_a = NULL;
 
