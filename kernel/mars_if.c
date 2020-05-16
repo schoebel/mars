@@ -1064,7 +1064,9 @@ static int if_switch(struct if_brick *brick)
 			mars_power_led_off((void*)brick,  false);
 		}
 	}
-	if (brick->power.button && !brick->power.led_on && !brick->power.led_off) {
+	if (brick->power.button &&
+	    !brick->power.led_off &&
+	    !input->disk) {
 #ifdef MARS_HAS_BDI_GET
 		struct backing_dev_info *bdi;
 #endif
@@ -1216,7 +1218,8 @@ static int if_switch(struct if_brick *brick)
 #else
 		set_device_ro(input->bdev, 0); // TODO: implement modes
 #endif
-
+	}
+	if (input->disk) {
 		/* Avoid IO races with block IO daemons / udev / etc.
 		 * They may access the new disk immediately after
 		 * add_disk(). However, the setup was not yet fully
