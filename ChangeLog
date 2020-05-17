@@ -100,6 +100,17 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable95
+	* Minor fix: sometimes, in a hardly relevant corner case,
+	  join-resource could abort unnecessarily.
+	* Minor improvement: marsadm view now distinguishes role ForcedPrimary
+	  from plain Primary. This could help a larger team of sysadmins
+	  earlier noticing potentially upcoming SplitBrain even while the
+	  network is interrupted, so any actual SplitBrain cannot be
+	  detected, although it is suspectible.
+	* Reduce footprint of some deprecated marsadm functions
+	  and macros.
+
 mars0.1astable94
 	* Major regression from mars0.1astable86:
 	  Memory leak in remote communication.
