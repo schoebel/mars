@@ -6685,9 +6685,25 @@ int make_dev(struct mars_dent *dent)
 
 done:
 	_show_dev(rot);
-	rot->is_primary =
-		rot->if_brick && !rot->if_brick->power.led_off;	
+	/* Notice: is_primary must not depend on the
+	 * actual presence of any prosumer (e.g. when the network is down),
+	 * but rather should show the status of the replication system.
+	 * For backwards compability with some old external scripts,
+	 * the presence of a purely local device is considered in addition.
+	 */
+	if (rot->trans_brick &&
+	    rot->trans_brick->power.led_on &&
+	    !rot->trans_brick->replay_mode &&
+	    (!rot->todo_prosumer ||
+	     (rot->if_brick &&
+	      rot->if_brick->power.led_on)))
+		rot->is_primary = true;
+	else if (!rot->trans_brick ||
+		 rot->trans_brick->power.led_off)
+		rot->is_primary = false;
+
 	_show_primary(rot, parent);
+
 err:
 	return status;
 }
