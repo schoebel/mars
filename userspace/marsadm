@@ -1739,6 +1739,15 @@ sub __systemd_activate_want {
     return 0;
   }
   my $do_activate = $want eq $host;
+  # obey detach-device
+  if ($do_activate) {
+    my $detach_lnk = "$mars/resource-$res/todo-$host/detach-device";
+    my $detach_val = get_link($detach_lnk, 1);
+    if ($detach_val) {
+      lprint "==== '$res' prosumer '$host' is detached\n" if $verbose;
+      $do_activate = 0;
+    }
+  }
   if ($do_activate) {
     # Check for device existence
     if (!device_exists($res, $want)) {
@@ -6079,23 +6088,54 @@ sub cron_phase2 {
 
 sub attach_res_phase0 {
   my ($cmd, $res) = @_;
-  return 0 if $force;
   my $detach = ($cmd eq "detach");
   if ($detach) {
-    my $device_in_use = get_link("$mars/resource-$res/actual-$host/open-count", 1);
-    if ($device_in_use) {
-      my $want_path = "$mars/resource-$res/systemd-want";
-      my $want = get_link($want_path, 2);
-      if ($want) {
-	lprint "IMPORTANT: Relying on systemd for $cmd of resource '$res'\n";
-	my $path = "$mars/resource-$res/todo-$host/attach";
-	_switch($cmd, $res, $path, 0);
-	finish_links();
-	systemd_any_trigger($cmd, $res);
-	return 0;
+    my $want_path = "$mars/resource-$res/systemd-want";
+    my $want = get_link($want_path, 2);
+    if ($want && !$force) {
+      lprint "IMPORTANT: Relying on systemd for $cmd of resource '$res'\n";
+      my $path = "$mars/resource-$res/todo-$host/attach";
+      _switch($cmd, $res, $path, 0);
+      finish_links();
+      systemd_any_trigger($cmd, $res);
+      return 0;
+    }
+    my $lnk = "$mars/resource-$res/actual-$host/is-primary";
+    my $is_primary = get_link($lnk, 1);
+    return 0 unless $is_primary;
+    # primaries can only detach when nothing is really exported
+    my %peers;
+    my $prosumer_peers = get_prosumers(@_);
+    if (defined($prosumer_peers) && $prosumer_peers ne "(local)") {
+      foreach my $peer (split("\\+", $prosumer_peers)) {
+	$peers{$peer}++;
       }
-      my $dev = device_name($res);
-      ldie "device '$dev' is in use\n";
+    } else {
+      $peers{$host}++;
+    }
+    # also check any actual exports
+    $lnk = "$mars/resource-$res/actual-$host/exports";
+    my $val = get_link($lnk, 2);
+    if (defined($val) && $val && $val ne "(none)") {
+      foreach my $path (split("\\+", $val)) {
+	$path =~ s:^.*/logger-::;
+	$path =~ s:^.*/export-::;
+	next if defined($peers{$path});
+	lwarn "Resource '$res' is unexpectedly exported to '$path'\n";
+	$peers{$path}++;
+      }
+    }
+    my $errors = 0;
+    foreach my $peer (sort alphanum_cmp keys(%peers)) {
+      my $device_in_use = get_link("$mars/resource-$res/actual-$peer/open-count", 1);
+      if ($device_in_use) {
+	my $dev = device_name($res, $peer);
+	lwarn "Device '$dev' is in use at peer '$peer'\n";
+	$errors++;
+      }
+    }
+    if ($errors && !$force) {
+      ldie "Cannot detach: there were $errors errors.\n";
     }
   }
   return 0;
@@ -6113,9 +6153,24 @@ sub attach_res_phase0b {
 
 sub attach_res_phase1 {
   my ($cmd, $res) = @_;
+  _reset_gate(@_);
+  _reset_new_primary(@_);
   my $detach = ($cmd eq "detach");
   my $path = "$mars/resource-$res/todo-$host/attach";
   _switch($cmd, $res, $path, !$detach);
+  my $prosumer_peers = get_prosumers(@_);
+  if ($prosumer_peers eq "(local)") {
+    $prosumer_peers = $host;
+  }
+  if ($prosumer_peers && !$prosumer_peers =~ m/^\(/) {
+    foreach my $peer (split("\\+", $prosumer_peers)) {
+      my $lnk = "$mars/resource-$res/todo-$peer/detach-device";
+      my $detach_device = $detach ? "1" : "0";
+      set_link($detach_device, $lnk);
+    }
+  }
+  finish_links();
+  _trigger(3);
   return 0;
 }
 
@@ -6130,7 +6185,7 @@ sub attach_res_phase2 {
   check_status($cmd, $res, "is-attached", $detach ? 0 : 1, 1);
   if ($detach) {
     system("sync");
-    check_mars_device($cmd, $res, 1, 1);
+    check_mars_device($cmd, $res, 1, 1) if todo_local($cmd, $res);
     check_status($cmd, $res, "is-replaying", 0, 1);
     check_status($cmd, $res, "is-syncing", 0, 1);
     system("sync");
