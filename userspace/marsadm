@@ -3923,6 +3923,46 @@ sub is_actual_primary {
   return $is_primary;
 }
 
+sub _get_prosumer {
+  my ($cmd, $res) = @_;
+  my $prosumers = get_link("$mars/resource-$res/prosumer", 2);
+  $prosumers = "(local)" unless (defined($prosumers) && $prosumers);
+  return $prosumers;
+}
+
+sub get_prosumers {
+  my $prosumers = _get_prosumer(@_);
+  $prosumers = "" if $prosumers eq "(none)";
+  return $prosumers;
+}
+
+sub has_prosumer {
+  my $prosumers = _get_prosumer(@_);
+  my $has_prosumers =
+    defined($prosumers) &&
+    $prosumers &&
+    $prosumers ne "(local)" &&
+    $prosumers ne "(none)";
+  return $has_prosumers;
+}
+
+sub todo_local {
+  my $prosumers = _get_prosumer(@_);
+  return $prosumers eq "(local)";
+}
+
+sub _is_prosumer_member {
+  my ($peer, $prosumers) = @_;
+  return $prosumers =~ m/(^|\+)$peer($|\+)/;
+}
+
+sub todo_prosumer {
+  my ($cmd, $res, $peer) = @_;
+  $peer = $host unless (defined($peer) && $peer);
+  my $prosumers = _get_prosumer(@_);
+  return _is_prosumer_member($peer, $prosumers);
+}
+
 sub __conv_tv {
   my ($tv_sec, $tv_nsec) = @_;
   if (defined($tv_nsec)) {
@@ -7126,6 +7166,22 @@ sub eval_fn {
       my $val = eval_fn($env, "get-primary", $arg1);
       return $val eq "(none)" ? 1 : 0;
     }
+    if (/^(get|todo|required)[-_]?prosumer$/) {
+      my $op = $1;
+      my $prosumers = _get_prosumer($$env{"cmd"}, $$env{"res"});
+      if ($op eq "todo") {
+	if (_is_prosumer_member($$env{"host"}, $prosumers)) {
+	  $prosumers = 1;
+	} else {
+	  $prosumers = 0;
+	}
+      } elsif ($op eq "required") {
+	if (!$prosumers || $prosumers =~ m/^\(/) {
+	  $prosumers = "";
+	}
+      }
+      return $prosumers;
+    }
     if (/^todo[-_]?(attach|sync|fetch|replay)?$/) {
       my $what = $1;
       $what = parse_macro($arg1, $env) unless defined($what);
@@ -7344,6 +7400,14 @@ sub eval_fn {
       my $result = device_exists($$env{"res"}, $$env{"host"});
       return $result;
     }
+    if (/^device[-_]?detach$/) {
+      my $peer = parse_macro($arg1, $env);
+      $peer = $$env{"host"} unless (defined($peer) && $peer);
+      my $lnk = $$env{"resdir"} . "/todo-$peer/detach-device";
+      my $result = get_link($lnk, 2);
+      $result = "0" unless (defined($result) && $result ne "");
+      return $result;
+    }
     # deprecated (irregular names)
     if (/^present[-_]?(disk|device)$/) {
       my $what = $1;
@@ -7373,6 +7437,90 @@ sub eval_fn {
       if ($op =~ m/-age/) {
 	$result = mars_time() - $result;
 	$result = 0 if $result < 0;
+      }
+      return $result;
+    }
+    if (/^todo[-_]?(exports)$/) {
+      my $what = $1;
+      my $peer = $$env{"host"};
+      my $lnk = $$env{"resdir"} . "/todo-$peer/$what";
+      my $val = get_link($lnk, 2);
+      my $result = "";
+      foreach my $name (sort alphanum_cmp (split("\\+", $val))) {
+	$result .= "+" if $result;
+	$result .= $name;
+      }
+      return $result;
+    }
+    if (/^actual[-_]?(exports)([-_]nr)?$/) {
+      my $what = $1;
+      my $add_nr = defined($2) ? 1 : 0;
+      my $peer = $$env{"host"};
+      my $lnk = $$env{"resdir"} . "/actual-$peer/$what";
+      my $val = get_link($lnk, 2);
+      return "" if (!defined($val) || !$val || $val eq "(none)");
+      my %exports;
+      foreach my $path (split("\\+", $val)) {
+	$path =~ s:^.*/logger-::;
+	$path =~ s:^.*/export-::;
+	$exports{$path}++;
+      }
+      my $result = "";
+      foreach my $name (sort alphanum_cmp keys(%exports)) {
+	$result .= "+" if $result;
+	$result .= $name;
+	if ($add_nr && $exports{$name} > 1) {
+	  $result .= "[$exports{$name}]";
+	}
+      }
+      return $result;
+    }
+    if (/^((?:new-)?prosumer)[-_]?(orphan|activated|present|on|peer-path|conn-(state|error)|prot-error|(sender|reveicer|socket|timeout)-count|nrflying|(hang|timeout)-stamp)$/) {
+      my $what = $1;
+      my $op = $2;
+      my $peer = $$env{"host"};
+      my %transl =
+	(
+	 "orphan"      => "peer-path",
+	 "present"     => "switch",
+	 "conn-state"  => "connection-state",
+	 "conn-error"  => "connection-error",
+	 "prot-error"  => "protocol-error",
+	 "nrflying"    => "fly-count",
+	);
+      my $op_name = defined($transl{$op}) ?
+	$transl{$op} : $op;
+      my $lnk = $$env{"resdir"} . "/actual-$peer/$what-$op_name";
+      my $result = get_link($lnk, 2);
+      $result = "0" if (!defined($result) || $result eq "");
+      if ($op eq "orphan") {
+	$result =~ s/^.*@//;
+	$result =~ s/:.*$//;
+	my $primary = _get_designated_primary($$env{"cmd"}, $$env{"res"});
+	if ($what eq "new-prosumer") {
+	  my $lnk = $$env{"resdir"} . "/new-primary";
+	  $primary = get_link($lnk, 1);
+	}
+	$result = ($result ne $primary) ? "1" : "0";
+      }
+      return $result;
+    }
+    if (/^(gate)[-_]?(present|queued|mask)$/) {
+      my $what = $1;
+      my $op = $2;
+      my $peer = $$env{"host"};
+      my %transl =
+	(
+	 "present"     => "on",
+	);
+      my $op_name = defined($transl{$op}) ?
+	$transl{$op} : $op;
+      my $lnk = $$env{"resdir"} . "/actual-$peer/$what-$op_name";
+      my $result = get_link($lnk, 2);
+      $result = "0" unless defined($result);
+      if ($result =~ m/^0x/) {
+	$result =~ s/^(0x)0+/$1/;
+	$result = "0" if $result =~ m/^0x$/;
       }
       return $result;
     }
@@ -7959,6 +8107,9 @@ my %complex_macros =
    .        "%include{replinfo}"
    .      "}"
    .    "}"
+   .    "%if{%or{%todo-primary{}}{%is-primary{}}}{"
+   .      "%call{exported}"
+   .    "}"
    .    "%call{resource-errors}"
    .  "}{"
    .    "%call{device-info}"
@@ -8034,11 +8185,86 @@ my %complex_macros =
    .    "Closed"
    .  "}",
 
+   "prosumer-error"
+   => "%if{%<{%prosumer-conn-error{}}{0}}{"
+   .    " CONNECT_ERROR %prosumer-conn-error{} %errno-text{%prosumer-conn-error{}}"
+   .  "}"
+   .  "%if{%<{%prosumer-prot-error{}}{0}}{"
+   .    " PROTOCOL_ERROR %prosumer-prot-error{} %errno-text{%prosumer-prot-error{}}"
+   .  "}",
+
+   "prosumer-stats"
+   => ""
+   .  "%if{%>{%prosumer-hang-stamp{}}{0}}{"
+   .    "%let{age}{%-{%time{}}{%prosumer-hang-stamp{}}}"
+   .    "%if{%>{%{age}}{%{window}}}{"
+   .      "HANGING %human-seconds{%{age}}, "
+   .    "}"
+   .  "}"
+   .  "%if{%prosumer-activated{}}{"
+   .    "%if{%prosumer-conn-state{}}{"
+   .      "Connected"
+   .    "}{"
+   .      "DISCONNECTED%call{prosumer-error}"
+   .    "}"
+   .    ", %prosumer-socket-count{} Sockets"
+   .    "%if{%prosumer-nrflying{}}{"
+   .      ", %prosumer-nrflying{} Flying"
+   .    "}"
+   .  "}{"
+   .    "NOT_ACTIVATED%call{prosumer-error}"
+   .  "}"
+   .  "%if{%gate-present{}}{"
+   .    "%if{%gate-mask{}}{"
+   .      ", Gate %gate-mask{}"
+   .    "}"
+   .    "%if{%gate-queued{}}{"
+   .      ", %gate-queued{} Queued"
+   .    "}"
+   .  "}",
+
+   "prosumer-device-stats"
+   => "%call{prosumer-stats}"
+   .  ", Device: %call{device-stats}",
+
+   "prosumer-handover"
+   => ""
+   .  "%if{%and{%new-prosumer-present{}}{%new-prosumer-activated{}}}{"
+   .    "%let{new_peer}{%subst{%new-prosumer-peer-path{}}{^[^@]*}{}}"
+   .    " HANDOVER to %{new_peer}"
+   .  "}",
+
    "device-info"
-   => "%if{%device-present{}}{"
+   => "%elsif{%prosumer-present{}}{"
+   .    "%let{peer}{%subst{%prosumer-peer-path{}}{^[^@]*}{}}"
+   .    "%if{%prosumer-orphan{}}{"
+   .      "%let{required}{%get-primary{}}"
+   .      "  OrphanProsumer%{peer} instead of @%{required}%call{prosumer-handover} %get-device{}"
+   .      " [%call{prosumer-device-stats}]\n"
+   .    "}{"
+   .      "  Prosumer%{peer}%call{prosumer-handover}"
+   .      "%if{%device-present{}}{"
+   .        " %get-device{}"
+   .        " [%call{prosumer-device-stats}]\n"
+   .      "}{"
+   .        " %call{prosumer-stats}\n"
+   .      "}"
+   .    "}"
+   .  "}{%required-prosumer{}}{"
+   .    "%elsif{%device-present{}}{"
+   .      "  LocalProsumer%call{prosumer-handover}"
+   .      " %get-device{}"
+   .      " [%call{device-stats}]\n"
+   .    "}{%device-detach{}}{"
+   .      "  DetachedProsumer\n"
+   .    "}{%todo-prosumer{}}{"
+   .      "  NotPresentProsumer\n"
+   .    "}"
+   .  "}{%device-present{}}{"
    .    "  LocalDevice %get-device{}"
-   .    ""
    .    " [%call{device-stats}]\n"
+   .  "}{%device-detach{}}{"
+   .    "  DetachedDevice\n"
    .  "}",
 
    "diskstate"
@@ -8330,6 +8556,16 @@ my %complex_macros =
    .  "%let{remain}{%human-seconds{%replay-remain{}}}"
    .  "       > replay: %{amount} rate: %{rate}/sec  remaining: %{remain} hrs\n",
 
+   "exported"
+   => "%elsif{%actual-exports{}}{"
+   .    "  Exported to: %actual-exports-nr{}"
+   .    "%if{%and{%todo-exports{}}{%ne{%todo-exports{}}{%actual-exports{}}}}{"
+   .    ",  Allowed: %todo-exports{}"
+   .    "}\n"
+   .  "}{%and{%todo-exports{}}{%not{%device-present{}}}}{"
+   .    "  Intended export to: %todo-exports{}\n"
+   .  "}",
+
    "resource-errors"
    => "%let{fat-count}{%get-resource-fat-count{}}"
    .  "%if{%{fat-count}}{"
@@ -8480,7 +8716,17 @@ my %trivial_globs =
    => "",
    "{disk,device}-present"
    => "",
+   "device-detach"
+   => "",
    "device-{opened,nrflying,error,completion-{stamp,age}}"
+   => "",
+   "{new-,}prosumer-{orphan,activated,present,on,peer-path,conn-{state,error},prot-error,{sender,receiver,socket,timeout}-count,nrflying,{hang,timeout}-count}"
+   => "",
+   "gate-{present,queued,mask}"
+   => "",
+   "todo-exports"
+   => "",
+   "actual-exports{,-nr}"
    => "",
    "get-log-status"
    => "",
@@ -8547,6 +8793,8 @@ my %trivial_globs =
 
 
    "{get,actual}-primary"
+   => "",
+   "{get,todo,required}-prosumer"
    => "",
    "is-{alive}"
    => "",
