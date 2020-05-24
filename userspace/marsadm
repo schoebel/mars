@@ -227,6 +227,7 @@ my $real_host = $host;
 my $backup_dir = "$mars/backups-" . time();
 my $force = 0;
 my $ignore_sync = 0;
+my $multi_prosumer = 0;
 my $cron_mode = 0;
 my $timeout = 600;
 my $phase_nr = 0;
@@ -2783,6 +2784,47 @@ sub update_cluster {
   return $status;
 }
 
+sub update_guests {
+  my ($cmd, $res_spec) = @_;
+  my @res_list = expand_res_list($cmd, $res_spec);
+  push @res_list, $res_spec unless @res_list;
+  my $ok = 1;
+  foreach my $res (@res_list) {
+    my $unknown = 0;
+    my $not_yet = "";
+    my $new_prosumers = parse_list_spec($cmd_suffix{"prosumer"}, undef, $host);
+    next if (!$new_prosumers || $new_prosumers =~ m/^\(/);
+    foreach my $peer (split("\\+", $new_prosumers)) {
+      next if is_any($res, $peer);
+      $not_yet .= "+" if $not_yet;
+      $not_yet .= $peer;
+    }
+    next unless $not_yet;
+    lprint "Hosts '$not_yet' are neither member nor guest of '$res'\n";
+    my $primary = _get_designated_primary($cmd, $res, 2);
+    if ($primary && $primary ne "(none)") {
+      $not_yet .= "+" if $not_yet;
+      $not_yet .= $primary;
+    }
+    update_cluster($cmd, $res, $not_yet);
+    _reset_resources();
+    $primary = _get_designated_primary($cmd, $res, 1);
+    unless ($primary) {
+      lwarn "No primary is known for resource '$res'\n";
+      $ok = 0;
+      next;
+    }
+    my @exists = get_any_peers($res);
+    if (@exists) {
+      lprint "resource '$res' has peers '" , join(",", @exists) . "'\n";
+      next;
+    }
+    lwarn "I know nothing about resource '$res'\n";
+    $ok = 0;
+  }
+  ldie "cannot get resource info for '$res_spec'\n" unless $ok;
+}
+
 sub is_cluster_recent {
   my ($cmd, $res, $hosts) = @_;
   my $dead_count = 0;
@@ -3999,6 +4041,19 @@ sub _get_prosumer {
 sub get_prosumers {
   my $prosumers = _get_prosumer(@_);
   $prosumers = "" if $prosumers eq "(none)";
+  return $prosumers;
+}
+
+sub get_actual_prosumers {
+  my ($cmd, $res) = @_;
+  my @peers = get_any_peers($res);
+  my @result = ();
+  foreach my $peer (@peers) {
+    if (device_exists($res, $peer)) {
+      push @result, $peer;
+    }
+  }
+  my $prosumers = join("+", @result);
   return $prosumers;
 }
 
@@ -6929,6 +6984,338 @@ sub primary_phase4 {
 sub primary_phase5 {
   return 0 unless systemd_present(@_);
   return set_systemd_want_phase2(@_);
+}
+
+sub nr_prosumers_opened {
+  my ($cmd, $res, $old_prosumers, $new_prosumers) = @_;
+  $old_prosumers = "" if $old_prosumers eq "(none)";
+  $old_prosumers = $host if $old_prosumers eq "(local)";
+  $new_prosumers = "" if $new_prosumers eq "(none)";
+  $new_prosumers = $host if $new_prosumers eq "(local)";
+  my $mounted = 0;
+  foreach my $peer (split("\\+", $old_prosumers)) {
+    next if _is_prosumer_member($peer, $new_prosumers);
+    my $device_in_use = get_link("$mars/resource-$res/actual-$peer/open-count");
+    if ($device_in_use) {
+      my $dev = device_name($res, $peer);
+      lwarn "Device $dev is in use at '$peer'\n";
+      $mounted++;
+    }
+  }
+  return $mounted;
+}
+
+my %pros_tgt;
+my %pros_old;
+my %pros_new;
+my %pros_uni;
+my %pros_vanish;
+my %pros_inter;
+my %pros_umount;
+
+sub prosumer_phase0 {
+  my ($cmd, $res) = @_;
+  my $primary = _get_designated_primary($cmd, $res, 0);
+  lprint "Current designated primary: $primary\n";
+  if ($primary eq "(none)") {
+    my $old_prosumers = _get_prosumer(@_);
+    my $new_prosumers = parse_list_spec($cmd_suffix{"prosumer"}, $old_prosumers, $host);
+    if ($new_prosumers ne "(local)" && $new_prosumers ne "(none)") {
+      ldie "Cannot activate prosumers '$new_prosumers' when there is no designated primary.\n";
+    }
+  }
+  if ($primary ne "(none)" &&
+      !is_actual_primary($cmd, $res, $primary)) {
+    ldie "Designated primary '$primary' is not actually primary\n" unless $force;
+    lwarn "CONTINUE AT YOUR RISK, although designated primary '$primary' is not actually primary\n";
+  }
+
+  my $old_prosumers = _get_prosumer(@_);
+  my $new_prosumers = parse_list_spec($cmd_suffix{"prosumer"}, $old_prosumers, $host);
+  if ($new_prosumers =~ m/[+]/) {
+    lwarn "EXPERIMENTAL feature: multiple prosumers separated by '+' are not officially supported\n";
+    lwarn "EXPERIMENTAL feature: this is KNOWN to cause DATA CORRUPTION under certain circumstances.\n";
+    lwarn "EXPERIMENTAL feature: do not use this in production!\n";
+  }
+  $pros_tgt{$res} = $new_prosumers;
+
+  # determine deltas
+  my $old_means = "'$old_prosumers'";
+  my $new_means = "'$new_prosumers'";
+  if ($old_prosumers eq "(none)") {
+    $old_prosumers = "";
+    $old_means .= " means ''";
+  } elsif ($old_prosumers eq "(local)") {
+    $old_prosumers = $primary;
+    $old_means .= " means designated primary '$primary'";
+  }
+  if ($new_prosumers eq "(none)") {
+    $new_prosumers = "";
+    $new_means .= " means ''";
+  } elsif ($new_prosumers eq "(local)") {
+    $new_prosumers = $host;
+    $new_means .= " means current host '$host'";
+  }
+  lprint "Old prosumers: $old_means\n";
+  lprint "New prosumers: $new_means\n";
+  my $act_prosumers = get_actual_prosumers(@_);
+  if ($act_prosumers ne $old_prosumers) {
+    lprint "Old prosumers: '$old_prosumers'\n";
+    lprint "Act prosumers: '$act_prosumers'\n";
+    lwarn "Currently Actual (Old) prosumers and designated (Old) prosumers are different.\n";
+    lwarn "Extending the list of Old prosumers.\n";
+    $old_prosumers = list_union("+", $old_prosumers, $act_prosumers);
+    lprint "Old prosumers: '$old_prosumers'\n";
+  }
+  my $uni_prosumers = list_union("+", $old_prosumers, $new_prosumers);
+  lprint "Uni prosumers: '$uni_prosumers'\n";
+  my @intersect_prosumers;
+  my @minus_prosumers;
+  foreach my $peer (split("\\+", $uni_prosumers)) {
+    mkdir("$mars/resource-$res/todo-$peer");
+    mkdir("$mars/resource-$res/actual-$peer");
+    _activate_resource($cmd, $res, $peer);
+    my $old_member = _is_prosumer_member($peer, $old_prosumers);
+    my $new_member = _is_prosumer_member($peer, $new_prosumers);
+    if ($old_member && $new_member) {
+      push @intersect_prosumers, $peer;
+    }
+    if ($old_member && !$new_member) {
+      push @minus_prosumers, $peer;
+    }
+  }
+  my $minus = join("+", @minus_prosumers);
+  my $inter = join("+", @intersect_prosumers);
+  lprint "Vaninishing  prosumers: '$minus'\n";
+  lprint "Intersecting prosumers: '$inter'\n";
+  $pros_old{$res} = $old_prosumers;
+  $pros_new{$res} = $new_prosumers;
+  $pros_uni{$res} = $uni_prosumers;
+  $pros_vanish{$res} = $minus;
+  $pros_inter{$res}  = $inter;
+
+  # check whether umount necessary and done
+  my $ensure_umount = ($cmd =~ m/prosumer/);
+  # delegate to systemd when necessary
+  if ($ensure_umount && systemd_present($cmd, $res)) {
+    my $want_path = "$mars/resource-$res/systemd-want";
+    my $want = get_link($want_path, 1);
+    if ($want) {
+      set_link($new_prosumers, $want_path);
+      if ($new_prosumers =~ /\+/) {
+	lwarn "Sorry, systemd combined with --multi-prosumer is NYI, it will not work.";
+      }
+      my $unit_path = "$mars/resource-$res/systemd-stop-unit";
+      my $unit = get_link($unit_path, 2);
+      lprint "IMPORTANT: Relying on systemd for stop of unit '$unit'\n";
+      finish_links();
+      _trigger(3);
+      $pros_umount{$res} = 1;
+      $ensure_umount = 0;
+    }
+  }
+  if ($ensure_umount) {
+    # disallow additions during split brain
+    if ($old_prosumers &&
+	nr_prosumers_opened($cmd, $res, "", $old_prosumers) &&
+	!detect_splitbrain($res, 0)) {
+      my $added = 0;
+      foreach my $peer (split("\\+", $new_prosumers)) {
+	next if _is_prosumer_member($peer, $old_prosumers);
+	$added++;
+      }
+      if ($added) {
+	lwarn "DOT NOT ADD new prosumers during SPLIT BRAIN.\n";
+	lwarn "This would lead to data inconsistencies.\n";
+	ldie "First resolve the split brain to get a unique primary.\n";
+      }
+    }
+    # Allow propagation from/to "(local)" while mounted _locally_
+    # BUT disallow when mounted _remotely_.
+    my $mounted = nr_prosumers_opened($cmd, $res, $old_prosumers, $new_prosumers);
+    if ($mounted) {
+      ldie "Cannot switch $cmd: device is in use at $mounted peers\n" unless $force;
+      lwarn "TRYING to FORECFULLY switch $cmd: device is in use at $mounted peers\n";
+    }
+  }
+}
+
+sub prosumer_phase1 {
+  my ($cmd, $res) = @_;
+  my $primary = _get_designated_primary($cmd, $res, 0);
+  my $new_prosumers = $pros_new{$res};
+  my $uni_prosumers = $pros_uni{$res};
+  my $inter_prosumers = $pros_inter{$res};
+  _reset_gate(@_);
+  _reset_new_primary(@_);
+  # when necessary, wait for systemd
+  if ($pros_umount{$res} && !$force) {
+    my $old_prosumers = $pros_old{$res};
+    my $mounted = nr_prosumers_opened($cmd, $res, $old_prosumers, $new_prosumers);
+    if ($mounted) {
+      lprint "There are $mounted mounts left.\n";
+      systemd_any_trigger($cmd, $res);
+      return $mounted;
+    }
+  }
+  # reset any detaches
+  my $trigger_val = 3;
+  foreach my $peer (split("\\+", $new_prosumers)) {
+    my $lnk = "$mars/resource-$res/todo-$peer/detach-device";
+    set_link("0", $lnk);
+    $lnk = "$mars/resource-$res/todo-$peer/kill-device";
+    set_link(0, $lnk);
+  }
+  # set the primary exports
+  if ($primary && $primary ne "(none)") {
+    my $exports = $uni_prosumers;
+    if (!$multi_prosumer && defined($inter_prosumers)) {
+      my $tmp_prosumers = $inter_prosumers ? $inter_prosumers : "(none)";
+      my $lnk = "$mars/resource-$res/prosumer";
+      set_link($tmp_prosumers, $lnk);
+      $exports = $pros_new{$res};
+    }
+    $exports = "(none)" if !$exports;
+    my $lnk = "$mars/resource-$res/todo-$primary/exports";
+    set_link($exports, $lnk);
+    $lnk = "$mars/resource-$res/todo-$primary/multi-prosumer";
+    my $val = ($exports =~ m/[+]/) ? "1" : "0";
+    set_link($val, $lnk);
+  }
+  finish_links();
+  _trigger($trigger_val) if $trigger_val;
+  return 0;
+}
+
+sub _check_prosumers_vanished {
+  my ($cmd, $res, $minus_prosumers) = @_;
+  my $errors = 0;
+  foreach my $peer (split("\\+", $minus_prosumers)) {
+    my $val = device_exists($res, $peer);
+    if ($val) {
+      lprint "Device at '$peer' has not vanished.\n";
+      $errors++;
+    }
+  }
+  if ($errors) {
+    _trigger(3);
+    if (systemd_present($cmd, $res)) {
+      systemd_any_trigger($cmd, $res);
+    }
+  }
+  return $errors;
+}
+
+# !--multi_prosumer: check that old prosumers are gone
+sub prosumer_phase2 {
+  my ($cmd, $res) = @_;
+  my $minus_prosumers = $pros_vanish{$res};
+  return 0 unless $minus_prosumers;
+  if ($force) {
+    lwarn "killing the vanishing prosumers '$minus_prosumers' due to --force\n";
+    foreach my $peer (split("\\+", $minus_prosumers)) {
+      lprint "Killing prosumer at '$peer'\n";
+      my $lnk = "$mars/resource-$res/todo-$peer/gate-mask";
+      set_link("-1", $lnk);
+      $lnk = "$mars/resource-$res/todo-$peer/kill-device";
+      set_link("1", $lnk);
+    }
+    finish_links();
+    _trigger(3);
+    return 0;
+  }
+  return _check_prosumers_vanished($cmd, $res, $minus_prosumers);
+}
+
+# set the new target prosumers
+sub prosumer_phase3 {
+  my ($cmd, $res) = @_;
+  my $old_prosumers = $pros_old{$res};
+  my $new_prosumers = $pros_new{$res};
+  my $tgt_prosumers = $pros_tgt{$res};
+  lprint "Old prosumers: '$old_prosumers'\n";
+  lprint "New prosumers: '$new_prosumers'\n";
+  lprint "Tgt prosumers: '$tgt_prosumers'\n";
+  if ($multi_prosumer) {
+    lprint "Option --multi-prosumer: temporarly allow the union of '$tgt_prosumers' and '$new_prosumers'\n";
+    $tgt_prosumers = list_union($tgt_prosumers, $new_prosumers);
+    $new_prosumers = $tgt_prosumers;
+    lprint "New prosumers: '$new_prosumers'\n";
+    lprint "Tgt prosumers: '$tgt_prosumers'\n";
+  }
+  foreach my $peer (split("\\+", $new_prosumers)) {
+    my $lnk = "$mars/resource-$res/todo-$peer/detach-device";
+    set_link("0", $lnk);
+  }
+  my $lnk = "$mars/resource-$res/prosumer";
+  set_link($tgt_prosumers, $lnk);
+  finish_links();
+  _trigger(3);
+}
+
+# --multi_prosumer: check that old prosumers are gone
+sub prosumer_phase4 {
+  my ($cmd, $res) = @_;
+  return 0 if $force;
+  return 0 if !$multi_prosumer;
+  my $minus_prosumers = $pros_vanish{$res};
+  return 0 unless defined($minus_prosumers);
+  return _check_prosumers_vanished($cmd, $res, $minus_prosumers);
+}
+
+# --multi_prosumer: set the final target prosumers
+sub prosumer_phase5 {
+  my ($cmd, $res) = @_;
+  return unless $multi_prosumer;
+  my $old_prosumers = $pros_old{$res};
+  my $new_prosumers = $pros_new{$res};
+  my $tgt_prosumers = $pros_tgt{$res};
+  lprint "Old prosumers: '$old_prosumers'\n";
+  lprint "New prosumers: '$new_prosumers'\n";
+  lprint "Tgt prosumers: '$tgt_prosumers'\n";
+  my $lnk = "$mars/resource-$res/prosumer";
+  set_link($tgt_prosumers, $lnk);
+  finish_links();
+  _trigger(3);
+}
+
+# wait for device appearance at all new prosumers
+sub prosumer_phase6 {
+  my ($cmd, $res) = @_;
+  my $dev = device_name($res);
+  my $new_prosumers = $pros_new{$res};
+  my $fail = 0;
+  foreach my $peer (split("\\+", $new_prosumers)) {
+    if (device_exists($res, $peer)) {
+      lprint "Device '$dev' is present at '$peer'\n";
+      next;
+    }
+    lprint "Device '$dev' has not yet appeared at '$peer'\n";
+    $fail++;
+  }
+  if (!$fail && systemd_present($cmd, $res)) {
+    my $want_path = "$mars/resource-$res/systemd-want";
+    my $want = get_link($want_path, 1);
+    if ($want && $want !~ m/^\(/) {
+      foreach my $peer (split("\\+", $new_prosumers)) {
+	my $device_in_use = get_link("$mars/resource-$res/actual-$peer/open-count", 1);
+	my $dev = device_name($res, $peer);
+	if ($device_in_use) {
+	  lprint "Device '$dev' is in use at peer '$peer'\n";
+	} else {
+	  lprint "Device '$dev' not yet used by systemd at peer '$peer'\n";
+	  $fail++;
+	}
+      }
+    }
+  }
+  if ($fail) {
+    finish_links();
+    _trigger(3);
+    systemd_any_trigger($cmd);
+    systemd_any_trigger($cmd, $res);
+  }
+  return $fail;
 }
 
 sub wait_umount_res {
@@ -10290,6 +10677,42 @@ my %cmd_table =
        \&primary_phase5,
        "trigger systemd",
       ],
+   "prosumer"
+   => [
+       "usage: prosumer=<host_list> [<resource_name>]",
+       "       where <host_list> is '+'-separated.",
+       "       Operators += and -= are also allowed in place of = .",
+       "Switch the prosumer device to a new location, or add / remove",
+       "additional parallel prosumer devices.",
+       [
+	\&update_guests,
+       ],
+       \&prosumer_phase0,
+       "check preconditions, delegate to systemd",
+
+       "FORK",
+       "LOOP",
+       \&prosumer_phase1,
+       "wait for systemd, remove old prosumers",
+
+       "LOOP",
+       \&prosumer_phase2,
+       "check that any old prosumers are gone when necessary",
+
+       \&prosumer_phase3,
+       "set new prosumers",
+
+       "LOOP",
+       \&prosumer_phase4,
+       "check that all old prosumers are finally gone",
+
+       \&prosumer_phase5,
+       "set final prosumers",
+
+       "LOOP",
+       \&prosumer_phase6,
+       "wait for device",
+      ],
    "invalidate"
    => [
        "Only useful on a secondary node.",
@@ -10535,6 +10958,15 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Allow primary handover even when some sync is running somewhere.
     This is less rude than --force because it checks for all else
     preconditions.
+  --multi-prosumer
+    EXPERIMENTAL! ALPHA! DO NOT USE FOR PRODUCTION!
+    Allow multiple prosumer devices to appear in parallel, e.g.
+    for multi-mount capable filesystems like ocfs2 or gfs2.
+    WARNING! Never use this for ordinary filesystems like ext4
+    or xfs etc. Mounting classical Unix filesystems twice will
+    CERTAINLY TRASH YOUR DATA. Only use this with special filesystems
+    which can deal with the consistency demands imposed by shared
+    block devices.
   --dry-run
     Don't modify the symlink tree, but tell what would be done.
     Use this before starting potentially harmful actions such as
@@ -10718,6 +11150,10 @@ foreach my $arg (@ARGV) {
   } elsif ($arg eq "--ignore-sync") {
     $ignore_sync++;
     next;
+  } elsif ($arg eq "--multi-prosumer") {
+    lwarn "EXPERIMENTAL option --multi-prosumer DO NOT USE FOR PRODUCTION!";
+    $multi_prosumer++;
+    next;
   } elsif ($arg eq "--dry-run" || $arg eq "-d") {
     $dry_run++;
     next;
@@ -10831,6 +11267,10 @@ foreach my $arg (@ARGV) {
 }
 
 my $cmd = shift @args || helplist "command argument is missing\n";
+
+if ($cmd =~ s/\s*([-+]?=.*)//) {
+  $cmd_suffix{$cmd} = $1;
+}
 
 if ($cmd =~ m/^help$/ || $cmd =~ m/^h$/) {
   helplist;
