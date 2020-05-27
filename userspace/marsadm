@@ -32,6 +32,7 @@ umask 0077;
 # global constants
 
 my $gate_code = "0x8";
+my $gate_fail = "-108"; # -ESHUTDOWN
 
 ##################################################################
 
@@ -7216,7 +7217,7 @@ sub prosumer_phase2 {
     foreach my $peer (split("\\+", $minus_prosumers)) {
       lprint "Killing prosumer at '$peer'\n";
       my $lnk = "$mars/resource-$res/todo-$peer/gate-mask";
-      set_link("-1", $lnk);
+      set_link($gate_fail, $lnk);
       $lnk = "$mars/resource-$res/todo-$peer/kill-device";
       set_link("1", $lnk);
     }
@@ -7316,6 +7317,38 @@ sub prosumer_phase6 {
     systemd_any_trigger($cmd, $res);
   }
   return $fail;
+}
+
+sub prosumer_shutdown {
+  my ($cmd, $res) = @_;
+  my $old_prosumers = _get_prosumer(@_);
+  my $new_prosumers = $old_prosumers;
+  if ($cmd_suffix{$cmd}) {
+    $new_prosumers = parse_list_spec($cmd_suffix{$cmd}, $old_prosumers, $host);
+  }
+  if ($new_prosumers eq "(none)") {
+    lprint "Nothing to do for prosumer $new_prosumers.\n";
+    return;
+  }
+  if ($new_prosumers eq "(local)") {
+    ldie "Cannot shutdown local devices\n" if !$force;
+    $new_prosumers = $host;
+    lwarn "TRYING to shutdown local device on '$host'\n";
+  }
+  if ($new_prosumers =~ m/[+]/) {
+    lwarn "EXPERIMENTAL feature: multiple prosumers separated by '+' are not officially supported\n";
+    lwarn "EXPERIMENTAL feature: this is KNOWN to cause DATA CORRUPTION under certain circumstances.\n";
+    lwarn "EXPERIMENTAL feature: do not use this in production!\n";
+  }
+  foreach my $peer (split("\\+", $new_prosumers)) {
+    lprint "Killing prosumer at '$peer'\n";
+    my $lnk = "$mars/resource-$res/todo-$peer/gate-mask";
+    set_link($gate_fail, $lnk);
+    $lnk = "$mars/resource-$res/todo-$peer/kill-device";
+    set_link("1", $lnk);
+  }
+  finish_links();
+  _trigger(3);
 }
 
 sub wait_umount_res {
@@ -10712,6 +10745,16 @@ my %cmd_table =
        "LOOP",
        \&prosumer_phase6,
        "wait for device",
+      ],
+   "shutdown"
+   => [
+       "usage: shutdown[=<host_list>] <resource_name>",
+       "       where <host_list> is '+'-separated.",
+       "       Operators += and -= are also allowed in place of = .",
+       "Let any pending IO requests on a prosumer device fail.",
+       "This is useful when the network is down for a longer time,",
+       "or when a storage host has failed permanently.",
+       \&prosumer_shutdown,
       ],
    "invalidate"
    => [
