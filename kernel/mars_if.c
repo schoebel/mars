@@ -528,7 +528,9 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	might_sleep();
 
  check_brick_status:
-	if (brick->power.led_off || !brick->power.button) {
+	if (!brick->power.button ||
+	    brick->power.led_off ||
+	    brick->shutdown) {
 		/* We are not operational.
 		 * This may happen at forceful prosumer shutdown.
 		 * Reject any IO attempt.
@@ -1326,18 +1328,19 @@ static int if_open(struct block_device *bdev, fmode_t mode)
 
 	down(&brick->switch_sem);
 
-	if (unlikely(!brick->power.led_on)) {
-		MARS_INF("----------------------- BUSY %d ------------------------------\n", atomic_read(&brick->open_count));
+	if (!brick->power.button || !brick->power.led_on || brick->shutdown) {
+		MARS_INF("----------------------- SHUTDOWN %d ------------------------------\n",
+			 atomic_read(&brick->open_count));
 		up(&brick->switch_sem);
-		return -EBUSY;
+		return -ESHUTDOWN;
 	}
 
 	atomic_inc(&brick->open_count);
 
-	MARS_INF("----------------------- OPEN %d ------------------------------\n", atomic_read(&brick->open_count));
-	mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
-
+	MARS_INF("----------------------- OPEN %d ------------------------------\n",
+		 atomic_read(&brick->open_count));
 	up(&brick->switch_sem);
+	mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
 	wake_up_interruptible_all(&brick->status_event);
 	return 0;
 }

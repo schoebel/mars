@@ -111,6 +111,7 @@ struct if_brick {
 	int max_plugged;
 	int readahead;
 	bool skip_sync;
+	bool shutdown;
 	// inspectable
 	atomic_t open_count;
 	atomic_t read_flying_count;
