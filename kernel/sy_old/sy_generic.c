@@ -662,11 +662,33 @@ int mars_symlink(const char *oldpath, const char *newpath,
 	set_fs(get_ds());
 
 	status = vfs_lstat((char*)newpath, &stat);
+
 	/* When ordered, obey the Lamport condition.
 	 */
 	if (ordered && status >= 0 && stamp &&
-	    lamport_time_compare(&stat.mtime, stamp) > 0)
-		goto done_fs;
+	    lamport_time_compare(&stat.mtime, stamp) > 0) {
+		struct lamport_time real_now;
+
+		/* Illegal old link stamps are disobeyed, when
+		 * they are too far in the future.
+		 * Although this leads to a backskip violating
+		 * the Lamport condition, it is a beneficial
+		 * exceptional error correction.
+		 * Such errors have been observed at ShaHoLin
+		 * after fatal hardware crashes, where MARS
+		 * was run for a _short_ time with an illegal
+		 * CMOS hardware clock value, until ntpd
+		 * corrected the system clock, fortunately.
+		 */
+		real_now = get_real_lamport();
+		if (likely(stat.mtime.tv_sec <
+			   real_now.tv_sec + max_lamport_future))
+			goto done_fs;
+		/* Continue, overriding the illegal old
+		 * link stamp by exceptionally disobeying
+		 * the Lamport condition.
+		 */
+	}
 
 	/* Some filesystems have only full second resolution.
 	 * Thus it may happen that the new timestamp is not
