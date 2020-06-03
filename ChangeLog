@@ -100,6 +100,15 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable96
+	* Minor improvement: auto-correct defective symlink
+	  timestamps which are too far in the future.
+	  This can happen when running with a defective CMOS
+	  hardware clock, e.g. after a fatal hardware failure, and
+	  before ntpd has corrected the local clock.
+	* Minor usability: more pretty formatting of compression
+	  and digest flags in "marsadm view".
+
 mars0.1astable95
 	* Minor fix: sometimes, in a hardly relevant corner case,
 	  join-resource could abort unnecessarily.
