@@ -1930,6 +1930,61 @@ void _show_info(const char *parent_path,
 	brick_string_free(val);
 }
 
+static
+void _show_logger(struct mars_rotate *rot)
+{
+	const char *exports = NULL;
+	struct trans_logger_output *output;
+	struct list_head *tmp;
+
+	__show_actual(rot->parent_path, "replay-code", rot->replay_code);
+
+	if (!rot->trans_brick)
+		return;
+
+	/* Determine the current remote exports to prosumers.
+	 */
+	mutex_lock(&server_connect_lock);
+	output = rot->trans_brick->outputs[0];
+	for (tmp = output->output_head.next;
+	     tmp != &output->output_head;
+	     tmp = tmp->next) {
+		struct mars_input *input;
+		struct mars_brick *brick;
+		const char *old_exports;
+
+		input = container_of(tmp, struct mars_input, input_head);
+		brick = input->brick;
+		if (unlikely(!brick))
+			continue;
+		if (brick->type != (const struct mars_brick_type *)&server_brick_type)
+			continue;
+		if (!exports) {
+			exports = brick_strdup(brick->resource_name);
+			continue;
+		}
+		old_exports = exports;
+		exports = path_make("%s+%s",
+				    exports,
+				    brick->resource_name);
+		brick_string_free(old_exports);
+	}
+	mutex_unlock(&server_connect_lock);
+
+	if (!exports) {
+		__show_actual_str(rot->parent_path,
+				  "exports",
+				  "(none)",
+				  NULL);
+		return;
+	}
+	__show_actual_str(rot->parent_path,
+			  "exports",
+			  exports,
+			  NULL);
+	brick_string_free(exports);
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 typedef int (*copy_update_fn)(struct mars_brick *copy, bool switch_on, void *private);
@@ -5553,7 +5608,7 @@ int make_log_finalize(struct mars_dent *dent)
 	rot->retry_recovery = 0;
 
  skip_retry_recovery:
-	__show_actual(parent->d_path, "replay-code", rot->replay_code);
+	_show_logger(rot);
 
 	/* Stopping is also possible in case of errors
 	 */
@@ -5589,7 +5644,7 @@ int make_log_finalize(struct mars_dent *dent)
 		} else {
 			_change_trans(rot);
 		}
-		goto done;
+		_show_logger(rot);
 	}
 
 	/* Starting is only possible when no error occurred.
