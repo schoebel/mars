@@ -37,6 +37,8 @@
 #include "mars_bio.h"
 #include "mars_aio.h"
 #include "mars_sio.h"
+#include "mars_if.h"
+#include "mars_trans_logger.h"
 
 #define RESOURCE_PREFIX "/mars/resource-"
 #define RESOURCE_PREFIX_LEN (sizeof(RESOURCE_PREFIX - 1))
@@ -70,7 +72,8 @@ static struct server_cookie server_cookie[MARS_TRAFFIC_MAX] = {
 static struct task_struct *server_thread[MARS_TRAFFIC_MAX] = {};
 
 atomic_t server_handler_count = ATOMIC_INIT(0);
-EXPORT_SYMBOL_GPL(server_handler_count);
+
+DEFINE_MUTEX(server_connect_lock);
 
 ///////////////////////// own helper functions ////////////////////////
 
@@ -362,6 +365,156 @@ int _set_server_bio_params(struct mars_brick *_brick, void *private)
 	bio_brick->do_unplug = true;
 	MARS_INF("path = '%s'\n", _brick->brick_path);
 	return 1;
+}
+
+#define EXPORT_MARKER "/export-"
+#define LOGGER_MARKER "/logger-"
+
+static
+int check_export_permissions(char *reduce_path, char **peer)
+{
+	char *tmp = NULL;
+	char *pos;
+	const char *attach_path = NULL;
+	const char *attach = NULL;
+	const char *export_path = NULL;
+	const char *exports = NULL;
+	int res;
+
+	if (!reduce_path) {
+		MARS_DBG("empty reduce_path\n");
+		return -ENOENT;
+	}
+
+	pos = strstr(reduce_path, EXPORT_MARKER);
+	if (pos) {
+		/* Side effect on reduce_path, hence the name */
+		*pos = '\0';
+		*peer = brick_strdup(pos + strlen(EXPORT_MARKER));
+	}
+	tmp = brick_strdup(reduce_path);
+	pos = strstr(tmp, LOGGER_MARKER);
+	if (pos)
+		*pos = '\0';
+	res = -ENOENT;
+	if (!*peer) {
+		MARS_DBG("unknown peer, reduce_path='%s'\n",
+			 reduce_path);
+		goto done;
+	}
+
+	/* Check attach switch
+	 */
+	attach_path = path_make("%s/todo-%s/attach",
+				tmp, my_id());
+	attach = ordered_readlink(attach_path, NULL);
+	res = (attach && attach[0] != '0') ? 0 : -EAGAIN;
+	if (res) {
+		MARS_DBG("attach='%s' for reduce_path='%s' peer='%s'\n",
+			 attach, reduce_path, *peer);
+		goto done;
+	}
+
+	export_path = path_make("%s/todo-%s/exports",
+				tmp, my_id());
+	exports = ordered_readlink(export_path, NULL);
+	MARS_DBG("exports='%s' for reduce_path='%s' peer='%s'\n",
+		 exports, reduce_path, *peer);
+	/* For backwards compatiblity, treat absent exports link as permitted.
+	 * This may be tightened later.
+	 */
+	res = 0;
+	if (!exports || !exports[0]) {
+		MARS_DBG("empty exports for reduce_path='%s' peer='%s'\n",
+			 reduce_path, *peer);
+		goto done;
+	}
+
+	if (!is_host_in(*peer, exports)) {
+		MARS_DBG("failing exports='%s' for reduce_path='%s' peer='%s'\n",
+			 exports, reduce_path, *peer);
+		res = -EPERM;
+	}
+
+ done:
+	brick_string_free(tmp);
+	brick_string_free(attach_path);
+	brick_string_free(attach);
+	brick_string_free(export_path);
+	brick_string_free(exports);
+	return res;
+}
+
+/* This must be called under server_connect_lock */
+static
+bool check_multi_prosumer(struct trans_logger_brick *logger,
+			  const char *peer)
+{
+	struct trans_logger_output *output;
+	struct list_head *tmp;
+	char *resource_path = brick_strdup(logger->resource_name);
+	char *pos;
+	const char *multi_path = NULL;
+	const char *multi = NULL;
+	int others_allowed = 0;
+	int nr_others = 0;
+	bool fail = true;
+
+	pos = strstr(resource_path, LOGGER_MARKER);
+	if (pos)
+		*pos = '\0';
+
+	multi_path = path_make("%s/todo-%s/multi-prosumer",
+			       resource_path, my_id());
+	multi = ordered_readlink(multi_path, NULL);
+	if (!multi)
+		goto done;
+	sscanf(multi, "%d", &others_allowed);
+	MARS_DBG("resource='%s' multi_path='%s' multi='%s' others_allowed=%d\n",
+		 resource_path, multi_path, multi,
+		 others_allowed);
+	fail = false;
+	if (others_allowed)
+		goto done;
+
+	/* Check dynamic connections, disallow parallel ones.
+	 */
+	output = logger->outputs[0];
+	for (tmp = output->output_head.next;
+	     tmp != &output->output_head;
+	     tmp = tmp->next) {
+		struct mars_input *input;
+		struct mars_brick *brick;
+
+		input = container_of(tmp, struct mars_input, input_head);
+		brick = input->brick;
+		if (unlikely(!brick || !brick->type || !brick->resource_name))
+			continue;
+
+		MARS_DBG("other='%s' type='%s'\n",
+			 brick->resource_name,
+			 brick->type->type_name);
+
+		/* Always allow when another connection from the _same_
+		 * client already exists.
+		 */
+		if (!strcmp(brick->resource_name, peer))
+			goto done;
+
+		/* any local device does also count */
+		if (brick->type == (const struct mars_brick_type *)&server_brick_type ||
+		    (brick->type == (const struct mars_brick_type *)&if_brick_type &&
+		     strcmp(peer, my_id())))
+			nr_others++;
+	}
+	MARS_DBG("nr_others=%d\n", nr_others);
+	fail = (nr_others > 0);
+
+ done:
+	brick_string_free(resource_path);
+	brick_string_free(multi_path);
+	brick_string_free(multi);
+	return fail;
 }
 
 static
@@ -656,6 +809,88 @@ int handler_thread(void *data)
 			status = 0;
 			break;
 		}
+		case CMD_CONNECT_LOGGER:
+		{
+			struct mars_global *global = mars_global;
+			struct trans_logger_brick *prev;
+			const char *path = cmd.cmd_str1;
+			char *reduce_path = brick_strdup(path);
+			char *peer = NULL;
+
+			status = check_export_permissions(reduce_path, &peer);
+			if (status < 0) {
+				MARS_WRN("no export permission '%s' status=%d\n",
+					 path, status);
+				goto leave;
+			} else if (!peer) {
+				status = -EINVAL;
+				goto leave;
+			} else if (status) {
+				/* no attach */
+				status = -EAGAIN;
+				goto leave;
+			}
+
+			mutex_lock(&server_connect_lock);
+
+			prev = (void *)
+			  mars_find_brick(global,
+					  (const struct generic_brick_type *)&trans_logger_brick_type,
+					  reduce_path);
+			status = -ENOENT;
+			if (!prev) {
+				MARS_WRN("not found '%s'\n", path);
+				goto unlock;
+			}
+			if (prev->killme) {
+				MARS_WRN("dead '%s'\n", path);
+				goto unlock;
+			}
+			status = -EBUSY;
+			if (!prev->power.led_on) {
+				MARS_WRN("not working '%s'\n", path);
+				goto unlock;
+			}
+			if (prev->replay_mode) {
+				MARS_WRN("not primary '%s'\n", path);
+				goto unlock;
+			}
+
+			status = -EISCONN;
+			if (check_multi_prosumer(prev, peer)) {
+				MARS_WRN("already in use '%s'\n", path);
+				goto unlock;
+			}
+
+			brick_string_free(brick->resource_path);
+			brick->resource_path = reduce_path;
+			reduce_path = NULL;
+
+			status = generic_connect((void*)brick->inputs[0], (void*)prev->outputs[0]);
+			if (unlikely(status < 0)) {
+				MARS_ERR("#%d cannot connect to '%s'\n", sock->s_debug_nr, path);
+			}
+			brick->conn_brick = (void *)prev;
+			if (peer) {
+				brick_string_free(brick->resource_name);
+				brick->resource_name = brick_strdup(peer);
+			}
+
+		unlock:
+			mutex_unlock(&server_connect_lock);
+
+		leave:
+			brick_string_free(reduce_path);
+			brick_string_free(peer);
+			if (status < 0) {
+				cmd.cmd_int1 = status;
+				down(&brick->socket_sem);
+				status = mars_send_cmd(sock, &cmd, false);
+				old_proto_level = sock->s_common_proto_level;
+				up(&brick->socket_sem);
+			}
+			break;
+		}
 		default:
 			MARS_ERR("#%d unknown command %d\n", sock->s_debug_nr, cmd.cmd_code);
 		}
@@ -770,6 +1005,7 @@ static int server_switch(struct server_brick *brick)
 		// do this only after _both_ threads have stopped...
 		_clean_list(brick, &brick->cb_read_list);
 		_clean_list(brick, &brick->cb_write_list);
+		brick_string_free(brick->resource_path);
 
 		mars_power_led_off((void*)brick, true);
 	}

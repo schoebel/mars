@@ -88,6 +88,8 @@ extern char *my_id(void);
 extern int   my_id_len(void);
 extern const char *my_uuid;
 
+extern bool is_host_in(const char *host, const char *id_spec);
+
 extern void wait_main_round(void);
 extern void launch_peer(const char *peer_name,
 			const char *peer_ip,

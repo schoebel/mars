@@ -75,6 +75,32 @@ int my_id_len(void)
 	return id_len;
 }
 
+/* Check whether host is in a "+"-separated name list
+ */
+bool is_host_in(const char *host, const char *id_spec)
+{
+	for (;;) {
+		const char *ptr = host;
+
+		for (;;) {
+			char a = *ptr++;
+			char b = *id_spec++;
+
+			if (!a) {
+				if (!b || b == '+')
+					return true;
+			} else if (a == b) {
+				continue;
+			}
+			while (b && b != '+')
+				b = *id_spec++;
+			if (!b)
+				return false;
+			break;
+		}
+	}
+}
+
 //////////////////////////////////////////////////////////////
 
 // object stuff

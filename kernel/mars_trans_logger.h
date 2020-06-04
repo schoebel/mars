@@ -36,6 +36,7 @@
 #include "lib_queue.h"
 #include "lib_timing.h"
 #include "lib_rank.h"
+#include "lib_limiter.h"
 
 #ifdef CONFIG_MARS_DEBUG
 #define ADDITIONAL_COUNTERS

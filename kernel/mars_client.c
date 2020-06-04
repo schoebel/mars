@@ -244,10 +244,10 @@ void _maintain_bundle(struct client_bundle *bundle, bool keep_idle_sockets)
 }
 
 static
-int _request_connect(struct client_channel *ch, const char *path)
+int _request_connect(struct client_channel *ch, int code, const char *path)
 {
 	struct mars_cmd cmd = {
-		.cmd_code = CMD_CONNECT,
+		.cmd_code = code,
 		.cmd_str1 = path,
 	};
 	int status;
@@ -353,9 +353,13 @@ struct client_channel *_get_channel(struct client_bundle *bundle,
 	 */
 	if (unlikely(!res->is_connected)) {
 		struct client_output *output = res->output;
+		int code = CMD_CONNECT;
 		int status;
 
-		status = _request_connect(res, bundle->path);
+		if (strstr(bundle->path, "/logger-"))
+			code = CMD_CONNECT_LOGGER;
+
+		status = _request_connect(res, code, bundle->path);
 		if (unlikely(status < 0)) {
 			MARS_WRN("connect '%s' @%s on channel %d failed, status = %d\n",
 				 bundle->path,

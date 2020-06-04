@@ -37,6 +37,7 @@ extern int dent_retry;
 extern int handler_limit;
 
 extern atomic_t server_handler_count;
+extern struct mutex server_connect_lock;
 
 struct server_mref_aspect {
 	GENERIC_ASPECT(mref);
@@ -64,6 +65,8 @@ struct server_brick {
 	struct mutex cb_mutex;
 	struct list_head cb_read_list;
 	struct list_head cb_write_list;
+	struct lamport_time resource_check_stamp;
+	char *resource_path;
 	atomic_t in_flight;
 	bool cb_running;
 	bool handler_running;

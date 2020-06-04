@@ -124,6 +124,7 @@ enum {
 	CMD_CB,
 	CMD_PUSH_LINK,
 	CMD_PUSH_CHECK,
+	CMD_CONNECT_LOGGER,
 	/* keep last element */
 	CMD_LAST
 };
