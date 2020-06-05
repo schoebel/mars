@@ -877,7 +877,7 @@ static int sender_thread(void *data)
 	bool cork = false;
 	bool old_cork = false;
 	int ch_skip = max_client_bulk;
-	int status = -ESHUTDOWN;
+	int status = -ECONNABORTED;
 
 	if (atomic_inc_return(&sender_count) == 1)
 		mars_limit_reset(&client_limiter);
