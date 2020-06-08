@@ -2554,10 +2554,6 @@ int mars_kill_brick(struct mars_brick *brick)
 		goto done;
 	}
 
-	if (brick->show_status) {
-		brick->show_status(brick, true);
-	}
-
 	// start shutdown
 	set_button_wait((void*)brick, false, true, 0);
 
