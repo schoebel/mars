@@ -1592,31 +1592,16 @@ void _show_primary(struct mars_rotate *rot, struct mars_dent *parent)
 }
 
 static
-void _show_brick_status(struct mars_brick *test, bool shutdown)
+void _show_brick_status(struct mars_brick *brick,
+			const char *path,
+			const char *name)
 {
-	const char *path;
-	char *src;
-	char *dst;
-	int status;
-	path = test->brick_path;
-	if (!path) {
-		MARS_WRN("bad path\n");
-		return;
-	}
-	if (*path != '/') {
-		MARS_WRN("bogus path '%s'\n", path);
-		return;
-	}
+	const char *new_name;
 
-	src = (test->power.led_on && !shutdown) ? "1" : "0";
-	dst = backskip_replace(path, '/', true, "/actual-%s/", my_id());
-	if (!dst) {
-		return;
-	}
-
-	status = ordered_symlink(src, dst, NULL);
-	MARS_DBG("status symlink '%s' -> '%s' status = %d\n", dst, src, status);
-	brick_string_free(dst);
+	new_name = path_make("%s-on", name);
+	_show_actual(path, new_name,
+		     brick ? brick->power.button & brick->power.led_on : false);
+	brick_string_free(new_name);
 }
 
 static
@@ -1776,7 +1761,6 @@ int __make_copy(
 			       cc.fullpath[1]);
 	if (copy) {
 		struct copy_brick *_copy = (void*)copy;
-		copy->show_status = _show_brick_status;
 		make_msg(msg_pair,
 			 "from = '%s' to = '%s'"
 			 " on = %d start_pos = %lld end_pos = %lld"
@@ -4864,6 +4848,7 @@ void _show_dev(struct mars_rotate *rot)
 			      if_brick->error_code);
 		open_count = atomic_read(&if_brick->open_count);
 	}
+	_show_brick_status((void *)if_brick, rot->parent_path, "if");
 	__show_actual(rot->parent_path, "open-count", open_count);
 
 	if (open_count != rot->old_open_count) {
@@ -4949,7 +4934,6 @@ int make_dev(void *buf, struct mars_dent *dent)
 		dev_brick->killme = true;
 	}
 	dev_brick->kill_ptr = (void**)&rot->if_brick;
-	dev_brick->show_status = _show_brick_status;
 
 done:
 	_show_dev(rot);
