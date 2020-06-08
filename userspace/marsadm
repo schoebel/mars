@@ -174,6 +174,50 @@ my $kernel_flags_version = ~0x0;
 
 ##################################################################
 
+# general helpers
+
+sub _device_name {
+  my ($res, $peer) = @_;
+  $peer = $host unless defined($peer);
+  my $name = get_link("$mars/resource-$res/device-$peer", 1);
+  $name = $res unless $name;
+  return $name;
+}
+
+sub device_name {
+  my $name = _device_name(@_);
+  $name = "/dev/mars/$name" if (defined($name) && $name);
+  return $name;
+}
+
+sub device_exists {
+  my ($res, $peer) = @_;
+  $peer = $host unless defined($peer);
+  my $lnk = "$mars/resource-$res/actual-$peer/if-on";
+  my $val = get_link($lnk, 2);
+  # backwards compatibility to old kernels
+  my $lnk_old = "$mars/resource-$res/actual-$peer/device-$peer";
+  my $val_old = get_link($lnk, 2);
+  if (defined($val_old) && $val_old ne "" &&
+      (!defined($val) || $val eq "" ||
+       get_link_stamp($lnk_old) > get_link_stamp($lnk))) {
+    $val = $val_old;
+  }
+  if (!defined($val) || $val eq "") {
+    # Fallback to local device
+    my $name = device_name($res, $peer);
+    if ($peer eq $real_host) {
+      lwarn "Falling back to local device detection $name for $peer\n";
+      $val = (-b $name) ? 1 : 0;
+    } else {
+      lwarn "Cannot determine device presence for $peer\n";
+    }
+  }
+  return $val;
+}
+
+##################################################################
+
 # ssh helpers
 
 my %ssh_ips;
@@ -915,8 +959,8 @@ sub systemd_activate {
     lprint "Overriding unit activate=$do_activate with $override\n" if $verbose;
     $do_activate = $override;
   }
-  my $dev = "/dev/mars/$res";
-  if ($do_activate && ! -b $dev) {
+  if ($do_activate && !device_exists($res)) {
+    my $dev = device_name($res);
     lprint "Device $dev not present, cannot activate systemd unit\n" if $verbose;
     $do_activate = 0;
   }
@@ -1824,9 +1868,7 @@ sub check_primary {
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
   my $is_primary = get_link($lnk, 1);
   if (!$is_primary) { # give it a second chance
-    my $name = get_link("$mars/resource-$res/device-$host", 1);
-    my $dev = "/dev/mars/$name";
-    $is_primary = 1 if -b $dev;
+    $is_primary = device_exists($res);
   }
   unless ($is_primary) {
     lwarn "For operation '$cmd' I need to be primary\n";
@@ -1976,12 +2018,11 @@ sub check_status {
 
 sub check_mars_device {
   my ($cmd, $res, $wait, $inv) = @_;
-  my $name = get_link("$mars/resource-$res/device-$host", $inv);
-  my $dev = "/dev/mars/$name";
+  my $dev = device_name($res);
   my $backoff = 1;
   my $round = 0;
   if ($inv) {
-    while (-b $dev) {
+    while (device_exists($res)) {
       ldie "cannot execute $cmd: device '$dev' has not yet disappeared\n" if !$wait;
       lwarn "device '$dev' has not yet disappeared\n";
       sleep_timeout($backoff);
@@ -1992,13 +2033,13 @@ sub check_mars_device {
       }
       systemd_activate($cmd, $res, 0, 1);
     }
-    lprint "device '$dev' is no longer present\n" unless -b $dev;
+    lprint "device '$dev' is no longer present\n" unless device_exists($res);
     return;
   }
   # !$inv
   my $primary = _get_designated_primary($res);
   ldie "for operation '$cmd', I should be the designated primary\n" unless $primary eq $host;
-  while (! -e $dev) {
+  while (!device_exists($res)) {
     my $text = get_error_text($cmd, $res);
     lprint $text if $text;
     ldie "aborting due to errors\n" if $text =~ m/error/mi;
@@ -2011,7 +2052,7 @@ sub check_mars_device {
       $backoff++;
     }
   }
-  lprint "device '$dev' is present\n" if -b $dev;
+  lprint "device '$dev' is present\n" if device_exists($res);
 }
 
 sub check_userspace {
@@ -2665,9 +2706,7 @@ sub _get_actual_primary {
   # This tries to workaround the most important special case of
   # split-brain situations, but cannot fix the problem exhaustively.
   llog "DEPRECATED: you are trying to uniquely identify an actual primary hostname (as seen from host $host resource $res), but this is conceptually wrong because in split-brain situations there may exist multiple ones. Use view-is-primary instead. That would be safe.\n";
-  my $name = get_link("$mars/resource-$res/device-$real_host", 1);
-  my $dev = "/dev/mars/$name";
-  return $real_host if -b $dev;
+  return $host if device_exists($res);
   # The following old code is CONCEPTUALLY WRONG for split-brain situations (see NOTE above)
   my @primary_links = lamport_glob("$mars/resource-$res/actual-*/is-primary");
   my $primary;
@@ -3347,9 +3386,11 @@ sub create_res {
       my $old_name = get_link($old_dev);
       if ($old_name eq $appear) {
 	if (link_exists("$mars/resource-$old_res/data-$host")) {
-	  ldie "device '/dev/mars/$old_name' is already present in joined resource '$old_res'\n";
+	  ldie "Device name '/dev/mars/$old_name' already exists at resource '$old_res'\n";
 	} else {
-	  lwarn "device '/dev/mars/$old_name' is already present in another unjoined resource '$old_res' -- this does no harm, but may be confusing.\n";
+	  lwarn "Device name '/dev/mars/$old_name' already exists in another resource '$old_res'.\n";
+	  lwarn "This does no harm, but may be confusing.\n";
+	  lwarn "Please name your devices equal to the resource names by convention.\n";
 	}
       }
     }
@@ -3423,6 +3464,7 @@ sub create_res {
   mkdir("$resdir/defaults-$host");
   mkdir("$resdir/local-$host");
   mkdir("$resdir/actual-$host");
+  set_link("0", "$resdir/actual-$host/if-on");
   my $todo = "$resdir/todo-$host";
   mkdir($todo);
   set_link("0", "$todo/attach");
@@ -3975,8 +4017,7 @@ sub attach_res_phase0 {
 	systemd_activate($cmd, $res, 0, 1);
 	return;
       }
-      my $name = get_link("$mars/resource-$res/device-$host");
-      my $dev = "/dev/mars/$name";
+      my $dev = device_name($res);
       ldie "device '$dev' is in use\n";
     }
   }
@@ -4222,8 +4263,8 @@ sub primary_phase0 {
   my $open_count_path = "$mars/resource-$res/actual-$old/open-count";
   my $device_in_use = get_link($open_count_path, 1);
   if ($device_in_use) {
-    my $name = get_link("$mars/resource-$res/device-$old", 1) || "unknown";
-    lwarn "device '/dev/mars/$name' for resource '$res' is $device_in_use times in use on primary host '$old'\n";
+    my $dev = device_name($res, $old);
+    lwarn "device '$dev' for resource '$res' is $device_in_use times in use on primary host '$old'\n";
     ldie "first you must umount/close the device (on host '$old')\n" unless $force;
     lwarn "First you SHOULD umount/close the device (on host '$old'), but you ignore this recommendation by giving the --force option.\n";
     if (is_link_recent($open_count_path)) {
@@ -5331,26 +5372,24 @@ sub eval_fn {
       }
       return 1;
     }
-    if (/^get[-_]?(disk|device)$/) {
-      my $what = $1;
-      $what = "data" if $what eq "disk";
-      my $lnk = $$env{"resdir"} . "/$what-" . $$env{"host"};
+    if (/^get[-_]?disk$/) {
+      my $lnk = $$env{"resdir"} . "/data-" . $$env{"host"};
       my $result = get_link($lnk, 1);
       $result = "" unless defined($result);
-      $result = "/dev/mars/$result" if ($what eq "device" && $result !~ m:^/:);
       return $result;
     }
-    if (/^(disk|device)[-_]?present$/) {
-      my $what = $1;
-      $what = "data" if $what eq "disk";
-      my $lnk = $$env{"resdir"} . "/$what-" . $$env{"host"};
+    if (/^get[-_]?device$/) {
+      my $result = device_name($$env{"res"}, $$env{"host"});
+      return $result;
+    }
+    if (/^disk[-_]?present$/) {
+      my $lnk = $$env{"resdir"} . "/data-" . $$env{"host"};
       my $result = get_link($lnk, 1);
       $result = "" unless defined($result);
-      $result = "/dev/mars/$result" if ($what eq "device" && $result !~ m:^/:);
-      if ($result) {
-	$result = -b $result;
-	$result = "0" unless defined($result);
-      }
+      return $result;
+    }
+    if (/^device[-_]?present$/) {
+      my $result = device_exists($$env{"res"}, $$env{"host"});
       return $result;
     }
     # deprecated (irregular names)
