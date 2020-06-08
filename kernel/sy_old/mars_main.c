@@ -1620,23 +1620,6 @@ void _show_brick_status(struct mars_brick *test, bool shutdown)
 }
 
 static
-void _show_status_all(struct mars_global *global)
-{
-	struct list_head *tmp;
-	
-	down_read(&global->brick_mutex);
-	for (tmp = global->brick_anchor.next; tmp != &global->brick_anchor; tmp = tmp->next) {
-		struct mars_brick *test;
-		
-		test = container_of(tmp, struct mars_brick, global_brick_link);
-		if (!test->show_status)
-			continue;
-		_show_brick_status(test, false);
-	}
-	up_read(&global->brick_mutex);
-}
-
-static
 void _show_rate(struct mars_rotate *rot, struct mars_limiter *limiter, const char *basename)
 {
 	char *name;
@@ -6580,7 +6563,6 @@ static int _main_thread(void *data)
 		}
 
 		global_sync_nr = _global_sync_nr;
-		_show_status_all(mars_global);
 		show_vals(gbl_pairs, "/mars", "");
 		show_statistics(mars_global, "main");
 		show_peers();
@@ -6610,7 +6592,6 @@ done:
 	mars_free_dent_all(mars_global, &mars_global->dent_anchor);
 	mars_kill_brick_all(mars_global, &mars_global->brick_anchor, false);
 
-	_show_status_all(mars_global);
 	show_vals(gbl_pairs, "/mars", "");
 	show_statistics(mars_global, "main");
 
