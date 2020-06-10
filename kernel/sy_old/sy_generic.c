@@ -2941,9 +2941,10 @@ struct mars_brick *make_brick_all(
 		// just switch the power state
 		MARS_DBG("found existing brick '%s'\n", new_path);
 		// highest general override
-		if (mars_check_outputs(brick)) {
-			if (!switch_state)
-				MARS_DBG("brick '%s' override 0 -> 1\n", new_path);
+		if (!switch_state &&
+		    brick->power.button &&
+		    mars_check_outputs(brick)) {
+			MARS_DBG("KEEP '%s' override 0 -> 1\n", new_path);
 			switch_state = true;
 		}
 		goto do_switch;
