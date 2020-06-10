@@ -4787,7 +4787,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 			       dent->d_path,
 			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
-			       switch_on ? 2 : -1,
+			       rot->trans_brick || switch_on ? 2 : -1,
 			       dent->d_path,
 			       (const char *[]){},
 			       0);
