@@ -2978,8 +2978,9 @@ struct mars_brick *make_brick_all(
 		}
 		MARS_DBG("------> predecessor %d path = '%s'\n", i, path);
 		if (!prev[i]->power.led_on) {
-			switch_state = false;
 			MARS_DBG("predecessor power is not on\n");
+			if (!brick || !brick->power.button)
+				switch_state = false;
 		}
 	}
 
