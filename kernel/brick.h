@@ -50,7 +50,7 @@
 
 #define brick_msleep(msecs) _brick_msleep(msecs, false)
 extern int _brick_msleep(int msecs, bool shorten);
-#define brick_yield() brick_msleep(0)
+#define brick_yield() cond_resched()
 
 /////////////////////////////////////////////////////////////////////////
 

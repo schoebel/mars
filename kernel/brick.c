@@ -38,7 +38,7 @@ int _brick_msleep(int msecs, bool shorten)
 	unsigned long timeout;
 	flush_signals(current);
 	if (msecs <= 0) {
-		cond_resched();
+		brick_yield();
 		return 0;
 	}
 	timeout = msecs_to_jiffies(msecs) + 1;

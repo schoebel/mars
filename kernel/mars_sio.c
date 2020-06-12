@@ -151,7 +151,7 @@ static int transfer_none(int cmd,
 	else
 		memcpy(raw_buf, loop_buf, size);
 
-	cond_resched();
+	brick_yield();
 	return 0;
 }
 #endif
