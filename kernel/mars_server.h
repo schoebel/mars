@@ -65,7 +65,6 @@ struct server_brick {
 	struct list_head cb_read_list;
 	struct list_head cb_write_list;
 	atomic_t in_flight;
-	int version;
 	bool cb_running;
 	bool handler_running;
 };

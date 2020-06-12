@@ -45,6 +45,8 @@
 struct server_cookie {
 	struct mars_socket server_socket;
 	struct mars_tcp_params *server_params;
+	int port_nr;
+	int thread_nr;
 };
 
 static struct server_cookie server_cookie[MARS_TRAFFIC_MAX] = {
@@ -365,6 +367,7 @@ int handler_thread(void *data)
 	struct mars_global *handler_global = alloc_mars_global();
 	struct task_struct *thread = NULL;
 	struct server_brick *brick = data;
+	char *cb_name;
 	struct mars_socket *sock = &brick->handler_socket;
 	bool ok = mars_get_socket(sock);
 	unsigned long statist_jiffies = jiffies;
@@ -375,8 +378,14 @@ int handler_thread(void *data)
 	MARS_DBG("#%d --------------- handler_thread starting on socket %p\n", sock->s_debug_nr, sock);
 	if (!ok)
 		goto done;
-	
-	thread = brick_thread_create(cb_thread, brick, "mars_cb%d", brick->version);
+
+	cb_name = brick_strdup(brick->brick_path);
+	/* naming convention: mars_c instead of mars_h */
+	cb_name[5] = 'c';
+	thread = brick_thread_create(cb_thread,
+				     brick,
+				     cb_name);
+	brick_string_free(cb_name);
 	if (unlikely(!thread)) {
 		MARS_ERR("cannot create cb thread\n");
 		status = -ENOENT;
@@ -640,7 +649,6 @@ static int server_switch(struct server_brick *brick)
 	int status = 0;
 
 	if (brick->power.button) {
-		static int version = 0;
 		bool ok;
 
 		if (brick->power.led_on)
@@ -654,8 +662,10 @@ static int server_switch(struct server_brick *brick)
 
 		mars_power_led_off((void*)brick, false);
 
-		brick->version = version++;
-		brick->handler_thread = brick_thread_create(handler_thread, brick, "mars_handler%d", brick->version);
+		brick->handler_thread =
+			brick_thread_create(handler_thread,
+					    brick,
+					    brick->brick_path);
 		if (unlikely(!brick->handler_thread)) {
 			MARS_ERR("cannot create handler thread\n");
 			status = -ENOENT;
@@ -819,7 +829,7 @@ EXPORT_SYMBOL_GPL(server_brick_type);
 int server_show_statist = 0;
 EXPORT_SYMBOL_GPL(server_show_statist);
 
-static int _server_thread(void *data)
+static int port_thread(void *data)
 {
 	struct mars_global *server_global = alloc_mars_global();
 	struct server_cookie *cookie = data;
@@ -828,7 +838,8 @@ static int _server_thread(void *data)
 	char *id = my_id();
 	int status = 0;
 
-	MARS_INF("-------- server starting on host '%s' ----------\n", id);
+	MARS_INF("-------- port %d thread starting on host '%s' ----------\n",
+		 cookie->port_nr, id);
 
         while (!brick_thread_should_stop() &&
 	      (!mars_global || !mars_global->global_power.button)) {
@@ -836,10 +847,13 @@ static int _server_thread(void *data)
 		brick_msleep(5000);
 	}
 
-	MARS_INF("-------- server now working on host '%s' ----------\n", id);
+	MARS_INF("-------- port %d thread now working on host '%s' ----------\n",
+		 cookie->port_nr, id);
 
-        while (!brick_thread_should_stop() || !list_empty(&server_global->brick_anchor)) {
+        while (!brick_thread_should_stop() ||
+	       !list_empty(&server_global->brick_anchor)) {
 		struct server_brick *brick = NULL;
+		const char *ini_path;
 		struct mars_socket handler_socket = {};
 
 		change_sem(&handler_limit_sem, &handler_limit, &handler_nr);
@@ -863,26 +877,32 @@ static int _server_thread(void *data)
 		status = mars_accept_socket(&handler_socket,
 					    my_socket,
 					    my_params);
-		if (unlikely(status < 0 || !mars_socket_is_alive(&handler_socket))) {
+		if (unlikely(status < 0 ||
+			     !mars_socket_is_alive(&handler_socket))) {
 			brick_msleep(500);
 			if (status == -EAGAIN)
 				continue; // without error message
 			MARS_WRN("accept status = %d\n", status);
-			brick_msleep(1000);
+			brick_msleep(100);
 			continue;
 		}
 		handler_socket.s_shutdown_on_err = true;
 
 		MARS_DBG("got new connection #%d\n", handler_socket.s_debug_nr);
 
+		ini_path = path_make("mars_h:%d.%d",
+				     cookie->port_nr,
+				     ++cookie->thread_nr);
 		brick = (void*)mars_make_brick(server_global, NULL,
 					       &server_brick_type,
-					       "handler", "handler");
+					       "(none)",
+					       ini_path);
+		brick_string_free(ini_path);
 		if (!brick) {
 			MARS_ERR("cannot create server instance\n");
 			mars_shutdown_socket(&handler_socket);
 			mars_put_socket(&handler_socket);
-			brick_msleep(2000);
+			brick_msleep(500);
 			continue;
 		}
 		memcpy(&brick->handler_socket, &handler_socket, sizeof(struct mars_socket));
@@ -929,7 +949,8 @@ static int _server_thread(void *data)
 
 	//cleanup_mm();
 
-	MARS_INF("-------- done status = %d ----------\n", status);
+	MARS_INF("-------- port %d thread done status = %d ----------\n",
+		 cookie->port_nr, status);
 	brick_mem_free(server_global);
 	return status;
 }
@@ -967,9 +988,11 @@ int __init init_mars_server(void)
 	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
 		struct sockaddr_storage sockaddr = {};
 		char tmp[16];
+		int port_nr = mars_net_default_port + i;
 		int status;
 
-		sprintf(tmp, ":%d", mars_net_default_port + i);
+		server_cookie[i].port_nr = port_nr;
+		sprintf(tmp, ":%d", port_nr);
 		status = mars_create_sockaddr(&sockaddr, tmp);
 		if (unlikely(status < 0)) {
 			exit_mars_server();
@@ -981,14 +1004,16 @@ int __init init_mars_server(void)
 					    server_cookie[i].server_params,
 					    true);
 		if (unlikely(status < 0)) {
-			MARS_ERR("could not create server socket %d, status = %d\n", i, status);
+			MARS_ERR("could not create server socket port=%d, status = %d\n",
+				 port_nr, status);
 			exit_mars_server();
 			return status;
 		}
 
-		server_thread[i] = brick_thread_create(_server_thread,
+		server_thread[i] = brick_thread_create(port_thread,
 						       &server_cookie[i],
-						       "mars_server_%d", i);
+						       "mars_port:%d",
+						       port_nr);
 		if (unlikely(!server_thread[i] || IS_ERR(server_thread[i]))) {
 			MARS_ERR("could not create server thread %d\n", i);
 			exit_mars_server();
