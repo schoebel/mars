@@ -7969,6 +7969,9 @@ sub do_all_res {
     }
     call_hook(!$force, "all-post", $cmd, "all", @_);
     return !$any_success;
+  } elsif ($res eq "all") {
+    lwarn "resource qualifier 'all' does not match any resource names\n";
+    return 0;
   } else {
     return do_one_res($func, $cmd, $res, @_);
   }
