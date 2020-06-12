@@ -61,7 +61,7 @@ struct server_brick {
 	struct task_struct *cb_thread;
 	wait_queue_head_t startup_event;
 	wait_queue_head_t cb_event;
-	spinlock_t cb_lock;
+	struct mutex cb_mutex;
 	struct list_head cb_read_list;
 	struct list_head cb_write_list;
 	atomic_t in_flight;

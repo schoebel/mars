@@ -115,7 +115,6 @@ int cb_thread(void *data)
 		struct mref_object *mref;
 		struct list_head *tmp;
 		bool cork;
-		unsigned long flags;
 		
 		wait_event_interruptible_timeout(
 			brick->cb_event,
@@ -123,19 +122,19 @@ int cb_thread(void *data)
 			!list_empty(&brick->cb_write_list),
 			1 * HZ);
 
-		traced_lock(&brick->cb_lock, flags);
+		mutex_lock(&brick->cb_mutex);
 		tmp = brick->cb_write_list.next;
 		if (tmp == &brick->cb_write_list) {
 			tmp = brick->cb_read_list.next;
 			if (tmp == &brick->cb_read_list) {
-				traced_unlock(&brick->cb_lock, flags);
-				brick_msleep(1000 / HZ);
+				mutex_unlock(&brick->cb_mutex);
+				brick_yield();
 				continue;
 			}
 		}
 		list_del_init(tmp);
 		cork = !list_empty(&brick->cb_write_list);
-		traced_unlock(&brick->cb_lock, flags);
+		mutex_unlock(&brick->cb_mutex);
 
 		mref_a = container_of(tmp, struct server_mref_aspect, cb_head);
 		mref = mref_a->object;
@@ -196,7 +195,6 @@ void server_endio(struct generic_callback *cb)
 	struct server_mref_aspect *mref_a;
 	struct mref_object *mref;
 	struct server_brick *brick;
-	unsigned long flags;
 
 	mref_a = cb->cb_private;
 	CHECK_PTR(mref_a, err);
@@ -213,13 +211,13 @@ void server_endio(struct generic_callback *cb)
 		return;
 	}
 
-	traced_lock(&brick->cb_lock, flags);
+	mutex_lock(&brick->cb_mutex);
 	if (mref->ref_flags & MREF_WRITE) {
 		list_add_tail(&mref_a->cb_head, &brick->cb_write_list);
 	} else {
 		list_add_tail(&mref_a->cb_head, &brick->cb_read_list);
 	}
-	traced_unlock(&brick->cb_lock, flags);
+	mutex_unlock(&brick->cb_mutex);
 
 	wake_up_interruptible(&brick->cb_event);
 	return;
@@ -755,7 +753,7 @@ static int server_brick_construct(struct server_brick *brick)
 	init_waitqueue_head(&brick->startup_event);
 	init_waitqueue_head(&brick->cb_event);
 	sema_init(&brick->socket_sem, 1);
-	spin_lock_init(&brick->cb_lock);
+	mutex_init(&brick->cb_mutex);
 	INIT_LIST_HEAD(&brick->cb_read_list);
 	INIT_LIST_HEAD(&brick->cb_write_list);
 	return 0;
