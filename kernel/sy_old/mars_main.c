@@ -1524,7 +1524,7 @@ void write_info_links(struct mars_rotate *rot)
 		if (rot->current_inf.inf_min_pos == rot->current_inf.inf_max_pos)
 			mars_trigger();
 		if (rot->todo_primary | rot->is_primary | rot->old_is_primary)
-			mars_remote_trigger();
+			mars_remote_trigger(MARS_TRIGGER_TO_REMOTE);
 	}
 }
 
@@ -1560,6 +1560,8 @@ void _make_new_replaylink(struct mars_rotate *rot, char *new_host, int new_seque
 		.inf_log_pos = end_pos,
 		.inf_is_replaying = true,
 	};
+	int code = MARS_TRIGGER_LOCAL;
+
 	strncpy(inf.inf_host, new_host, sizeof(inf.inf_host));
 
 	MARS_DBG("new_host = '%s' new_sequence = %d end_pos = %lld\n", new_host, new_sequence, end_pos);
@@ -1567,9 +1569,9 @@ void _make_new_replaylink(struct mars_rotate *rot, char *new_host, int new_seque
 	_update_replay_link(rot, &inf);
 	_update_version_link(rot, &inf, false);
 
-	mars_trigger();
 	if (rot->todo_primary | rot->is_primary | rot->old_is_primary)
-		mars_remote_trigger();
+		code |= MARS_TRIGGER_TO_REMOTE;
+	mars_remote_trigger(code);
 }
 
 static
@@ -1610,8 +1612,7 @@ void _show_primary(struct mars_rotate *rot, struct mars_dent *parent)
 	status = _show_actual(parent->d_path, "is-primary", rot->is_primary);
 	if (rot->is_primary != rot->old_is_primary) {
 		rot->old_is_primary = rot->is_primary;
-		mars_trigger();
-		mars_remote_trigger();
+		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
 	}
 }
 
@@ -2063,8 +2064,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 #endif
 		/* When done, immediately trigger next fetch from peers */
 		if (rot->old_fetch_on && !copy->power.led_on) {
-			from_remote_trigger();
-			mars_trigger();
+			mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE);
 		}
 		rot->old_fetch_on = copy->power.led_on;
 	}
@@ -2698,7 +2698,7 @@ int peer_thread(void *data)
 							 !peer_thead_should_run(peer) ||
 							 (old_additional != peer->do_additional) ||
 							 (old_communicate != peer->do_communicate) ||
-							 (mars_global && mars_global->main_trigger),
+							 (mars_global && !mars_global->global_power.button),
 							 pause_time * HZ);
 		}
 		continue;
@@ -2773,28 +2773,7 @@ void _make_alive(void)
 	__make_alivelink("used-net-compression", used_net_compression, true);
 }
 
-void from_remote_trigger(void)
-{
-	struct list_head *tmp;
-	int count = 0;
-
-	_make_alive();
-
-	down_read(&peer_lock);
-	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
-		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
-		peer->from_remote_trigger = true;
-		count++;
-	}
-	up_read(&peer_lock);
-
-	MARS_DBG("got trigger for %d peers\n", count);
-	wake_up_interruptible_all(&remote_event);
-}
-EXPORT_SYMBOL_GPL(from_remote_trigger);
-
-static
-void __mars_remote_trigger(bool do_all)
+void mars_remote_trigger(int code)
 {
 	struct list_head *tmp;
 	int count = 0;
@@ -2802,36 +2781,27 @@ void __mars_remote_trigger(bool do_all)
 	down_read(&peer_lock);
 	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
 		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
+
 		/* skip some peers when requested */
-		if (!do_all && !peer->do_communicate)
+		if (!(code & (MARS_TRIGGER_TO_REMOTE_ALL | MARS_TRIGGER_FULL)) &&
+		    !peer->do_communicate)
 			continue;
-		peer->to_remote_trigger = true;
+
 		count++;
-	}
-	up_read(&peer_lock);
-
-	MARS_DBG("triggered %d peers\n", count);
-	wake_up_interruptible_all(&remote_event);
-}
-
-static
-void __mars_full_trigger(int mode)
-{
-	struct list_head *tmp;
-	int count = 0;
-
-	down_read(&peer_lock);
-	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
-		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
-
-		if (mode & 8)
+		if (code & MARS_TRIGGER_FULL)
 			peer->do_entire_once = true;
-		count++;
+		if (code & MARS_TRIGGER_FROM_REMOTE)
+			peer->from_remote_trigger = true;
+		if (code & (MARS_TRIGGER_TO_REMOTE | MARS_TRIGGER_TO_REMOTE_ALL))
+			peer->to_remote_trigger = true;
 	}
 	up_read(&peer_lock);
 
-	MARS_DBG("full trigger %d peers\n", count);
+	MARS_DBG("triggered %d peers code=0x%x\n", count, code);
 	wake_up_interruptible_all(&remote_event);
+
+	if (code & MARS_TRIGGER_LOCAL)
+		mars_trigger();
 }
 
 static
@@ -3351,8 +3321,7 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	// report success
 	res = true;
 	MARS_DBG("VERSION OK '%s' -> '%s'\n", own_versionlink_path, own_versionlink);
-	mars_trigger();
-	mars_remote_trigger();
+	mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
 
  done:
 	brick_string_free(old_host);
@@ -4164,8 +4133,7 @@ void _rotate_trans(struct mars_rotate *rot)
 				/* Once again: now the other input should be active */
 				MARS_DBG("update info links\n");
 				write_info_links(rot);
-				mars_trigger();
-				mars_remote_trigger();
+				mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
 			}
 		} else {
 			MARS_DBG("old transaction replay not yet finished: is_operating = %d pos %lld != %lld\n",
@@ -4401,9 +4369,7 @@ int _stop_trans(struct mars_rotate *rot)
 	}
 	MARS_DBG("update info links\n");
 	write_info_links(rot);
-	mars_remote_trigger();
-	from_remote_trigger();
-	mars_trigger();
+	mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE | MARS_TRIGGER_TO_REMOTE);
 
 done:
 	return status;
@@ -4953,7 +4919,7 @@ void _show_dev(struct mars_rotate *rot)
 
 	if (open_count != rot->old_open_count) {
 		rot->old_open_count = open_count;
-		mars_remote_trigger();
+		mars_remote_trigger(MARS_TRIGGER_TO_REMOTE);
 	}
 }
 
@@ -5201,7 +5167,7 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 		/* Give the remote replay position a chance to become
 		 * recent enough.
 		 */
-		mars_remote_trigger();
+		mars_remote_trigger(MARS_TRIGGER_TO_REMOTE);
 		status = -EAGAIN;
 		goto done;
 	}
@@ -5248,7 +5214,7 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 				 peer_replay_path,
 				 peer_time_stat.mtime.tv_sec,
 				 rot->sync_finish_stamp.tv_sec);
-			mars_remote_trigger();
+			mars_remote_trigger(MARS_TRIGGER_TO_REMOTE);
 			status = -EAGAIN;
 			goto done;
 		}
@@ -5701,7 +5667,7 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 		global->deleted_my_border = serial;
 		if (global->deleted_my_border != global->old_deleted_my_border) {
 			global->old_deleted_my_border = global->deleted_my_border;
-			mars_remote_trigger();
+			mars_remote_trigger(MARS_TRIGGER_TO_REMOTE);
 		}
 	}
 
@@ -6667,14 +6633,16 @@ static int _main_thread(void *data)
 		additional_peers(mars_run_additional_peers - mars_running_additional_peers);
 		trigger_mode = mars_global->trigger_mode;
 		mars_global->trigger_mode = 0;
+		/* avoid self-trigger loops */
+		trigger_mode &= ~(MARS_TRIGGER_LOCAL);
 		if (trigger_mode) {
-			__mars_full_trigger(trigger_mode);
+			mars_remote_trigger(trigger_mode);
 		}
 	}
 
 done:
 	MARS_INF("-------- cleaning up ----------\n");
-	mars_remote_trigger();
+	mars_remote_trigger(MARS_TRIGGER_TO_REMOTE);
 	brick_msleep(1000);
 
 	mars_free_dent_all(mars_global, &mars_global->dent_anchor);
@@ -6766,9 +6734,6 @@ static int exit_fn_nr = 0;
 	} while (0)
 
 
-void (*_mars_remote_trigger)(bool do_all);
-EXPORT_SYMBOL_GPL(_mars_remote_trigger);
-
 static void exit_main(void)
 {
 	MARS_DBG("====================== stopping everything...\n");
@@ -6783,7 +6748,6 @@ static void exit_main(void)
 	}
 
 	mars_info = NULL;
-	_mars_remote_trigger = NULL;
 
 	while (exit_fn_nr > 0) {
 		MARS_DBG("=== stopping module %s ...\n", exit_names[exit_fn_nr - 1]);
@@ -6881,7 +6845,6 @@ done:
 		MARS_ERR("module init failed with status = %d, exiting.\n", status);
 		exit_main();
 	}
-	_mars_remote_trigger = __mars_remote_trigger;
 	mars_info = _mars_info;
 	return status;
 }

@@ -1119,7 +1119,6 @@ void _init_mars_global(struct mars_global *global)
 		INIT_LIST_HEAD(&global->dent_hash_anchor[i]);
 }
 
-static
 void __mars_trigger(int mode)
 {
 	if (mars_global) {
@@ -3220,9 +3219,6 @@ EXPORT_SYMBOL_GPL(show_statistics);
 int __init init_sy(void)
 {
 	MARS_INF("init_sy()\n");
-
-	_mars_trigger = __mars_trigger;
-
 	return 0;
 }
 

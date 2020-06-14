@@ -459,7 +459,7 @@ int handler_thread(void *data)
 			break;
 		case CMD_NOTIFY:
 			status = 0;
-			from_remote_trigger();
+			mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE);
 			break;
 		case CMD_GETINFO:
 		{

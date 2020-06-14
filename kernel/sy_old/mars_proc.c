@@ -80,6 +80,15 @@ void interpret_user_message(char *msg)
 		printk("%s\n", rest);
 		break;
 
+	case 't': /* new trigger code conventions */
+	{
+		int code = 0;
+
+		sscanf(rest, "%d", &code);
+		mars_remote_trigger(code);
+		break;
+	}
+
 	default:
 		MARS_DBG("unknown user message '%s'\n", msg);
 	}
@@ -113,22 +122,23 @@ int trigger_sysctl_handler(
 		}
 
 		tmp[len] = '\0';
+		/* Deprecated, to disappear */
 		if (tmp[0] == ' ' ||
 		    (tmp[0] >= '0' && tmp[0] <= '9')) {
 			int code = 0;
 
 			sscanf(tmp, "%d", &code);
+			/* Compatible to old bahviour.
+			 * Please use the new "t" codes instead.
+			 */
 			if (code >= 8) {
-				mars_full_trigger(code);
-				from_remote_trigger();
-			} else if (code > 0) {
-				mars_trigger();
-			}
-			if (code > 2) {
-				from_remote_trigger();
-				mars_remote_trigger_all();
-			} else if (code > 1) {
-				mars_remote_trigger();
+				mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE | MARS_TRIGGER_TO_REMOTE_ALL | MARS_TRIGGER_FULL);
+			} else if (code >= 3) {
+				mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE | MARS_TRIGGER_TO_REMOTE_ALL);
+			} else if (code >= 2) {
+				mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
+			} else if (code >= 1) {
+				mars_remote_trigger(MARS_TRIGGER_LOCAL);
 			}
 		} else {
 			interpret_user_message(tmp);

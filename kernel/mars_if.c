@@ -1221,7 +1221,7 @@ static int if_open(struct block_device *bdev, fmode_t mode)
 	atomic_inc(&brick->open_count);
 
 	MARS_INF("----------------------- OPEN %d ------------------------------\n", atomic_read(&brick->open_count));
-	mars_remote_trigger();
+	mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
 
 	up(&brick->switch_sem);
 	return 0;
@@ -1265,8 +1265,7 @@ if_release(struct gendisk *gd, fmode_t mode)
 
 		MARS_DBG("status button=%d led_on=%d led_off=%d\n", brick->power.button, brick->power.led_on, brick->power.led_off);
 		brick->error_code = 0;
-		mars_trigger();
-		mars_remote_trigger();
+		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
 	}
 //      remove_this
 #ifndef MARS_HAS_VOID_RELEASE

@@ -405,16 +405,28 @@ extern const struct meta mars_lamport_time_meta[];
 
 extern void mars_power_led_on(struct mars_brick *brick, bool val);
 extern void mars_power_led_off(struct mars_brick *brick, bool val);
+
 /* this should disappear!
  */
-extern void (*_mars_trigger)(int mode);
-extern void (*_mars_remote_trigger)(bool do_all);
+enum mars_trigger_mode {
+	_MARS_TRIGGER_LOCAL,
+	_MARS_TRIGGER_FROM_REMOTE,
+	_MARS_TRIGGER_TO_REMOTE,
+	_MARS_TRIGGER_TO_REMOTE_ALL,
+	_MARS_TRIGGER_FULL,
+};
+
+#define MARS_TRIGGER_LOCAL         (1 << _MARS_TRIGGER_LOCAL)
+#define MARS_TRIGGER_FROM_REMOTE   (1 << _MARS_TRIGGER_FROM_REMOTE)
+#define MARS_TRIGGER_TO_REMOTE     (1 << _MARS_TRIGGER_TO_REMOTE)
+#define MARS_TRIGGER_TO_REMOTE_ALL (1 << _MARS_TRIGGER_TO_REMOTE_ALL)
+#define MARS_TRIGGER_FULL          (1 << _MARS_TRIGGER_FULL)
+
+void mars_remote_trigger(int code);
+
+void __mars_trigger(int code);
 #define mars_trigger()							\
-	do { if (_mars_trigger) { MARS_DBG("trigger...\n"); _mars_trigger(0); } } while (0)
-#define mars_full_trigger(mode)						\
-	do { if (_mars_trigger) { MARS_DBG("full trigger %d...\n", mode); _mars_trigger(mode); } } while (0)
-#define mars_remote_trigger() do { if (_mars_remote_trigger) { MARS_DBG("remote_trigger...\n"); _mars_remote_trigger(false); } } while (0)
-#define mars_remote_trigger_all() do { if (_mars_remote_trigger) { MARS_DBG("remote_trigger_all...\n"); _mars_remote_trigger(true); } } while (0)
+	__mars_trigger(MARS_TRIGGER_LOCAL)
 
 /////////////////////////////////////////////////////////////////////////
 
