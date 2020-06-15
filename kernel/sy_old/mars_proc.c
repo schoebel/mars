@@ -120,10 +120,12 @@ int trigger_sysctl_handler(
 			sscanf(tmp, "%d", &code);
 			if (code >= 8) {
 				mars_full_trigger(code);
+				from_remote_trigger();
 			} else if (code > 0) {
 				mars_trigger();
 			}
 			if (code > 2) {
+				from_remote_trigger();
 				mars_remote_trigger_all();
 			} else if (code > 1) {
 				mars_remote_trigger();
