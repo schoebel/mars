@@ -677,6 +677,7 @@ struct mars_rotate {
 	bool has_hole_logfile;
 	bool allow_update;
 	bool rot_activated;
+	bool old_fetch_on;
 	bool forbid_replay;
 	bool replay_mode;
 	bool todo_primary;
@@ -2024,6 +2025,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 			     NULL, NULL);
 	if (status >= 0 && copy) {
 		copy->copy_limiter = &rot->fetch_limiter;
+#if 0
 		// FIXME: code is dead
 		if (copy->append_mode && copy->power.led_on &&
 		    end_pos > copy->copy_end) {
@@ -2031,6 +2033,13 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 			// FIXME: use corrected length from mars_get_info() / see _set_copy_params()
 			copy->copy_end = end_pos;
 		}
+#endif
+		/* When done, immediately trigger next fetch from peers */
+		if (rot->old_fetch_on && !copy->power.led_on) {
+			from_remote_trigger();
+			mars_trigger();
+		}
+		rot->old_fetch_on = copy->power.led_on;
 	}
 
 done:
