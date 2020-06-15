@@ -4335,6 +4335,9 @@ int _stop_trans(struct mars_rotate *rot)
 		}
 	}
 	write_info_links(rot);
+	mars_remote_trigger();
+	from_remote_trigger();
+	mars_trigger();
 
 done:
 	return status;
