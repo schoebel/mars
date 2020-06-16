@@ -176,6 +176,22 @@ my $kernel_flags_version = ~0x0;
 
 # general helpers
 
+my $allow_fail_action = 0;
+
+# Failure compensation.
+# This is called when do_one_res() fails
+sub fail_action {
+  return unless $allow_fail_action;
+  lprint "\nFAILURE COMPENSATION\n";
+  # prevent recursive ldie
+  eval {
+    1;
+  } or
+    (
+     lwarn "DOUBLE FAILURE detected.\n"
+    )
+}
+
 sub _device_name {
   my ($res, $peer) = @_;
   $peer = $host unless defined($peer);
@@ -7997,6 +8013,7 @@ sub do_all_res {
 	  (
 	   $skip_res{$res} = 1
 	  );
+      fail_action($cmd, $res) if $skip_res{$res};
     }
     return $any_fail unless $do_abort;
     if (!$any_success) {
@@ -8011,8 +8028,20 @@ sub do_all_res {
   } elsif ($res eq "all") {
     lwarn "resource qualifier 'all' does not match any resource names\n";
     return 0;
-  } else {
+  } elsif (!$do_abort) {
     return do_one_res($func, $cmd, $res, @_);
+  } else {
+    my $status = 0;
+    eval {
+      $status = do_one_res($func, $cmd, $res, @_);
+      1;
+    } or
+      # eval{} has failed
+      (
+       $status = 1
+      );
+    fail_action($cmd, $res) if $status;
+    return $status;
   }
 }
 
