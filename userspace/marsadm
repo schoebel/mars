@@ -32,6 +32,7 @@ umask 0077;
 # global defaults
 
 my $parallel = -1;
+my $single_step = 0;
 my $compat_deletions = 1;
 my $threshold = 10 * 1024 * 1024;
 my $window = 60;
@@ -7623,9 +7624,15 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     with a high parallelism degree (up to deadlocks).
     Only use this after thorough testing in combination with your
     whole operation stack!
+    Turns off --singlestep.
   --parallel=<number>
     Like --parallel, but limit the parallelism degree to the given
     number of parallel processes.
+    Turns off --singlestep.
+  --singlestep
+    Debugging aid for  multi-phase commands.
+    Interactively step through the various phases of commands.
+    Turns off --parallel.
   --delete-method=<code>
     EXPERIMENTAL! Only for testing! This option will disappear again!
     <code> == 0: Use new deletion method
@@ -7773,6 +7780,11 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg =~ m/--parallel(\s*=\s*(-?[0-9]+)?)?/) {
     $parallel = defined($2) ? $2 : 0;
+    $single_step = 0;
+    next;
+  } elsif ($arg eq "--singlestep") {
+    $single_step++;
+    $parallel = -1;
     next;
   } elsif ($arg =~ m/--delete-method\s*=\s*([0-9]+)/) {
     $compat_deletions = $1;
@@ -8149,6 +8161,7 @@ sub do_fork {
 
 if (ref($func) eq "ARRAY") {
   my @list = @$func;
+  my $phase_nr = 0;
   while (@list) {
     my $do_loop = 0;
     my $memb_func = shift @list;
@@ -8177,7 +8190,15 @@ if (ref($func) eq "ARRAY") {
     }
     next unless ref($memb_func) eq "CODE";
     my $headline = shift @list;
-    lprint "---------------------------- $headline:\n" if defined($headline);
+    $phase_nr++;
+    lprint "-------- PHASE $phase_nr -------- $headline:\n" if defined($headline);
+    $headline = "" unless defined($headline);
+    if ($single_step) {
+      ldie "DEBUGGING: standard input is no tty\n" unless -t STDIN;
+      lprint "DEBUGGING: type RETURN for starting phase $phase_nr: ";
+      my $dummy = <STDIN>;
+      lprint "DEBUGGING: continue phase $phase_nr: $headline\n";
+    }
     my $start_time = mars_time();
     my $do_abort = !$do_loop;
     my $status;
