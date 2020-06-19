@@ -492,9 +492,8 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 	int error = -EINVAL;
 
 	mref_a = client_mref_get_aspect(brick, mref);
-	if (unlikely(!mref_a)) {
-		goto error;
-	}
+	if (unlikely(!mref_a))
+		goto fatal;
 
 	while (brick->max_flying > 0 &&
 	       atomic_read(&brick->fly_count) > brick->max_flying) {
@@ -508,9 +507,8 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 #endif
 	}
 
-	if (!brick->power.led_on) {
-		MARS_ERR("IO submission on dead instance\n");
-	}
+	if (!(brick->power.led_on & brick->power.button))
+		goto error;
 
 	atomic_inc(&mars_global_io_flying);
 	atomic_inc(&brick->fly_count);
@@ -528,9 +526,13 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 	return;
 
 error:
-	MARS_ERR("IO error = %d\n", error);
+	MARS_ERR("IO submission on dead instance\n");
+	error = -ESHUTDOWN;
 	SIMPLE_CALLBACK(mref, error);
-	client_ref_put(output, mref);
+	return;
+
+ fatal:
+	MARS_ERR("FATAL error = %d\n", error);
 }
 
 static
