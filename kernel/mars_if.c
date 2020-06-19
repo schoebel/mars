@@ -961,29 +961,27 @@ int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct
 static
 loff_t if_get_capacity(struct if_brick *brick)
 {
-	/* Don't read always, read only when unknown.
-	 * brick->dev_size may be different from underlying sizes,
-	 * e.g. when the size symlink indicates a logically smaller
-	 * device than physically.
-	 */
-	if (brick->real_size <= 0 || brick->max_size != brick->old_max_size) {
-		struct if_input *input = brick->inputs[0];
-		int status;
+	struct if_input *input = brick->inputs[0];
+	int status;
 
-		status = GENERIC_INPUT_CALL(input, mars_get_info, &brick->info);
-		if (unlikely(status < 0)) {
-			MARS_WRN("cannot get device info, status=%d\n", status);
-			return 0;
-		}
-		MARS_INF("determined default capacity: %lld bytes\n", brick->info.current_size);
-
-		brick->real_size = brick->info.current_size;
+	status = GENERIC_INPUT_CALL(input, mars_get_info, &brick->info);
+	if (status == -EAGAIN)
+		goto done;
+	if (unlikely(status < 0)) {
+		MARS_WRN("cannot get device info, status=%d\n", status);
+		goto done;
 	}
+
+	brick->real_size = brick->info.current_size;
 	if (brick->max_size > 0 && brick->real_size > brick->max_size)
 		brick->dev_size = brick->max_size;
 	else
 		brick->dev_size = brick->real_size;
-	brick->old_max_size = brick->max_size;
+
+	MARS_INF("logical/phyiscal capacity: %lld/%lld bytes\n",
+		 brick->dev_size,
+		 brick->info.current_size);
+ done:
 	return brick->dev_size;
 }
 

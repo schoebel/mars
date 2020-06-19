@@ -121,7 +121,6 @@ struct if_brick {
 	// private
 	struct semaphore switch_sem;
 	struct say_channel *say_channel;
-	loff_t old_max_size;
 	struct mars_info info;
 };
 

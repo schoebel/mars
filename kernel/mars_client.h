@@ -103,7 +103,6 @@ struct client_output {
 	int  last_id;
 	struct client_bundle bundle;
 	struct mars_info info;
-	wait_queue_head_t info_event;
 	bool get_info;
 	bool got_info;
 	struct list_head *hash_table;

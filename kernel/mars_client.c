@@ -395,30 +395,31 @@ long _compute_timeout(struct client_brick *brick, bool for_info)
 static int client_get_info(struct client_output *output, struct mars_info *info)
 {
 	struct client_brick *brick = output->brick;
-	long io_timeout = _compute_timeout(brick, true);
 	int status;
 
-	if (!brick->power.led_on) {
+	if (!brick->power.button || brick->power.led_off) {
+		status = -ENOTCONN;
+		/* remember the old state */
 		if (output->got_info)
-			return 0;
-		output->get_info = true;
-		wake_up_interruptible_all(&output->bundle.sender_event);
-		goto timeout;
+			status = -EAGAIN;
+		goto done;
 	}
 
+	/* Trigger get_info asynchronously, without blocking.
+	 * Success will be reported in status.
+	 * Due to asynchronous reporting, the result may be outdated.
+	 */
 	output->get_info = true;
 	wake_up_interruptible_all(&output->bundle.sender_event);
 	
-	wait_event_interruptible_timeout(output->info_event, output->got_info, io_timeout * HZ);
-timeout:
-	status = -ETIME;
-	if (output->got_info) {
+	status = -EAGAIN;
+	if (output->got_info)
 		status = 0;
-		if (info) {
-			memcpy(info, &output->info, sizeof(*info));
-			output->got_info = false;
-			output->get_info = true;
-		}
+ done:
+	if (info) {
+		memcpy(info, &output->info, sizeof(*info));
+		output->got_info = false;
+		output->get_info = true;
 	}
 	return status;
 }
@@ -664,7 +665,6 @@ int receiver_thread(void *data)
 				goto done;
 			}
 			output->got_info = true;
-			wake_up_interruptible_all(&output->info_event);
 			break;
 		default:
 			MARS_ERR("got bad command %d from remote '%s' @%s, terminating.\n",
@@ -849,7 +849,8 @@ static int sender_thread(void *data)
 			ch = _get_channel(bundle, 0, 1);
 			if (unlikely(!ch)) {
 				do_timeout = true;
-				brick_msleep(1000);
+				output->get_info = true;
+				brick_msleep(100);
 				continue;
 			}
 			status = _request_info(ch);
@@ -859,7 +860,8 @@ static int sender_thread(void *data)
 					 output->bundle.host,
 					 status);
 				do_timeout = true;
-				brick_msleep(1000);
+				output->get_info = true;
+				brick_msleep(100);
 				continue;
 			}
 			output->get_info = false;
@@ -901,8 +903,10 @@ static int sender_thread(void *data)
 			max_nr = 1;
 		}
 		if (!ch || ch->recv_error ||
-		    !mars_socket_is_alive(&ch->socket))
+		    !mars_socket_is_alive(&ch->socket)) {
 			do_timeout = true;
+			output->get_info = true;
+		}
 		if (do_timeout || ch->ch_nr >= max_nr || --ch_skip < 0) {
 			if (ch && old_cork) {
 				/* flush old buffer */
@@ -913,7 +917,9 @@ static int sender_thread(void *data)
 			if (unlikely(!ch)) {
 				// notice: this will re-assign hash_head without harm
 				_hash_insert(output, mref_a);
-				brick_msleep(1000);
+				do_timeout = true;
+				output->get_info = true;
+				brick_msleep(100);
 				continue;
 			}
 			/* estimate: add some headroom for overhead */
@@ -935,6 +941,7 @@ static int sender_thread(void *data)
 		if (unlikely(status < 0)) {
 			_hash_insert(output, mref_a);
 			do_timeout = true;
+			output->get_info = true;
 			ch = NULL;
 			// retry submission on next occasion..
 			MARS_WRN("mref send '%s' @%s failed, status = %d\n",
@@ -1111,7 +1118,6 @@ static int client_output_construct(struct client_output *output)
 	init_waitqueue_head(&output->bundle.sender_event);
 	mutex_init(&output->mutex);
 	INIT_LIST_HEAD(&output->mref_list);
-	init_waitqueue_head(&output->info_event);
 	return 0;
 }
 
