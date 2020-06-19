@@ -250,18 +250,8 @@ void if_endio(struct generic_callback *cb)
 
 		error = CALLBACK_ERROR(mref_a->object);
 		if (unlikely(error < 0)) {
-//      remove_this
-#ifdef MARS_HAS_BVEC_ITER
-//      end_remove_this
-			int bi_size = bio->bi_iter.bi_size;
-//      remove_this
-#else
-			int bi_size = bio->bi_size;
-#endif
-//      end_remove_this
 			if (likely(input->brick))
 				input->brick->error_code = error;
-			MARS_ERR("NYI: error=%d RETRY LOGIC %u\n", error, bi_size);
 		} else { // bio conventions are slightly different...
 			error = 0;
 //      remove_this
