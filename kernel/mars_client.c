@@ -930,7 +930,6 @@ static int sender_thread(void *data)
 						 output->get_info,
 						 2 * HZ);
 
-
 		if (output->get_info) {
 			if (ch && old_cork) {
 				/* flush old buffer */
@@ -1048,6 +1047,7 @@ static int sender_thread(void *data)
 		}
 	}
 
+	brick->connection_state = 0;
 	if (unlikely(status < 0)) {
 		MARS_WRN("sender thread '%s' @%s terminated with status = %d\n",
 			 output->bundle.path,
@@ -1086,6 +1086,8 @@ static int client_switch(struct client_brick *brick)
 			if (output->bundle.channel[i].is_connected)
 				socket_count++;
 		brick->socket_count = socket_count;
+		brick->connection_state =
+			output->got_info && brick->socket_count ? 1 : 0;
 		mutex_lock(&output->mutex);
 		if (list_empty(&output->mref_list)) {
 			if (socket_count)
