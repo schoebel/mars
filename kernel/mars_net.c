@@ -1387,6 +1387,10 @@ int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct m
 			goto done;
 		}
 
+		/* Ensure that ref_data is block-aligned */
+		if (!mref->ref_data)
+			mref->ref_data = brick_block_alloc(0, mref->ref_len);
+
 		status = -EBADMSG;
 		decompr_buf =
 			mars_decompress(tmp_buf, cmd->cmd_compr_len,
