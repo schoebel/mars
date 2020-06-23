@@ -31,9 +31,15 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     with a high parallelism degree (up to deadlocks).
     Only use this after thorough testing in combination with your
     whole operation stack!
+    Turns off --singlestep.
   --parallel=<number>
     Like --parallel, but limit the parallelism degree to the given
     number of parallel processes.
+    Turns off --singlestep.
+  --singlestep
+    Debugging aid for  multi-phase commands.
+    Interactively step through the various phases of commands.
+    Turns off --parallel.
   --delete-method=<code>
     EXPERIMENTAL! Only for testing! This option will disappear again!
     <code> == 0: Use new deletion method
