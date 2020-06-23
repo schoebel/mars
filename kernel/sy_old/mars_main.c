@@ -656,6 +656,7 @@ struct mars_rotate {
 	loff_t dev_size;
 	loff_t start_pos;
 	loff_t end_pos;
+	int retry_recovery;
 	int max_sequence;
 	int fetch_round;
 	int fetch_serial;
@@ -4475,11 +4476,10 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			MARS_INF_TO(rot->log_say, "logfile replay ended successfully at position %lld\n", trans_brick->replay_current_pos);
 			if (rot->replay_code >= TL_REPLAY_RUNNING)
 				rot->replay_code = trans_brick->replay_code;
-		} else if (trans_brick->replay_code == -EAGAIN ||
-			   trans_brick->replay_code == TL_REPLAY_INCOMPLETE ||
-			   trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance) {
-			MARS_INF_TO(rot->log_say, "logfile replay stopped intermediately at position %lld\n", trans_brick->replay_current_pos);
-		} else if (trans_brick->replay_code < TL_REPLAY_RUNNING) {
+		} else if (trans_brick->replay_code < TL_REPLAY_RUNNING ||
+			   (rot->todo_primary &&
+			    (trans_brick->replay_code == TL_REPLAY_INCOMPLETE ||
+			     trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance))) {
 			MARS_ERR_TO(rot->log_say, "logfile replay stopped with error = %d at position %lld\n", trans_brick->replay_code, trans_brick->replay_current_pos);
 			make_rot_msg(rot, "err-replay-stop", "logfile replay stopped with error = %d at position %lld", trans_brick->replay_code, trans_brick->replay_current_pos);
 			rot->replay_code = trans_brick->replay_code;
@@ -4509,13 +4509,38 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 						     rot->next_relevant_log->d_rest,
 						     rot->next_relevant_log->d_serial,
 						     0);
+			/* Designated primary must exceptionally accept a damaged
+			 * logfile without successor for recovery under all circumstances.
+			 */
+			} else if (rot->todo_primary &&
+				   rot->relevant_log &&
+				   !rot->next_relevant_log &&
+				   (!rot->fetch_brick ||
+				    !_check_allow(global, parent->d_path, "connect"))) {
+				/* Give fetch a chance for getting a better logfile.
+				 */
+				if (rot->retry_recovery++ <= 10)
+					goto skip_retry_recovery;
+				rot->log_is_really_damaged = false;
+				rot->replay_code = TL_REPLAY_FINISHED;
+				MARS_INF_TO(rot->log_say,
+					    "exceptional recovery at '%s'\n",
+					    rot->relevant_log->d_path);
+				_make_new_replaylink(rot,
+						     my_id(),
+						     rot->relevant_log->d_serial + 1,
+						     0);
 			}
 		} else if (rot->replay_code >= TL_REPLAY_RUNNING) {
 			rot->replay_code = trans_brick->replay_code;
+
 		}
 	} else {
 		rot->replay_code = TL_REPLAY_RUNNING;
 	}
+	rot->retry_recovery = 0;
+
+ skip_retry_recovery:
 	__show_actual(parent->d_path, "replay-code", rot->replay_code);
 
 	/* Stopping is also possible in case of errors
