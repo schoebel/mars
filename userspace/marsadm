@@ -3032,7 +3032,14 @@ sub check_res {
 }
 
 sub _get_mars_size {
-  my ($cmd, $res) = @_;
+  my ($cmd, $res, $peer) = @_;
+  $peer = $host unless defined($peer) && $peer;
+  my $lnk = "$mars/resource-$res/actual-$peer/if-size";
+  my $val = get_link($lnk, 2);
+  if (defined($val) && $val ne "") {
+    return $val;
+  }
+  lwarn "Falling back to old local device size detection at '$real_host' for '$peer'\n";
   my $dev_name = get_link("$mars/resource-$res/device-$host");
   my $info = "/sys/devices/virtual/block/mars!$dev_name/size";
   return `cat $info` * 512;
@@ -7573,10 +7580,15 @@ sub resize_phase0 {
   my $waste = $my_size - $new_size;
   lwarn "You are wasting $waste bytes locally\n" if $my_size > $new_size;
   # remember values
-  $resize_device_size{$res} = _get_mars_size(@_);
   $resize_old_size{$res} = $old_size;
-  lwarn "internal mismatch between actual device size and resource size: $resize_device_size{$res} != $resize_old_size{$res}\n" unless $resize_device_size{$res} == $resize_old_size{$res};
   $resize_new_size{$res} = $new_size;
+  my $prosumers = get_prosumers(@_);
+  $prosumers = $host if $prosumers eq "(local)";
+  foreach my $peer (split("\\+", $prosumers)) {
+    my $peer_size = _get_mars_size($cmd, $res, $peer);
+    $resize_device_size{"$res.$peer"} = $peer_size;
+    lwarn "Peer $peer: mismatch between actual device size and resource size: $peer_size != $old_size\n" unless $peer_size == $old_size;
+  }
   return 0;
 }
 
@@ -7602,18 +7614,24 @@ sub resize_phase2 {
   my ($cmd, $res) = @_;
   my $old_size = $resize_old_size{$res} or ldie "bad internal size value\n";
   my $new_size = $resize_new_size{$res} or ldie "bad internal size value\n";
+  my $prosumers = get_prosumers(@_);
+  $prosumers = $host if $prosumers eq "(local)";
   for (;;) {
-    my $new_device_size = _get_mars_size(@_);
-    if ($new_device_size == $resize_new_size{$res}) {
-      lprint "Device size is now $new_device_size.\n";
-      last;
+    my $ok = 1;
+    foreach my $peer (split("\\+", $prosumers)) {
+      my $new_device_size = _get_mars_size($cmd, $res, $peer);
+      if ($new_device_size == $resize_new_size{$res}) {
+	lprint "Peer $peer: device size is now $new_device_size.\n";
+	next;
+      }
+      $ok = 0;
+      lprint "Peer $peer: device size $new_device_size has not yet reached the new resource size $resize_new_size{$res}.\n";
+      my $peer_old_size = $resize_device_size{"$res.$peer"};
+      if ($new_device_size != $peer_old_size) {
+	lwarn "The size has changed from $peer_old_size, but did not reach the correct value $new_size.";
+      }
     }
-    lprint "Device size $new_device_size has not yet reached the new size $resize_new_size{$res}.\n";
-    if ($new_device_size != $resize_device_size{$res}) {
-      lwarn "The size has changed, but did not reach the correct value.";
-      lwarn "Assuming some rounding problems (which may occur at some device types)\n";
-      last;
-    }
+    last if $ok;
     sleep_timeout();
   }
   return 0;
