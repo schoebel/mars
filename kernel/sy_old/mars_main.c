@@ -681,7 +681,6 @@ struct mars_rotate {
 	bool replay_mode;
 	bool todo_primary;
 	bool checked_reboot;
-	bool recover_versionlink;
 	bool is_primary;
 	bool old_is_primary;
 	bool created_hole;
@@ -4010,13 +4009,20 @@ int _make_logging_status(struct mars_rotate *rot)
 			    (!next_relevant_log || rot->log_is_really_damaged)) {
 				if (dent->d_serial > log_nr)
 					log_nr = dent->d_serial;
-				MARS_INF_TO(rot->log_say, "preparing new transaction log, number moves from %d to %d\n", dent->d_serial, log_nr + 1);
-				if (unlikely(rot->recover_versionlink)) {
-					rot->recover_versionlink = false;
-					if (rot->aio_dent && rot->aio_dent->d_rest &&
-					    !strcmp(rot->aio_dent->d_rest, my_id()))
-						_recover_versionlink(rot, my_id(), log_nr, end_pos);
+				/* The primary versionlink needs to be ahead of the synced part of
+				 * the logfile. When the primary crashes, it may point to a position
+				 * which was never written to disk, or even to a prior one.
+				 * Ensure that after reboot the primary will exceptionally re-consider
+				 * versionlink updating.
+				 */
+				if (rot->aio_dent && rot->aio_dent->d_rest &&
+				    !strcmp(rot->aio_dent->d_rest, my_id())) {
+					MARS_INF_TO(rot->log_say,
+						    "recover own versionlink %d end_pos=%lld\n",
+						    log_nr, end_pos);
+					_recover_versionlink(rot, my_id(), log_nr, end_pos);
 				}
+				MARS_INF_TO(rot->log_say, "preparing new transaction log, number moves from %d to %d\n", dent->d_serial, log_nr + 1);
 				_make_new_replaylink(rot, my_id(), log_nr + 1, 0);
 			} else {
 				MARS_DBG("nothing to do on last transaction log '%s'\n", dent->d_path);
@@ -4049,7 +4055,6 @@ ok:
 	rot->next_log = dent;
 
 done:
-	rot->recover_versionlink = false;
 	if (status < 0) {
 		MARS_DBG("rot_error status = %d\n", status);
 		rot->has_error = true;
@@ -4717,19 +4722,7 @@ int make_primary(void *buf, struct mars_dent *dent)
 
 	MARS_DBG("todo_primary = %d is_primary = %d\n", rot->todo_primary, rot->is_primary);
 
-	/* The primary versionlink needs to be ahead of the synced part of
-	 * the logfile. When the primary crashes, it may point to a position
-	 * which was never written to disk.
-	 * Ensure that after reboot the primary will exceptionally re-consider
-	 * versionlink updating.
-	 */
-	if (unlikely(!rot->checked_reboot)) {
-		rot->checked_reboot = true;
-		if (rot->todo_primary)
-			rot->recover_versionlink = true;
-		MARS_DBG("recover_versionlink = %d\n",
-			 rot->recover_versionlink);
-	}
+	rot->checked_reboot = true;
 
 done:
 	return status;
