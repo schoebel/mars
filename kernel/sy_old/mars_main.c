@@ -1279,7 +1279,9 @@ out:
 }
 
 static
-int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
+int _update_version_link(struct mars_rotate *rot,
+			 struct trans_logger_info *inf,
+			 bool do_check)
 {
 	char *data = brick_string_alloc(0);
 	char *old = brick_string_alloc(0);
@@ -1300,12 +1302,14 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 	if (likely(inf->inf_sequence > 1)) {
 		if (unlikely((inf->inf_sequence < rot->inf_prev_sequence ||
 			      inf->inf_sequence > rot->inf_prev_sequence + 1) &&
-			     rot->inf_prev_sequence != 0)) {
+			     rot->inf_prev_sequence != 0 &&
+			     do_check)) {
 			char *skip_path = path_make("%s/skip-check-%s", rot->parent_path, my_id());
 			char *skip_link = ordered_readlink(skip_path);
 			char *msg = "";
 			int skip_nr = -1;
 			int nr_char = 0;
+
 			if (likely(skip_link && skip_link[0])) {
 				(void)sscanf(skip_link, "%d%n", &skip_nr, &nr_char);
 				msg = skip_link + nr_char;
@@ -1487,7 +1491,7 @@ void write_info_links(struct mars_rotate *rot)
 
 	if (rot->current_inf.inf_is_logging | rot->current_inf.inf_is_replaying) {
 		count += _update_replay_link(rot, &rot->current_inf);
-		count += _update_version_link(rot, &rot->current_inf);
+		count += _update_version_link(rot, &rot->current_inf, true);
 		if (min > rot->inf_old_sequence) {
 			mars_sync();
 			rot->inf_old_sequence = min;
@@ -1519,7 +1523,7 @@ void _recover_versionlink(struct mars_rotate *rot,
 	MARS_DBG("sequence = %d end_pos = %lld\n",
 		 sequence, end_pos);
 
-	_update_version_link(rot, &inf);
+	_update_version_link(rot, &inf, false);
 }
 
 static
@@ -1538,7 +1542,7 @@ void _make_new_replaylink(struct mars_rotate *rot, char *new_host, int new_seque
 	MARS_DBG("new_host = '%s' new_sequence = %d end_pos = %lld\n", new_host, new_sequence, end_pos);
 
 	_update_replay_link(rot, &inf);
-	_update_version_link(rot, &inf);
+	_update_version_link(rot, &inf, false);
 
 	mars_trigger();
 	if (rot->todo_primary | rot->is_primary | rot->old_is_primary)
