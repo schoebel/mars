@@ -260,6 +260,7 @@ struct trans_logger_info {
 	void (*inf_callback)(struct trans_logger_info *inf);
 	void  *inf_private;
 	char   inf_host[MAX_HOST_LEN];
+	int    inf_index;
 	int    inf_sequence;     // logfile sequence number
 
 	// maintained by trans_logger
