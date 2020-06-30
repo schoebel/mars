@@ -100,6 +100,21 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable97
+	* Critical fix: when logfile is damaged (e.g. after a
+	  primary crash), some corner cases of primary recovery
+	  could hang. Workaround by "detach ; attach" seemed
+	  possible (as far as observed during testing).
+	* Critical fix for BETA feature network compression only:
+	  Memory deallocation could fail under certain circumstances,
+	  resulting in a memory leak, or potentially memory corruption.
+	  Only relevant when network transport compression is enabled.
+	* Major fix: when a primary crash was occuring exactly during
+	  a very short log-rotate time window, a race condition could
+	  sometimes lead to unnecessary split brain (secondaries could
+	  bypass the primary).
+	* Several minor fixes and improvements.
+
 mars0.1astable96
 	* Minor improvement: auto-correct defective symlink
 	  timestamps which are too far in the future.
