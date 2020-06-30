@@ -1202,6 +1202,9 @@ int mars_send_cmd(struct mars_socket *msock, struct mars_cmd *cmd, bool cork)
 	int status;
 
 	cmd->cmd_proto = MARS_PROTO_LEVEL;
+	if (!cork || !msock->s_pos)
+		get_lamport(NULL, &cmd->cmd_stamp);
+
 	status = desc_send_struct(msock, cmd, mars_cmd_meta, cork);
 	return status;
 }
@@ -1214,6 +1217,8 @@ int _mars_recv_cmd(struct mars_socket *msock, struct mars_cmd *cmd, int line)
 	if (status >= 0) {
 		msock->s_remote_proto_level = cmd->cmd_proto;
 		msock->s_common_proto_level = min(cmd->cmd_proto, MARS_PROTO_LEVEL);
+		if (cmd->cmd_stamp.tv_sec)
+			set_lamport_nonstrict(&cmd->cmd_stamp);
 	}
 	return status;
 }
@@ -1249,9 +1254,6 @@ int _mars_send_mref(struct mars_socket *msock,
 	int compr_len = 0;
 	int seq = 0;
 	int status;
-
-	if (!cork || !msock->s_pos)
-		get_lamport(NULL, &cmd->cmd_stamp);
 
 	if ((cmd->cmd_code & CMD_FLAG_HAS_DATA) &&
 	    (mref->ref_flags & MREF_COMPRESS_ANY)) {
@@ -1364,9 +1366,6 @@ int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct m
 
 	/* compatibility to old protocol */
 	_recv_deprecated(mref);
-
-	if (cmd->cmd_stamp.tv_sec)
-		set_lamport_nonstrict(&cmd->cmd_stamp);
 
 	if (cmd->cmd_compr_flags && cmd->cmd_compr_len) {
 		void *decompr_buf;
