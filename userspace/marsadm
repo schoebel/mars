@@ -1495,6 +1495,7 @@ sub get_alive_links {
   my $warn = shift || 0;
   my $non_participating = shift || 0;
   $res = "*" if $res eq "all";
+  my $use_remote_stamp = $alive =~ s/^\^// ? 1 : 0;
   my %cand;
   foreach my $path (lamport_glob("$mars/ips/ip-$hosts")) {
     $path =~ m:/ip-(.*):;
@@ -1539,7 +1540,25 @@ sub get_alive_links {
   foreach my $path (lamport_glob($glob)) {
     $path =~ m:/$alive-(.+):;
     my $peer = $1;
-    $links{$peer} = get_link($path, 1);
+    my $val = get_link($path, 1);
+    # When required and possible, get the _remote_ timestamp
+    # when the link tree was read _remotely_.
+    if ($use_remote_stamp) {
+      my $remote_path = "$mars/actual-$peer/read-stamp";
+      my $remote_val = get_link($remote_path, 2);
+      # check compatibility to old versions, and downgrades
+      if ($remote_val) {
+	my $stamp1 = get_link_stamp($path);
+	my $stamp2 = get_link_stamp($remote_path);
+	# Try to prefer the new remote stamp.
+	# Only use the old one when too much outdated.
+	if ($stamp2 &&
+	    (!$stamp1 || $stamp2 + $window >= $stamp1)) {
+	  $val = $remote_val;
+	}
+      }
+    }
+    $links{$peer} = $val;
   }
   if ($warn) {
     foreach my $peer (keys(%peers)) {
@@ -1674,7 +1693,8 @@ sub wait_cluster {
     my $dead_count = 0;
     my $alive_count = 0;
     my $unknown_count = 0;
-    my %status = get_alive_links($res, "time", $hosts, 0, $non_participating);;
+    # Notice: prefer the remote timestamps for race prevention
+    my %status = get_alive_links($res, "^time", $hosts, 0, $non_participating);;
     my $now = mars_time();
     foreach my $peer (keys(%status)) {
       next if $peer eq $host;
@@ -1682,7 +1702,8 @@ sub wait_cluster {
 	  $status{$peer} > $start_time &&
 	  $progress{$peer}-- <= 0) {
 	$alive_count++;
-      } elsif ($status{$peer} + $delta < $now) {
+      } elsif ($status{$peer} + $delta < $now &&
+	       $old_status{$peer} + $delta < $now) {
 	$dead_count++;
       } else {
 	$unknown_count++;
