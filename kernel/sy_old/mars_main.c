@@ -1838,6 +1838,7 @@ struct mars_peerinfo {
 	struct mutex peer_lock;
 	struct list_head peer_head;
 	struct list_head remote_dent_list;
+	struct lamport_time remote_start_stamp;
 	unsigned long last_remote_jiffies;
 	int maxdepth;
 	int features_version;
@@ -2285,12 +2286,14 @@ static
 int run_bones(struct mars_peerinfo *peer)
 {
 	LIST_HEAD(tmp_list);
+	struct lamport_time remote_start_stamp;
 	struct list_head *tmp;
 	bool run_trigger = false;
 	bool run_systemd_trigger = false;
 	int status = 0;
 
 	mutex_lock(&peer->peer_lock);
+	remote_start_stamp = peer->remote_start_stamp;
 	list_replace_init(&peer->remote_dent_list, &tmp_list);
 	mutex_unlock(&peer->peer_lock);
 
@@ -2315,6 +2318,24 @@ int run_bones(struct mars_peerinfo *peer)
 				run_systemd_trigger = true;
 		}
 		//MARS_DBG("path = '%s' worker status = %d\n", remote_dent->d_path, status);
+	}
+
+	if (remote_start_stamp.tv_sec) {
+		const char *src;
+		const char *dst;
+
+		src = path_make("%ld.%09ld",
+				remote_start_stamp.tv_sec,
+				remote_start_stamp.tv_nsec);
+		dst = path_make("/mars/actual-%s/read-stamp",
+				peer->peer);
+		/* Notice: while src shows the remote Lamport stamp when
+		 * the link tree was initially read, the target Lamport stamp
+		 * indicates when all the info was merged locally.
+		 */
+		ordered_symlink(src, dst, NULL);
+		brick_string_free(src);
+		brick_string_free(dst);
 	}
 
 	mars_free_dent_all(NULL, &tmp_list);
@@ -2375,7 +2396,8 @@ int peer_action_dent_list(struct mars_global *tmp_global,
 			  struct mars_peerinfo *peer,
 			  const char *real_peer,
 			  const char *paths,
-			  struct key_value_pair *peer_pairs)
+			  struct key_value_pair *peer_pairs,
+			  struct lamport_time *start_stamp)
 {
 	int status;
 
@@ -2427,6 +2449,7 @@ int peer_action_dent_list(struct mars_global *tmp_global,
 
 		mutex_lock(&peer->peer_lock);
 
+		peer->remote_start_stamp = *start_stamp;
 		list_replace_init(&peer->remote_dent_list, &old_list);
 		list_replace_init(&tmp_global->dent_anchor, &peer->remote_dent_list);
 		list_del_init(&tmp_global->dent_quick_anchor);
@@ -2462,7 +2485,8 @@ int peer_actions(struct mars_global *tmp_global,
 	if (!peer->socket.s_common_proto_level)
 		return peer_action_dent_list(tmp_global,
 					     peer, real_peer, paths,
-					     peer_pairs);
+					     peer_pairs,
+					     &inter_cmd.cmd_stamp);
 
 	/* New protocoal with extensible cases */
 	status = mars_recv_cmd(&peer->socket, &inter_cmd);
@@ -2474,9 +2498,13 @@ int peer_actions(struct mars_global *tmp_global,
 	switch (inter_cmd.cmd_code) {
 	case CMD_GETENTS:
 	{
-	  status = peer_action_dent_list(tmp_global,
-					 peer, real_peer,
-					 paths, peer_pairs);
+		status = peer_action_dent_list(
+				tmp_global,
+				peer,
+				real_peer,
+				paths,
+				peer_pairs,
+				&inter_cmd.cmd_stamp);
 		break;
 	}
 	default:

@@ -499,6 +499,8 @@ int handler_thread(void *data)
 			 */
 			if (sock->s_common_proto_level > 0 &&
 			    old_proto_level > 0) {
+				/* send Lamport stamp of local /mars status */
+				get_lamport(NULL, &cmd.cmd_stamp);
 				down(&brick->socket_sem);
 				status = mars_send_cmd(sock, &cmd, true);
 				old_proto_level = sock->s_common_proto_level;
