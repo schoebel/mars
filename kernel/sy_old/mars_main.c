@@ -496,17 +496,41 @@ int compute_emergency_mode(void)
 }
 
 static
-struct mars_brick *_kill_brick(struct mars_brick* brick)
+void _timeout_prev(struct mars_brick *brick)
+{
+	int i;
+
+	for (i = 0; i < brick->nr_inputs; i++) {
+		struct mars_input *this_input;
+		struct mars_output *prev_output;
+		struct mars_brick *prev_brick;
+
+		this_input = (void *)brick->inputs[i];
+		if (!this_input)
+			continue;
+		prev_output = this_input->connect;
+		if (!prev_output)
+			continue;
+		prev_brick = prev_output->brick;
+		if (!prev_brick)
+			continue;
+		MARS_DBG("'%s' %d '%s' io_timeout\n",
+			 brick->brick_path,
+			 i,
+			 prev_brick->brick_path);
+		prev_brick->power.io_timeout = 1;
+	}
+}
+
+static
+struct mars_brick *_kill_brick(struct mars_brick *brick)
 {
 	int status;
-	int i;
 
 	MARS_DBG("brick '%s' forceful shutdown\n", brick->brick_path);
 
 	/* any predecessors should timeout ASAP */
-	for (i = 0; i < brick->nr_inputs; i++)
-		if (brick->inputs[i] && brick->inputs[i]->brick)
-			brick->inputs[i]->brick->power.io_timeout = 1;
+	_timeout_prev(brick);
 
 	/* first switch off (in parallel to other ones) before waiting */
 	if (!brick->power.led_off) {
@@ -1721,6 +1745,9 @@ int __make_copy(
 		 * of requests may be pending).
 		 */
 		aio->power.io_timeout = switch_copy ? 0 : 1;
+		MARS_DBG("'%s' io_timeout=%d\n",
+			 aio->brick_path,
+			 aio->power.io_timeout);
 	}
 
 	switch_copy = (switch_copy &&
@@ -4604,12 +4631,7 @@ done:
 	     (fetch_brick->copy_last == fetch_brick->copy_end &&
 	      (rot->fetch_next_is_available > 0 ||
 	       rot->fetch_round++ > 3)))) {
-		int i;
-
-		for (i = 0; i < 4; i++) {
-			if (fetch_brick->inputs[i] && fetch_brick->inputs[i]->brick)
-				fetch_brick->inputs[i]->brick->power.io_timeout = 1;
-		}
+		_timeout_prev((void *)fetch_brick);
 		if (fetch_brick->copy_error && !rot->avoid_peer && rot->fetch_peer) {
 			rot->avoid_peer = brick_strdup(rot->fetch_peer);
 			rot->avoid_count = 3;
