@@ -2125,6 +2125,8 @@ struct mars_dent *_mars_find_dent(struct list_head *anchor, const char *path, bo
 		else
 			tmp_dent = container_of(tmp, struct mars_dent, dent_quick_link);
 
+		if (!tmp_dent->d_path)
+			continue;
 		if (!strcmp(tmp_dent->d_path, path)) {
 			res = tmp_dent;
 			break;
