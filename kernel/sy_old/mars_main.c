@@ -4280,6 +4280,16 @@ int _start_trans(struct mars_rotate *rot)
 		MARS_DBG("stop status=%d\n", status);
 		goto done;
 	}
+	if (!trans_brick->power.led_off ||
+	    rot->trans_brick->inputs[TL_INPUT_LOG1]->connect ||
+	    rot->trans_brick->inputs[TL_INPUT_LOG2]->connect) {
+		MARS_DBG("stopping not yet finished %d %d %d\n",
+			 trans_brick->power.led_off,
+			 rot->trans_brick->inputs[TL_INPUT_LOG1]->connect != NULL,
+			 rot->trans_brick->inputs[TL_INPUT_LOG2]->connect != NULL);
+		mars_trigger();
+		goto done;
+	}
 
 	/* Further safety checks.
 	 */
