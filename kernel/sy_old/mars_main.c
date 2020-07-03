@@ -702,6 +702,7 @@ struct mars_rotate {
 	bool forbid_replay;
 	bool replay_mode;
 	bool todo_primary;
+	bool stop_logger;
 	bool checked_reboot;
 	bool is_primary;
 	bool old_is_primary;
@@ -1609,6 +1610,7 @@ void _show_primary(struct mars_rotate *rot, struct mars_dent *parent)
 	status = _show_actual(parent->d_path, "is-primary", rot->is_primary);
 	if (rot->is_primary != rot->old_is_primary) {
 		rot->old_is_primary = rot->is_primary;
+		mars_trigger();
 		mars_remote_trigger();
 	}
 }
@@ -4605,7 +4607,11 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 	/* Stopping is also possible in case of errors
 	 */
-	if (trans_brick->power.button && trans_brick->power.led_on && !trans_brick->power.led_off) {
+	if (rot->stop_logger) {
+		status = _stop_trans(rot);
+	} else if (trans_brick->power.button &&
+		   trans_brick->power.led_on &&
+		   !trans_brick->power.led_off) {
 		bool do_stop = true;
 		if (trans_brick->replay_mode) {
 			rot->is_log_damaged =
@@ -4679,6 +4685,13 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	}
 
 done:
+	rot->stop_logger =
+		trans_brick &&
+		!trans_brick->power.button &&
+		(!trans_brick->power.led_off ||
+		 rot->trans_brick->inputs[TL_INPUT_LOG1]->connect ||
+		 rot->trans_brick->inputs[TL_INPUT_LOG2]->connect);
+
 	// check whether some copy has finished
 	fetch_brick = (struct copy_brick*)mars_find_brick(global, &copy_brick_type, rot->fetch_path);
 	MARS_DBG("fetch_path = '%s' fetch_brick = %p\n", rot->fetch_path, fetch_brick);
