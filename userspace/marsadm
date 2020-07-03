@@ -8129,7 +8129,7 @@ sub wait_pid_list {
     my $sub_res = $kid_res{$pid};
     if ($status > 0) {
       lwarn "RESOURCE $sub_res CHILD $pid terminated with status=$status\n";
-      $error_count += $status;
+      $error_count++ if $status;
     } elsif ($check_pid == $pid) {
       lprint "RESOURCE $sub_res CHILD $pid terminated successfully\n";
     } else {
@@ -8147,7 +8147,7 @@ sub wait_any_pid {
     my $sub_res = $kid_res{$pid};
     if ($status != 0) {
       lwarn "RESOURCE $sub_res CHILD $pid terminated with status=$status\n";
-      $error_count += abs($status);
+      $error_count++ if $status;
     } else {
       lprint "RESOURCE $sub_res CHILD $pid terminated successfully\n";
     }
@@ -8160,6 +8160,8 @@ sub do_fork {
   my $child_count = 0;
   # only fork() when beneficial
   if (@res_list && scalar(@res_list) > 1) {
+    lprint "FORKING (error_count=$error_count)\n";
+    $error_count = 0;
     foreach my $child_res (@res_list) {
       # when necessary, limit the parallelism degree
       if ($parallel > 0 && $child_count >= $parallel) {
@@ -8180,6 +8182,9 @@ sub do_fork {
 	$res = $child_res;
 	$child_count = 0;
 	$child_prefix = "CHILD $child_res: ";
+	if ($skip_res{$res}) {
+	  ldie "SKIPPING\n";
+	}
 	lprint "STARTING\n";
 	last;
       }
