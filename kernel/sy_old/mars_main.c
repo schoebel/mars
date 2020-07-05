@@ -3374,6 +3374,7 @@ void rot_destruct(void *_rot)
 		down_write(&rot_sem);
 		list_del_init(&rot->rot_head);
 		up_write(&rot_sem);
+		MARS_DBG("update info links\n");
 		write_info_links(rot);
 		del_channel(rot->log_say);
 		rot->log_say = NULL;
@@ -3482,6 +3483,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		}
 	}
 	
+	MARS_DBG("update info links\n");
 	write_info_links(rot);
 
 	/* Fetch the replay status symlink.
@@ -4148,6 +4150,7 @@ void _rotate_trans(struct mars_rotate *rot)
 			   atomic_read(&trans_input->log_ref_count) <= 0) {
 			int status;
 
+			MARS_DBG("update info links\n");
 			write_info_links(rot);
 			MARS_INF("cleanup old transaction log (%d -> %d)\n", old_nr, log_nr);
 			status = mars_disconnect((void*)trans_input);
@@ -4155,6 +4158,7 @@ void _rotate_trans(struct mars_rotate *rot)
 				MARS_ERR("disconnect failed\n");
 			} else {
 				/* Once again: now the other input should be active */
+				MARS_DBG("update info links\n");
 				write_info_links(rot);
 				mars_trigger();
 				mars_remote_trigger();
@@ -4371,6 +4375,7 @@ int _stop_trans(struct mars_rotate *rot)
 	if (trans_brick->power.led_off) {
 		int i;
 
+		MARS_DBG("update info links\n");
 		write_info_links(rot);
 		for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
 			struct trans_logger_input *trans_input;
@@ -4380,6 +4385,7 @@ int _stop_trans(struct mars_rotate *rot)
 			}
 		}
 	}
+	MARS_DBG("update info links\n");
 	write_info_links(rot);
 	mars_remote_trigger();
 	from_remote_trigger();
@@ -4501,6 +4507,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 	rot->log_is_really_damaged = false;
 	if (trans_brick->replay_mode) {
+		MARS_DBG("update info links\n");
 		write_info_links(rot);
 		if (trans_brick->replay_code == TL_REPLAY_FINISHED) {
 			MARS_INF_TO(rot->log_say, "logfile replay ended successfully at position %lld\n", trans_brick->replay_current_pos);
@@ -4510,8 +4517,16 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			   (rot->todo_primary &&
 			    (trans_brick->replay_code == TL_REPLAY_INCOMPLETE ||
 			     trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance))) {
-			MARS_ERR_TO(rot->log_say, "logfile replay stopped with error = %d at position %lld\n", trans_brick->replay_code, trans_brick->replay_current_pos);
-			make_rot_msg(rot, "err-replay-stop", "logfile replay stopped with error = %d at position %lld", trans_brick->replay_code, trans_brick->replay_current_pos);
+			MARS_ERR_TO(rot->log_say,
+				    "logfile replay stopped with error = %d at position %lld + %lld\n",
+				    trans_brick->replay_code,
+				    trans_brick->replay_current_pos,
+				    trans_brick->replay_end_pos - trans_brick->replay_current_pos);
+			make_rot_msg(rot, "err-replay-stop",
+				     "logfile replay stopped with error = %d at position %lld + %lld",
+				     trans_brick->replay_code,
+				     trans_brick->replay_current_pos,
+				     trans_brick->replay_end_pos - trans_brick->replay_current_pos);
 			rot->replay_code = trans_brick->replay_code;
 			rot->log_is_really_damaged = true;
 			/* Exception: set actual position for recovery */
@@ -5396,8 +5411,10 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	/* Disallow overwrite of newer data
 	 */
-	if (do_start)
+	if (do_start) {
+		MARS_DBG("update info links\n");
 		write_info_links(rot);
+	}
 	rot->forbid_replay = (do_start && compare_replaylinks(rot, peer, my_id()) < 0);
 	if (rot->forbid_replay) {
 		MARS_INF("cannot start sync because my data is newer than the remote one at '%s'!\n", peer);
