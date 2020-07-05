@@ -4528,7 +4528,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			if (rot->replay_code >= TL_REPLAY_RUNNING)
 				rot->replay_code = trans_brick->replay_code;
 		} else if (trans_brick->replay_code < TL_REPLAY_RUNNING ||
-			   (rot->todo_primary &&
+			   ((rot->todo_primary ||
+			     rot->next_relevant_log) &&
 			    (trans_brick->replay_code == TL_REPLAY_INCOMPLETE ||
 			     trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance))) {
 			MARS_ERR_TO(rot->log_say,
