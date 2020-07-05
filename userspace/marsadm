@@ -4071,6 +4071,10 @@ sub attach_res_phase2 {
   my ($cmd, $res) = @_;
   my $detach = ($cmd eq "detach");
   return if $force;
+  if (!is_module_loaded()) {
+    lwarn "Kernel module not loaded: $cmd will become effective after modprobe\n";
+    return;
+  }
   check_status($cmd, $res, "is-attached", $detach ? 0 : 1, 1);
   if ($detach) {
     system("sync");
