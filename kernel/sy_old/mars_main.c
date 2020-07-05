@@ -3563,7 +3563,9 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       aio_path,
 			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
-			       rot->trans_brick || switch_on ? 2 : -1, // disallow detach when trans_logger is present
+			       switch_on ||
+			        (rot->trans_brick &&
+				 !rot->trans_brick->power.led_off) ? 2 : -1,
 			       "%s",
 			       (const char *[]){},
 			       0,
@@ -3617,7 +3619,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       aio_path,
 			       (const struct generic_brick_type*)&trans_logger_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
-			       1, // create when necessary, but leave in current state otherwise
+			       switch_on ? 1 : 0,
 			       "%s/replay-%s", 
 			       (const char *[]){"%s/data-%s"},
 			       1,
@@ -4624,6 +4626,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 		do_start = (!rot->replay_mode ||
 			    (rot->start_pos != rot->end_pos &&
+			     _check_allow(global, parent->d_path, "attach") &&
 			     _check_allow(global, parent->d_path, "allow-replay")));
 
 		if (do_start && rot->forbid_replay) {
