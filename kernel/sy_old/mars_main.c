@@ -4556,6 +4556,9 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 						     rot->next_relevant_log->d_rest,
 						     rot->next_relevant_log->d_serial,
 						     0);
+				rot->next_relevant_log = NULL;
+				rot->aio_brick = NULL;
+				goto done;
 			/* Designated primary must exceptionally accept a damaged
 			 * logfile without successor for recovery under all circumstances.
 			 */
