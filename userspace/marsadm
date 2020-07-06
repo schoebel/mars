@@ -11382,18 +11382,57 @@ foreach my $arg (@ARGV) {
   push @args, $arg;
 }
 
-my $cmd = shift @args || helplist "command argument is missing\n";
+# Command parsing
 
-if ($cmd =~ s/\s*([-+]?=.*)//) {
-  $cmd_suffix{$cmd} = $1;
-}
+my $cmd = shift @args || helplist "command argument is missing\n";
 
 if ($cmd =~ m/^help$/ || $cmd =~ m/^h$/) {
   helplist;
+  exit(0);
 }
 
 if ($cmd =~ m/^version$/ || $cmd =~ m/^v$/) {
   version;
+  exit(0);
+}
+
+if ($cmd =~ s/\s*([-+]?=.*)//) {
+  my $arg = $1;
+  $cmd_suffix{$cmd} = $arg;
+  if ($cmd =~ m/\+/) {
+    foreach my $part_cmd (split("\\+", $cmd)) {
+      $cmd_suffix{$part_cmd} = $arg;
+    }
+  }
+}
+
+unless ($cmd =~ m/^(lowlevel-|view|pretty)/) {
+  # multi-cmds
+  if (!defined($cmd_table{$cmd})) {
+    ldie "Unknown command '$cmd'\n";
+  }
+  my %cmd_parts;
+  my $cmd_count = 0;
+  for (;;) {
+    $cmd_parts{$cmd}++;
+    $cmd_count++;
+    my $test = $args[0];
+    last unless $test;
+    # remember any part-cmd paraemeters
+    if ($test =~ s/\s*([-+]?=.*)//) {
+      $cmd_suffix{$test} = $1;
+    }
+    last unless defined($cmd_table{$test});
+    $cmd = $test;
+    shift @args;
+  }
+  if ($cmd_count > 1 ) {
+    # we have a combined command
+    $cmd = join("+", sort alphanum_cmp (keys(%cmd_parts)));
+    if (!defined($cmd_table{$cmd})) {
+      ldie "Unknown combined command '$cmd'\n";
+    }
+  }
 }
 
 ldie "only root may use this tool\n" if $< != 0 && $cmd !~ m/^(cat|view.*|pretty.*)$/; # getpid() seems to be missing in perlfunc
