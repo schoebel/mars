@@ -133,6 +133,7 @@ void *__mark_ptr_nonnull(void *_ptr)
 	do {								\
 		if (_data_) {						\
 			_brick_mem_free(_data_, __LINE__);		\
+			(_data_) = NULL;				\
 		}							\
 	} while(0)
 
@@ -180,6 +181,7 @@ extern void _brick_mem_free(void *data, int line);
 	do {								\
 		if (_data_) {						\
 			_brick_string_free(_data_, __LINE__);		\
+			(_data_) = NULL;				\
 		}							\
 	} while(0)
 
@@ -201,6 +203,7 @@ extern void _brick_string_free(const char *data, int line);
 	do {								\
 		if (_data_) {						\
 			_brick_block_free((_data_), (_len_), __LINE__);	\
+			(_data_) = NULL;				\
 		}							\
 	} while(0)
 
