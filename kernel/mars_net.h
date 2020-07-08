@@ -36,7 +36,14 @@ extern bool mars_net_is_alive;
 extern __u32 enabled_net_compressions;
 extern __u32 used_net_compression;
 
-#define MARS_PROTO_LEVEL 1
+/* This needs to be incremented when low-level network protocol
+ * details (as opposed to mid-level changes to struct meta)
+ * are changing.
+ * Another use case is high-level changes in the order of messages
+ * which cannot be neither encoded into usable_features_version
+ * nor into usable_strategy_version.
+ */
+#define MARS_PROTO_LEVEL 2
 
 #define MAX_FIELD_LEN   32
 #define MAX_DESC_CACHE  16
