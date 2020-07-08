@@ -520,6 +520,13 @@ int handler_thread(void *data)
 
 			up(&dent_limit_sem);
 
+			/* Looks strange, but is needed for not triggering
+			 * a masked bug in old MARS versions during mixed
+			 * updates.
+			 */
+			if (sock->s_common_proto_level >= 2)
+				old_proto_level = sock->s_common_proto_level;
+
 			down(&brick->socket_sem);
 			status = mars_send_dent_list(sock, &handler_global->dent_anchor);
 			up(&brick->socket_sem);
