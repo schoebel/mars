@@ -353,10 +353,8 @@ void mars_put_socket(struct mars_socket *msock)
 			sock_release(sock);
 		}
 		for (i = 0; i < MAX_DESC_CACHE; i++) {
-			if (msock->s_desc_send[i])
-				brick_block_free(msock->s_desc_send[i], PAGE_SIZE);
-			if (msock->s_desc_recv[i])
-				brick_block_free(msock->s_desc_recv[i], PAGE_SIZE);
+			brick_block_free(msock->s_desc_send[i], PAGE_SIZE);
+			brick_block_free(msock->s_desc_recv[i], PAGE_SIZE);
 		}
 		brick_block_free(msock->s_buffer, PAGE_SIZE);
 		memset(msock, 0, sizeof(struct mars_socket));

@@ -243,9 +243,7 @@ void clear_vals(struct key_value_pair *start)
 {
 	while (start->key) {
 		brick_string_free(start->val);
-		start->val = NULL;
 		brick_string_free(start->old_val);
-		start->old_val = NULL;
 		start++;
 	}
 }
@@ -276,7 +274,6 @@ void show_vals(struct key_value_pair *start, const char *path, const char *add)
 			memset(&start->system_stamp, 0, sizeof(start->system_stamp));
 			memset(&start->lamport_stamp, 0, sizeof(start->lamport_stamp));
 			brick_string_free(start->old_val);
-			start->old_val = NULL;
 		}
 		brick_string_free(dst);
 		start++;
@@ -3332,12 +3329,6 @@ void rot_destruct(void *_rot)
 		brick_string_free(rot->parent_path);
 		brick_string_free(rot->parent_rest);
 		brick_string_free(rot->fetch_next_origin);
-		rot->fetch_path = NULL;
-		rot->fetch_peer = NULL;
-		rot->preferred_peer = NULL;
-		rot->parent_path = NULL;
-		rot->parent_rest = NULL;
-		rot->fetch_next_origin = NULL;
 		clear_vals(rot->msgs);
 	}
 }
@@ -3410,7 +3401,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->prev_log = NULL;
 	rot->next_log = NULL;
 	brick_string_free(rot->fetch_next_origin);
-	rot->fetch_next_origin = NULL;
 	rot->max_sequence = 0;
 	// reset the split brain detector only when conflicts have gone for a number of rounds
 	if (rot->split_brain_serial && rot->split_brain_round++ > 3)
@@ -3419,7 +3409,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->has_error = false;
 	rot->has_symlinks = true;
 	brick_string_free(rot->preferred_peer);
-	rot->preferred_peer = NULL;
 
 	activate_peer(rot, dent->d_rest);
 
@@ -5043,7 +5032,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	status = 0;
 done:
 	MARS_DBG("status = %d\n", status);
-	if (do_dealloc && src_path)
+	if (do_dealloc)
 		brick_string_free(src_path);
 	return status;
 }
@@ -5085,10 +5074,8 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 
 done:
 	MARS_DBG("status = %d\n", status);
-	if (copy_path)
-		brick_string_free(copy_path);
-	if (switch_path)
-		brick_string_free(switch_path);
+	brick_string_free(copy_path);
+	brick_string_free(switch_path);
 	return status;
 }
 
@@ -6594,7 +6581,6 @@ done:
 	brick_string_free(mars_resource_list);
 	brick_string_free(tmp_resource_list);
 	brick_mem_free(mars_global);
-	mars_global = NULL;
 
 	MARS_INF("-------- done status = %d ----------\n", status);
 	//cleanup_mm();

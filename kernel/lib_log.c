@@ -327,7 +327,6 @@ err_free:
 	if (logst->private) {
 		// TODO: if callbacks are already registered, call them here with some error code
 		brick_mem_free(logst->private);
-		logst->private = NULL;
 	}
 err:
 	return NULL;
@@ -616,7 +615,6 @@ done_put:
 	if (status == -EAGAIN && old_offset > 0) {
 		if (*dealloc) {
 			brick_mem_free(*dealloc);
-			*dealloc = NULL;
 		}
 		goto restart;
 	}

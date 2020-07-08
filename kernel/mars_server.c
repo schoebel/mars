@@ -169,7 +169,6 @@ int cb_thread(void *data)
 
 		if (mref_a->data) {
 			brick_block_free(mref_a->data, mref_a->len);
-			mref_a->data = NULL;
 			mref->ref_data = NULL;
 		}
 		if (mref_a->do_put) {

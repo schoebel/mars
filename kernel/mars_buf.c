@@ -246,7 +246,6 @@ struct buf_head *_alloc_bf(struct buf_brick *brick)
 #endif
 	if (unlikely(!bf->bf_data)) {
 		brick_mem_free(bf);
-		bf = NULL;
 		goto done;
 	}
 

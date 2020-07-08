@@ -355,7 +355,6 @@ int _setup_bundle(struct client_bundle *bundle, const char *str)
 	bundle->host = strchr(bundle->path, '@');
 	if (unlikely(!bundle->host)) {
 		brick_string_free(bundle->path);
-		bundle->path = NULL;
 		MARS_ERR("parameter string '%s' contains no remote specifier with '@'-syntax\n", str);
 		goto done;
 	}
@@ -1115,7 +1114,6 @@ static int client_output_construct(struct client_output *output)
 static int client_output_destruct(struct client_output *output)
 {
 	brick_string_free(output->bundle.path);
-	output->bundle.path = NULL;
 	brick_block_free(output->hash_table, PAGE_SIZE);
 	return 0;
 }

@@ -1127,9 +1127,8 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 atomic_read(&output->tinfo[1].total_enqueue_count),
 		 atomic_read(&output->tinfo[2].total_enqueue_count),
 		 sync ? sync : "");
-	
-	if (sync)
-		brick_string_free(sync);
+
+	brick_string_free(sync);
 
 	return res;
 }

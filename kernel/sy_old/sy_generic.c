@@ -2223,7 +2223,6 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 		mars_free_dent_all(dent->d_subtree,
 				   &dent->d_subtree->dent_anchor);
 		brick_mem_free(dent->d_subtree);
-		dent->d_subtree = NULL;
 	}
 
 	for (i = 0; i < MARS_ARGV_MAX; i++) {
@@ -3056,12 +3055,9 @@ err:
 	brick = NULL;
 done:
 	for (i = 0; i < prev_count; i++) {
-		if (paths[i]) {
-			brick_string_free(paths[i]);
-		}
+		brick_string_free(paths[i]);
 	}
-	if (_new_path)
-		brick_string_free(_new_path);
+	brick_string_free(_new_path);
 
 	return brick;
 }
