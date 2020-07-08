@@ -89,6 +89,7 @@ extern char *my_id(void);
 	int   d_version;  /* dynamic programming per call of mars_ent_work() */ \
 	int   d_child_count;						\
 	int   d_hash;							\
+	int   d_proto;							\
 	char d_once_error;						\
 	bool d_killme;							\
 	bool d_use_channel;						\

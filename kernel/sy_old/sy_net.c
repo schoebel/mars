@@ -71,8 +71,10 @@ int mars_send_dent_list(struct mars_socket *sock, struct list_head *anchor)
 	struct list_head *tmp;
 	struct mars_dent *dent;
 	int status = 0;
+
 	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
 		dent = container_of(tmp, struct mars_dent, dent_link);
+		dent->d_proto = MARS_PROTO_LEVEL;
 		status = mars_send_struct(sock, dent, mars_dent_meta, true);
 		if (status < 0)
 			break;
@@ -103,6 +105,10 @@ int mars_recv_dent_list(struct mars_socket *sock, struct list_head *anchor)
 		if (status <= 0) {
 			mars_free_dent(NULL, dent);
 			goto done;
+		}
+		if (dent->d_proto >= 2) {
+			sock->s_remote_proto_level = dent->d_proto;
+			sock->s_common_proto_level = min(dent->d_proto, MARS_PROTO_LEVEL);
 		}
 		list_add_tail(&dent->dent_link, anchor);
 	}
