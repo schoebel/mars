@@ -100,6 +100,28 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable98
+	* Minor regression from mars0.1astable97: when old
+	  kernel modules < mars0.1astable97 were combined with
+	  exactly that marsadm version, the presence of
+	  /dev/mars/$resource was detected incorrectly.
+	  Do not use exactly that combination. Simply skip
+	  the marsadm version mars0.1astable97.
+	  Other version combinations are still possible for independent
+	  and rolling updates of kernel and marsadm.
+	  Best practice: first update marsadm to mars0.1astable98
+	  or newer, so this bug is fixed, and then your rolling
+	  kernel updates will work again for updating or even
+	  downgrading old kernels.
+	* Minor fix: in a hardly reachable corner case, detach
+	  was hanging. Workaround by rmmod was possible.
+	* Minor fix: spurious races at join-resource without ssh could
+	  occur, so it sometimes did not notice that a new resource
+	  was added in the meantime. Usage of ssh, or just retrying
+	  was helpful. Thus hardly relevant in practice.
+	* Various minor fixes and improvements. Some masked bugs,
+	  not visible, only triggerable by a future version of MARS.
+
 mars0.1astable97
 	* Critical fix: when logfile is damaged (e.g. after a
 	  primary crash), some corner cases of primary recovery
