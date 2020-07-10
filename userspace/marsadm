@@ -210,6 +210,15 @@ sub device_name {
 sub device_exists {
   my ($res, $peer) = @_;
   $peer = $host unless defined($peer);
+  if ($peer eq $real_host) {
+    # Silent fallback to local detection for old kernel versions
+    my $buildtag = get_link("$mars/buildtag-$peer", 2);
+    if (defined($buildtag) && $buildtag =~ m/stable([0-9]+)/ && $1 <= 97) {
+      my $name = device_name($res, $peer);
+      my $val = (-b $name) ? 1 : 0;
+      return $val;
+    }
+  }
   my $lnk = "$mars/resource-$res/actual-$peer/if-on";
   my $val = get_link($lnk, 2);
   # backwards compatibility to old kernels
@@ -224,7 +233,7 @@ sub device_exists {
     # Fallback to local device
     my $name = device_name($res, $peer);
     if ($peer eq $real_host) {
-      lwarn "Falling back to local device detection $name for $peer\n";
+      lwarn "Unexpected fallback to local device detection $name for $peer\n";
       $val = (-b $name) ? 1 : 0;
     } else {
       lwarn "Cannot determine device presence for $peer\n";
