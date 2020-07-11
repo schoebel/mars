@@ -4558,7 +4558,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 						   rot->next_relevant_log->d_path,
 						   _get_tolerance(rot), false)) {
 				rot->log_is_really_damaged = false;
-				trans_brick->replay_code = -EAGAIN;
+				trans_brick->replay_code = TL_REPLAY_FINISHED;
 				rot->replay_code = TL_REPLAY_RUNNING;
 				MARS_INF_TO(rot->log_say,
 					    "exceptional switchover from '%s' to '%s'\n",
