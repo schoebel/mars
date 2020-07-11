@@ -3823,6 +3823,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 		goto done;
 	
 	status = -EINVAL;
+	CHECK_PTR(dent->d_path, done);
 	parent = dent->d_parent;
 	CHECK_PTR(parent, done);
 	global = rot->global;
@@ -3830,6 +3831,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	CHECK_PTR(rot->replay_link, done);
 	CHECK_PTR(rot->aio_brick, done);
 	CHECK_PTR(rot->aio_dent, done);
+	CHECK_PTR(rot->aio_dent->d_path, done);
 
 	MARS_DBG("    dent = '%s'\n", dent->d_path);
 	MARS_DBG("aio_dent = '%s'\n", rot->aio_dent->d_path);
