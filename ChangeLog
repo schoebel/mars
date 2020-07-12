@@ -74,8 +74,26 @@ Release Conventions / Branches / Tagnames
 	    primary side.
 	    Or, of course, you may combine it with (typically security-
 	    triggered) rolling kernel reboots.
-	  - marsadm may be upgraded independently from kernel
+	    HINT: update marsadm first, before updating the kernel module.
+	    This way, the controls for newer features are already in
+	    place when the new kernel module is activated (no blind
+	    flight).
+	  - marsadm may be upgraded and downgraded independently from kernel
 	    (during operations, best via your favorite package manager).
+	    Of course, no magic will happen: newer features are only
+	    available when newer version of both the userspace tool and
+	    the kernel modules are installed.
+	  - Best practice in bigger installations: first test your upgrade
+	    or downgrade at some test clusters first. I cannot lab-test all
+	    possible O(n^2) combinations of marsadm versions with kernel
+	    module versions, or even all O(n^3) combinations of marsadm
+	    with mixed-operations kernel modules. But I am doing my best
+	    lab-testing some important combinations.
+	  - Please check this ChangeLog for any upgrade / downgrade
+	    incompatibility bugs. In case they are detected, they will
+	    be fixed. But I cannot retrospectivly change already released
+	    versions and their bugs. Fixes are only possible in newer
+	    versions.
 	  - Downgrade is possible *inside* of the same stable branch
 	    series.
 	  - Downgrade to _prior_ *stable* branches may be restricted,
