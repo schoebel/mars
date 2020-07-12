@@ -118,6 +118,11 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable99
+	* Minor fixes: some more corner cases of unnecessary
+	  split brain rarely occuring after fatal primary
+	  crashes.
+
 mars0.1astable98
 	* Minor regression from mars0.1astable97: when old
 	  kernel modules < mars0.1astable97 were combined with
