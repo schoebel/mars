@@ -520,29 +520,120 @@ sub txt2featuresflags {
 
 ##################################################################
 
-# resource lists
+# Resource lists and their peers
 
-my %all_resources;
+# 2-dimensional caches for cartesian product
+
+my %total_resources;
 my %member_resources;
+my %guest_resources;
+my %any_resources;
 
-sub _scan_resources {
-  foreach my $res (lamport_glob("$mars/resource-*/{data,replay,systemd}-*")) {
-    next unless $res =~ s:^$mars/resource-(.*?)/.*:$1:;
-    next if $all_resources{$res};
-    $all_resources{$res} = 1;
-    if (lamport_glob("$mars/resource-$res/{data,replay,systemd}*-$host")) {
-      $member_resources{$res} = 1;
-    }
+my %total_peers;
+my %member_peers;
+my %guest_peers;
+my %any_peers;
+
+sub _scan_caches {
+  # Reset all 2-dimensional hashes
+  %total_resources = ();
+  %member_resources = ();
+  %guest_resources = ();
+  %any_resources = ();
+  %total_peers = ();
+  %member_peers = ();
+  %guest_peers = ();
+  %any_peers = ();
+  # Add all known hosts to %total_peers but _not_ to %any_peers.
+  # Reason: some hosts might not be member/guest of any resource
+  foreach my $path (lamport_glob("$mars/ips/ip-*")) {
+    $path =~ m:/ip-(.*):;
+    my $this_peer = $1;
+    $total_peers{$this_peer} = {};
   }
-  lprint "====== found " .
-    scalar(keys(%all_resources)) . " total and " .
-      scalar(keys(%member_resources)) . " participating " .
-	"resources for '$host'\n" if $verbose;
+  # Add all known resources to %total_resources but _not_ to %any_resources.
+  # Reason: some resources might exist but have no members / guests.
+  foreach my $path (lamport_glob("$mars/resource-*")) {
+    $path =~ m:/resource-(.*):;
+    my $this_res = $1;
+    $total_resources{$this_res} = {};
+  }
+  # Now we look at all relevant combinations between resources and hosts
+  my @total_paths = lamport_glob("$mars/resource-*/{device,data,replay}-*");
+  my %paths;
+  foreach my $path (@total_paths) {
+    $paths{$path} = 1;
+  }
+  foreach my $path (@total_paths) {
+    next unless $path =~ m:/resource-([^/]+?)/[a-z]+-(.+):;
+    my $this_res = $1;
+    my $this_peer = $2;
+    # dynamic programming
+    next if $total_resources{$this_res}{$this_peer};
+    # remember result combinations
+    $total_resources{$this_res}{$this_peer} = 1;
+    $total_peers{$this_peer}{$this_res} = 1;
+    my $is_any = $paths{"$mars/resource-$this_res/device-$this_peer"};
+    if ($is_any) {
+      $any_resources{$this_res}{$this_peer} = 1;
+      $any_peers{$this_peer}{$this_res} = 1;
+    }
+    my $is_member =
+      $paths{"$mars/resource-$this_res/data-$this_peer"} ||
+      $paths{"$mars/resource-$this_res/replay-$this_peer"};
+    if ($is_member) {
+      $member_resources{$this_res}{$this_peer} = 1;
+      $member_peers{$this_peer}{$this_res} = 1;
+      next;
+    }
+    my $is_guest =
+      $is_any &&
+      get_link("$mars/resource-$this_res/actual-$this_peer/prosumer-on", 2) ||
+      get_link("$mars/resource-$this_res/todo-$this_peer/exports", 2) =~ m:(^|\+)$this_peer($|\+):;
+    if ($is_guest) {
+      $guest_resources{$this_res}{$this_peer} = 1;
+      $guest_peers{$this_peer}{$this_res} = 1;
+      next;
+    }
+    # Notice: _candidates_ for guests are over here.
+    # They can be determined by set_minus(%any_peers,%member_peers)
+  }
+  if ($verbose) {
+    lprint "====== found " .
+      scalar(keys(%total_peers)) . " total and " .
+	scalar(keys(%member_peers)) . " participating and " .
+	  scalar(keys(%guest_peers)) . " guest " .
+	    "peers\n";
+    lprint "====== found " .
+      scalar(keys(%total_resources)) . " total and " .
+	scalar(keys(%member_resources)) . " participating and " .
+	  scalar(keys(%guest_resources)) . " guest " .
+	    "resources\n";
+  }
 }
 
 sub _reset_resources {
-  %all_resources = ();
+  %total_peers = ();
 }
+
+sub is_member {
+  my ($res, $peer) = @_;
+  _scan_caches() unless %total_peers;
+  return $member_resources{$res}{$peer};
+}
+
+sub is_guest {
+  my ($res, $peer) = @_;
+  _scan_caches() unless %total_peers;
+  return $guest_resources{$res}{$peer};
+}
+
+sub is_any {
+  my ($res, $peer) = @_;
+  _scan_caches() unless %total_peers;
+  return $any_resources{$res}{$peer};
+}
+
 
 sub alphanum_cmp {
   my ($aa, $bb) = ($a, $b);
@@ -551,17 +642,92 @@ sub alphanum_cmp {
   return $aa cmp $bb;
 }
 
-#print sort alphanum_cmp ("z", "a3", "a21");
-#exit 0;
-
-sub get_all_resources {
-  _scan_resources() unless %all_resources;
-  return sort alphanum_cmp keys(%all_resources);
+sub get_total_resources {
+  my $peer = shift;
+  _scan_caches() unless %total_peers;
+  if ($peer) {
+    my $projection = $total_peers{$peer};
+    return sort alphanum_cmp keys(%$projection);
+  } else {
+    return sort alphanum_cmp keys(%total_resources);
+  }
 }
 
 sub get_member_resources {
-  _scan_resources() unless %all_resources;
-  return sort alphanum_cmp keys(%member_resources);
+  my $peer = shift;
+  _scan_caches() unless %total_peers;
+  if ($peer) {
+    my $projection = $member_peers{$peer};
+    return sort alphanum_cmp keys(%$projection);
+  } else {
+    return sort alphanum_cmp keys(%member_resources);
+  }
+}
+
+sub get_guest_resources {
+  my $peer = shift;
+  _scan_caches() unless %total_peers;
+  if ($peer) {
+    my $projection = $guest_peers{$peer};
+    return sort alphanum_cmp keys(%$projection);
+  } else {
+    return sort alphanum_cmp keys(%guest_resources);
+  }
+}
+
+sub get_any_resources {
+  my $peer = shift;
+  _scan_caches() unless %total_peers;
+  if ($peer) {
+    my $projection = $any_peers{$peer};
+    return sort alphanum_cmp keys(%$projection);
+  } else {
+    return sort alphanum_cmp keys(%any_resources);
+  }
+}
+
+sub get_total_peers {
+  my $res = shift;
+  _scan_caches() unless %total_peers;
+  if ($res) {
+    my $projection = $total_resources{$res};
+    return sort alphanum_cmp keys(%$projection);
+  } else {
+    return sort alphanum_cmp keys(%total_peers);
+  }
+}
+
+sub get_member_peers {
+  my $res = shift;
+  _scan_caches() unless %total_peers;
+  if ($res) {
+    my $projection = $member_resources{$res};
+    return sort alphanum_cmp keys(%$projection);
+  } else {
+    return sort alphanum_cmp keys(%member_peers);
+  }
+}
+
+sub get_guest_peers {
+  my $res = shift;
+  _scan_caches() unless %total_peers;
+  if ($res) {
+    my $projection = $guest_resources{$res};
+    return sort alphanum_cmp keys(%$projection);
+  } else {
+    return sort alphanum_cmp keys(%guest_peers);
+  }
+}
+
+sub get_any_peers {
+  my $res = shift;
+  _scan_caches() unless %total_peers;
+  if ($res) {
+    my $projection = $any_resources{$res};
+    return sort alphanum_cmp keys(%$projection);
+  } else {
+    return sort alphanum_cmp keys(%any_peers);
+  }
 }
 
 ##################################################################
@@ -889,7 +1055,7 @@ sub make_systemd_unit {
   if (defined($res)) {
     @res_list = ($res);
   } else {
-    @res_list = get_member_resources();
+    @res_list = get_member_resources($host);
   }
   my ($found_env, $found_template_file, $found_subst);
  search:
@@ -1133,7 +1299,7 @@ sub __systemd_generate_all {
     $count += make_systemd_unit($cmd, "UNDEFINED_RESOURCE", $template_name);
   }
   # Determine all participating resource names.
-  my @res_list = get_member_resources();
+  my @res_list = get_member_resources($host);
   # Create initial systemd units
   foreach my $res (@res_list) {
     foreach my $unit_link (lamport_glob("$mars/resource-$res/systemd-*-unit")) {
@@ -1192,7 +1358,7 @@ sub __systemd_commit_ops {
 sub __systemd_activate_ops {
   my $cmd = shift;
   # Activate the listed units.
-  my @res_list = get_member_resources();
+  my @res_list = get_member_resources($host);
   foreach my $res (@res_list) {
     systemd_activate($cmd, $res);
   }
@@ -1214,7 +1380,7 @@ sub __systemd_fingerprint {
   }
   # Fingerprint all resources
   $text .= "#\n";
-  my @res_list = get_member_resources();
+  my @res_list = get_member_resources($host);
   foreach my $res (@res_list) {
     $text .= "$res\n";
     my $unit_glob = "$mars/resource-$res/systemd-*-unit";
@@ -1617,14 +1783,20 @@ sub get_global_versions {
 }
 
 sub get_alive_links {
-  my $res = shift || "all";
+  my $res = shift;
   my $alive = shift || "alive";
   my $hosts = shift || "*";
   my $warn = shift || 0;
   my $non_participating = shift || 0;
-  $res = "*" if $res eq "all";
+  $res = "*" if (!$res || $res eq "all" || $res =~ m/,/);
   my $use_remote_stamp = $alive =~ s/^\^// ? 1 : 0;
   my %cand;
+  my @peer_list;
+  if ($non_participating) {
+    @peer_list = get_total_peers();
+  } else {
+    @peer_list = get_any_peers($res ne "*" ? $res : undef);
+  }
   my %peers;
   foreach my $path (lamport_glob("$mars/ips/ip*-$hosts")) {
     $path =~ m:/ip-(.*):;
@@ -1789,7 +1961,8 @@ sub wait_cond {
 # wait until everything is recent
 sub wait_cluster {
   my $cmd = shift;
-  my $res = shift || "all";
+  my $res = shift;
+  $res = "all" if (!$res || $res =~ m/,/);
   my $hosts = shift || "*";
   my $abort = shift;
   $abort = $force unless defined($abort);
@@ -1887,7 +2060,8 @@ sub wait_cluster_noforce {
 
 sub update_cluster {
   my $cmd = shift;
-  my $res = shift || "all";
+  my $res = shift;
+  $res = "all" if (!$res || $res =~ m/,/);
   my $hosts = shift || "*";
   lprint "UPDATING $res\n" if $verbose;
   wait_cluster($cmd, $res, $hosts, 0, 8);
@@ -1915,7 +2089,8 @@ sub is_cluster_recent {
 
 sub recent_cluster {
   my $cmd = shift;
-  my $res = shift || "all";
+  my $res = shift;
+  $res = "all" if (!$res || $res =~ m/,/);
   my $hosts = shift || "*";
   my ($dead_count, $alive_count, $unknown_count) = is_cluster_recent($cmd, $res, $hosts);
   return 1 if (!$dead_count && !$unknown_count);
@@ -2060,6 +2235,10 @@ sub check_sizes {
 sub check_res_member {
   my ($cmd, $res) = @_;
   if (! link_exists("$mars/resource-$res/data-$host")) {
+    if (link_exists("$mars/resource-$res/device-$host")) {
+      # guest
+      return;
+    }
     if (link_exists("$mars/resource-$res/replay-$host")) {
       lwarn "Resource '$res' seems to have been destroyed.\n";
       lwarn "Nevertheless, a replay link exists for host '$host'.\n";
@@ -4003,10 +4182,10 @@ sub delete_res {
     lprint "resource directory '$basedir' does no longer exist.\n";
     return;
   }
-  my @host_list = lamport_glob("$basedir/replay-*");
+  my @host_list = get_total_peers($res);
   my $cnt = scalar(@host_list);
   if ($cnt > 0) {
-    my $h_list = join(',', map({ $_ =~ s:.*/replay-::;} (@host_list)));
+    my $h_list = join(',', @host_list);
     ldie "resource '$res' is not empty: first remove the hosts '$h_list' via leave-resource\n" unless $force;
     lwarn "BRUTE FORCE resource destruction: '$res' has $cnt members ($h_list) THESE ARE FINALLY TRASHED right now -- you are RESPONSIBLE for any subsequent problems.\n";
   }
@@ -5115,6 +5294,7 @@ sub mars_info_cmd {
 sub show_cmd {
   my ($cmd, $res) = @_;
   $res = "*" if !$res || $res eq "all";
+  $res = "{$res}" if $res =~ m/,/;
   my $glob = "$mars/{ips/ip-$host,alive-$host,emergency-$host,rest-space-$host,resource-$res/{device,primary,size,actsize-$host,syncstatus-$host,replay-$host,actual-$host/*,todo-$host/*}}";
   foreach my $link (lamport_glob($glob)) {
     next unless link_exists($link);
@@ -5546,43 +5726,66 @@ sub eval_fn {
       my $result = -d $path;
       return defined($result) && $result;
     }
+    if (/^is-(member|guest)$/) {
+      my $type = $1;
+      $arg1 = parse_macro($arg1, $env);
+      $arg1 = $$env{"res"} unless $arg1;
+      my $arg2 = shift;
+      $arg2 = parse_macro($arg2, $env);
+      $arg2 = $$env{"host"} unless $arg2;
+      my $result;
+      if ($type eq "guest") {
+	$result = is_guest($arg1, $arg2);
+      } else {
+	$result = is_member($arg1, $arg2);
+      }
+      return $result ? 1 : 0;
+    }
     # list objects
-    if (/^(count[-_]?)?cluster[-_]?members$/) {
+    if (/^(count[-_]?)?(cluster|resource|guest)[-_]?members$/) {
+      my $old = $_;
+      $_ =~ s/members/peers/;
+      lwarn "deprecated: please use macro '$_' instead of '$old'\n";
+    }
+    if (/^(count[-_]?)?(cluster|resource|guest)[-_]?peers$/) {
       my $do_count = $1;
-      my @peers = lamport_glob("$mars/ips/ip-*");
+      my $type = $2;
+      my @peers;
+      if ($type eq "cluster") {
+	@peers = get_total_peers();
+      } elsif ($type eq "guest") {
+	@peers = get_guest_peers($$env{"res"});
+      } else {
+	@peers = get_member_peers($$env{"res"});
+      }
       return scalar(@peers) if defined($do_count);
       my $list = "";
-      foreach my $peer (sort alphanum_cmp @peers) {
-	$peer =~ s:^$mars/ips/ip-::;
+      foreach my $peer (@peers) {
 	$list .= "$peer\n";
       }
       return $list;
     }
-    if (/^(count[-_]?)?resource[-_]?members$/) {
+    if (/^(count[-_]?)?(my|all)[-_]?(resources|members|guests)$/) {
       my $do_count = $1;
-      my @peers = lamport_glob($$env{"resdir"} . "/data-*");
-      return scalar(@peers) if defined($do_count);
-      my $list = "";
-      foreach my $peer (sort alphanum_cmp @peers) {
-	$peer =~ s:^.*/data-::;
-	$list .= "$peer\n";
-      }
-      return $list;
-    }
-    if (/^(my|all)[-_]?resources$/) {
-      my $what = $1;
-      my $peer = "*";
+      my $what = $2;
+      my $type = $3;
+      my $peer = "";
       if ($what eq "my") {
 	$peer = parse_macro($arg1, $env);
 	$peer = $$env{"host"} unless $peer;
       }
-      my @list = lamport_glob("$mars/resource-*/data-$peer");
-      map { s:^$mars/resource-(.*?)/data-.*:$1:; } @list;
+      my @list;
+      if ($type eq "guests") {
+	@list = get_guest_resources($peer);
+      } elsif ($type eq "members") {
+	@list = get_member_resources($peer);
+      } else {
+	@list = get_total_resources($peer);
+      }
+      return scalar(@list) if defined($do_count);
       my $list = "";
-      my $old = "";
-      foreach my $item (sort alphanum_cmp @list) {
-	$list .= "$item\n" if $item ne $old;
-	$old = $item;
+      foreach my $item (@list) {
+	$list .= "$item\n";
       }
       return $list;
     }
@@ -6412,9 +6615,10 @@ my $macro = "";
 my %complex_macros =
   (
    "default"
-   => "%if{%{res}}{"
+   => ""
+   .  "%elsif{%is-member{}}{"
    .    "%call{device-info}"
-   .    "  %{res} [%count-resource-members{%{res}}/%count-cluster-members{}]"
+   .    "  %{res} [%count-resource-peers{%{res}}/%count-cluster-peers{}]"
    .      " %include{diskstate} %include{replstate} %include{flags} %include{role} %include{primarynode} %include{commstate}\n"
    .    "%if{%>{%-{%disk-size{}}{%resource-size{}}}{%{threshold}}}{"
    .    "     Hint: you are wasting %human-numbers{}{ }{ }{%-{%disk-size{}}{%resource-size{}}} on disk %get-disk{}\n"
@@ -6431,12 +6635,14 @@ my %complex_macros =
    .      "}"
    .    "}"
    .    "%call{resource-errors}"
+   .  "}{"
+   .    "%call{device-info}"
    .  "}",
 
    "default-resource"
    => "%if{%{res}}{"
    .    "%{res} %human-numbers{}{ }{ }{%resource-size{}} "
-   .    "[%count-resource-members{%{res}}/%count-cluster-members{}]"
+   .    "[%count-resource-peers{%{res}}/%count-cluster-peers{}]"
    .  "}",
 
    "default-global"
@@ -6934,6 +7140,8 @@ my %trivial_globs =
    => "",
    "is-{split-brain,consistent,emergency,orphan}"
    => "",
+   "is-{member,guest}"
+   => "",
    "rest-space"
    => "",
    "get-{disk,device}"
@@ -6950,11 +7158,17 @@ my %trivial_globs =
    => "",
 
    # intended for scripting
-   "{my,all}-resources"
+   "{my,all}-{resources,members,guests}"
+   => "",
+   "count-{my,all}-{resources,members,guests}"
    => "",
    "{cluster,resource}-members"
+   => "deprecated",
+   "count-{cluster,resource,guest}-members"
+   => "deprecated",
+   "{cluster,resource,guest}-peers"
    => "",
-   "count-{cluster,resource}-members"
+   "count-{cluster,resource,guest}-peers"
    => "",
    "{disk,resource,device}-size"
    => "",
@@ -8422,7 +8636,7 @@ sub expand_res_list {
   my ($cmd, $res) = @_;
   my @res_list=();
   if ($res eq "all" && $cmd !~ m/show|cat|cluster|set-link|delete-file/) {
-    @res_list = get_member_resources();
+    @res_list = get_any_resources($host);
   } elsif ($res =~ m/,/) {
     @res_list = split(",", $res);
   }
@@ -8440,19 +8654,17 @@ sub do_all_res {
     my $any_success = 0;
     my $any_fail = 0;
     my $any_member = 0;
-    my @total_list = lamport_glob("$mars/ips/ip-*");
-    my $total_count = scalar(@total_list);
     call_hook(!$force, "all-pre", $cmd, "all", @_) if $do_abort;
     foreach $res (@res_list) {
-      my $check ="$mars/resource-$res/data-$host";
-      next unless (any_exists($check));
       $any_member++;
       $res =~ s/^.*\/resource-(.*)$/$1/;
       next if defined($skip_res{$res});
       if ($verbose || $cmd !~ m/^log-/) {
 	my $tpl = get_macro("default-resource");
 	my $hint = eval_macro($cmd, $res, $tpl, @_);
-	lprint "--------- resource $hint\n";
+	my $type = "guest";
+	$type = "resource" if is_member($res, $host);
+	lprint "--------- $type $hint\n";
       }
       if (!$do_abort) {
 	# LOOP RETRY mode
@@ -8499,7 +8711,7 @@ sub do_all_res {
     return $any_fail unless $do_abort;
     if (!$any_success) {
       if (!$any_member) {
-	lprint "I am not member of any resource\n";
+	lprint "I am not member/guest of any resource\n";
 	return 1;
       }
       ldie "all resources have errors\n";
@@ -8507,7 +8719,7 @@ sub do_all_res {
     call_hook(!$force, "all-post", $cmd, "all", @_);
     return !$any_success;
   } elsif ($res eq "all") {
-    lwarn "resource qualifier 'all' does not match any resource names\n";
+    lwarn "resource qualifier 'all' does not match any resource or guest names\n";
     return 0;
   } elsif (!$do_abort) {
     return do_one_res($func, $cmd, $res, @_);
