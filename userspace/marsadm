@@ -3238,6 +3238,42 @@ sub _run_compensation {
   }
 }
 
+sub get_status {
+  my ($cmd, $res, $peers, $key, $unchecked) = @_;
+  # allow arrays and keyed hashes for $peers
+  if (ref($peers) eq "ARRAY") {
+    $peers = join("+", @$peers);
+  } elsif (ref($peers) eq "HASH") {
+    $peers = join("+", sort alphanum_cmp keys(%$peers));
+  }
+  my $result = "";
+  foreach my $peer (split("\\+", $peers)) {
+    my $lnk = "$mars/resource-$res/actual-$peer/$key";
+    my $val = get_link($lnk, $unchecked);
+    next if(!defined($val) || $val eq "");
+    $result .= "+" if $result;
+    $result .= $val;
+  }
+  return $result;
+}
+
+sub all_is_off {
+  my ($str) = @_;
+  if ($str =~ m/^0+(\+0+)*$/) {
+    return 1;
+  }
+  return 0;
+}
+
+sub all_is_on {
+  my ($str) = @_;
+  if ($str =~ m/^[^0]+(\+[^0]+)*$/) {
+    return 1;
+  }
+  return 0;
+}
+
+# Deprecated: waiting to be replaced by LOOP checks in the long term
 sub check_status {
   my ($cmd, $res, $key, $val, $wait, $unchecked, $inv, $peer, $action, $compensation) = @_;
   $peer = $host unless defined($peer);
@@ -6105,202 +6141,326 @@ sub cron_phase2 {
   return 0;
 }
 
-sub attach_res_phase0 {
+# Transitive attach / detach dependencies in the Distributed System
+
+my %dep_prosumers;
+my %dep_storages;
+
+sub compute_deps {
   my ($cmd, $res) = @_;
-  my $detach = ($cmd eq "detach");
-  if ($detach) {
-    my $want_path = "$mars/resource-$res/systemd-want";
-    my $want = get_link($want_path, 2);
-    if ($want && !$force) {
-      lprint "IMPORTANT: Relying on systemd for $cmd of resource '$res'\n";
-      my $path = "$mars/resource-$res/todo-$host/attach";
-      _switch($cmd, $res, $path, 0);
-      finish_links();
-      systemd_any_trigger($cmd, $res);
-      return 0;
+  if (!is_any($res, $host)) {
+    lskip $res, "Nothing to do: '$host' is no member/guest of '$res'\n";
+  }
+  my $add_global = ($cmd =~ m/global/);
+  my $add_primary = 0;
+  if (is_member($res, $host)) {
+    lprint "Need to $cmd my own storage as requested (host=$host)\n";
+    $dep_storages{$res}{$host} = 1;
+  } else {
+    lprint "Need to $cmd my own prosumer as requested (host=$host)\n";
+    $dep_prosumers{$res}{$host} = 1;
+    $add_primary++;
+  }
+  if ($add_global) {
+    my @peers = get_member_peers($res);
+    foreach my $peer (@peers) {
+      next if $dep_storages{$res}{$peer};
+      lprint "Need to globally $cmd member storage of '$res' at '$peer'\n";
+      $dep_storages{$res}{$peer} = 1;
     }
-    my $lnk = "$mars/resource-$res/actual-$host/is-primary";
-    my $is_primary = get_link($lnk, 1);
-    return 0 unless $is_primary;
-    # primaries can only detach when nothing is really exported
-    my %peers;
-    my $prosumer_peers = get_prosumers(@_);
-    if (defined($prosumer_peers) && $prosumer_peers ne "(local)") {
-      foreach my $peer (split("\\+", $prosumer_peers)) {
-	$peers{$peer}++;
+  }
+  # check (intended) presence of prosumers
+  my $primary = _get_designated_primary($cmd, $res);
+  my $nr_peers = 0;
+  my $prosumer_peers = get_prosumers(@_);
+  if ($prosumer_peers && $primary &&
+      ($add_primary ||
+       $dep_storages{$res}{$primary})) {
+    foreach my $peer (split("\\+", $prosumer_peers)) {
+      $peer = $primary if $peer eq "(local)";
+      lprint "Prosumer '$peer' needs device $cmd from primary '$primary'\n";
+      $dep_prosumers{$res}{$peer}++;
+      $nr_peers++;
+    }
+  }
+  # compute the transitive closure
+  for (;;) {
+    my $touch = 0;
+    # We cannot $cmd only the prosumers. The primary must $cmd also.
+    if ($nr_peers && $primary && $primary ne "(none)" && !$dep_storages{$res}{$primary}) {
+      lprint "We also need to $cmd designated primary '$primary'\n";
+      $dep_storages{$res}{$primary} = 1;
+      $touch++;
+    }
+    # also check any designated exports
+    if ($primary && $primary ne "(none)" && $dep_storages{$res}{$primary}) {
+      my $lnk = "$mars/resource-$res/todo-$primary/exports";
+      my $val = get_link($lnk, 2);
+      if (defined($val) && $val && $val !~ m/^\(/) {
+	foreach my $path (split("\\+", $val)) {
+	  $path =~ s:^.*/logger-::;
+	  $path =~ s:^.*/export-::;
+	  next if defined($dep_prosumers{$res}{$path});
+	  lwarn "Resource '$res' is unexpectedly exported to '$path'\n";
+	  $dep_prosumers{$res}{$path}++;
+	  $nr_peers++;
+	  $touch++;
+	}
       }
-    } else {
-      $peers{$host}++;
     }
-    # also check any actual exports
-    $lnk = "$mars/resource-$res/actual-$host/exports";
-    my $val = get_link($lnk, 2);
-    if (defined($val) && $val && $val ne "(none)") {
-      foreach my $path (split("\\+", $val)) {
-	$path =~ s:^.*/logger-::;
-	$path =~ s:^.*/export-::;
-	next if defined($peers{$path});
-	lwarn "Resource '$res' is unexpectedly exported to '$path'\n";
-	$peers{$path}++;
+    # For saftey of any prosumers, also $cmd any actual primaries
+    if ($nr_peers) {
+      my $glob = "$mars/resource-$res/actual-*/is-primary";
+      foreach my $path (lamport_glob($glob)) {
+	my $is_primary = get_link($path, 1);
+	next unless $is_primary;
+	$path =~ m:/actual-(.*)/:;
+	my $act_primary = $1;
+	next if (!$act_primary || $dep_storages{$res}{$act_primary});
+	lwarn "For prosumer safety, we also need to $cmd actual primary '$act_primary'\n";
+	$dep_storages{$res}{$act_primary} = 1;
+	$touch++;
       }
     }
-    my $errors = 0;
-    foreach my $peer (sort alphanum_cmp keys(%peers)) {
-      my $device_in_use = get_link("$mars/resource-$res/actual-$peer/open-count", 1);
-      if ($device_in_use) {
-	my $dev = device_name($res, $peer);
-	lwarn "Device '$dev' is in use at peer '$peer'\n";
-	$errors++;
-      }
-    }
-    if ($errors && !$force) {
-      ldie "Cannot detach: there were $errors errors.\n";
-    }
+    last if !$touch;
   }
   return 0;
 }
 
-# only for systemd: wait that primary device is no longer open
-sub attach_res_phase0b {
-  my ($cmd, $res) = @_;
-  return 0 unless $cmd eq "detach";
-  return 0 unless systemd_present(@_);
-  check_status($cmd, $res, "open-count", 0, 1);
-  wait_cluster($cmd);
-  return 0;
-}
+# Attach phases
 
-sub attach_res_phase1 {
+sub attach_phase1 {
   my ($cmd, $res) = @_;
   _reset_gate(@_);
   _reset_new_primary(@_);
-  my $detach = ($cmd eq "detach");
-  my $path = "$mars/resource-$res/todo-$host/attach";
-  _switch($cmd, $res, $path, !$detach);
-  my $prosumer_peers = get_prosumers(@_);
-  if ($prosumer_peers eq "(local)") {
-    $prosumer_peers = $host;
+  my $stor_hash = $dep_storages{$res};
+  foreach my $peer (sort alphanum_cmp keys(%$stor_hash)) {
+    my $path = "$mars/resource-$res/todo-$peer/attach";
+    _switch($cmd, $res, $path, 1);
   }
-  if ($prosumer_peers && !$prosumer_peers =~ m/^\(/) {
-    foreach my $peer (split("\\+", $prosumer_peers)) {
-      my $lnk = "$mars/resource-$res/todo-$peer/detach-device";
-      my $detach_device = $detach ? "1" : "0";
-      set_link($detach_device, $lnk);
-    }
+  my $pros_hash = $dep_prosumers{$res};
+  foreach my $peer (sort alphanum_cmp keys(%$pros_hash)) {
+    my $lnk = "$mars/resource-$res/todo-$peer/detach-device";
+    set_link(0, $lnk);
+    $lnk = "$mars/resource-$res/todo-$peer/kill-device";
+    set_link(0, $lnk);
   }
   finish_links();
   _trigger(3);
   return 0;
 }
 
-sub attach_res_phase2 {
+sub attach_phase2 {
   my ($cmd, $res) = @_;
-  my $detach = ($cmd eq "detach");
   return 0 if $force;
   if (!is_module_loaded()) {
     lwarn "Kernel module not loaded: $cmd will become effective after modprobe\n";
     return 0;
   }
-  check_status($cmd, $res, "is-attached", $detach ? 0 : 1, 1);
-  if ($detach) {
-    system("sync");
-    check_mars_device($cmd, $res, 1, 1) if todo_local($cmd, $res);
-    check_status($cmd, $res, "is-replaying", 0, 1);
-    check_status($cmd, $res, "is-syncing", 0, 1);
-    system("sync");
+  my $stor_hash = $dep_storages{$res};
+  return 0 if !$stor_hash;
+  my $stores = join("+", sort alphanum_cmp keys(%$stor_hash));
+  if (!all_is_on(get_status($cmd, $res, $stor_hash, "is-attached", 1))) {
+    lprint "Storages '$stores' are not yet attached\n";
+    return 1;
+  }
+  lprint "Storages '$stores' are attached\n";
+  # Do not use the transitive closure of prosumers for attach.
+  my $prosumer_peers = get_prosumers(@_);
+  my $primary = _get_designated_primary($cmd, $res);
+  if ($prosumer_peers && $primary && $dep_storages{$res}{$primary}) {
+    if ($prosumer_peers eq "(local)") {
+      $prosumer_peers = $primary;
+    }
+    if (!all_is_on(get_status($cmd, $res, $prosumer_peers, "if-on", 1))) {
+      lprint "Prosumerss '$prosumer_peers' are not yet device-attached\n";
+      return 1;
+    }
+    lprint "Prosumers '$prosumer_peers' are device-attached\n";
   }
   return 0;
 }
 
-sub fetch_global_res {
+# Detach phases
+
+sub detach_phase0 {
   my ($cmd, $res) = @_;
-  my $pause = ($cmd =~ m/disconnect|pause/);
-  my @paths = lamport_glob("$mars/resource-$res/todo-*/");
-  for my $path (@paths) {
-    _switch($cmd, $res, "$path/connect", !$pause);
+  _reset_gate(@_);
+  _reset_new_primary(@_);
+  # can systemd do the job?
+  my $want_path = "$mars/resource-$res/systemd-want";
+  my $want = get_link($want_path, 2);
+  my $pros_hash = $dep_prosumers{$res};
+  if ($want && !$force) {
+    lprint "IMPORTANT: Relying on systemd for $cmd of resource '$res'\n";
+    foreach my $peer (sort alphanum_cmp keys(%$pros_hash)) {
+      my $path = "$mars/resource-$res/todo-$peer/attach";
+      _switch($cmd, $res, $path, 0);
+    }
+    finish_links();
+    systemd_any_trigger($cmd, $res);
+    return 0;
   }
+  my $errors = 0;
+  foreach my $peer (sort alphanum_cmp keys(%$pros_hash)) {
+    my $device_in_use = get_link("$mars/resource-$res/actual-$peer/open-count", 1);
+    if ($device_in_use) {
+      my $dev = device_name($res, $peer);
+      lwarn "Device '$dev' is in use at prosumer '$peer'\n";
+      $errors++;
+    }
+  }
+  if ($errors && !$force) {
+    ldie "Cannot $cmd: there were $errors errors.\n";
+  }
+  return 0;
 }
 
-sub fetch_local_res {
+# only for systemd: wait that primary device is no longer open
+sub detach_phase0b {
+  my ($cmd, $res) = @_;
+  return 0 unless systemd_present(@_);
+  my $pros_hash = $dep_prosumers{$res};
+  my $count = 0;
+  foreach my $peer (sort alphanum_cmp keys(%$pros_hash)) {
+    my $device_in_use = get_link("$mars/resource-$res/actual-$peer/open-count", 1);
+    my $dev = device_name($res, $peer);
+    if ($device_in_use) {
+      lprint "Device '$dev' is in use at peer '$peer'\n";
+      $count++;
+    } else {
+      lprint "Device '$dev' is not in use at peer '$peer'\n";
+    }
+  }
+  if ($count) {
+    systemd_any_trigger($cmd, $res);
+  }
+  return $count;
+}
+
+# execute device detach
+sub detach_phase0c {
+  my ($cmd, $res) = @_;
+  _reset_gate(@_);
+  # detach the prosumers
+  my $pros_hash = $dep_prosumers{$res};
+  foreach my $peer (sort alphanum_cmp keys(%$pros_hash)) {
+    my $lnk = "$mars/resource-$res/todo-$peer/detach-device";
+    set_link(1, $lnk);
+    lprint "Starting device detach at prosumer '$peer'\n";
+  }
+  finish_links();
+  _trigger(3);
+  return 0;
+}
+
+# execute storage detach
+sub detach_phase1 {
+  my ($cmd, $res) = @_;
+  _reset_gate(@_);
+  # detach the storages
+  my $stor_hash = $dep_storages{$res};
+  foreach my $peer (sort alphanum_cmp keys(%$stor_hash)) {
+    lprint "Starting detach of storage '$peer'\n";
+    my $path = "$mars/resource-$res/todo-$peer/attach";
+    _switch($cmd, $res, $path, 0);
+  }
+  finish_links();
+  _trigger(3);
+  return 0;
+}
+
+sub detach_phase2 {
+  my ($cmd, $res) = @_;
+  return 0 if $force;
+  if (!is_module_loaded()) {
+    lwarn "Kernel module not loaded: $cmd will become effective after modprobe\n";
+    return 0;
+  }
+  my $pros_hash = $dep_prosumers{$res};
+  if ($pros_hash) {
+    my $prosumers = join("+", sort alphanum_cmp keys(%$pros_hash));
+    if (!all_is_off(get_status($cmd, $res, $pros_hash, "if-on", 1))) {
+      lprint "Prosumers '$prosumers' are not yet gone\n";
+      return 1;
+    }
+    lprint "Prosumers '$prosumers' are gone.\n";
+  }
+  my $stor_hash = $dep_storages{$res};
+  return 0 if !$stor_hash;
+  my $stores = join("+", sort alphanum_cmp keys(%$stor_hash));
+  if (!all_is_off(get_status($cmd, $res, $stor_hash, "is-attached", 1))) {
+    lprint "Storages '$stores' are not yet detached\n";
+    return 1;
+  }
+  if (!all_is_off(get_status($cmd, $res, $stor_hash, "is-replaying", 1))) {
+    lwarn "Unexpected: Storages '$stores' are replaying\n";
+    return 1;
+  }
+  if (!all_is_off(get_status($cmd, $res, $stor_hash, "is-syncing", 1))) {
+    lwarn "Unexpected: Storages '$stores' are syncing\n";
+    return 1;
+  }
+  system("sync");
+  lprint "Storages '$stores' are detached.\n";
+  return 0;
+}
+
+sub fetch_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd =~ m/disconnect|pause/);
-  my $path = "$mars/resource-$res/todo-$host/connect";
-  _switch($cmd, $res, $path, !$pause);
+  my $stor_hash = $dep_storages{$res};
+  foreach my $peer (sort alphanum_cmp keys(%$stor_hash)) {
+    my $path = "$mars/resource-$res/todo-$peer/connect";
+    _switch($cmd, $res, $path, !$pause);
+  }
+  return 0;
 }
 
-sub pause_sync_global_res {
+sub pause_sync_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd =~ m/pause/);
   check_sync_startable(@_) if !$pause;
-  my @paths = lamport_glob("$mars/resource-$res/todo-*/");
-  for my $path (@paths) {
-    _switch($cmd, $res, "$path/sync", !$pause);
-  }
-}
-
-sub pause_sync_local_res {
-  my ($cmd, $res) = @_;
-  my $pause = ($cmd =~ m/pause/);
-  check_sync_startable(@_) if !$pause;
-  my $path = "$mars/resource-$res/todo-$host/sync";
-  _switch($cmd, $res, $path, !$pause);
-}
-
-sub pause_replay_global_res {
-  my ($cmd, $res) = @_;
-  my $pause = ($cmd =~ m/pause/);
-  my @paths = lamport_glob("$mars/resource-$res/todo-*/");
-  for my $path (@paths) {
-    _switch($cmd, $res, "$path/replay", !$pause);
-  }
-}
-
-sub pause_replay_local_res {
-  my ($cmd, $res) = @_;
-  my $pause = ($cmd =~ m/pause/);
-  my $path = "$mars/resource-$res/todo-$host/replay";
-  _switch($cmd, $res, $path, !$pause);
-}
-
-sub up_res_phase0 {
-  my ($cmd, $res) = @_;
-  my $down = ($cmd eq "down");
-  if ($down) {
-    attach_res_phase0("detach", $res);
-  } else {
-    attach_res_phase0("attach", $res);
+  my $stor_hash = $dep_storages{$res};
+  foreach my $peer (sort alphanum_cmp keys(%$stor_hash)) {
+    my $path = "$mars/resource-$res/todo-$peer/sync";
+    _switch($cmd, $res, $path, !$pause);
   }
   return 0;
 }
 
-sub up_res_phase1 {
+sub pause_replay_res {
   my ($cmd, $res) = @_;
-  my $down = ($cmd eq "down");
-  if ($down) {
-    pause_replay_local_res("pause-replay-local", $res);
-    pause_sync_local_res("pause-sync-local", $res);
-    fetch_local_res("pause-fetch", $res);
-    attach_res_phase1("detach", $res);
-  } else {
-    attach_res_phase1("attach", $res);
-    fetch_local_res("resume-fetch-local", $res);
-    # ignore ldie on sync, just do all the rest
-    eval {
-      pause_sync_local_res("resume-sync-local", $res);
-    };
-    pause_replay_local_res("resume-replay-local", $res);
+  my $pause = ($cmd =~ m/pause/);
+  my $stor_hash = $dep_storages{$res};
+  foreach my $peer (sort alphanum_cmp keys(%$stor_hash)) {
+    my $path = "$mars/resource-$res/todo-$peer/replay";
+    _switch($cmd, $res, $path, !$pause);
   }
   return 0;
 }
 
-sub up_res_phase2 {
+sub up_phase1 {
   my ($cmd, $res) = @_;
-  my $down = ($cmd eq "down");
-  if ($down) {
-    attach_res_phase2("detach", $res);
-  } else {
-    attach_res_phase2("attach", $res);
+  attach_phase1($cmd, $res);
+  fetch_res("resume-fetch-local", $res);
+  # ignore ldie on sync, just do all the rest
+  eval {
+    pause_sync_res("resume-sync-local", $res);
+  };
+  pause_replay_res("resume-replay-local", $res);
+  return 0;
+}
+
+sub down_phase1 {
+  my ($cmd, $res) = @_;
+  # skip controls for guests
+  if (is_member($res, $host)) {
+    pause_replay_res("pause-replay-local", $res);
+    pause_sync_res("pause-sync-local", $res);
+    fetch_res("pause-fetch-local", $res);
   }
+  detach_phase1($cmd, $res);
   return 0;
 }
 
@@ -7057,7 +7217,7 @@ sub primary_phase4 {
     }
   }
   # new switch semantics, when nothing has failed before: up
-  up_res_phase1(@_);
+  down_phase1(@_);
   return 0;
 }
 
@@ -7260,6 +7420,21 @@ sub prosumer_phase1 {
     set_link("0", $lnk);
     $lnk = "$mars/resource-$res/todo-$peer/kill-device";
     set_link(0, $lnk);
+    my $device_path = "$mars/resource-$res/device-$peer";
+    my $device_val = get_link($device_path, 2);
+    if (!$device_val) {
+      lprint "Host '$peer' is not yet guest of resource '$res'\n";
+      # copy over from designated primary
+      my $prim_path = "$mars/resource-$res/device-$primary";
+      my $prim_val = get_link($prim_path);
+      set_link($prim_val, $device_path);
+      finish_links();
+      _activate_resource($cmd, $res, $peer);
+      _push_link($peer,    $prim_val, $device_path);
+      _push_link($primary, $prim_val, $device_path);
+      $trigger_val = 8;
+      _reset_resources();
+    }
   }
   # set the primary exports
   if ($primary && $primary ne "(none)") {
@@ -10488,18 +10663,23 @@ my %cmd_table =
        "This may be used for freezing the state of your replica for some",
        "time, if you have enough space on /mars/.",
        "Only useful on a secondary node.",
-       \&pause_replay_local_res,
+       \&compute_deps,
+       "compute dependencies",
+       \&pause_replay_res,
+       "modify switch",
       ],
    "pause-replay-global"
    => [
        "Like pause-replay-local, but affects all resource members",
        "in the cluster (remotely).",
-       \&pause_replay_global_res,
+       "GOTO",
+       "pause-replay-local",
       ],
    "pause-replay"
    => [
        "See pause-replay-local.",
-       \&pause_replay_local_res,
+       "GOTO",
+       "pause-replay-local",
       ],
    "resume-replay-local"
    => [
@@ -10508,18 +10688,23 @@ my %cmd_table =
        "This is independent from any {pause,resume}-fetch operations.",
        "This should be used for unfreezing the state of your local replica.",
        "Only useful on a secondary node.",
-       \&pause_replay_local_res,
+       \&compute_deps,
+       "compute dependencies",
+       \&pause_replay_res,
+       "modify switch",
       ],
    "resume-replay-global"
    => [
        "Like resume-replay-local, but affects all resource members",
        "in the cluster (remotely).",
-       \&pause_replay_global_res,
+       "GOTO",
+       "resume-replay-local",
       ],
    "resume-replay"
    => [
        "See resume-replay-local.",
-       \&pause_replay_local_res,
+       "GOTO",
+       "resume-replay-local",
       ],
    "set-replay"
    => [
@@ -10587,11 +10772,12 @@ my %cmd_table =
        "When designated as a primary, /dev/mars/\$res will also appear.",
        "This does not change the state of {fetch,replay}.",
        "For a complete local startup of the resource, use 'marsadm up'.",
-       \&attach_res_phase0,
-       "check preconditions",
-       \&attach_res_phase1,
+       \&compute_deps,
+       "compute dependencies",
+       \&attach_phase1,
        "switch state",
-       \&attach_res_phase2,
+       "LOOP",
+       \&attach_phase2,
        "wait for effect",
       ],
    "detach"
@@ -10604,14 +10790,21 @@ my %cmd_table =
        "When running in primary role, /dev/mars/\$res will also disappear.",
        "This does not change the state of {fetch,replay}.",
        "For a complete local shutdown of the resource, use 'marsadm down'.",
-       \&attach_res_phase0,
+       \&compute_deps,
+       "compute dependencies",
+       \&detach_phase0,
        "check preconditions",
        "FORK",
-       \&attach_res_phase0b,
+       "LOOP",
+       \&detach_phase0b,
        "wait for systemd device release",
-       \&attach_res_phase1,
-       "switch state",
-       \&attach_res_phase2,
+       "LOOP",
+       \&detach_phase0c,
+       "detach prosumer devices",
+       \&detach_phase1,
+       "detach storage",
+       "LOOP",
+       \&detach_phase2,
        "wait for effect",
       ],
    "resume-fetch-local"
@@ -10620,18 +10813,23 @@ my %cmd_table =
        "designated primary node, if there is one.",
        "This is independent from any {pause,resume}-replay operations.",
        "Only useful on a secondary node.",
-       \&fetch_local_res,
+       \&compute_deps,
+       "compute dependencies",
+       \&fetch_res,
+       "modify switch",
       ],
    "resume-fetch-global"
    => [
        "Like resume-fetch-local, but affects all resource members",
        "in the cluster (remotely).",
-       \&fetch_global_res,
+       "GOTO",
+       "resume-fetch-local",
       ],
    "resume-fetch"
    => [
        "See resume-fetch-local.",
-       \&fetch_local_res,
+       "GOTO",
+       "resume-fetch-local",
       ],
    "pause-fetch-local"
    => [
@@ -10639,74 +10837,105 @@ my %cmd_table =
        "designated primary.",
        "This is independent from any {pause,resume}-replay operations.",
        "Only useful on a secondary node.",
-       \&fetch_local_res,
+       \&compute_deps,
+       "compute dependencies",
+       \&fetch_res,
+       "modify switch",
       ],
    "pause-fetch-global"
    => [
        "Like pause-fetch-local, but affects all resource members",
        "in the cluster (remotely).",
-       \&fetch_global_res,
+       "GOTO",
+       "pause-fetch-local",
       ],
    "pause-fetch"
    => [
        "See pause-fetch-local.",
-       \&fetch_local_res,
+       "GOTO",
+       "pause-fetch-local",
       ],
    "connect-local"
    => [
        "See resume-fetch-local.",
-       \&fetch_local_res,
+       "GOTO",
+       "resume-fetch-local",
       ],
    "connect-global"
    => [
        "Like resume-fetch-local, but affects all resource members",
        "in the cluster (remotely).",
-       \&fetch_global_res,
+       "GOTO",
+       "resume-fetch-local",
       ],
    "connect"
    => [
        "See resume-fetch-local.",
-       \&fetch_local_res,
+       "GOTO",
+       "resume-fetch-local",
       ],
    "disconnect-local"
    => [
        "See pause-fetch-local.",
-       \&fetch_local_res,
+       "GOTO",
+       "pause-fetch-local",
       ],
    "disconnect-global"
    => [
        "Like pause-fetch-local, but affects all resource members",
        "in the cluster (remotely).",
-       \&fetch_global_res,
+       "GOTO",
+       "pause-fetch-local",
       ],
    "disconnect"
    => [
        "See pause-fetch-local.",
-       \&fetch_local_res,
+       "GOTO",
+       "pause-fetch-local",
       ],
    "syncer"            => \&ignore_cmd,
    "up"
    => [
        "Shortcut for attach + resume-sync + resume-fetch + resume-replay.",
-       \&up_res_phase0,
-       "check preconditions",
-       \&up_res_phase1,
+       \&compute_deps,
+       "compute dependencies",
+       \&up_phase1,
        "switch state",
-       \&up_res_phase2,
+       "LOOP",
+       \&attach_phase2,
        "wait for effect",
+      ],
+   "up-global"
+   => [
+       "Like up, but affects all resource members",
+       "in the cluster (remotely).",
+       "GOTO",
+       "up",
       ],
    "down"
    => [
        "Shortcut for detach + pause-sync + pause-fetch + pause-replay.",
-       \&up_res_phase0,
+       \&compute_deps,
+       "compute dependencies",
+       \&detach_phase0,
        "check preconditions",
        "FORK",
-       \&attach_res_phase0b,
+       \&detach_phase0b,
        "wait for systemd device release",
-       \&up_res_phase1,
-       "switch state",
-       \&up_res_phase2,
+       \&detach_phase0c,
+       "detach prosumer devices",
+       \&down_phase1,
+       "detach storage",
+       "LOOP",
+       \&detach_phase2,
        "wait for effect",
+      ],
+   "down-global"
+   => [
+       "Like down, but affects all resource members",
+       "in the cluster (remotely).",
+       "GOTO",
+       "down",
       ],
    "primary"
    => [
@@ -11041,36 +11270,46 @@ my %cmd_table =
        "inconsistent during the pause.",
        "Use this only for limited reduction of system load.",
        "Only useful on a secondary node.",
-       \&pause_sync_local_res,
+       \&compute_deps,
+       "compute dependencies",
+       \&pause_sync_res,
+       "modify switch",
       ],
    "pause-sync-global"
    => [
        "Like pause-sync-local, but affects all resource members",
        "in the cluster (remotely).",
-       \&pause_sync_global_res,
+       "GOTO",
+       "pause-sync-local",
       ],
    "pause-sync"
    => [
        "See pause-sync-local.",
-       \&pause_sync_local_res,
+       "GOTO",
+       "pause-sync-local",
       ],
    "resume-sync-local"
    => [
        "Resume any initial / incremental data sync at the stage where it",
        "had been interrupted by pause-sync.",
        "Only useful on a secondary node.",
-       \&pause_sync_local_res,
+       \&compute_deps,
+       "compute dependencies",
+       \&pause_sync_res,
+       "modify switch",
       ],
    "resume-sync-global"
    => [
        "Like resume-sync-local, but affects all resource members",
        "in the cluster (remotely).",
-       \&pause_sync_global_res,
+       "GOTO",
+       "resume-sync-local",
       ],
    "resume-sync"
    => [
        "See resume-sync-local.",
-       \&pause_sync_local_res,
+       "GOTO",
+       "resume-sync-local",
       ],
    "new-current-uuid"  => \&senseless_cmd,
    "hidden-commands"   => \&ignore_cmd,
@@ -11641,8 +11880,14 @@ sub do_one_res {
   }
   if ($cmd =~ m/^cat|^set-global-|-file$|-list$|-link$|-value$/) { # no resource argument
   } elsif (!$checked_res{"$cmd$res"}) {
-    $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|merge|leave|wait)-cluster|(create|join)-resource|show/);
-    check_res_member($cmd, $res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(merge|leave|wait)-cluster|activate-guest|-purge-|^show|^view/);
+    unless (!$res ||
+	    $cmd =~ m/^(join|create|merge|leave|wait)-cluster|(create|join)-resource|show/) {
+      $res = check_res($res);
+    }
+    unless (!$res ||
+	    $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(merge|leave|wait)-cluster|^prosumer|^detach|^down|activate-guest|-purge-|^show|^view/) {
+      check_res_member($cmd, $res);
+    }
     detect_splitbrain($res, 1);
     $checked_res{"$cmd$res"} = 1;
   }
@@ -11884,6 +12129,7 @@ sub do_fork {
   }
 }
 
+restart:
 if (ref($func) eq "ARRAY") {
   my @list = @$func;
   while (@list) {
@@ -11909,6 +12155,12 @@ if (ref($func) eq "ARRAY") {
       if ($memb_func eq "LOOP") {
 	$memb_func = shift @list;
 	$do_loop++;
+      } elsif ($memb_func eq "GOTO") {
+	my $name = shift @list;
+	# do not change the old $cmd, only change $func
+	$func = $cmd_table{$name};
+	ldie "unknown goto '$name'\n" unless $func;
+	goto restart;
       } elsif ($memb_func eq "SLEEP") {
 	$memb_func = shift @list;
 	sleep(7);
