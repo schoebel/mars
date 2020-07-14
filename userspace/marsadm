@@ -1790,7 +1790,6 @@ sub get_alive_links {
   my $non_participating = shift || 0;
   $res = "*" if (!$res || $res eq "all" || $res =~ m/,/);
   my $use_remote_stamp = $alive =~ s/^\^// ? 1 : 0;
-  my %cand;
   my @peer_list;
   if ($non_participating) {
     @peer_list = get_total_peers();
@@ -1798,30 +1797,13 @@ sub get_alive_links {
     @peer_list = get_any_peers($res ne "*" ? $res : undef);
   }
   my %peers;
-  foreach my $path (lamport_glob("$mars/ips/ip*-$hosts")) {
-    $path =~ m:/ip-(.*):;
-    my $peer = $1;
-    next unless $peer;
-    $cand{$peer} = 1;
+  foreach my $peer (@peer_list) {
+    next if ($peer eq $host && $hosts ne $host);
     # After join-cluster & co, links may take a while to appear
     $peers{$peer} = 1 if $non_participating;
-  }
-  my @paths = lamport_glob("$mars/resource-$res/data-*");
-  foreach my $path (@paths) {
-    $path =~ m:/data-(.*):;
-    my $peer = $1;
-    next unless $peer;
-    next if ($peer eq $host && $hosts ne $host);
-    # avoid O(n^2) globbing
-    next if $peers{$peer};
     # peer must be a candiate matching the hosts spec
-    next unless $cand{$peer};
-    # peer must be participating in _any_ of the resources
-    if (!$non_participating) {
-      my $check = $path;
-      $check =~ s:/data-.*:/data-$host:;
-      next if $check eq $path;
-      next unless any_exists($check);
+    if ($hosts && $hosts ne "*") {
+      next unless $peer =~ m/(^|[+,{}])$hosts($|[+,{}])/;
     }
     # OK: remember peer
     $peers{$peer} = 1;
