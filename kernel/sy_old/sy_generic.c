@@ -1784,7 +1784,8 @@ int _op_scan(struct say_channel **say_channel,
 		 * a new subtree.
 		 */
 		if (S_ISDIR(dent->new_stat.mode) &&
-		    dent->d_depth <= maxdepth &&
+		    (maxdepth <= 0 ||
+		     dent->d_depth <= maxdepth) &&
 		    (!has_dir_list || 
 		     dent->d_depth > 0 ||
 		     dir_path_is_in(dent->d_path, path_list))) {
