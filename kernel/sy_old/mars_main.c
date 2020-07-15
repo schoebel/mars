@@ -2427,6 +2427,7 @@ int start_peer(struct mars_peerinfo *peer)
 		return -ENOMEM;
 	}
 	MARS_DBG("started peer thread '%s'\n", peer->peer);
+	mars_trigger();
 	return 0;
 }
 
@@ -5988,6 +5989,7 @@ void activate_rot(struct mars_rotate *rot)
 	tmp = path_make("%s|%s/", tmp_resource_list, rot->parent_path);
 	brick_string_free(tmp_resource_list);
 	tmp_resource_list = tmp;
+	mars_trigger();
 }
 
 static
@@ -6616,7 +6618,7 @@ int make_dev(struct mars_dent *dent)
 	bool switch_on;
 	int status = 0;
 
-	if (!parent || !dent->new_link) {
+	if (!parent || !dent->new_link || !dent->d_path || !dent->d_rest) {
 		MARS_ERR("nothing to do '%s'\n", dent->d_rest);
 		return -EINVAL;
 	}
@@ -6630,14 +6632,12 @@ int make_dev(struct mars_dent *dent)
 		MARS_DBG("nothing to do\n");
 		goto err;
 	}
-	if (!rot->trans_brick && !rot->todo_prosumer) {
-		MARS_DBG("transaction logger does not exist\n");
-		goto done;
-	}
 	if (rot->dev_size <= 0) {
 		MARS_WRN("trying to create device '%s' with zero size\n", dent->d_path);
 		goto done;
 	}
+
+	activate_rot(rot);
 
 	make_prosumer(rot, dent);
 
