@@ -3704,7 +3704,10 @@ sub leave_res_phase3 {
   my ($cmd, $res) = @_;
   _wait_delete();
   err_purge_res($cmd, $res);
-  system("rm -f $mars/resource-$res/log-*") if $host eq $real_host;
+  # deprecated: hindering for new deletion method
+  if ($compat_deletions && $host eq $real_host) {
+    system("rm -f $mars/resource-$res/log-*");
+  }
   _systemd_trigger($cmd);
 }
 
