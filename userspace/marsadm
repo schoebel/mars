@@ -6488,13 +6488,13 @@ my %complex_macros =
    .  "}"
 
    .  "%let{infs}{%the-inf-count{}}"
-   .  "%if{%and{%{verbose}}{%{infs}}}{"
+   .  "%if{%and{%>={%{verbose}}{2}}{%{infs}}}{"
    .    "INFOS    LNK  (%{infs}):\n"
    .    "%the-pretty-inf-msg{}"
    .  "}"
 
    .  "%let{status_msg}{%get-log-status-{}}"
-   .  "%if{%and{%{verbose}}{%{status_msg}}}{"
+   .  "%if{%and{%>={%{verbose}}{2}}{%{status_msg}}}{"
    .    "STATUS   FILE:\n%{status_msg}"
    .  "}",
 
