@@ -1632,6 +1632,7 @@ void _mars_order_all(struct mars_cookie *cookie)
 			}
 			brick_string_free(check);
 		}
+		get_inode(dent->d_path, dent, true);
 		_mars_order(cookie, dent);
 	}
 	/* Append the whole unordered list.
