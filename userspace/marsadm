@@ -124,6 +124,30 @@ sub lamport_glob {
   return @result;
 }
 
+sub safe_creat {
+  my $path = shift;
+  if (-l $path) {
+    my $val = readlink($path);
+    unlink($path) if $val eq ".deleted";
+  }
+  my $fh = undef;
+  use IO::Handle;
+  use Fcntl;
+  my $status = sysopen($fh, $path, O_CREAT | O_EXCL | O_NOFOLLOW | O_RDONLY);
+  close($fh);
+  return (defined($status) && $status);
+}
+
+sub safe_touch {
+  my ($path, $stamp) = shift;
+  use IO::Handle;
+  if (-l $path) {
+    my $val = readlink($path);
+    return 0 if $val eq ".deleted";
+  }
+  return utime($stamp, $stamp, $path);
+}
+
 sub link_exists {
   my $path = shift;
   return 0 unless -l $path;
@@ -1011,7 +1035,7 @@ sub systemd_activate {
   my $ctl_cmd = "show \"$unit\"";
   my $op = "show";
   if ($do_activate) {
-    system("touch $want_host_path");
+    safe_touch($want_host_path) || safe_creat($want_host_path);
     $unit =~ s/ .*//;
     if (systemd_enabled($unit)) {
       return 0;
@@ -1213,7 +1237,7 @@ sub __systemd_trigger {
   # ensure that trigger file exists
   my $trigger = "$mars/userspace/systemd-trigger";
   lprint "Triggering '$trigger' for '$cmd'\n" if $verbose;
-  system("touch $trigger");
+  safe_touch($trigger) || safe_creat($trigger);
 }
 
 sub _systemd_trigger {
@@ -3539,7 +3563,8 @@ sub create_res {
     my $fmt_old = sprintf("%09d", $startnr - 1);
     my $fmt = sprintf("%09d", $startnr);
     set_link("log-$fmt-$host,0,0", "$resdir/replay-$host");
-    system("touch $resdir/log-$fmt-$host") unless $dry_run;
+    my $logfile = "$resdir/log-$fmt-$host";
+    safe_creat($logfile) unless $dry_run;
     my $old_fake = "00000000000000000000000000000000,log-$fmt_old-$host,0";
     set_link("$old_fake:", "$resdir/version-$fmt_old-$host");
     set_link("00000000000000000000000000000000,log-$fmt-$host,0:$old_fake", "$resdir/version-$fmt-$host");
@@ -3777,7 +3802,7 @@ sub logrotate_res {
   $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
   my $next = sprintf("$mars/resource-$res/log-%09d-$host", $nr + 1);
   ldie "logfile '$next' already exists\n" if file_exists($next);
-  system("touch $next") unless $dry_run;
+  safe_creat($next) unless $dry_run;
   my $startnr = get_link("$mars/resource-$res/maxnr", 1);
   $startnr = $nr + 1 if ($nr >= $startnr);
   set_link("$startnr", "$mars/resource-$res/maxnr");
