@@ -135,14 +135,18 @@ sub link_exists {
 
 sub file_exists {
   my $path = shift;
+  if (-l $path) {
+    my $val = readlink($path);
+    return 0 if $val eq ".deleted";
+  }
   return 1 if -f $path;
   return 0;
 }
 
 sub any_exists {
   my $path = shift;
-  return 1 if file_exists($path);
   return 1 if link_exists($path);
+  return 1 if file_exists($path);
   return 0;
 }
 
@@ -2156,12 +2160,6 @@ sub get_minmax_versions {
   my ($res, $peer) = @_;
   $peer = "" unless defined($peer);
   return _get_minmax($res, "$mars/resource-$res/version-*$peer", 0);
-}
-
-sub get_minmax_any {
-  my ($res, $peer) = @_;
-  $peer = "" unless defined($peer);
-  return _get_minmax($res, "$mars/resource-$res/{log,version}-*$peer", 0);
 }
 
 sub get_minmax_replays {
@@ -5683,7 +5681,6 @@ sub eval_fn {
     if (/^occupied[-_]?size$/) {
       my $sum = 0;
       foreach my $path (lamport_glob("$mars/resource-" . $$env{"res"} . "/log-*")) {
-	$path =~ m/\/log-([0-9]+)-/;
 	my @stat = stat($path);
 	$sum += $stat[7];
       }
