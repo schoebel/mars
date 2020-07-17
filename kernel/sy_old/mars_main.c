@@ -6856,8 +6856,7 @@ static int __init init_main(void)
 	int status = mars_stat("/mars/uuid", &dummy, true);
 
 	if (unlikely(status < 0)) {
-		printk(KERN_ERR "cannot load MARS: cluster UUID is missing. Mount /mars/, and/or use {create,join}-cluster first.\n");
-		return -ENOENT;
+		printk(KERN_WARNING "Cluster UUID is missing. Mount /mars/, and/or say {create,join}-cluster afterwwards.\n");
 	}
 
 	if (unlikely(!mars_is_mountpoint("/mars/"))) {
