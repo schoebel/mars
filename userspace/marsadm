@@ -1531,12 +1531,14 @@ sub get_alive_links {
   $res = "*" if $res eq "all";
   my $use_remote_stamp = $alive =~ s/^\^// ? 1 : 0;
   my %cand;
+  my %peers;
   foreach my $path (lamport_glob("$mars/ips/ip-$hosts")) {
     $path =~ m:/ip-(.*):;
     my $peer = $1;
     $cand{$peer} = 1;
+    # After join-cluster & co, links may take a while to appear
+    $peers{$peer} = 1 if $non_participating;
   }
-  my %peers;
   foreach my $path (lamport_glob("$mars/resource-$res/data-*")) {
     $path =~ m:/data-(.*):;
     my $peer = $1;
