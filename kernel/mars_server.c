@@ -479,7 +479,7 @@ int handler_thread(void *data)
 		}
 		case CMD_GETENTS:
 		{
-			char *path = cmd.cmd_str1 ? cmd.cmd_str1 : "/mars";
+			const char *path = cmd.cmd_str1 ? cmd.cmd_str1 : "/mars";
 			int max_retry = dent_retry;
 
 			while (down_trylock(&dent_limit_sem)) {
@@ -593,6 +593,7 @@ int handler_thread(void *data)
 		up(&handler_limit_sem);
 	clean:
 		brick_string_free(cmd.cmd_str1);
+		brick_string_free(cmd.cmd_str2);
 		if (unlikely(status < 0)) {
 			mars_shutdown_socket(sock);
 			brick_msleep(1000);

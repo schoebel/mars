@@ -1194,6 +1194,7 @@ const struct meta mars_cmd_meta[] = {
 	META_INI(cmd_compr_len, struct mars_cmd, FIELD_INT),
 	META_INI(cmd_int1, struct mars_cmd, FIELD_INT),
 	META_INI(cmd_str1, struct mars_cmd, FIELD_STRING),
+	META_INI(cmd_str2, struct mars_cmd, FIELD_STRING),
 	{}
 };
 

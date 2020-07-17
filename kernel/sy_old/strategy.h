@@ -159,7 +159,7 @@ extern int mars_dent_work(struct mars_global *global,
 			  int maxdepth,
 			  bool use_subtree);
 extern int mars_get_dent_list(struct mars_global *global,
-			      char *path_list,
+			      const char *path_list,
 			      int allocsize,
 			      mars_dent_checker_fn checker,
 			      int maxdepth);

@@ -673,6 +673,7 @@ int receiver_thread(void *data)
 		}
 	done:
 		brick_string_free(cmd.cmd_str1);
+		brick_string_free(cmd.cmd_str2);
 		if (unlikely(status < 0)) {
 			if (!ch->recv_error) {
 				MARS_DBG("signalling recv_error = %d\n", status);

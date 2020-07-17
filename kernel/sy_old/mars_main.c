@@ -2516,6 +2516,7 @@ int peer_actions(struct mars_global *tmp_global,
 
  done:
 	brick_string_free(inter_cmd.cmd_str1);
+	brick_string_free(inter_cmd.cmd_str2);
 	return status;
 }
 
@@ -2679,6 +2680,7 @@ int peer_thread(void *data)
 		}
 
 		brick_string_free(cmd.cmd_str1);
+		brick_string_free(cmd.cmd_str2);
 		brick_msleep(100);
 		if (!peer->to_terminate && !brick_thread_should_stop()) {
 			bool old_additional = peer->do_additional;
@@ -2705,6 +2707,7 @@ int peer_thread(void *data)
 
 	free_and_restart:
 		brick_string_free(cmd.cmd_str1);
+		brick_string_free(cmd.cmd_str2);
 		/* additional threads should give up immediately */
 		if (peer->do_additional && !peer->do_communicate)
 			break;

@@ -131,8 +131,8 @@ struct mars_cmd {
 	int cmd_int1;
 	//int cmd_int2;
 	//int cmd_int3;
-	char *cmd_str1;
-	//char *cmd_str2;
+	const char *cmd_str1;
+	const char *cmd_str2;
 	//char *cmd_str3;
 };
 

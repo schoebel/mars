@@ -1745,7 +1745,7 @@ const char *subtree_prefix(const char *path)
 static
 int _op_scan(struct say_channel **say_channel,
 	     struct mars_global *global,
-	     char *path_list,
+	     const char *path_list,
 	     int allocsize,
 	     mars_dent_checker_fn checker,
 	     int maxdepth,
@@ -1951,7 +1951,7 @@ void _op_remove(struct say_channel **say_channel,
 /* Stripped-down version for peer metadata exchange
  */
 int mars_get_dent_list(struct mars_global *global,
-		   char *path_list,
+		   const char *path_list,
 		   int allocsize,
 		   mars_dent_checker_fn checker,
 		   int maxdepth)
