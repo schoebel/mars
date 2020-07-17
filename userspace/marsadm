@@ -517,6 +517,10 @@ sub _scan_resources {
 	"resources for '$host'\n" if $verbose;
 }
 
+sub _reset_resources {
+  %all_resources = ();
+}
+
 sub alphanum_cmp {
   my ($aa, $bb) = ($a, $b);
   $aa =~ s/([0-9]+)/sprintf("%012d",$1)/eg;
@@ -1430,8 +1434,9 @@ sub set_link {
 }
 
 sub finish_links {
+  my ($timestamp) = @_;
   return unless @link_list;
-  my $timestamp = mars_time();
+  $timestamp = mars_time() unless $timestamp;
   lprint "using lamport timestamp $timestamp\n" if $verbose;
   my $trigger_code = 1;
   my $count = 0;
@@ -1796,8 +1801,9 @@ sub wait_cluster_noforce {
 sub update_cluster {
   my $cmd = shift;
   my $res = shift || "all";
+  my $hosts = shift || "*";
   lprint "UPDATING $res\n" if $verbose;
-  wait_cluster($cmd, $res, "*", 0, 8);
+  wait_cluster($cmd, $res, $hosts, 0, 8);
 }
 
 sub is_cluster_recent {
@@ -2937,9 +2943,23 @@ sub get_error_text {
 
 # helpers
 
-sub _trigger{
+sub _trigger {
   my $code = shift || 1;
-  system("(echo $code > /proc/sys/mars/trigger) >/dev/null 2>&1");
+  system("(echo -n $code > /proc/sys/mars/trigger) >/dev/null 2>&1");
+}
+
+# Please do not misuse this.
+# Use it only _exceptionally_ for creation of new memberships & co.
+# Always prefer the PULL PRINCIPLE where possible.
+sub _push_link {
+  my ($peer, $src, $dst) = @_;
+  if (!$peer || !$src || !$dst) {
+    lwarn "Bad push args '@_'\n";
+    return;
+  }
+  my $code = "p $peer $src $dst";
+  lprint "Pushing link '$dst' -> '$src' to peer '$peer'\n" if $verbose;
+  _trigger($code);
 }
 
 sub _switch {
@@ -2964,12 +2984,22 @@ sub _writable {
 }
 
 sub _get_ip {
-  check_id($host);
-  my $ip_path = "$mars/ips/ip-$host";
+  my ($peer) = @_;
+  $peer = $host unless $peer;
+  check_id($peer);
+  my $ip_path = "$mars/ips/ip-$peer";
   if (my $from_link = get_link($ip_path, 2)) {
     lprint_stderr "Using IP '$from_link' from '$ip_path'\n" if $verbose;
     return $from_link;
   }
+  # Try /usr/bin/host
+  my $answer = `/usr/bin/host -t A $peer`;
+  if ($answer && $answer =~ m/([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/) {
+    my $addr = $1;
+    lprint "DNS query for '$peer' found IPv4 address '$addr'\n";
+    return $addr;
+  }
+  ldie "Cannot determine foreign IP for peer '$peer'\n" if $peer ne $real_host;
   chomp (my @info = `/sbin/ip addr show`);
   my $interface = "";
   foreach my $line (@info) {
@@ -3201,16 +3231,52 @@ sub create_cluster {
 }
 
 sub join_cluster {
-  my ($cmd, $peer) = @_;
+  my ($cmd, $peer, $peer_ip) = @_;
   ldie "Cannot join myself (peer='$peer', host='$host')\n" if $peer eq $host;
   ldie "Directory $mars is missing\n" unless -d $mars;
-  ldie "A valid tree signature '$mars/tree-$host' already exists, thus it appears you are already a cluster member! This cannot be overridden, other by using a freshly created /mars/ filesystem.\n" if link_exists("$mars/tree-$host");
-  ldie "A cluster UUD '$mars/uuid' already exists, thus it appears you are already a cluster member! This cannot be overridden, other by using a freshly created /mars/ filesystem.\n" if link_exists("$mars/uuid");
-  if (lamport_glob("$mars/resource-*") or lamport_glob("$mars/ips/*")) {
-    ldie "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless $force;
+  if (lamport_glob("$mars/resource-*")) {
+    lwarn "DANGER: some resources already exist!\n";
+    ldie  "DANGER: If you are sure that no resource clash is possible, re-invoke $cmd with '--force' option\n" unless $force;
   }
-  ldie "mars module is loaded, please unload first\n" if is_module_loaded();
-  lprint "joining cluster via rsync (peer='$peer')\n";
+  $peer_ip = _get_ip($peer) unless $peer_ip;
+  # try new join method
+  if (is_module_loaded()) {
+    lprint "MARS kernel module is loaded, trying the new $cmd method.\n";
+    my $old_uuid = get_link("$mars/uuid", 2);
+    if (!$old_uuid || $old_uuid eq "(any)") {
+      mkdir("$mars/ips") unless -d "$mars/ips";
+      set_link("(any)", "$mars/uuid") unless $old_uuid;
+      set_link($ip, "$mars/ips/ip-$host");
+      set_link($peer_ip, "$mars/ips/ip-$peer");
+      # make PRELIMINARY links, timestamp is 1 second after the Big Bang (1970)
+      finish_links(1);
+      _trigger();
+      lprint "Update cluster information\n";
+      _reset_resources();
+      update_cluster($cmd, "all", $peer);
+      lprint "Checking uuid\n";
+      my $new_uuid = get_link("$mars/uuid");
+      if ($new_uuid && $new_uuid ne "(any)") {
+	lprint "Successfully joined cluster, uuid='$new_uuid'\n";
+	mkdir("$mars/defaults-$host") unless -d "$mars/defaults-$host";
+	mkdir("$mars/actual-$host") unless -d "$mars/actual-$host";
+	# write again, this time with current mars_time()
+	set_link($ip, "$mars/ips/ip-$host");
+	set_link("0", "$mars/defaults-$host/sync-limit");
+	set_link("(none)", "$mars/defaults-$host/sync-pref-list");
+	set_link("1", "$mars/todo-global/deleted-$host");
+	finish_links();
+	_push_link($peer, $ip, "$mars/ips/ip-$host");
+	return;
+      } else {
+	lwarn "Unable to determine the remote cluster uuid.\n";
+      }
+    } else {
+      lwarn "Cluster uuid '$old_uuid' already present, cannot use the new $cmd method\n";
+    }
+  }
+  lprint "Falling back to the old ssh/rsync based $cmd method (peer='$peer' peer_ip='$peer_ip')\n";
+  ldie "OLD method: MARS module is loaded, please unload first before using ssh\n" if is_module_loaded();
   rsync_cmd($peer, "--max-size=1 --update $peer:$mars/ $mars/");
   # check uniqness of IPs
   my %ips = ();
