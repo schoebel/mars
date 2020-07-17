@@ -586,6 +586,36 @@ int handler_thread(void *data)
 		case CMD_CB:
 			MARS_ERR("#%d oops, as a server I should never get CMD_CB; something is wrong here - attack attempt??\n", sock->s_debug_nr);
 			break;
+		case CMD_PUSH_LINK:
+		{
+			/* TODO: better security
+			 */
+			status = 0;
+			if (unlikely(!cmd.cmd_str1 || !cmd.cmd_str2))
+				break;
+			/* Confine to /mars/ and /dev/ */
+			if (unlikely(strncmp(cmd.cmd_str2, "/mars/", 6) ||
+				     (cmd.cmd_str1[0] == '/' &&
+				      strncmp(cmd.cmd_str1, "/mars/", 6) &&
+				      strncmp(cmd.cmd_str1, "/dev/", 5)))) {
+				MARS_ERR("Invalid push attempt '%s' -> '%s'\n",
+					 cmd.cmd_str2,
+					 cmd.cmd_str1);
+				printk(KERN_ALERT "Invalid MARS push attempt '%s' -> '%s'\n",
+					 cmd.cmd_str2,
+					 cmd.cmd_str1);
+				status = -EPERM;
+				break;
+			}
+
+			status =
+				ordered_symlink(cmd.cmd_str1,
+						cmd.cmd_str2,
+						&cmd.cmd_stamp);
+			if (status >= 0)
+				mars_trigger();
+			break;
+		}
 		default:
 			MARS_ERR("#%d unknown command %d\n", sock->s_debug_nr, cmd.cmd_code);
 		}

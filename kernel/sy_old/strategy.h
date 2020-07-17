@@ -219,6 +219,10 @@ extern struct mars_brick *make_brick_all(
 
 #define MARS_ERR_ONCE(dent, args...) if (!dent->d_once_error++) MARS_ERR(args)
 
+bool push_link(const char *peer_name,
+	       const char *src,
+	       const char *dst);
+
 /* General fs wrappers (for abstraction)
  */
 extern int mars_stat(const char *path, struct kstat *stat, bool use_lstat);

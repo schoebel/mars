@@ -109,6 +109,7 @@ enum mars_traffic_types {
 
 extern struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX];
 
+/* Do not change the order, only append new members */
 enum {
 	CMD_NOP,
 	CMD_NOTIFY,
@@ -117,6 +118,9 @@ enum {
 	CMD_GETENTS,
 	CMD_MREF,
 	CMD_CB,
+	CMD_PUSH_LINK,
+	/* keep last element */
+	CMD_LAST
 };
 
 #define CMD_FLAG_MASK     255

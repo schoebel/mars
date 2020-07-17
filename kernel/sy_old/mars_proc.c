@@ -80,6 +80,25 @@ void interpret_user_message(char *msg)
 		printk("%s\n", rest);
 		break;
 
+	case 'p': /* push link (best effort, unreliable) */
+	{
+		char *peer_name = brick_strdup(rest);
+		char *src = brick_strdup(rest);
+		char *dst = brick_strdup(rest);
+		int count;
+
+		count = sscanf(rest, "%s %s %s", peer_name, src, dst);
+		if (count == 3) {
+			push_link(peer_name, src, dst);
+		} else {
+			MARS_ERR("Bad link syntax '%s'\n", rest);
+		}
+		brick_string_free(peer_name);
+		brick_string_free(src);
+		brick_string_free(dst);
+		break;
+	}
+
 	case 't': /* new trigger code conventions */
 	{
 		int code = 0;

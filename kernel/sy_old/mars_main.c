@@ -1827,6 +1827,12 @@ done:
 
 // remote workers
 
+struct push_info {
+	struct list_head push_head;
+	const char *src;
+	const char *dst;
+};
+
 static DECLARE_RWSEM(peer_lock);
 static int peer_count = 0;
 static
@@ -1841,6 +1847,7 @@ struct mars_peerinfo {
 	struct mutex peer_lock;
 	struct list_head peer_head;
 	struct list_head remote_dent_list;
+	struct list_head push_anchor;
 	struct lamport_time remote_start_stamp;
 	unsigned long last_remote_jiffies;
 	int maxdepth;
@@ -1932,6 +1939,32 @@ void show_peers(void)
 			 peer->doing_additional);
 	}
 	up_read(&peer_lock);
+}
+
+/* Please use this only for _initialization_ of new memberships etc,
+ * but never for ordinary operations.
+ * Normally, the PULL PRINCIPLE is the prefered one.
+ * TODO: more security considerations beyond port firewalling.
+ */
+bool push_link(const char *peer_name,
+	       const char *src,
+	       const char *dst)
+{
+	struct mars_peerinfo *peer;
+	struct push_info *push;
+
+	peer = find_peer(peer_name);
+	if (!peer)
+		return false;
+	push = brick_zmem_alloc(sizeof(struct push_info));
+	INIT_LIST_HEAD(&push->push_head);
+	push->src = brick_strdup(src);
+	push->dst = brick_strdup(dst);
+	mutex_lock(&peer->peer_lock);
+	list_add_tail(&push->push_head, &peer->push_anchor);
+	mutex_unlock(&peer->peer_lock);
+	mars_trigger();
+	return true;
 }
 
 static
@@ -2559,6 +2592,7 @@ int peer_thread(void *data)
 		struct mars_cmd cmd = {
 			.cmd_int1 = peer->maxdepth,
 		};
+		LIST_HEAD(tmp_push_list);
 
 		if (likely(repeated)) {
 			report_peer_connection(peer_pairs, !peer->do_communicate);
@@ -2636,7 +2670,38 @@ int peer_thread(void *data)
 			status = mars_send_cmd(&peer->socket, &cmd, true);
 		}
 
-		if (likely(status >= 0)) {
+		mutex_lock(&peer->peer_lock);
+		list_replace_init(&peer->push_anchor, &tmp_push_list);
+		mutex_unlock(&peer->peer_lock);
+
+		while (status >= 0 && !list_empty(&tmp_push_list)) {
+			struct push_info *push;
+
+			push = container_of(tmp_push_list.next, struct push_info, push_head);
+			cmd.cmd_code = CMD_PUSH_LINK;
+			cmd.cmd_str1 = push->src;
+			cmd.cmd_str2 = push->dst;
+			status = mars_send_cmd(&peer->socket, &cmd, true);
+			MARS_INF("PUSH_LINK '%s' '%s' status=%d\n",
+				 cmd.cmd_str1,
+				 cmd.cmd_str2,
+				 status);
+			cmd.cmd_str1 = NULL;
+			cmd.cmd_str2 = NULL;
+			if (status < 0)
+				break;
+			list_del_init(&push->push_head);
+			brick_string_free(push->src);
+			brick_string_free(push->dst);
+			brick_mem_free(push);
+		}
+
+		if (unlikely(status < 0)) {
+			/* try working the push list next time */
+			mutex_lock(&peer->peer_lock);
+			list_replace_init(&tmp_push_list, &peer->push_anchor);
+			mutex_unlock(&peer->peer_lock);
+		} else {
 			peer->to_remote_trigger = false;
 			cmd.cmd_code = CMD_GETENTS;
 			if ((!peer->do_additional || peer->do_communicate) &&
@@ -2850,6 +2915,7 @@ void activate_peer(struct mars_rotate *rot, const char *peer_name)
 static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 {
 	LIST_HEAD(tmp_list);
+	LIST_HEAD(tmp_push_list);
 
 	if (!peer) {
 		return 0;
@@ -2871,8 +2937,18 @@ static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 
 	mutex_lock(&peer->peer_lock);
 	list_replace_init(&peer->remote_dent_list, &tmp_list);
+	list_replace_init(&peer->push_anchor, &tmp_push_list);
 	mutex_unlock(&peer->peer_lock);
 
+	while (!list_empty(&tmp_push_list)) {
+		struct push_info *push;
+
+		push = container_of(tmp_push_list.next, struct push_info, push_head);
+		list_del_init(&push->push_head);
+		brick_string_free(push->src);
+		brick_string_free(push->dst);
+		brick_mem_free(push);
+	}
 	mars_free_dent_all(NULL, &tmp_list);
 	if (peer->doing_additional) {
 		peer->doing_additional = false;
@@ -2951,6 +3027,7 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 		mutex_init(&peer->peer_lock);
 		INIT_LIST_HEAD(&peer->peer_head);
 		INIT_LIST_HEAD(&peer->remote_dent_list);
+		INIT_LIST_HEAD(&peer->push_anchor);
 
 		/* always trigger on peer startup */
 		peer->from_remote_trigger = true;
