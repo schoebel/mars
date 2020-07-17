@@ -1714,6 +1714,8 @@ sub wait_cluster {
   my $non_participating = ($trigger_code >= 8);
   $timeout_val = undef;
   finish_links();
+  my $max_restarts = 3;
+ restart:
   lprint "Ping $hosts\n";
   _trigger($trigger_code);
   my %old_status = get_alive_links($res, "time", $hosts, 0, $non_participating);
@@ -1734,6 +1736,26 @@ sub wait_cluster {
     my $now = mars_time();
     foreach my $peer (keys(%status)) {
       next if $peer eq $host;
+      if (!$status{$peer}) {
+	# This can happen at join-cluster & co
+	my $ip_link = "$mars/ips/ip-$peer";
+	my $ip_link_stamp = get_link_stamp($ip_link);
+	if ($ip_link_stamp &&
+	    $ip_link_stamp + $delta < $now &&
+	    $ip_link_stamp > 1) {
+	  $dead_count++;
+	} elsif ($start_time + $delta < $now) {
+	  $dead_count++;
+	} else {
+	  $unknown_count++;
+	}
+	next;
+      } elsif (!$old_status{$peer}) {
+	# Oh, only the old info is outdated, but we have a new one.
+	# Also possible at join-cluster: restart freshly
+	lwarn "Need restart for getting more 'time' links\n";
+	goto restart if $max_restarts-- > 0;
+      }
       if ($status{$peer} > $old_status{$peer} &&
 	  $status{$peer} > $start_time &&
 	  $progress{$peer}-- <= 0) {
