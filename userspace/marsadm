@@ -3622,11 +3622,14 @@ sub create_res {
   } else {
     lprint "using existing device '$dev'\n";
     set_link($dev, $file);
+    _push_link($primary, $dev, $file) if $primary;
   }
 
   if ($appear) {
     lprint "resource '$res' will appear as local device '/dev/mars/$appear'\n";
-    set_link($appear, "$resdir/device-$host");
+    my $device_path = "$resdir/device-$host";
+    set_link($appear, $device_path);
+    _push_link($primary, $appear, $device_path) if $primary;
   }
 
   mkdir("$resdir/userspace") unless -d "$resdir/userspace";
