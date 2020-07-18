@@ -2684,6 +2684,10 @@ sub try_to_avoid_splitbrain {
     }
     # if the old primary is known, we can ignore all other / unrelated hosts
     if ($primary && $primary ne $host && $primary ne "(none)") {
+      my $path_p = "$mars/resource-$res/replay-$primary";
+      my $path_h = "$mars/resource-$res/replay-$host";
+      my $replay_p = get_link($path_p);
+      my $replay_h = get_link($path_h);
       my $p_path = sprintf("$mars/resource-$res/version-%09d-%s", $max, $primary);
       my $h_path = sprintf("$mars/resource-$res/version-%09d-%s", $max, $host);
       my $p_vers = get_link($p_path, 1);
@@ -2692,10 +2696,6 @@ sub try_to_avoid_splitbrain {
 	# Safeguard against artificial or missing version links
 	# (e.g. after crashes etc):
 	# when replay links are equal, we are safe.
-	my $path_p = "$mars/resource-$res/replay-$primary";
-	my $path_h = "$mars/resource-$res/replay-$host";
-	my $replay_p = get_link($path_p);
-	my $replay_h = get_link($path_h);
 	my $stamp_p = get_link_stamp($path_p);
 	my $stamp_h = get_link_stamp($path_h);
 	my $p_stamp = get_link_stamp($p_path);
@@ -2711,6 +2711,8 @@ sub try_to_avoid_splitbrain {
 	} else {
 	  $ok = 0;
 	}
+      } elsif (!$replay_p || !$replay_h || $replay_p ne $replay_h) {
+	$ok = 0;
       }
     } else {
       # old primary is unknown: we have no chance, other than comparing _all_ versions.
