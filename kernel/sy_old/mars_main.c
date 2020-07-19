@@ -919,6 +919,7 @@ struct mars_rotate {
 	bool forbid_replay;
 	bool replay_mode;
 	bool todo_primary;
+	bool empty_replay;
 	bool stop_logger;
 	bool checked_reboot;
 	bool is_primary;
@@ -5070,6 +5071,7 @@ int _make_logging_status(struct mars_rotate *rot)
 	CHECK_PTR(parent, done);
 
 	status = 0;
+	rot->empty_replay = false;
 	trans_brick = rot->trans_brick;
 	if (!mars_global->global_power.button ||
 	    !trans_brick ||
@@ -5091,8 +5093,6 @@ int _make_logging_status(struct mars_rotate *rot)
 	/* Relevant or not?
 	 */
 	switch (status) {
-	case 0: // not relevant
-		goto ok;
 	case 1: /* Relevant, and transaction replay already finished.
 		 * Allow switching over to a new logfile.
 		 */
@@ -5164,6 +5164,27 @@ int _make_logging_status(struct mars_rotate *rot)
 		}
 		status = -EAGAIN;
 		goto done;
+	case 0: /* Already fully applied.
+		 * Normally, do nothing (silently).
+		 * Exception: fallthrough to an empty (unnecessary) replay
+		 * when the logger_info is not yet initialized.
+		 * This is needed for proper symlink reporting of
+		 * the current state, where we actually are right now.
+		 * Example use case: switching unloaded primary back and
+		 * forth in an endless loop. This will produce a long
+		 * series of empty logfiles.
+		 */
+		if (!rot->trans_brick ||
+		    start_pos != end_pos ||
+		    (rot->current_inf.inf_sequence &&
+		     rot->current_inf.inf_sequence == log_nr))
+			goto ok;
+		MARS_INF_TO(rot->log_say,
+			    "empty replay of transaction log '%s'\n",
+			    dent->d_path);
+		rot->empty_replay = true;
+		status = 1;
+		/* fallthrough */
 	case 2: // relevant for transaction replay
 		MARS_INF_TO(rot->log_say, "replaying transaction log '%s' from position %lld to %lld\n", dent->d_path, start_pos, end_pos);
 		rot->replay_mode = true;
@@ -5808,6 +5829,7 @@ int make_log_finalize(struct mars_dent *dent)
 		rot->is_log_damaged = false;
 
 		do_start = (!rot->replay_mode ||
+			    rot->empty_replay ||
 			    (rot->start_pos != rot->end_pos &&
 			     _check_allow(parent->d_path, "attach") &&
 			     _check_allow(parent->d_path, "allow-replay")));
