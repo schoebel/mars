@@ -3132,8 +3132,11 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 
 		if (brick_thread_should_stop() ||
 		    brick->terminate ||
-		   (!brick->continuous_replay_mode && finished_pos >= brick->replay_end_pos)) {
-			status = 0; // treat as EOF
+		    start_pos == end_pos ||
+		    (!brick->continuous_replay_mode &&
+		     finished_pos >= brick->replay_end_pos)) {
+			/* treat as EOF */
+			status = 0;
 			break;
 		}
 		brick_mem_free(dealloc);
