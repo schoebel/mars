@@ -118,6 +118,21 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable100
+	* Minor fix: UpToDate was not reported in a very weird
+	  corner case.
+	* Minor fix, only relevant when the new deletion method
+	  is enabled: leave-resource did sometimes not delete
+	  all superfluous logfiles at the other peers, sometimes
+	  not clearing a split brain situation immediately.
+	  Workaround by cron which did the cleanup later.
+	* Minor usability: reduced speakiness of "marsadm view all"
+	  with respect to the new compression / digest features.
+	  Full info can be obtained with --verbose.
+	* Minor fix, only observed at join-cluster without ssh:
+	  Not all symlink infos were transferred in a corner case.
+	* Further minor fixes and improvements.
+
 mars0.1astable99
 	* Minor fixes: some more corner cases of unnecessary
 	  split brain rarely occuring after fatal primary
