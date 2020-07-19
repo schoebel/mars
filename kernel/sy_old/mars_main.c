@@ -4532,11 +4532,13 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			     rot->next_relevant_log) &&
 			    (trans_brick->replay_code == TL_REPLAY_INCOMPLETE ||
 			     trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance))) {
-			MARS_ERR_TO(rot->log_say,
+			if (trans_brick->replay_code < 0) {
+				MARS_ERR_TO(rot->log_say,
 				    "logfile replay stopped with error = %d at position %lld + %lld\n",
 				    trans_brick->replay_code,
 				    trans_brick->replay_current_pos,
 				    trans_brick->replay_end_pos - trans_brick->replay_current_pos);
+			}
 			make_rot_msg(rot, "err-replay-stop",
 				     "logfile replay stopped with error = %d at position %lld + %lld",
 				     trans_brick->replay_code,
