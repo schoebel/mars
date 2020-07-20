@@ -215,9 +215,15 @@ sub device_exists {
   my ($res, $peer) = @_;
   $peer = $host unless defined($peer);
   if ($peer eq $real_host) {
-    # Silent fallback to local detection for old kernel versions
-    my $buildtag = get_link("$mars/buildtag-$peer", 2);
-    if (defined($buildtag) && $buildtag =~ m/stable([0-9]+)/ && $1 <= 97) {
+    # Silent fallback to local detection for old kernel module versions
+    my $buildtag = get_link("$mars/buildtag-$peer", 1);
+    if (!$buildtag) {
+      # VERY old MARS modules dont report their version
+      $buildtag = `cut -d' ' -f1 < /proc/sys/mars/version`;
+      # Sometimes "never touch a running system" is a BAD strategy...
+      lwarn "Please upgrade your EXTREMELY OLD module version '$buildtag'\n" if $buildtag;
+    }
+    if (defined($buildtag) && $buildtag =~ m/([0-9]+)($|\()/ && $1 <= 97) {
       my $name = device_name($res, $peer);
       my $val = (-b $name) ? 1 : 0;
       return $val;
