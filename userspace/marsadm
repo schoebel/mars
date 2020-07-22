@@ -60,6 +60,7 @@ my $marsadm_var_dir = defined($ENV{MARSADM_VRA_DIR}) ?
 
 # messaging
 
+my %skip_res;
 my $error_count = 0;
 my $notify = "";
 my $child_prefix = "";
@@ -207,20 +208,27 @@ my $kernel_flags_version = ~0x0;
 
 # general helpers
 
-my $allow_fail_action = 0;
+my $allow_fail_action = undef;
 
 # Failure compensation.
 # This is called when do_one_res() fails
 sub fail_action {
+  my ($cmd, $res) = @_;
+  lprint "FAILURE cmd='$cmd' res='$res'\n";
+  $error_count++;
   return unless $allow_fail_action;
-  lprint "\nFAILURE COMPENSATION\n";
+  lprint "===== BEGIN FAILURE COMPENSATION cmd='$cmd' res='$res'\n";
   # prevent recursive ldie
   eval {
+    &$allow_fail_action(@_);
+    my $sub_status = $?;
+    lprint "COMPENSATION sub_status='$sub_status'\n";
     1;
   } or
     (
      lwarn "DOUBLE FAILURE detected.\n"
-    )
+    );
+  lprint "===== END   FAILURE COMPENSATION cmd='$cmd' res='$res'\n";
 }
 
 sub _device_name {
@@ -8150,8 +8158,6 @@ sub do_one_res {
   return $status;
 }
 
-my %skip_res;
-
 sub expand_res_list {
   my ($cmd, $res) = @_;
   my @res_list=();
@@ -8189,11 +8195,32 @@ sub do_all_res {
 	lprint "--------- resource $hint\n";
       }
       if (!$do_abort) {
-	my $status = do_one_res($func, $cmd, $res, @_);
+	# LOOP RETRY mode
+	# Retry when exit code is not 0
+	# catch internal ldie() via eval{} failure
+	my $status = 1;
+	my $has_died = 0;
+	eval {
+	  $status = do_one_res($func, $cmd, $res, @_);
+	  1;
+	} or
+	  # eval{} has failed
+	  (
+	   $has_died = 1
+	  );
 	$any_fail++ if $status;
+	# Only ldie() implies future skipping of this resource.
+	if ($has_died && !$skip_res{$res}) {
+	  $any_fail++;
+	  $skip_res{$res} = 1;
+	  fail_action($cmd, $res);
+	}
 	next;
       }
+      # NO LOOP RETRY
+      # Any non-zero exit code means to skip this resource in future.
       # catch internal ldie() via eval{} failure
+      my $has_died = 0;
       eval {
 	do_one_res($func, $cmd, $res, @_);
 	1;
@@ -8202,9 +8229,12 @@ sub do_all_res {
 	$any_success = 1 or
 	  # eval{} has failed
 	  (
-	   $skip_res{$res} = 1
+	   $has_died = 1
 	  );
-      fail_action($cmd, $res) if $skip_res{$res};
+      if ($has_died && !$skip_res{$res}) {
+	$skip_res{$res} = 1;
+	fail_action($cmd, $res);
+      }
     }
     return $any_fail unless $do_abort;
     if (!$any_success) {
@@ -8222,6 +8252,7 @@ sub do_all_res {
   } elsif (!$do_abort) {
     return do_one_res($func, $cmd, $res, @_);
   } else {
+    my $has_died = 0;
     my $status = 0;
     eval {
       $status = do_one_res($func, $cmd, $res, @_);
@@ -8229,9 +8260,11 @@ sub do_all_res {
     } or
       # eval{} has failed
       (
-       $status = 1
+       $has_died = 1
       );
-    fail_action($cmd, $res) if $status;
+    if ($has_died && !$skip_res{$res}) {
+      fail_action($cmd, $res);
+    }
     return $status;
   }
 }
@@ -8408,6 +8441,7 @@ if (ref($func) eq "ARRAY") {
 
 finish_links();
 
-lprint "EXIT $error_count\n" if $child_prefix;
+# do not disturb stdout of informational commands
+lprint_stderr "EXIT $error_count\n" if $verbose;
 
 exit($error_count);
