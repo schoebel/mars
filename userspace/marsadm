@@ -33,6 +33,7 @@ umask 0077;
 
 my $parallel = -1;
 my $single_step = 0;
+my $inject_phase = 0;
 my $compat_deletions = 1;
 my $threshold = 10 * 1024 * 1024;
 my $window = 60;
@@ -191,6 +192,7 @@ my $force = 0;
 my $ignore_sync = 0;
 my $cron_mode = 0;
 my $timeout = 600;
+my $phase_nr = 0;
 my $ip = "";
 my $ssh_port = 22;
 my $ssh_opts = "-A -o StrictHostKeyChecking=no -o ConnectTimeout=5";
@@ -7802,6 +7804,8 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Debugging aid for  multi-phase commands.
     Interactively step through the various phases of commands.
     Turns off --parallel.
+  --error-injection-phase=<number>
+    Only for testing. NEVER use in production.
   --delete-method=<code>
     EXPERIMENTAL! Only for testing! This option will disappear again!
     <code> == 0: Use new deletion method
@@ -7954,6 +7958,9 @@ foreach my $arg (@ARGV) {
   } elsif ($arg eq "--singlestep") {
     $single_step++;
     $parallel = -1;
+    next;
+  } elsif ($arg =~ m/--error-injection-phase\s*=\s*([0-9]+)/) {
+    $inject_phase = $1;
     next;
   } elsif ($arg =~ m/--delete-method\s*=\s*([0-9]+)/) {
     $compat_deletions = $1;
@@ -8127,6 +8134,9 @@ my %checked_res;
 sub do_one_res {
   my $func = shift;
   my ($cmd, $res) = @_;
+  if ($inject_phase && $phase_nr == $inject_phase) {
+    ldie "ERROR INJECTION cmd='$cmd' res='$res' phase='$phase_nr'\n";
+  }
   if ($cmd =~ m/^cat|^set-global-|-file$|-list$|-link$|-value$/) { # no resource argument
   } elsif (!$checked_res{"$cmd$res"}) {
     $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|merge|leave|wait)-cluster|(create|join)-resource|show/);
@@ -8335,7 +8345,6 @@ sub do_fork {
 
 if (ref($func) eq "ARRAY") {
   my @list = @$func;
-  my $phase_nr = 0;
   while (@list) {
     my $do_loop = 0;
     my $memb_func = shift @list;
