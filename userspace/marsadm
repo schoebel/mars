@@ -7620,6 +7620,19 @@ sub prosumer_shutdown {
   _trigger(3);
 }
 
+sub prosumer_freeze {
+  my ($cmd, $res) = @_;
+  my $prosumers = _get_prosumer(@_);
+  if ($cmd =~ m/pause/) {
+    _set_gate($cmd, $res, $prosumers);
+  } elsif ($cmd =~ m/resume/) {
+    _reset_gate($cmd, $res, $prosumers);
+    _reset_new_primary($cmd, $res, $prosumers);
+  }
+  finish_links();
+  _trigger(3);
+}
+
 sub wait_umount_res {
   my ($cmd, $res) = @_;
   my $path = "$mars/resource-$res/actual-$host/open-count";
@@ -11172,6 +11185,20 @@ my %cmd_table =
        "This is useful when the network is down for a longer time,",
        "or when a storage host has failed permanently.",
        \&prosumer_shutdown,
+      ],
+   "pause-prosumer"
+   => [
+       "usage: pause-prosumer <resource_name>",
+       "Freeze the IO traffic between prosumer device and primary.",
+       "This will cause hanging filesystems or VMs etc.",
+       \&prosumer_freeze,
+      ],
+   "resume-prosumer"
+   => [
+       "usage: resume-prosumer <resource_name>",
+       "Thaw the IO traffic between prosumer device and primary.",
+       "This will unfreeze any hanging filesystems or VMs etc.",
+       \&prosumer_freeze,
       ],
    "invalidate"
    => [
