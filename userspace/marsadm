@@ -4186,13 +4186,18 @@ sub logdelete_res {
   }
 }
 
-sub cron_res {
+sub cron_phase1 {
   my ($cmd, $res) = @_;
   $cron_mode = 1;
   link_purge_res(@_);
   logrotate_res(@_);
   finish_links();
-  sleep(5);
+  _trigger(3);
+}
+
+sub cron_phase2 {
+  my ($cmd, $res) = @_;
+  $cron_mode = 1;
   logdelete_res(@_);
 }
 
@@ -7209,8 +7214,12 @@ my %cmd_table =
    => [
        "usage: cron (no parameters)",
        "Do all necessary regular housekeeping tasks.",
-       "This is equivalent to log-rotate all; sleep 5; log-delete-all all.",
-       \&cron_res,
+       "This is equivalent to log-rotate all; sleep 7; log-delete-all all.",
+       \&cron_phase1,
+       "purge links and rotate logfiles",
+       "SLEEP",
+       \&cron_phase2,
+       "delete old logfiles",
       ],
    "log-purge-all"
    => [
@@ -8403,6 +8412,9 @@ if (ref($func) eq "ARRAY") {
       if ($memb_func eq "LOOP") {
 	$memb_func = shift @list;
 	$do_loop++;
+      } elsif ($memb_func eq "SLEEP") {
+	$memb_func = shift @list;
+	sleep(7);
       }
     }
     # nested arrays may be used for _global_ workers
