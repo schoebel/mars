@@ -8427,20 +8427,26 @@ if (ref($func) eq "ARRAY") {
     my $start_time = mars_time();
     my $do_abort = !$do_loop;
     my $status;
+    my $count = 0;
     for (;;) {
       $status = do_all_res($memb_func, $do_abort, $cmd, $res, @args);
       last if !$do_loop;
       last if (!defined($status) || !$status);
       # we have a busy wait condition
+      $count++;
+      lprint "--- status='$status' check again LOOP $count\n" if $verbose;
       sleep(1);
       my $now = mars_time();
       if ($now - $start_time > $timeout) {
 	lwarn "Condition '$headline' for resources '$res' not reached withing $timeout s\n";
-	$do_abort = 1;
+	last;
       }
     }
-    last if (defined($status) && $status);
     finish_links();
+    if (defined($status) && $status) {
+      lprint "STATUS='$status'\n" if $verbose;
+      last;
+    }
   }
 } elsif (ref($func) eq "CODE") {
   do_all_res($func, 1, $cmd, $res, @args);
