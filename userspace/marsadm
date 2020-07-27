@@ -88,6 +88,15 @@ sub lprint_stderr {
   llog($text);
 }
 
+sub lskip {
+  my ($res, $text) = @_;
+  # Already set %skip_res here, so it doesn't count as error
+  $skip_res{$res} = 1;
+  lprint_stderr "SKIPPING: $text";
+  # trigger an exception
+  die "\n";
+}
+
 sub ldie {
   my ($text) = @_;
   if ($verbose > 2) {
