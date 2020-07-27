@@ -3873,6 +3873,9 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 		goto done;
 	
 	status = -EINVAL;
+	/* may happen after delete-resource */
+	if (!dent->d_path)
+		goto done;
 	CHECK_PTR(dent->d_path, done);
 	parent = dent->d_parent;
 	CHECK_PTR(parent, done);
