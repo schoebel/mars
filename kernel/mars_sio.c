@@ -625,7 +625,7 @@ static int sio_switch(struct sio_brick *brick)
 	int status = 0;
 
 	if (brick->power.button) {
-		int flags = O_CREAT | O_RDWR | O_LARGEFILE;
+		int flags = O_CREAT | O_NOFOLLOW | O_RDWR | O_LARGEFILE;
 		int index;
 
 		if (brick->power.led_on)
@@ -640,8 +640,12 @@ static int sio_switch(struct sio_brick *brick)
 
 		output->mf = mapfree_get(path, flags);
 		if (unlikely(IS_ERR(output->mf))) {
-			MARS_ERR("could not open file = '%s' flags = %d\n", path, flags);
-			status = -ENOENT;
+			status = PTR_ERR(output->mf);
+			output->mf = NULL;
+			MARS_ERR("open '%s' flags=%d status=%d\n",
+				 path,
+				 flags,
+				 status);
 			goto done;
 		}
 
