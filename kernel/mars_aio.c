@@ -1197,8 +1197,9 @@ static int aio_switch(struct aio_brick *brick)
 
 	mars_power_led_off((void*)brick, false);
 
+	flags |= O_LARGEFILE;
 	if (brick->o_creat) {
-		flags |= O_CREAT;
+		flags |= (O_NOFOLLOW | O_CREAT);
 		MARS_DBG("using O_CREAT on %s\n", path);
 	}
 	if (brick->o_direct) {
