@@ -3084,7 +3084,14 @@ do_switch:
 	}
 
 	// switch on/off (may fail silently, but responsibility is at the workers)
-	status = mars_power_button((void*)brick, switch_state, false);
+
+	status = mars_power_button((void *)brick, switch_state, false);
+
+	/* retry when a stray symlink during O_NOFOLLOW was the reason */
+	if (status == -ELOOP && switch_state) {
+		mars_unlink(new_path);
+		status = mars_power_button((void *)brick, switch_state, false);
+	}
 	MARS_DBG("switch '%s' to %d status = %d\n", new_path, switch_state, status);
 	goto done;
 
