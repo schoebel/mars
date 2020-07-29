@@ -29,6 +29,12 @@ umask 0077;
 
 ##################################################################
 
+# global constants
+
+my $gate_code = "0x8";
+
+##################################################################
+
 # global defaults
 
 my $parallel = -999;
@@ -44,6 +50,7 @@ my $max_deletions = 512;
 my $thresh_logfiles = 10;
 my $thresh_logsize = 5; # GB
 my $dry_run = 0;
+my %cmd_suffix;
 
 # All paths should be overridable from outside
 my $etc_marsadm = $ENV{ETC_MARSADM} ?
@@ -541,6 +548,65 @@ sub txt2featuresflags {
     }
   }
   return sprintf("0x%08x", $flags);
+}
+
+# Host list specifiers with '+' as separators.
+
+sub list_union {
+  my ($sep, $list1, $list2) = @_;
+  my %union;
+  foreach my $name (split("\\$sep", $list1)) {
+    $union{$name}++;
+  }
+  foreach my $name (split("\\+", $list2)) {
+    $union{$name}++;
+  }
+  my $result = join($sep, sort alphanum_cmp (keys(%union)));
+  return $result;
+}
+
+# Parse the operators = += -= and compute diff lists
+sub parse_list_spec {
+  my ($txt, $old_list, $default, $delim, $check_peers) = @_;
+  if (!$txt && $default) {
+    return $default;
+  }
+  # parameter defaults
+  $old_list = "" unless defined($old_list);
+  $old_list = "" if $old_list =~ m/^\(/;
+  $delim = "+" unless $delim;
+  my $split_delim = $delim;
+  $split_delim = "\\+" if $split_delim eq "+";
+  $check_peers = 1 unless defined($check_peers);
+  # syntax check
+  unless ($txt =~ m/([-+]?)=\s*([^\s]+)/) {
+    ldie "bad list specifier syntax '$txt'\n";
+  }
+  my ($op, $list_spec) = ($1, $2);
+  # exceptional forms (none) (local)
+  if ($list_spec =~ m/^[(]?(none|local)[)]?$/) {
+    return "($1)";
+  }
+  my %new_lists;
+  if ($op) {
+    foreach my $peer (split($split_delim, $old_list)) {
+      $new_lists{$peer} = 1;
+    }
+  }
+  foreach my $peer (split($split_delim, $list_spec)) {
+    if ($check_peers) {
+      my $check = get_link("$mars/ips/ip-$peer");
+      ldie "host '$peer' does not exist" unless defined($check);
+    }
+    if ($op eq "-") {
+      delete $new_lists{$peer};
+    } else {
+      $new_lists{$peer} = 1;
+    }
+  }
+  my $new_list = join($delim, sort(keys(%new_lists)));
+  $new_list = "(none)" unless $new_list;
+  return $new_list;
 }
 
 ##################################################################
@@ -6121,6 +6187,50 @@ sub _primary_res {
   lprint "designated primary changed from '$old' to '$new'\n";
 }
 
+sub _set_gate {
+  my ($cmd, $res, $peers) = @_;
+  my $touched = 0;
+  foreach my $peer (split("\\+", $peers)) {
+    lprint "Closing gate at '$peer'\n";
+    my $lnk = "$mars/resource-$res/todo-$peer/gate-mask";
+    set_link($gate_code, $lnk);
+  }
+}
+
+sub _reset_gate {
+  my ($cmd, $res) = @_;
+  my $glob = "$mars/resource-$res/todo-*/gate-mask";
+  foreach my $lnk (glob($glob)) {
+    my $val = get_link($lnk, 2);
+    next unless $val;
+    next if $val eq "0x0";
+    lprint "Resetting gate of '$res'\n";
+    set_link("0x0", $lnk);
+  }
+}
+
+sub _reset_new_primary {
+  my ($cmd, $res) = @_;
+  my $lnk = "$mars/resource-$res/new-primary";
+  my $old_val = get_link($lnk, 2);
+  if ($old_val && $old_val ne "(none)") {
+    lprint "Resetting new-primary of '$res' to '(none)'\n";
+    set_link("(none)", $lnk);
+  }
+}
+
+my %pri_old;
+
+sub _reset_current_primary {
+  my ($cmd, $res) = @_;
+  my $old = $pri_old{$res};
+  return unless $old;
+  my $new = $host;
+  _primary_res($res, $old, $new);
+  finish_links();
+  delete $pri_old{$res};
+}
+
 # check whether primary/secondary switching is possible at all
 sub primary_phase0 {
   my ($cmd, $res) = @_;
@@ -6298,7 +6408,7 @@ sub primary_phase2 {
   return 0 if $force;
   return 0 unless $cmd eq "primary";
   wait_cluster($cmd) if !$phase2_waited++;
-  my $old = _get_designated_primary($cmd, $res, -1);
+  my $old = $pri_old{$res};
   return check_primary_gone($cmd, $res, $old);
 }
 
@@ -6306,7 +6416,7 @@ sub primary_phase2b {
   my ($cmd, $res) = @_;
   return 0 if $force;
   if (systemd_present(@_)) {
-    my $old = _get_designated_primary($cmd, $res, -1);
+    my $old = $pri_old{$res};
     return try_to_avoid_splitbrain($cmd, $res, $old);
   }
   return 0;
