@@ -1433,6 +1433,9 @@ struct mars_dir_context {
 #endif
 //      end_remove_this
 
+/* Skip any names / directories used for backup purposes */
+#define MARS_BACKUP_STR "backup"
+
 /* Caution: this is called as a callback from iterate_dir() and friends.
  * Don't deadlock by producing any filesystem output within this!
  */
@@ -1469,6 +1472,8 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	if (!name || !*name || name[0] == '.') {
 		return 0;
 	}
+	if (strnstr(name, MARS_BACKUP_STR, namlen))
+		return 0;
 
 	class = cookie->checker(cookie->check_parent,
 				name, namlen,
@@ -1694,6 +1699,9 @@ static int _mars_readdir(struct mars_cookie *cookie)
         mm_segment_t oldfs;
 	int status = 0;
 
+	if (unlikely(strstr(cookie->path, MARS_BACKUP_STR)))
+		goto done;
+
         oldfs = get_fs();
         set_fs(get_ds());
         f = filp_open(cookie->path, O_DIRECTORY | O_RDONLY, 0);
@@ -1734,6 +1742,7 @@ static int _mars_readdir(struct mars_cookie *cookie)
 
 	_mars_order_all(cookie);
 
+ done:
 	return status;
 }
 
