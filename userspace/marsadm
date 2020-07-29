@@ -4346,6 +4346,53 @@ sub lowlevel_delete_host {
   _create_delete($path);
 }
 
+sub lowlevel_attach_storage {
+  my ($cmd, $res) = @_;
+  my $do_detach = ($cmd =~ m/detach/);
+  check_res_member($cmd, $res) unless $force;
+  my $lnk = "$mars/resource-$res/todo-$host/attach";
+  my $val = $do_detach ? 0 : 1;
+  lprint "Set '$lnk' to '$val'\n";
+  set_link($val, $lnk);
+}
+
+sub lowlevel_attach_prosumer {
+  my ($cmd, $res) = @_;
+  my $do_detach = ($cmd =~ m/detach/);
+  check_res_member($cmd, $res) unless $force;
+  my $lnk = "$mars/resource-$res/todo-$host/detach-device";
+  my $val = $do_detach ? 1 : 0;
+  lprint "Set '$lnk' to '$val'\n";
+  set_link($val, $lnk);
+}
+
+sub lowlevel_kill_prosumer {
+  my ($cmd, $res) = @_;
+  my $do_kill = ($cmd =~ m/kill/);
+  check_res_member($cmd, $res) unless $force;
+  my $lnk = "$mars/resource-$res/todo-$host/kill-device";
+  my $val = $do_kill ? 1 : 0;
+  lprint "Set '$lnk' to '$val'\n";
+  set_link($val, $lnk);
+}
+
+sub lowlevel_gate {
+  my ($cmd, $res) = @_;
+  my $do_close = ($cmd =~ m/close/);
+  check_res_member($cmd, $res) unless $force;
+  my $lnk = "$mars/resource-$res/todo-$host/gate-mask";
+  my $val = $do_close ? $gate_code : "0x0";
+  lprint "Set '$lnk' to '$val'\n";
+  set_link($val, $lnk);
+}
+
+sub lowlevel_reset_prosumer {
+  my ($cmd, $res) = @_;
+  lowlevel_kill_prosumer($cmd, $res);
+  lowlevel_gate($cmd, $res);
+  lowlevel_attach_prosumer($cmd, $res);
+}
+
 ##################################################################
 
 # commands
@@ -9959,6 +10006,62 @@ my %cmd_table =
        "usage: lowlevel-delete-host <hostname>",
        "Delete cluster member.",
        \&lowlevel_delete_host,
+      ],
+
+   # lowlevel attach and prosumer operations (for testing / debugging)
+   "lowlevel-attach-storage"
+   => [
+       "usage: lowlevel-attach-storage <resource>",
+       "CAUTION, does no checking, may harm data consistency!",
+       \&lowlevel_attach_storage,
+      ],
+   "lowlevel-detach-storage"
+   => [
+       "usage: lowlevel-detach-storage <resource>",
+       \&lowlevel_attach_storage,
+      ],
+   "lowlevel-attach-prosumer"
+   => [
+       "usage: lowlevel-attach-prosumer <resource>",
+       "CAUTION, does no checking, may harm data consistency!",
+       \&lowlevel_attach_prosumer,
+      ],
+   "lowlevel-detach-prosumer"
+   => [
+       "usage: lowlevel-detach-prosumer <resource>",
+       \&lowlevel_attach_prosumer,
+      ],
+   "lowlevel-revive-prosumer"
+   => [
+       "usage: lowlevel-revive-prosumer <resource>",
+       "This is the opposite of lowlevel-kill-prosumer.",
+       "CAUTION, does no checking, may harm data consistency!",
+       \&lowlevel_kill_prosumer,
+      ],
+   "lowlevel-kill-prosumer"
+   => [
+       "usage: lowlevel-kill-prosumer <resource>",
+       \&lowlevel_kill_prosumer,
+      ],
+   "lowlevel-open-gate"
+   => [
+       "usage: lowlevel-open-gate <resource>",
+       "Change the prosumer gate mask.",
+       "CAUTION, does no checking, may harm data consistency!",
+       \&lowlevel_gate,
+      ],
+   "lowlevel-close-gate"
+   => [
+       "usage: lowlevel-close-gate <resource>",
+       "Change the prosumer gate mask.",
+       \&lowlevel_gate,
+      ],
+   "lowlevel-reset-prosumer"
+   => [
+       "usage: lowlevel-reset-prosumer <resource>",
+       "Equivalent to revive-prosumer ; open-gate ; attach-prosumer.",
+       "CAUTION, does no checking, may harm data consistency!",
+       \&lowlevel_kill_prosumer,
       ],
 
    # systemd interface
