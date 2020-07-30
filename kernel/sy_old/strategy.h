@@ -35,7 +35,10 @@
  * are added. When somebody may _rely_ on the new feature,
  * then this _must_ be updated.
  */
-#define OPTIONAL_STRATEGY_VERSION 1
+/* 1 = traditional
+ * 2 = push operation available
+ */
+#define OPTIONAL_STRATEGY_VERSION 2
 
 /* transient, to re-disappear */
 extern int compat_deletions;
