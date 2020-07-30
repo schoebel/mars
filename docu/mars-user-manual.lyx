@@ -2922,7 +2922,26 @@ marsadm
 \end_layout
 
 \begin_layout Enumerate
-Current versions of MARS need a working 
+Depending on the MARS version:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+When using mars version mars0.1astable101 or later, execute on 
+\emph on
+both
+\emph default
+ hosts hostA and hostB:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+modprobe mars
+\end_layout
+
+\begin_layout Enumerate
+Old versions of MARS before mars0.1astable101 needed a working 
 \family typewriter
 ssh
 \family default
@@ -2931,7 +2950,7 @@ ssh
 root
 \family default
 ).
- Test it on hostB:
+ When needded, test ssh on hostB:
 \begin_inset Newline newline
 \end_inset
 
@@ -2961,8 +2980,18 @@ In addition,
 rsync
 \family default
  must be installed.
+\begin_inset Newline newline
+\end_inset
+
+Notice: in the old version, you 
+\emph on
+must not
+\emph default
+ modprobe before join-cluster is executed.
+ In the new version, it is vice versa.
 \end_layout
 
+\end_deeper
 \begin_layout Enumerate
 On hostB
 \family typewriter
@@ -2970,39 +2999,11 @@ On hostB
 \begin_inset Newline newline
 \end_inset
 
-marsadm join-cluster A
+marsadm join-cluster hostA
 \end_layout
 
 \begin_layout Enumerate
-Only 
-\emph on
-after
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-In fact, you may already 
-\family typewriter
-modprobe mars
-\family default
- at node A after the 
-\family typewriter
-marsadm create-cluster
-\family default
-.
- Just don't do any of the 
-\family typewriter
-*-cluster
-\family default
- operations when the kernel module is loaded.
- All other operations don't have such a restriction.
-\end_layout
-
-\end_inset
-
-
-\emph default
- that, do on each of your hosts:
+When not yet done, do on each of your hosts:
 \begin_inset Newline newline
 \end_inset
 
@@ -3022,7 +3023,7 @@ marsadm view all
 \end_layout
 
 \begin_layout Enumerate
-Ignore any error message that no resources are yet defined.
+Ignore any warnings that no resources are yet defined.
  But you should check that no warnings about network connections are appearing.
  Both cluster nodes should be able to communicate with each other over the
  MARS ports (default 7777 to 7779).
@@ -11128,6 +11129,12 @@ Hint: use the
  option if you have multiple network interfaces.
 \end_layout
 
+\begin_layout Plain Layout
+Full example on hostA: 
+\family typewriter
+marsadm --ip=192.168.2.101 create-cluster
+\end_layout
+
 \end_inset
 
 
@@ -11188,6 +11195,55 @@ hfill
 $host
 \end_layout
 
+\begin_layout Plain Layout
+-or-
+\end_layout
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+join-cluster
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$host
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$host_ip
+\end_layout
+
 \end_inset
 
 
@@ -11233,7 +11289,20 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Precondition: the 
+Preconditions: the cluster must have been already created with 
+\family typewriter
+create-cluster
+\family default
+ at another node 
+\family typewriter
+$host
+\family default
+ (optionally supplying an alternative IP address 
+\family typewriter
+$host_ip
+\family default
+).
+ At your local node, the 
 \family typewriter
 /mars/
 \family default
@@ -11249,26 +11318,28 @@ reference "subsec:Setup-your-Cluster"
 \end_inset
 
 ).
- The 
+ ,
+\begin_inset space ~
+\end_inset
+
+The 
 \family typewriter
 mars.ko
 \family default
- kernel module must 
+ kernel module must be either loaded, or ssh must be working [exception:
+ in old MARS versions before mars0.1astable101 the kernel module 
 \emph on
-not
+must not
 \emph default
- be loaded.
- The cluster must have been already created at another node 
-\family typewriter
-$host
-\family default
-.
- A working ssh connecttion to $host as root must exist (without password).
- 
+ be loaded, and a working ssh connecttion to $host as root must work (without
+ password), and
 \family typewriter
 rsync
 \family default
- must be installed at all cluster nodes.
+ must be installed at all cluster nodes].
+ In newer MARS versions >= mars0.1astable101, the old ssh-based method is
+ automatically used as a fallback when the kernel module is forgotten to
+ load.
 \end_layout
 
 \begin_layout Plain Layout
@@ -11296,7 +11367,13 @@ Hint: use the
 \family typewriter
 --ip=
 \family default
- option if you have multiple interfaces.
+ option if you have multiple interfaces on your local hostB.
+\begin_inset Newline newline
+\end_inset
+
+Full example on hostB: 
+\family typewriter
+marsadm --ip=192.168.2.102 join-cluster hostA 192.168.2.101
 \end_layout
 
 \end_inset
