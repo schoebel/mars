@@ -5602,7 +5602,7 @@ sub eval_fn {
       my $what = $1;
       return eval_fn($env, "$what-present", $arg1);
     }
-    if (/^(device)[-_]?(opened|nrflying|error)$/) {
+    if (/^(device)[-_]?(opened|nrflying|error|completion-stamp|completion-age)$/) {
       my $what = $1;
       my $op = $2;
       my $peer = $$env{"host"};
@@ -5611,6 +5611,8 @@ sub eval_fn {
 	 "opened"      => "open-count",
 	 "nrflying"    => "if-flying",
 	 "error"       => "if-state",
+	 "completion-stamp" => "if-completion-stamp",
+	 "completion-age"   => "if-completion-stamp",
 	);
       if ($what eq "device") {
 	my $other = eval_fn($env, "get-device", $arg1);
@@ -5621,6 +5623,7 @@ sub eval_fn {
       my $lnk = $$env{"resdir"} . "/actual-$peer/" . $transl{$op};
       my $result = get_link($lnk, 2);
       $result = "0" unless defined($result);
+      $result = mars_time() - $result if $op =~ m/-age/;
       return $result;
     }
     if (/^is[-_]?split([-_]?brain)?$/) {
@@ -6266,7 +6269,12 @@ my %complex_macros =
    .      "ERROR %device-error{} %errno-text{%device-error{}}, "
    .    "}"
    .    "%device-ops-rate{} IOPS"
-   .    ", %device-nrflying{} Flying"
+   .    "%if{%device-nrflying{}}{"
+   .      ", %device-nrflying{} Flying"
+   .      "%if{%>{%device-completion-age{}}{%{window}}}{"
+   .        ", HANGING age: %human-seconds{%device-completion-age{}}"
+   .      "}"
+   .    "}"
    .  "}{"
    .    "Closed"
    .  "}",
@@ -6710,7 +6718,7 @@ my %trivial_globs =
    => "(deprecated, use *-present instead)",
    "{disk,device}-present"
    => "",
-   "device-{opened,nrflying,error}"
+   "device-{opened,nrflying,error,completion-{stamp,age}}"
    => "",
    "get-log-status"
    => "",
