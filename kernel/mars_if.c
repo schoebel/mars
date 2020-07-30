@@ -192,7 +192,7 @@ void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
 /* Abstract from interface changes
  */
 static
-void _call_bio_endio(struct bio *bio, int error)
+void _call_bio_endio(struct if_brick *brick, struct bio *bio, int error)
 {
 #ifdef MARS_HAS_BI_STATUS
 	bio->bi_status = errno_to_blk_status(error);
@@ -205,6 +205,8 @@ void _call_bio_endio(struct bio *bio, int error)
 	bio_endio(bio, error);
 #endif
 #endif
+	/* Just a hint for userspace, no strictness needed */
+	brick->completion_stamp = get_real_lamport();
 }
 
 /* callback
@@ -266,7 +268,7 @@ void if_endio(struct generic_callback *cb)
 		}
 		MARS_IO("calling end_io() flags = %ux error = %d\n",
 			mref->ref_flags, error);
-		_call_bio_endio(bio, error);
+		_call_bio_endio(input->brick, bio, error);
 		brick_mem_free(biow);
 	}
 	atomic_dec(&input->brick->flying_count);
@@ -522,7 +524,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		 * something here. For now, we do just nothing.
 		 */
 		error = 0;
-		_call_bio_endio(bio, 0);
+		_call_bio_endio(brick, bio, 0);
 		goto done;
 	}
 
@@ -536,7 +538,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #ifdef DENY_READA // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
 	if (ahead) {
 		atomic_inc(&input->total_reada_count);
-		_call_bio_endio(bio, -EWOULDBLOCK);
+		_call_bio_endio(brick, bio, -EWOULDBLOCK);
 		error = 0;
 		goto done;
 	}
@@ -545,7 +547,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #endif
 	if (unlikely(discard)) { // NYI
 		error = 0;
-		_call_bio_endio(bio, 0);
+		_call_bio_endio(brick, bio, 0);
 		goto done;
 	}
 
@@ -795,7 +797,7 @@ err:
 		MARS_ERR("cannot submit request from bio, status=%d\n", error);
 		if (!assigned) {
 			brick->error_code = error;
-			_call_bio_endio(bio, error);
+			_call_bio_endio(brick, bio, error);
 		}
 	}
 

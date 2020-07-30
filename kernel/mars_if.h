@@ -109,6 +109,7 @@ struct if_brick {
 	// inspectable
 	atomic_t open_count;
 	atomic_t flying_count;
+	struct lamport_time completion_stamp;
 	struct mars_limiter io_limiter;
 	int error_code;
 	// private
