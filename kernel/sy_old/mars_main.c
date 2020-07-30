@@ -1596,6 +1596,26 @@ done:
 	return status;
 }
 
+static
+int __show_stamp(const char *path, const char *name, struct lamport_time *stamp)
+{
+	char *src;
+	char *dst = NULL;
+	int status = -EINVAL;
+
+	src = path_make("%ld.%09ld",
+			stamp->tv_sec,
+			stamp->tv_nsec);
+	dst = path_make("%s/actual-%s/%s", path, my_id(), name);
+
+	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
+	status = ordered_symlink(src, dst, NULL);
+
+	brick_string_free(src);
+	brick_string_free(dst);
+	return status;
+}
+
 static inline
 int _show_actual(const char *path, const char *name, bool val)
 {
@@ -4994,6 +5014,8 @@ void _show_dev(struct mars_rotate *rot)
 			      atomic_read(&if_brick->flying_count));
 		__show_actual(rot->parent_path, "if-state",
 			      if_brick->error_code);
+		__show_stamp(rot->parent_path, "if-completion-stamp",
+			     &if_brick->completion_stamp);
 		open_count = atomic_read(&if_brick->open_count);
 	}
 	_show_brick_status((void *)if_brick, rot->parent_path, "if");
