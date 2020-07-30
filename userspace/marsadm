@@ -8327,7 +8327,7 @@ sub wait_pid_list {
       lwarn "RESOURCE $sub_res CHILD $pid terminated with status=$status\n";
       $error_count++ if $status;
     } elsif ($check_pid == $pid) {
-      lprint "RESOURCE $sub_res CHILD $pid terminated successfully\n";
+      lprint_stderr "RESOURCE $sub_res CHILD $pid terminated successfully\n";
     } else {
       lwarn "RESOURCE $sub_res CHILD $pid terminated with unknown state\n";
     }
@@ -8336,7 +8336,7 @@ sub wait_pid_list {
 
 sub wait_any_pid {
   my ($flags) = @_;
-  lprint "WAITING for termination of a child...\n";
+  lprint_stderr "WAITING for termination of a child...\n";
   my $pid = waitpid(-1, $flags);
   my $status = $?;
   if ($pid > 0) {
@@ -8345,7 +8345,7 @@ sub wait_any_pid {
       lwarn "RESOURCE $sub_res CHILD $pid terminated with status=$status\n";
       $error_count++ if $status;
     } else {
-      lprint "RESOURCE $sub_res CHILD $pid terminated successfully\n";
+      lprint_stderr "RESOURCE $sub_res CHILD $pid terminated successfully\n";
     }
   }
   return $pid;
@@ -8356,7 +8356,7 @@ sub do_fork {
   my $child_count = 0;
   # only fork() when beneficial
   if (@res_list && scalar(@res_list) > 1) {
-    lprint "FORKING (error_count=$error_count)\n";
+    lprint_stderr "FORKING (error_count=$error_count)\n";
     $error_count = 0;
     foreach my $child_res (@res_list) {
       # when necessary, limit the parallelism degree
@@ -8370,7 +8370,7 @@ sub do_fork {
       my $pid = fork();
       ldie "Cannot fork()\n" unless defined($pid);
       if ($pid) {
-	lprint "RESOURCE $child_res starting CHILD $pid\n";
+	lprint_stderr "RESOURCE $child_res starting CHILD $pid\n";
 	$child_count++;
 	$kid_res{$pid} = $child_res;
       } else {
@@ -8381,7 +8381,7 @@ sub do_fork {
 	if ($skip_res{$res}) {
 	  ldie "SKIPPING\n";
 	}
-	lprint "STARTING\n";
+	lprint_stderr "STARTING\n";
 	last;
       }
     }
@@ -8389,7 +8389,7 @@ sub do_fork {
   if ($child_count) {
     my @wait_list = sort alphanum_cmp keys(%kid_res);
     wait_pid_list(@wait_list);
-    lprint "EXIT $error_count\n";
+    lprint_stderr "EXIT $error_count\n";
     exit($error_count);
   }
 }
@@ -8456,7 +8456,7 @@ if (ref($func) eq "ARRAY") {
     }
     finish_links();
     if (defined($status) && $status) {
-      lprint "STATUS='$status'\n" if $verbose;
+      lprint_stderr "STATUS='$status'\n" if $verbose;
       last;
     }
   }
