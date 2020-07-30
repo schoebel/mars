@@ -79,7 +79,8 @@ struct if_input {
 #endif
 	loff_t capacity;
 	atomic_t plugged_count;
-	// only for statistics
+	/* debugging statistics */
+#ifdef CONFIG_MARS_DEBUG
 	atomic_t total_reada_count;
 	atomic_t total_read_count;
 	atomic_t total_write_count;
@@ -88,6 +89,8 @@ struct if_input {
 	atomic_t total_skip_sync_count;
 	atomic_t total_mref_read_count;
 	atomic_t total_mref_write_count;
+#endif
+	/* private */
 	spinlock_t req_lock;
 	struct semaphore kick_sem;
 	struct if_hash_anchor *hash_table;

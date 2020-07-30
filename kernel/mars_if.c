@@ -343,15 +343,19 @@ void _if_unplug(struct if_input *input)
 
 		mars_trace(mref, "if_unplug");
 
+#ifdef CONFIG_MARS_DEBUG
 		atomic_inc(&input->total_fire_count);
+#endif
 		brick = input->brick;
 		if (mref->ref_flags & MREF_WRITE) {
 			atomic_inc(&brick->write_flying_count);
 		} else {
 			atomic_inc(&brick->read_flying_count);
 		}
+#ifdef CONFIG_MARS_DEBUG
 		if (mref->ref_flags & MREF_SKIP_SYNC)
 			atomic_inc(&input->total_skip_sync_count);
+#endif
 
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 		GENERIC_INPUT_CALL(input, mref_put, mref);
@@ -537,7 +541,9 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 #ifdef DENY_READA // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
 	if (ahead) {
+#ifdef CONFIG_MARS_DEBUG
 		atomic_inc(&input->total_reada_count);
+#endif
 		_call_bio_endio(brick, bio, -EWOULDBLOCK);
 		error = 0;
 		goto done;
@@ -556,11 +562,13 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	biow->bio = bio;
 	atomic_set(&biow->bi_comp_cnt, 0);
 
+#ifdef CONFIG_MARS_DEBUG
 	if (rw) {
 		atomic_inc(&input->total_write_count);
 	} else {
 		atomic_inc(&input->total_read_count);
 	}
+#endif
 
 	_if_start_io_acct(input, biow);
 
@@ -725,11 +733,13 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 					this_len = bv_len;
 				}
 				mref_a->current_len = this_len;
+#ifdef CONFIG_MARS_DEBUG
 				if (rw) {
 					atomic_inc(&input->total_mref_write_count);
 				} else {
 					atomic_inc(&input->total_mref_read_count);
 				}
+#endif
 
 				CHECK_ATOMIC(&biow->bi_comp_cnt, 0);
 				atomic_inc(&biow->bi_comp_cnt);
@@ -1291,16 +1301,18 @@ char *if_statistics(struct if_brick *brick, int verbose)
 {
 	struct if_input *input = brick->inputs[0];
 	char *res = brick_string_alloc(512);
+#ifdef CONFIG_MARS_DEBUG
 	int tmp0 = atomic_read(&input->total_reada_count); 
 	int tmp1 = atomic_read(&input->total_read_count); 
 	int tmp2 = atomic_read(&input->total_mref_read_count);
 	int tmp3 = atomic_read(&input->total_write_count); 
 	int tmp4 = atomic_read(&input->total_mref_write_count);
-
+#endif
 	if (!res)
 		return NULL;
 	snprintf(res, 512,
 		 "disk = %p "
+#ifdef CONFIG_MARS_DEBUG
 		 "total reada = %d "
 		 "reads = %d "
 		 "mref_reads = %d (%d%%) "
@@ -1309,12 +1321,14 @@ char *if_statistics(struct if_brick *brick, int verbose)
 		 "empty = %d "
 		 "fired = %d "
 		 "skip_sync = %d "
+#endif
 		 "| "
 		 "opened = %d "
 		 "plugged = %d "
 		 "flying reads = %d "
 		 "flying writes = %d\n",
 		 input->disk,
+#ifdef CONFIG_MARS_DEBUG
 		 tmp0,
 		 tmp1,
 		 tmp2,
@@ -1325,6 +1339,7 @@ char *if_statistics(struct if_brick *brick, int verbose)
 		 atomic_read(&input->total_empty_count),
 		 atomic_read(&input->total_fire_count),
 		 atomic_read(&input->total_skip_sync_count),
+#endif
 		 atomic_read(&brick->open_count),
 		 atomic_read(&input->plugged_count),
 		 atomic_read(&brick->read_flying_count),
@@ -1335,7 +1350,9 @@ char *if_statistics(struct if_brick *brick, int verbose)
 static
 void if_reset_statistics(struct if_brick *brick)
 {
+#ifdef CONFIG_MARS_DEBUG
 	struct if_input *input = brick->inputs[0];
+
 	atomic_set(&input->total_read_count, 0);
 	atomic_set(&input->total_write_count, 0);
 	atomic_set(&input->total_empty_count, 0);
@@ -1343,6 +1360,7 @@ void if_reset_statistics(struct if_brick *brick)
 	atomic_set(&input->total_skip_sync_count, 0);
 	atomic_set(&input->total_mref_read_count, 0);
 	atomic_set(&input->total_mref_write_count, 0);
+#endif
 }
 
 ////////////////// own brick / input / output operations //////////////////
