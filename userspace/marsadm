@@ -1810,7 +1810,12 @@ sub wait_cluster {
   foreach my $peer (keys(%old_status)) {
     $progress{$peer} = $non_participating ? 1 : 0;
   }
-  lprint "Wait for answers from " . join(",", sort alphanum_cmp keys(%old_status)) . "\n" if %old_status;
+  my $count = scalar(keys(%old_status));
+  if ($count && $count < 10) {
+    lprint "Wait for answers from " . join(",", sort alphanum_cmp keys(%old_status)) . "\n";
+  } else {
+    lprint "Wait for answers from $count peers\n";
+  }
   my $delta = $window > 0 ? $window / 2 : 30;
   while (1) {
     my $dead_count = 0;
