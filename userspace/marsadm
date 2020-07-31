@@ -730,6 +730,17 @@ sub get_any_peers {
   }
 }
 
+sub key_intersect {
+  my ($hash1, $hash2) = @_;
+  my %h1 = %$hash1;
+  my %h2 = %$hash2;
+  my %result = %h1;
+  foreach my $key (keys(%h2)) {
+    delete $result{$key};
+  }
+  return %result;
+}
+
 ##################################################################
 
 # dynamic systemd control
@@ -1833,16 +1844,39 @@ sub get_alive_links {
     }
     $links{$peer} = $val;
   }
-  if ($warn) {
+  my $projection = $any_peers{$host};
+  if ($projection && $warn) {
     my $now = mars_time();
+    my $extra_count = 0;
+    my %own_resources = %$projection;
     foreach my $peer (keys(%peers)) {
       my $stamp = get_alive_link("time", $peer, 2);
-      if ($stamp && !is_recent($stamp)) {
-	my $age = seconds2human(mars_time() - $stamp);
-	my $msg = "no metadata is arriving from peer '$peer', age = $age";
-	$msg .=  " => check your network setup" if is_module_loaded();
-	lwarn "$msg\n";
+      next if (!$stamp || $stamp !~ m/^\s*[0-9.]/ || is_recent($stamp));
+      my $common = 0;
+      my @peer_resources = get_any_resources($peer);
+      foreach my $tmp_res (@peer_resources) {
+	next unless $own_resources{$tmp_res};
+	$common++;
+	last;
       }
+      my $age = seconds2human($now - $stamp);
+      if (!$common) {
+	# Non-member peers are updated much less frequently,
+	# thus we need a much larger time window.
+	if (!is_recent($stamp, 3600)) {
+	  $extra_count++;
+	  if ($verbose) {
+	    lwarn "nonmember peer '$peer' not reachable for $age\n";
+	  }
+	}
+	next;
+      }
+      my $msg = "no metadata is arriving from peer '$peer', age = $age";
+      $msg .=  " => check your network setup" if is_module_loaded();
+      lwarn "$msg\n";
+    }
+    if ($extra_count) {
+      lwarn "$extra_count non-member peers are NOT REACHABLE for >= 1 hour\n";
     }
   }
   return %links;
@@ -8788,7 +8822,8 @@ if ($cmd =~ m/^(view|pretty)/) {
     }
   }
   finish_links();
-  get_alive_links("all", "alive", "*", 1);
+  # report any dead peers
+  get_alive_links("all", "alive", "*", 1, 1);
   exit($error_count);
 }
 
