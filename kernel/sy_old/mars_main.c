@@ -6861,6 +6861,11 @@ static int __init init_main(void)
 		return -ENOENT;
 	}
 
+	if (unlikely(!mars_is_mountpoint("/mars/"))) {
+		printk(KERN_ERR "/mars is no mountpoint\n");
+		return -EINVAL;
+	}
+
 	/* This must come first to be effective */
 	status = mars_stat(SAY_TEST_STR, &dummy, true);
 	if (!status)
