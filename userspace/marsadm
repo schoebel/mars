@@ -526,8 +526,9 @@ my %member_resources;
 sub _scan_resources {
   foreach my $res (lamport_glob("$mars/resource-*/{data,replay,systemd}-*")) {
     next unless $res =~ s:^$mars/resource-(.*?)/.*:$1:;
+    next if $all_resources{$res};
     $all_resources{$res} = 1;
-    if (lamport_glob("$mars/resource-$res/{data,replay,systemd}-$host")) {
+    if (lamport_glob("$mars/resource-$res/{data,replay,systemd}*-$host")) {
       $member_resources{$res} = 1;
     }
   }
@@ -1222,6 +1223,7 @@ sub __systemd_fingerprint {
   # Fingerprint resulting templates (protect against external modifications)
   $text .= "#\n";
   foreach my $unit_file (lamport_glob($systemd_target_dir)) {
+    next unless -r $unit_file;
     my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
 	$atime,$mtime,$ctime,$blksize,$blocks) = stat($unit_file);
     $text .= "$size,$mtime,$unit_file\n";
@@ -1627,7 +1629,7 @@ sub get_alive_links {
   my $use_remote_stamp = $alive =~ s/^\^// ? 1 : 0;
   my %cand;
   my %peers;
-  foreach my $path (lamport_glob("$mars/ips/ip-$hosts")) {
+  foreach my $path (lamport_glob("$mars/ips/ip*-$hosts")) {
     $path =~ m:/ip-(.*):;
     my $peer = $1;
     $cand{$peer} = 1;
@@ -1645,7 +1647,7 @@ sub get_alive_links {
     next unless $cand{$peer};
     # peer must be participating in the same resources
     if (!$non_participating) {
-      my @other = lamport_glob("$mars/resource-$res/data-$peer");
+      my @other = lamport_glob("$mars/resource-$res/data*-$peer");
       next unless @other;
       # I must be participating in some of the _same_ resources
       my $common = 0;
@@ -4716,11 +4718,9 @@ sub primary_phase4 {
 
 sub wait_umount_res {
   my ($cmd, $res) = @_;
+  my $path = "$mars/resource-$res/actual-$host/open-count";
   while (1) {
-    my $sum = 0;
-    foreach my $path (lamport_glob("$mars/resource-$res/actual-$host/open-count")) {
-      $sum += get_link($path);
-    }
+    my $sum = get_link($path);
     last if !$sum;
     lprint "device for resource '$res' is $sum times in use on $host\n";
     sleep_timeout(1);
