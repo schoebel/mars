@@ -1637,7 +1637,8 @@ sub get_alive_links {
     # After join-cluster & co, links may take a while to appear
     $peers{$peer} = 1 if $non_participating;
   }
-  foreach my $path (lamport_glob("$mars/resource-$res/data-*")) {
+  my @paths = lamport_glob("$mars/resource-$res/data-*");
+  foreach my $path (@paths) {
     $path =~ m:/data-(.*):;
     my $peer = $1;
     next unless $peer;
@@ -1646,19 +1647,12 @@ sub get_alive_links {
     next if $peers{$peer};
     # peer must be a candiate matching the hosts spec
     next unless $cand{$peer};
-    # peer must be participating in the same resources
+    # peer must be participating in _any_ of the resources
     if (!$non_participating) {
-      my @other = lamport_glob("$mars/resource-$res/data*-$peer");
-      next unless @other;
-      # I must be participating in some of the _same_ resources
-      my $common = 0;
-      foreach my $check (@other) {
-	my $self = `dirname $check`;
-	chomp $self;
-	$self .= "/data-$host";
-	$common++ if any_exists($self);
-      }
-      next unless $common;
+      my $check = $path;
+      $check =~ s:/data-.*:/data-$host:;
+      next if $check eq $path;
+      next unless any_exists($check);
     }
     # OK: remember peer
     $peers{$peer} = 1;
