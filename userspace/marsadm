@@ -1632,6 +1632,7 @@ sub get_alive_links {
   foreach my $path (lamport_glob("$mars/ips/ip*-$hosts")) {
     $path =~ m:/ip-(.*):;
     my $peer = $1;
+    next unless $peer;
     $cand{$peer} = 1;
     # After join-cluster & co, links may take a while to appear
     $peers{$peer} = 1 if $non_participating;
