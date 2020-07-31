@@ -118,6 +118,33 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable101
+	* Major usability: join-cluster now works without ssh.
+	  Of course, you need to rollout the new marsadm and
+	  the new mars.ko first, and to modprobe it at any
+	  pre-existing cluster.
+	  The new feature is automatically activated when you
+	  modprobe _before_ doing join-cluster. By running
+	  join-cluster first (without modprobe), you can fallback
+	  to the old ssh + rsync based method.
+	  Important: now you can modprobe before /mars/uuid is
+	  created or retrieved. Previously, you could accidentally
+	  try the wrong sequence "modprobe mars; mount /mars"
+	  without harm because it was denied by missing uuid, but now
+	  such illegal attempts would result in a big fuckup.
+	  Suchalike fuckup is now prevented by always insisting on
+	  /mars being a mountpoint.
+	  This might break old ill-behaved scripts or buggy /etc/fstab
+	  or racy systemd dependencies, which need to be fixed.
+	  Always ensure that no modprobe is attempted before /mars
+	  has been mounted in a race-free and reboot-safe manner.
+	  Notice: merge-cluster and split-cluster are not yet
+	  ssh-free zones. This will be addressed in a later release.
+	* Minor usability: show age of any hanging /dev/mars/
+	  IO requests. This is useful for diagnosing faulty RAID
+	  controllers etc.
+	* Lots of further minor fixes and improvements.
+
 mars0.1astable100
 	* Minor fix: UpToDate was not reported in a very weird
 	  corner case.
