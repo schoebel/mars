@@ -225,6 +225,7 @@ bool push_link(const char *peer_name,
 
 /* General fs wrappers (for abstraction)
  */
+extern bool mars_is_mountpoint(const char *pathname);
 extern int mars_stat(const char *path, struct kstat *stat, bool use_lstat);
 extern void mars_sync(void);
 extern int mars_mkdir(const char *path);

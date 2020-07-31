@@ -533,6 +533,44 @@ int _length_paranoia(int len, int line)
 	return len;
 }
 
+bool mars_is_mountpoint(const char *pathname)
+{
+	struct path path = {};
+	mm_segment_t oldfs;
+	int status;
+	bool res = false;
+
+	oldfs = get_fs();
+	set_fs(get_ds());
+
+	status = user_path_at(AT_FDCWD, pathname, 0, &path);
+	if (unlikely(status < 0)) {
+		MARS_WRN("pathname '%s' does not exist, status = %d\n",
+			 pathname, status);
+		goto done_fs;
+	}
+	if (unlikely(!path.dentry)) {
+		MARS_WRN("path '%s' has invalid dentry\n", pathname);
+		goto done_put;
+	}
+	if (unlikely(!follow_up(&path))) {
+		MARS_WRN("path '%s' has no vfsmnt\n", pathname);
+		goto done_put;
+	}
+	/* the second one may fail when we already are at the root mount */
+	if (!follow_up(&path)) {
+		goto done_put;
+	}
+	res = d_mountpoint(path.dentry);
+
+done_put:
+	path_put(&path);
+
+done_fs:
+	set_fs(oldfs);
+	return res;
+}
+
 int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
 {
 	mm_segment_t oldfs;
