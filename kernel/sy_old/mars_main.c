@@ -2992,8 +2992,8 @@ char * make_peer_dir_list(char *mypeer)
 	char *res;
 
 	res = path_make(
-			"|/mars/defaults-%s"
-			"|/mars/actual-%s",
+			"|/mars/defaults-%s/"
+			"|/mars/actual-%s/",
 			mypeer,
 			mypeer
 			);
