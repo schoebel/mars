@@ -209,8 +209,8 @@ my $ssh_opts = "-A -o StrictHostKeyChecking=no -o ConnectTimeout=5";
 my $ssh_probe = "uname -a";
 my $rsync_opts = "-av --exclude='.deleted-*'";
 my $kernel_version = 0;
-my $kernel_features_version = 0;
-my $kernel_strategy_version = 0;
+my $kernel_features_version = -1;
+my $kernel_strategy_version = -1;
 my $kernel_flags_version = ~0x0;
 
 ##################################################################
@@ -1524,11 +1524,13 @@ sub get_global_versions {
     my $strategy = $2;
     my $flags = $3;
     next unless $features > 0;
-    if (!$kernel_features_version || $features < $kernel_features_version) {
+    if ($kernel_features_version < 0 || $features < $kernel_features_version) {
       $kernel_features_version = $features;
     }
     if (defined($strategy) && $strategy) {
-      $kernel_strategy_version = $strategy if $strategy < $kernel_strategy_version;
+      if ($strategy < $kernel_strategy_version || $kernel_strategy_version < 0) {
+	$kernel_strategy_version = $strategy;
+      }
     } else {
       $kernel_strategy_version = 0;
     }
