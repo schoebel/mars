@@ -2495,13 +2495,16 @@ bool peer_thead_should_run(struct mars_peerinfo *peer)
 	return mars_net_is_alive && !peer->to_terminate && !brick_thread_should_stop();
 }
 
-static
-void report_peer_connection(struct key_value_pair *peer_pairs, bool do_additional)
-{
-	const char *peer_role =
-		do_additional ? "additional-connection-with-" : "needed-connection-with-";
+#define make_peer_msg(peer, pair, fmt, args...)			\
+	if ((peer)->do_communicate && !(peer)->do_additional)	\
+		make_msg(pair, fmt, ##args)
 
-	show_vals(peer_pairs, "/mars", peer_role);
+static
+void report_peer_connection(struct mars_peerinfo *peer,
+			    struct key_value_pair *peer_pairs)
+{
+	if ((peer)->do_communicate && !(peer)->do_additional)
+		show_vals(peer_pairs, "/mars", "needed-connection-with-");
 }
 
 static
@@ -2531,33 +2534,38 @@ int peer_action_dent_list(struct mars_global *tmp_global,
 		peer_uuid = mars_find_dent(tmp_global, "/mars/uuid");
 		if (unlikely(!peer_uuid || !peer_uuid->new_link)) {
 			MARS_ERR("peer %s has no uuid\n", peer->peer);
-			make_msg(peer_pairs, "peer '%s' has no UUID",
-				 peer->peer);
+			make_peer_msg(peer, peer_pairs,
+				      "peer '%s' has no UUID",
+				      peer->peer);
 			status = -EPROTO;
 			goto free;
 		}
 		my_uuid = ordered_readlink("/mars/uuid");
 		if (unlikely(!my_uuid)) {
 			MARS_ERR("cannot determine my own uuid for peer %s\n", peer->peer);
-			make_msg(peer_pairs, "cannot determine my own uuid");
+			make_peer_msg(peer, peer_pairs,
+				      "cannot determine my own uuid");
 			status = -EPROTO;
 			goto free;
 		}
 		if (unlikely(strcmp(peer_uuid->new_link, my_uuid) &&
 			     strcmp(my_uuid, "(any)"))) {
 			MARS_ERR("UUID mismatch for peer %s, you are trying to communicate with a foreign cluster!\n", peer->peer);
-			make_msg(peer_pairs, "UUID mismatch with '%s', own cluster '%s' is trying to communicate with a foreign cluster '%s'",
-				 peer->peer,
-				 my_uuid, peer_uuid->new_link);
+			make_peer_msg(peer, peer_pairs,
+				      "UUID mismatch with '%s', own cluster '%s' is trying to communicate with a foreign cluster '%s'",
+				      peer->peer,
+				      my_uuid,
+				      peer_uuid->new_link);
 			brick_string_free(my_uuid);
 			status = -EPROTO;
 			goto free;
 		}
 		brick_string_free(my_uuid);
 
-		make_msg(peer_pairs, "CONNECTED %s(%s) fetching '%s'",
-			 peer->peer, real_peer,
-			 paths);
+		make_peer_msg(peer, peer_pairs,
+			      "CONNECTED %s(%s) fetching '%s'",
+			      peer->peer, real_peer,
+			      paths);
 
 		mutex_lock(&peer->peer_lock);
 
@@ -2671,20 +2679,22 @@ int peer_thread(void *data)
 		};
 		LIST_HEAD(tmp_push_list);
 
-		if (likely(repeated)) {
-			report_peer_connection(peer_pairs, !peer->do_communicate);
-			report_peer_connection(peer_pairs, peer->do_communicate);
-		}
+		if (likely(repeated))
+			report_peer_connection(peer, peer_pairs);
 		repeated = true;
 
 		if (!mars_socket_is_alive(&peer->socket)) {
-			make_msg(peer_pairs, "connection to '%s' (%s) is dead", peer->peer, real_peer);
+			make_peer_msg(peer, peer_pairs,
+				      "connection to '%s' (%s) is dead",
+				      peer->peer, real_peer);
 			brick_string_free(real_peer);
 			real_peer = mars_translate_hostname(peer->peer);
 			status = mars_create_sockaddr(&sockaddr, real_peer);
 			if (unlikely(status < 0)) {
 				MARS_ERR("unusable remote address '%s' (%s)\n", real_peer, peer->peer);
-				make_msg(peer_pairs, "unusable remote address '%s' (%s)\n", real_peer, peer->peer);
+				make_peer_msg(peer, peer_pairs,
+					      "unusable remote address '%s' (%s)\n",
+					      real_peer, peer->peer);
 				brick_msleep(1000);
 				continue;
 			}
@@ -2703,7 +2713,9 @@ int peer_thread(void *data)
 						    false);
 			if (unlikely(status < 0)) {
 				MARS_INF("no connection to mars module on '%s' (%s) status = %d\n", peer->peer, real_peer, status);
-				make_msg(peer_pairs, "connection to '%s' (%s) could not be established: status = %d", peer->peer, real_peer, status);
+				make_peer_msg(peer, peer_pairs,
+					      "connection to '%s' (%s) could not be established: status = %d",
+					      peer->peer, real_peer, status);
 				/* additional threads should give up immediately */
 				if (peer->do_additional)
 					break;
@@ -2860,9 +2872,10 @@ int peer_thread(void *data)
 
 	clear_vals(peer_pairs);
 	if (peer->do_communicate)
-		make_msg(peer_pairs, "NOT connected %s(%s)", peer->peer, real_peer);
-	report_peer_connection(peer_pairs, !peer->do_communicate);
-	report_peer_connection(peer_pairs, peer->do_communicate);
+		make_peer_msg(peer, peer_pairs,
+			      "NOT connected %s(%s)",
+			      peer->peer, real_peer);
+	report_peer_connection(peer, peer_pairs);
 
 	peer->do_additional = false;
 	if (peer->doing_additional) {
