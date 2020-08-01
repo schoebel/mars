@@ -276,7 +276,7 @@ sub device_exists {
   my $val = get_link($lnk, 2);
   # backwards compatibility to old kernels
   my $lnk_old = "$mars/resource-$res/actual-$peer/device-$peer";
-  my $val_old = get_link($lnk, 2);
+  my $val_old = get_link($lnk_old, 2);
   if (defined($val_old) && $val_old ne "" &&
       (!defined($val) || $val eq "" ||
        get_link_stamp($lnk_old) > get_link_stamp($lnk))) {
