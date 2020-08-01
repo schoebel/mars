@@ -37,8 +37,9 @@
  */
 /* 1 = traditional
  * 2 = push operation available
+ * 3 = new alivelinks residing in /mars/actual-$host
  */
-#define OPTIONAL_STRATEGY_VERSION 2
+#define OPTIONAL_STRATEGY_VERSION 3
 
 /* transient, to re-disappear */
 extern int compat_deletions;

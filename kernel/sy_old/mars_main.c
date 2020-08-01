@@ -81,6 +81,9 @@
 int usable_features_version = 0;
 int usable_strategy_version = 0;
 
+int marsadm_version_major = 0;
+int marsadm_version_minor = 0;
+
 __u32 disabled_log_digests = 0;
 __u32 disabled_net_digests = 0;
 
@@ -388,10 +391,37 @@ const char *rot_keys[] = {
 #define IS_EMERGENCY_PRIMARY()     (mars_emergency_mode > 2)
 #define IS_JAMMED()                (mars_emergency_mode > 3)
 
+static bool compat_alivelinks = false;
+
 static
-void __make_alivelink_str(const char *name, const char *src, bool lazy)
+const char *get_alivelink(const char *name, const char *peer)
+{
+	char *path = path_make("/mars/actual-%s/%s", peer, name);
+	const char *result = ordered_readlink(path);
+
+	brick_string_free(path);
+	return result;
+}
+
+static
+void get_marsadm_version(void)
+{
+	const char *str = get_alivelink("marsadm-version", my_id());
+
+	if (str) {
+		sscanf(str,
+		       "%d.%d",
+		       &marsadm_version_major,
+		       &marsadm_version_minor);
+	}
+	brick_string_free(str);
+}
+
+static
+void __make_alivelink_str_old(const char *name, const char *src, bool lazy)
 {
 	char *dst = path_make("/mars/%s-%s", name, my_id());
+
 	if (!src || !dst) {
 		MARS_ERR("cannot make alivelink paths\n");
 		goto err;
@@ -411,6 +441,34 @@ void __make_alivelink_str(const char *name, const char *src, bool lazy)
 err:
 	brick_string_free(dst);
 }
+
+static
+void __make_alivelink_str(const char *name, const char *src, bool lazy)
+{
+	char *dst = path_make("/mars/actual-%s/%s", my_id(), name);
+
+	if (!src || !dst) {
+		MARS_ERR("cannot make alivelink paths\n");
+		goto err;
+	}
+	if (lazy) {
+		char *check = mars_readlink(dst);
+		bool ok = (check && !strcmp(check, src));
+
+		brick_string_free(check);
+		if (ok) {
+			MARS_DBG("symlink '%s' -> '%s' has not changed\n", src, dst);
+			goto err;
+		}
+	}
+	MARS_DBG("'%s' -> '%s'\n", src, dst);
+	ordered_symlink(src, dst, NULL);
+err:
+	brick_string_free(dst);
+	if (compat_alivelinks)
+		__make_alivelink_str_old(name, src, lazy);
+}
+
 #define _make_alivelink_str(name,src)		\
 	__make_alivelink_str(name,src,false)
 
@@ -3009,6 +3067,7 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 	char *parent_path;
 	char *feature_path;
 	char *feature_str;
+	char *feature_str_old;
 	int status = 0;
 
 	if (!global || !dent || !dent->new_link || !dent->d_parent || !(parent_path = dent->d_parent->d_path)) {
@@ -3062,21 +3121,44 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 
 	/* Determine remote features and digest mask */
 	feature_path = path_make("/mars/features-%s", mypeer);
+	feature_str_old = mars_readlink(feature_path);
+	brick_string_free(feature_path);
+	feature_path = path_make("/mars/actual-%s/features", mypeer);
 	feature_str = mars_readlink(feature_path);
-	if (feature_str) {
-		sscanf(feature_str, "%d,%d,0x%x",
+	brick_string_free(feature_path);
+
+	if (feature_str && feature_str[0]) {
+		sscanf(feature_str,
+		       "%d,%d,0x%x",
 		       &peer->features_version,
 		       &peer->strategy_version,
 		       &peer->available_mask);
+	} else if (feature_str_old) {
+		sscanf(feature_str_old,
+		       "%d,%d,0x%x",
+		       &peer->features_version,
+		       &peer->strategy_version,
+		       &peer->available_mask);
+	} else {
+		/* Needed during join-cluster */
+		MARS_DBG("assuming default versions for '%s'\n", mypeer);
+		peer->features_version = OPTIONAL_FEATURES_VERSION;
+		peer->strategy_version = OPTIONAL_STRATEGY_VERSION;
+		/* Safeguard: peer->available_mask is _not_ set */
 	}
+	MARS_DBG("versions '%s': %d %d 0x%x\n",
+		 mypeer,
+		 peer->features_version,
+		 peer->strategy_version,
+		 peer->available_mask);
 	/* else/anyway: treat missing features as 0 = worst case */
 	if (peer->features_version < 3) {
 		peer->strategy_version = 0;
 		peer->available_mask = 0;
 	}
 
-	brick_string_free(feature_path);
 	brick_string_free(feature_str);
+	brick_string_free(feature_str_old);
 
 	/* at least one digest must remain usable */
 	peer->available_mask |= MREF_CHKSUM_MD5_OLD;
@@ -5279,7 +5361,10 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 	if (rot->sync_finish_stamp.tv_sec) {
 		struct kstat peer_time_stat = {};
 
-		peer_time_path = path_make("/mars/alive-%s", peer);
+		if (compat_alivelinks)
+			peer_time_path = path_make("/mars/alive-%s", peer);
+		else
+			peer_time_path = path_make("/mars/actual-%s/alive", peer);
 		status = mars_stat(peer_time_path, &peer_time_stat, true);
 		if (unlikely(status < 0)) {
 			MARS_ERR("cannot stat '%s'\n", peer_time_path);
@@ -6696,6 +6781,22 @@ static int _main_thread(void *data)
 		_tmp_strategy_version = OPTIONAL_STRATEGY_VERSION;
 		_tmp_digest_mask = available_digest_mask;
 		_tmp_compression_mask = available_compression_mask;
+
+		get_marsadm_version();
+		MARS_DBG("usable_version %d %d %d.%d\n",
+			 usable_features_version,
+			 usable_strategy_version,
+			 marsadm_version_major,
+			 marsadm_version_minor);
+
+		/* determine compat_* variables */
+		compat_alivelinks =
+			!(usable_strategy_version >= 3 &&
+			  (marsadm_version_major > 2 ||
+			   (marsadm_version_major == 2 &&
+			    marsadm_version_minor >= 8)));
+
+		__make_alivelink("compat-alivelinks", compat_alivelinks, true);
 
 		down_read(&rot_sem);
 		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
