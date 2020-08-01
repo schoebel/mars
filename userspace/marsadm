@@ -4210,7 +4210,8 @@ sub link_purge_res {
     unlink($leftlink);
   }
   foreach my $leftlink (lamport_glob("$mars/{,resource-$res/}actual-*/msg-*")) {
-    if ($leftlink =~ m:/msg-conncetion-from-:) {
+    # cleanup historic msg-*
+    if ($leftlink =~ m:/msg-(conncetion-from-|additional-connection-):) {
       lprint "  unlink deprecated '$leftlink'\n" if $verbose;
       unlink($leftlink);
       next;
