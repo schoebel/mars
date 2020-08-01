@@ -2867,6 +2867,7 @@ int peer_thread(void *data)
 	peer->do_additional = false;
 	if (peer->doing_additional) {
 		peer->doing_additional = false;
+		peer->do_communicate = false;
 		mars_running_additional_peers--;
 	}
 	if (do_kill) {
@@ -3029,6 +3030,7 @@ static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 	mars_free_dent_all(NULL, &tmp_list);
 	if (peer->doing_additional) {
 		peer->doing_additional = false;
+		peer->do_communicate = false;
 		mars_running_additional_peers--;
 	}
 	brick_string_free(peer->peer);
@@ -4984,7 +4986,8 @@ int make_bio(void *buf, struct mars_dent *dent)
 	_show_actual(rot->parent_path, "is-attached", rot->is_attached);
 
 	rot->has_symlinks = true;
-	activate_peer(rot, dent->d_rest);
+	if (rot->rot_activated)
+		activate_peer(rot, dent->d_rest);
 	if (strcmp(dent->d_rest, my_id()))
 		goto done;
 
@@ -5129,6 +5132,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 		MARS_DBG("nothing to do\n");
 		goto err;
 	}
+	activate_peer(rot, dent->d_rest);
 	if (strcmp(dent->d_rest, my_id())) {
 		MARS_DBG("nothing to do\n");
 		goto err;
