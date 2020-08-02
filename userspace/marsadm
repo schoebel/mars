@@ -3238,6 +3238,7 @@ sub _create_cluster {
   set_link("(none)", "$mars/defaults-$host/sync-pref-list");
   system("mkdir $mars/todo-global") unless -d "$mars/todo-global";
   mkdir("$mars/actual-$host") unless -d "$mars/actual-$host";
+  set_link($marsadm_version, "$mars/actual-$host/marsadm-version");
   set_link($ip, "$mars/ips/ip-$host");
   set_link("1", "$mars/todo-global/deleted-$host");
 }
@@ -3257,6 +3258,7 @@ sub join_cluster {
     lwarn "DANGER: some resources already exist!\n";
     ldie  "DANGER: If you are sure that no resource clash is possible, re-invoke $cmd with '--force' option\n" unless $force;
   }
+  set_link($marsadm_version, "$mars/actual-$host/marsadm-version");
   $peer_ip = _get_ip($peer) unless $peer_ip;
   # try new join method
   if (is_module_loaded()) {
@@ -3883,6 +3885,8 @@ sub delete_res {
 
 sub logrotate_res {
   my ($cmd, $res) = @_;
+  # report any upgrades / downgrades
+  set_link($marsadm_version, "$mars/actual-$host/marsadm-version");
   unless ($force) {
     return if check_primary($cmd, $res, 0, 1);
   }
