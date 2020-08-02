@@ -118,6 +118,18 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable102
+	* Major usability (BETA): scalability in number of hosts.
+	  It should have no visible side effect in functionality,
+	  but better non-functional properties.
+	  Tested in the _lab_ with 1000 additional dummy hosts
+	  and additionally 8000 dummy resources in total.
+	  BETA WARNING: at the moment, there are no practical experiences.
+	  There might be problems which might not show up during lab tests.
+	  Do not blindly rollout or merge-cluster big masses in production.
+	  I will tell you when practical experiences allow for rising
+	  the "official" limits as documented in the user manual.
+
 mars0.1astable101
 	* Major usability: join-cluster now works without ssh.
 	  Of course, you need to rollout the new marsadm and
