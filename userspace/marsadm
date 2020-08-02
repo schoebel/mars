@@ -1422,7 +1422,7 @@ sub get_link_stamp {
 
 sub is_recent {
   my ($stamp, $wind) = @_;
-  return 0 unless $stamp;
+  return 0 unless ($stamp && $stamp =~ m/^\s*[0-9.]/);
   $wind = $window * 2 unless $wind;
   return 1 if $stamp + $wind >= mars_time();
   return 0;
@@ -1660,7 +1660,7 @@ sub get_alive_links {
   return %peers unless %peers;
   my %links;
   foreach my $peer (keys(%peers)) {
-    my $val = get_alive_link($alive, $peer, 1);
+    my $val = get_alive_link($alive, $peer, 2);
     # When required and possible, get the _remote_ timestamp
     # when the link tree was read _remotely_.
     if ($use_remote_stamp) {
