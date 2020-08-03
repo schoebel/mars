@@ -5636,6 +5636,16 @@ sub delete_res_phase2 {
   return 0;
 }
 
+sub _during_handover {
+  my ($cmd, $res) = @_;
+  my $lnk = "$mars/resource-$res/new-primary";
+  my $val = get_link($lnk, 2);
+  if ($val && $val ne "(none)") {
+    return 1;
+  }
+  return 0;
+}
+
 sub logrotate_res {
   my ($cmd, $res) = @_;
   # report any upgrades / downgrades
@@ -5644,6 +5654,7 @@ sub logrotate_res {
     lwarn "operation $cmd --force is DANGEROUS\n";
   } else {
     return if check_primary($cmd, $res, 0, 1);
+    return if _during_handover(@_);
   }
   my $log_glob = "$mars/resource-$res/log-*-$host";
   lprint "get logfiles '$log_glob'\n";
