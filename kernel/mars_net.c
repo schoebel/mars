@@ -173,14 +173,19 @@ EXPORT_SYMBOL_GPL(mars_create_sockaddr);
 static int current_debug_nr = 0; // no locking, just for debugging
 
 static
-void _set_socketopts(struct socket *sock, struct mars_tcp_params *params)
+void _set_socketopts(struct socket *sock, struct mars_tcp_params *params, bool is_server)
 {
 	struct timeval t = {
 		.tv_sec = params->tcp_timeout,
 	};
 	int x_true = 1;
+
 	/* TODO: improve this by a table-driven approach
 	 */
+	if (is_server) {
+		/* extra options for server sockets */
+		_setsockopt(sock, SOL_SOCKET, IP_FREEBIND, x_true);
+	}
 	sock->sk->sk_rcvtimeo = sock->sk->sk_sndtimeo = params->tcp_timeout * HZ;
 	sock->sk->sk_reuse = 1;
 	_setsockopt(sock, SOL_SOCKET, SO_SNDBUFFORCE, params->tcp_window_size);
@@ -234,7 +239,7 @@ int mars_create_socket(struct mars_socket *msock,
 	msock->s_alive = true;
 	msock->s_connected = false;
 
-	_set_socketopts(sock, params);
+	_set_socketopts(sock, params, is_server);
 
 	if (is_server) {
 		status = kernel_bind(sock, sockaddr, sizeof(*sockaddr));
@@ -299,7 +304,7 @@ int mars_accept_socket(struct mars_socket *new_msock,
 
 		MARS_IO("old#%d status = %d file = %p flags = 0x%x\n", old_msock->s_debug_nr, status, new_socket->file, new_socket->file ? new_socket->file->f_flags : 0);
 
-		_set_socketopts(new_socket, params);
+		_set_socketopts(new_socket, params, false);
 
 		memset(new_msock, 0, sizeof(struct mars_socket));
 		new_msock->s_socket = new_socket;
