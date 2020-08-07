@@ -1519,6 +1519,39 @@ out:
 }
 
 static
+const char *get_version_link(struct mars_rotate *rot, int sequence)
+{
+	char *prev;
+	char *prev_link;
+
+	prev = path_make("%s/version-%09d-%s",
+			 rot->parent_path,
+			 sequence,
+			 my_id());
+	prev_link = ordered_readlink(prev, NULL);
+	brick_string_free(prev);
+	return prev_link;
+}
+
+static
+const char *get_version_digest(const char *version_link)
+{
+	char *tmp;
+	char *version_digest;
+
+	if (!version_link || !version_link[0])
+		return NULL;
+
+	version_digest = brick_strdup(version_link);
+	// take the part before ':'
+	for (tmp = version_digest; *tmp; tmp++)
+		if (*tmp == ':')
+			break;
+	*tmp = '\0';
+	return version_digest;
+}
+
+static
 int _update_version_link(struct mars_rotate *rot,
 			 struct trans_logger_info *inf,
 			 bool do_check)
@@ -1527,9 +1560,8 @@ int _update_version_link(struct mars_rotate *rot,
 	char *old = brick_string_alloc(0);
 	char *new = NULL;
 	unsigned char *digest = brick_string_alloc(0);
-	char *prev = NULL;
-	char *prev_link = NULL;
-	char *prev_digest = NULL;
+	const char *prev_link = NULL;
+	const char *prev_digest = NULL;
 	int len;
 	int i;
 	int res = 0;
@@ -1566,13 +1598,8 @@ int _update_version_link(struct mars_rotate *rot,
 				    rot->inf_prev_sequence, inf->inf_sequence, msg);
 			brick_string_free(skip_link);
 		}
-		prev = path_make("%s/version-%09d-%s", rot->parent_path, inf->inf_sequence - 1, my_id());
-		if (unlikely(!prev)) {
-			MARS_ERR("no MEM\n");
-			goto out;
-		}
-		prev_link = ordered_readlink(prev, NULL);
 		rot->inf_prev_sequence = inf->inf_sequence;
+		prev_link = get_version_link(rot, inf->inf_sequence - 1);
 	}
 
 	len = sprintf(data, "%d,%s,%lld:%s", inf->inf_sequence, inf->inf_host, inf->inf_log_pos, prev_link ? prev_link : "");
@@ -1590,19 +1617,7 @@ int _update_version_link(struct mars_rotate *rot,
 		len += sprintf(old + len, "%02x", digest[i]);
 	}
 
-	if (likely(prev_link && prev_link[0])) {
-		char *tmp;
-		prev_digest = brick_strdup(prev_link);
-		if (unlikely(!prev_digest)) {
-			MARS_ERR("no MEM\n");
-			goto out;
-		}
-		// take the part before ':'
-		for (tmp = prev_digest; *tmp; tmp++)
-			if (*tmp == ':')
-				break;
-		*tmp = '\0';
-	}
+	prev_digest = get_version_digest(prev_link);
 
 	len += sprintf(old + len, ",log-%09d-%s,%lld:%s", inf->inf_sequence, inf->inf_host, inf->inf_log_pos, prev_digest ? prev_digest : "");
 
@@ -1618,7 +1633,6 @@ int _update_version_link(struct mars_rotate *rot,
 
 out:
 	brick_string_free(new);
-	brick_string_free(prev);
 	brick_string_free(data);
 	brick_string_free(digest);
 	brick_string_free(old);
