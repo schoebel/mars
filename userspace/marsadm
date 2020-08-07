@@ -1442,7 +1442,7 @@ sub get_alive_link {
   if ($compat_alivelinks) {
     $result = get_link($path, 2);
     my $path_old = "$mars/$name-$peer";
-    my $result_old = get_link($path_old, $unchecked);
+    my $result_old = get_link($path_old, 2);
     return $result_old if !$result;
     # determine the newer link
     if (get_link_stamp($path_old) > get_link_stamp($path)) {
