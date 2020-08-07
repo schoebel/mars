@@ -4067,6 +4067,7 @@ sub _replace_delete {
   if (!$del_dirs{$basedir}) {
     foreach my $link (lamport_glob("$basedir/delete-*")) {
       my $targ = readlink($link);
+      next unless $targ;
       $del_targets{$targ} = $link;
     }
     $del_dirs{$basedir} = 1;
