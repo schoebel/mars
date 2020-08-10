@@ -35,6 +35,10 @@
 #define AIO_IO_W_MAX_LATENCY    150000 // 150 ms
 #define AIO_SYNC_MAX_LATENCY    150000 // 150 ms
 
+#ifdef CONFIG_MARS_DEBUG
+#define MARS_AIO_DEBUG
+#endif
+
 extern struct threshold aio_submit_threshold;
 extern struct threshold aio_io_threshold[2];
 extern struct threshold aio_sync_threshold;
@@ -78,7 +82,9 @@ struct aio_threadinfo {
 	struct mutex mutex;
 	int queued[MARS_PRIO_NR];
 	atomic_t queued_sum;
+#ifdef MARS_AIO_DEBUG
 	atomic_t total_enqueue_count;
+#endif
 	bool should_terminate;
 	bool terminated;
 };
@@ -95,6 +101,10 @@ struct aio_output {
 	// statistics
 	int index;
 	atomic_t work_count;
+	atomic_t read_count;
+	atomic_t write_count;
+	atomic_t submit_count;
+#ifdef MARS_AIO_DEBUG
 	atomic_t total_read_count;
 	atomic_t total_write_count;
 	atomic_t total_alloc_count;
@@ -105,10 +115,8 @@ struct aio_output {
 	atomic_t total_fdsync_count;
 	atomic_t total_fdsync_wait_count;
 	atomic_t total_mapfree_count;
-	atomic_t read_count;
-	atomic_t write_count;
 	atomic_t alloc_count;
-	atomic_t submit_count;
+#endif
 };
 
 MARS_TYPES(aio);

@@ -131,7 +131,9 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 
 	mutex_unlock(&tinfo->mutex);
 
+#ifdef MARS_AIO_DEBUG
 	atomic_inc(&tinfo->total_enqueue_count);
+#endif
 
 	wake_up_interruptible_all(&tinfo->event);
 }
@@ -230,8 +232,10 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 			return -ENOMEM;
 		}
 		mref_a->do_dealloc = true;
+#ifdef MARS_AIO_DEBUG
 		atomic_inc(&output->total_alloc_count);
 		atomic_inc(&output->alloc_count);
+#endif
 	}
 
 	_mref_get_first(mref);
@@ -254,7 +258,9 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 	mref_a = aio_mref_get_aspect(output->brick, mref);
 	if (mref_a && mref_a->do_dealloc) {
 		brick_block_free(mref->ref_data, mref_a->alloc_len);
+#ifdef MARS_AIO_DEBUG
 		atomic_dec(&output->alloc_count);
+#endif
 	}
 	aio_free_mref(mref);
  done:;
@@ -353,10 +359,14 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 
 	// statistics
 	if (mref->ref_flags & MREF_WRITE) {
+#ifdef MARS_AIO_DEBUG
 		atomic_inc(&output->total_write_count);
+#endif
 		atomic_inc(&output->write_count);
 	} else {
+#ifdef MARS_AIO_DEBUG
 		atomic_inc(&output->total_read_count);
+#endif
 		atomic_inc(&output->read_count);
 	}
 
@@ -418,12 +428,16 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 
 	threshold_check(&aio_submit_threshold, latency);
 
+#ifdef MARS_AIO_DEBUG
 	atomic_inc(&output->total_submit_count);
+#endif
 
 	if (likely(res >= 0)) {
 		atomic_inc(&output->submit_count);
 	} else if (likely(res == -EAGAIN)) {
+#ifdef MARS_AIO_DEBUG
 		atomic_inc(&output->total_again_count);
+#endif
 	} else {
 		MARS_ERR("error = %d\n", res);
 	}
@@ -549,7 +563,9 @@ void aio_sync_all(struct aio_output *output, struct list_head *tmp_list)
 	int err;
 
 	output->fdsync_active = true;
+#ifdef MARS_AIO_DEBUG
 	atomic_inc(&output->total_fdsync_count);
+#endif
 	
 	latency = TIME_STATS(
 		&timings[2],
@@ -996,7 +1012,9 @@ static int aio_submit_thread(void *data)
 					mref_a->start_jiffies = jiffies;
 				if ((long long)jiffies - mref_a->start_jiffies <= mref->ref_timeout) {
 					if (atomic_read(&tinfo->queued_sum) <= 0) {
+#ifdef MARS_AIO_DEBUG
 						atomic_inc(&output->total_msleep_count);
+#endif
 						brick_msleep(1000 * 4 / HZ);
 					}
 					_enqueue(tinfo, mref_a, MARS_PRIO_LOW, true);
@@ -1021,7 +1039,9 @@ static int aio_submit_thread(void *data)
 			if (likely(status != -EAGAIN)) {
 				break;
 			}
+#ifdef MARS_AIO_DEBUG
 			atomic_inc(&output->total_delay_count);
+#endif
 			brick_msleep(sleeptime);
 			if (sleeptime < 100) {
 				sleeptime++;
@@ -1083,6 +1103,7 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 	pos += report_timing(&timings[2], res + pos, 4096 - pos);
 
 	snprintf(res + pos, 4096 - pos,
+#ifdef MARS_AIO_DEBUG
 		 "total "
 		 "reads = %d "
 		 "writes = %d "
@@ -1094,18 +1115,24 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 "fdsyncs = %d "
 		 "fdsync_waits = %d "
 		 "map_free = %d | "
+#endif
 		 "flying reads = %d "
 		 "writes = %d "
+#ifdef MARS_AIO_DEBUG
 		 "allocs = %d "
+#endif
 		 "submits = %d "
 		 "q0 = %d "
 		 "q1 = %d "
 		 "q2 = %d "
+#ifdef MARS_AIO_DEBUG
 		 "| total "
 		 "q0 = %d "
 		 "q1 = %d "
 		 "q2 = %d "
+#endif
 		 "%s\n",
+#ifdef MARS_AIO_DEBUG
 		 atomic_read(&output->total_read_count),
 		 atomic_read(&output->total_write_count),
 		 atomic_read(&output->total_alloc_count),
@@ -1116,16 +1143,21 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 atomic_read(&output->total_fdsync_count),
 		 atomic_read(&output->total_fdsync_wait_count),
 		 atomic_read(&output->total_mapfree_count),
+#endif
 		 atomic_read(&output->read_count),
 		 atomic_read(&output->write_count),
+#ifdef MARS_AIO_DEBUG
 		 atomic_read(&output->alloc_count),
+#endif
 		 atomic_read(&output->submit_count),
 		 atomic_read(&output->tinfo[0].queued_sum),
 		 atomic_read(&output->tinfo[1].queued_sum),
 		 atomic_read(&output->tinfo[2].queued_sum),
+#ifdef MARS_AIO_DEBUG
 		 atomic_read(&output->tinfo[0].total_enqueue_count),
 		 atomic_read(&output->tinfo[1].total_enqueue_count),
 		 atomic_read(&output->tinfo[2].total_enqueue_count),
+#endif
 		 sync ? sync : "");
 
 	brick_string_free(sync);
@@ -1136,8 +1168,10 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 static noinline
 void aio_reset_statistics(struct aio_brick *brick)
 {
+#ifdef MARS_AIO_DEBUG
 	struct aio_output *output = brick->outputs[0];
 	int i;
+
 	atomic_set(&output->total_read_count, 0);
 	atomic_set(&output->total_write_count, 0);
 	atomic_set(&output->total_alloc_count, 0);
@@ -1150,8 +1184,10 @@ void aio_reset_statistics(struct aio_brick *brick)
 	atomic_set(&output->total_mapfree_count, 0);
 	for (i = 0; i < 3; i++) {
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
+
 		atomic_set(&tinfo->total_enqueue_count, 0);
 	}
+#endif
 }
 
 #endif /* ENABLE_MARS_AIO */
