@@ -4574,6 +4574,23 @@ done:
 	return status;
 }
 
+/* secondaries must ensure that logrotate has stabilized */
+static
+bool _is_secondary_fixing_safe(struct mars_rotate *rot)
+{
+	if (!rot->trans_brick)
+		return false;
+	if (rot->trans_brick->replay_code == -EAGAIN)
+		return false;
+	if (!rot->relevant_log)
+		return false;
+	if (!rot->next_relevant_log)
+		return false;
+	if (rot->max_sequence > rot->next_relevant_log->d_serial)
+		return false;
+	return true;
+}
+
 static
 int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 {
@@ -4694,7 +4711,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 				rot->replay_code = trans_brick->replay_code;
 		} else if (trans_brick->replay_code < TL_REPLAY_RUNNING ||
 			   ((rot->todo_primary ||
-			     rot->next_relevant_log) &&
+			     /* secondaries must ensure that logrotate has stabilized */
+			     _is_secondary_fixing_safe(rot)) && 
 			    (trans_brick->replay_code == TL_REPLAY_INCOMPLETE ||
 			     trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance))) {
 			if (trans_brick->replay_code < 0) {
