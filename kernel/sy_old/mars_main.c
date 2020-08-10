@@ -4185,8 +4185,14 @@ int _make_logging_status(struct mars_rotate *rot)
 							       skip_new);
 
 				if (possible) {
-					MARS_INF_TO(rot->log_say, "start switchover from transaction log '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
-					_make_new_replaylink(rot, rot->next_relevant_log->d_rest, rot->next_relevant_log->d_serial, rot->next_relevant_log->new_stat.size);
+					MARS_INF_TO(rot->log_say,
+						    "start switchover from transaction log '%s' to '%s'\n",
+						    dent->d_path,
+						    rot->next_relevant_log->d_path);
+					_make_new_replaylink(rot,
+							     rot->next_relevant_log->d_rest,
+							     rot->next_relevant_log->d_serial,
+							     0);
 				} else {
 					bool want_bypass =
 						(rot->todo_primary &&
