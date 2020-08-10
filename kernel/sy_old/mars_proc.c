@@ -363,6 +363,7 @@ struct ctl_table mars_table[] = {
 		.mode		= 0400,
 		.proc_handler	= &lamport_sysctl_handler,
 	},
+	INT_ENTRY("min_update_seconds",   mars_min_update,        0600),
 	INT_ENTRY("max_lamport_future",   max_lamport_future,     0600),
 	INT_ENTRY("show_log_messages",    brick_say_logging,      0600),
 	INT_ENTRY("show_debug_messages",  brick_say_debug,        0600),

@@ -52,7 +52,7 @@ char *_mars_translate_hostname(const char *name)
 		goto done;
 	}
 
-	trans = ordered_readlink(tmp);
+	trans = ordered_readlink(tmp, NULL);
 	if (trans && trans[0]) {
 		MARS_DBG("'%s' => '%s'\n", tmp, trans);
 		brick_string_free(res);

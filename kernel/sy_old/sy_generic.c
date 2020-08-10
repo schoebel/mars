@@ -773,7 +773,7 @@ done:
 	return status;
 }
 
-char *mars_readlink(const char *newpath)
+char *mars_readlink(const char *newpath, struct lamport_time *stamp)
 {
 	char *res = NULL;
 	struct path path = {};
@@ -833,6 +833,8 @@ char *mars_readlink(const char *newpath)
 #endif
 	if (unlikely(status < 0)) {
 		MARS_ERR("cannot read link '%s', status = %d\n", newpath, status);
+	} else if (stamp) {
+		set_get_lamport(&inode->i_mtime, NULL, stamp);
 	} else {
 		set_lamport(&inode->i_mtime);
 	}
@@ -1064,9 +1066,9 @@ int compat_ordered_symlink(const char *oldpath,
  * We offload cleanup to "marsadm cron".
  */
 
-char *ordered_readlink(const char *path)
+char *ordered_readlink(const char *path, struct lamport_time *stamp)
 {
-	char *res = mars_readlink(path);
+  char *res = mars_readlink(path, stamp);
 
 	if (!strcmp(res, MARS_DELETED_STR)) {
 		*res = '\0';
@@ -1306,7 +1308,7 @@ int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 	/* Correct illegal timestamps */
 	if (unlikely(protect_lamport_time(&tmp.mtime)) &&
 	    S_ISLNK(dent->new_stat.mode)) {
-		char *val = mars_readlink(newpath);
+		char *val = mars_readlink(newpath, NULL);
 		if (val) {
 			mars_symlink(val, newpath, &tmp.mtime, false);
 			brick_string_free(val);
@@ -1666,7 +1668,7 @@ void _mars_order_all(struct mars_cookie *cookie)
 			/* Do not add _new_ dents when deleted.
 			 * Existing ones are treated in get_inode().
 			 */
-			check = mars_readlink(dent->d_path);
+			check = mars_readlink(dent->d_path, NULL);
 			if (check && !strcmp(check, MARS_DELETED_STR)) {
 				brick_string_free(check);
 				mars_free_dent(cookie->global, dent);

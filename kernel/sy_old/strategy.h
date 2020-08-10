@@ -46,6 +46,8 @@ extern int compat_deletions;
 
 extern int usable_strategy_version;
 
+extern int mars_min_update;
+
 extern loff_t global_total_space;
 extern loff_t global_remaining_space;
 
@@ -235,7 +237,7 @@ extern void mars_sync(void);
 extern int mars_mkdir(const char *path);
 extern int mars_rmdir(const char *path);
 extern int mars_unlink(const char *path);
-extern char *mars_readlink(const char *newpath);
+extern char *mars_readlink(const char *newpath, struct lamport_time *stamp);
 extern int mars_rename(const char *oldpath, const char *newpath);
 extern int mars_chmod(const char *path, mode_t mode);
 extern void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining);
@@ -244,7 +246,7 @@ extern void mars_remaining_space(const char *fspath, loff_t *total, loff_t *rema
 
 #define MARS_DELETED_STR ".deleted"
 
-extern char *ordered_readlink(const char *path);
+extern char *ordered_readlink(const char *path, struct lamport_time *stamp);
 
 extern int ordered_unlink(const char *path,
 			  const struct lamport_time *stamp,
