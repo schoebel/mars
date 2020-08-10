@@ -5720,8 +5720,11 @@ sub eval_fn {
       }
       my $lnk = $$env{"resdir"} . "/actual-$peer/" . $transl{$op};
       my $result = get_link($lnk, 2);
-      $result = "0" unless defined($result);
-      $result = mars_time() - $result if $op =~ m/-age/;
+      return 0 unless $result;
+      if ($op =~ m/-age/) {
+	$result = mars_time() - $result;
+	$result = 0 if $result < 0;
+      }
       return $result;
     }
     if (/^is[-_]?split([-_]?brain)?$/) {
