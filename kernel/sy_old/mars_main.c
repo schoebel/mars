@@ -3576,7 +3576,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	struct mars_brick *bio_brick;
 	struct mars_brick *aio_brick;
 	struct mars_brick *trans_brick;
-	struct mars_rotate *rot = parent->d_private;
+	struct mars_rotate *rot;
 	struct mars_dent *replay_link;
 	struct mars_dent *aio_dent;
 	struct mars_output *output;
@@ -3591,10 +3591,13 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 	status = -EINVAL;
+	if (!parent)
+		goto done;
 	CHECK_PTR(parent, done);
 	parent_path = parent->d_path;
 	CHECK_PTR(parent_path, done);
 
+	rot = parent->d_private;
 	if (!rot) {
 		const char *fetch_path;
 		rot = brick_zmem_alloc(sizeof(struct mars_rotate));
@@ -3868,6 +3871,8 @@ int make_log_step(void *buf, struct mars_dent *dent)
 	int replay_log_nr = 0;
 	int status = -EINVAL;
 
+	if (!parent)
+		goto err;
 	CHECK_PTR(parent, err);
 	rot = parent->d_private;
 	if (!rot)
@@ -3876,7 +3881,7 @@ int make_log_step(void *buf, struct mars_dent *dent)
 
 	status = 0;
 	trans_brick = rot->trans_brick;
-	if (!global->global_power.button || !dent->d_parent || !trans_brick || rot->has_error) {
+	if (!global->global_power.button || !trans_brick || rot->has_error) {
 		MARS_DBG("nothing to do rot_error = %d\n", rot->has_error);
 		goto done;
 	}
@@ -4005,6 +4010,8 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 		goto done;
 	CHECK_PTR(dent->d_path, done);
 	parent = dent->d_parent;
+	if (!parent)
+		goto done;
 	CHECK_PTR(parent, done);
 	global = rot->global;
 	CHECK_PTR_NULL(global, done);
@@ -4144,6 +4151,8 @@ int _make_logging_status(struct mars_rotate *rot)
 
 	status = -EINVAL;
 	parent = dent->d_parent;
+	if (!parent)
+		goto done;
 	CHECK_PTR(parent, done);
 	global = rot->global;
 	CHECK_PTR_NULL(global, done);
@@ -4360,6 +4369,7 @@ void _rotate_trans(struct mars_rotate *rot)
 	// try to setup new log
 	if (log_nr == trans_brick->new_input_nr &&
 	    rot->next_relevant_log &&
+	    rot->next_relevant_log->d_parent &&
 	    _check_allow(rot->global, rot->parent_path, "attach") &&
 	    (rot->next_relevant_log->d_serial == trans_brick->inputs[log_nr]->inf.inf_sequence + 1 ||
 	     trans_brick->cease_logging) &&
@@ -4443,6 +4453,11 @@ int _start_trans(struct mars_rotate *rot)
 	}
 	if (unlikely(!rot->aio_brick || !rot->relevant_log)) {
 		MARS_ERR("aio %p or relevant log %p is missing, this should not happen\n", rot->aio_brick, rot->relevant_log);
+		goto done;
+	}
+	if (unlikely(!rot->relevant_log->d_parent)) {
+		MARS_ERR("parent of %p is missing, this should not happen\n",
+			 rot->relevant_log);
 		goto done;
 	}
 	trans_brick = rot->trans_brick;
@@ -4617,6 +4632,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	bool is_stopped;
 	int status = -EINVAL;
 
+	if (!parent)
+		goto err;
 	CHECK_PTR(parent, err);
 	rot = parent->d_private;
 	if (!rot)
@@ -4957,6 +4974,8 @@ int make_primary(void *buf, struct mars_dent *dent)
 	int status = -EINVAL;
 
 	parent = dent->d_parent;
+	if (!parent)
+		goto done;
 	CHECK_PTR(parent, done);
 	rot = parent->d_private;
 	if (!rot)
@@ -5257,6 +5276,7 @@ int kill_dev(void *buf, struct mars_dent *dent)
 {
 	struct mars_dent *parent = dent->d_parent;
 	int status = kill_any(buf, dent);
+
 	if (status > 0 && parent) {
 		struct mars_rotate *rot = parent->d_private;
 		if (rot) {
