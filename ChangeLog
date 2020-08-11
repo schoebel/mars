@@ -118,6 +118,18 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable103
+	* Major regression from mars0.1astable99: secondary replay could
+	  hang unnecessarily due to a cascade of race conditions.
+	  AFAICS consistency was not affected (thanks to md5 checksumming).
+	  Observed with a specific load pattern at less than 1% of resources,
+	  or in average after ~ 120 operation hours when logrotate
+	  was 12 times per hour. Unfortunately, it slipped through all my
+	  release tests due to relatively low trigger probability.
+	  Workaround by "invalidate". Which is however no good solution.
+	  Please avoid kernel module versions between *99 and *102
+	  for production.
+
 mars0.1astable102
 	* Major usability (BETA): scalability in number of hosts.
 	  It should have no visible side effect in functionality,
