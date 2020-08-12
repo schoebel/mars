@@ -30,6 +30,10 @@
 #define BIO_IO_R_MAX_LATENCY    40000 //  40 ms
 #define BIO_IO_W_MAX_LATENCY   100000 // 100 ms
 
+#ifdef CONFIG_MARS_DEBUG
+#define MARS_BIO_DEBUG
+#endif
+
 extern int bio_nr_requests;
 extern struct threshold bio_submit_threshold;
 extern struct threshold bio_io_threshold[2];
@@ -68,7 +72,9 @@ struct bio_brick {
 	atomic_t fly_count[MARS_PRIO_NR];
 	atomic_t queue_count[MARS_PRIO_NR];
 	atomic_t completed_count;
+#ifdef MARS_BIO_DEBUG
 	atomic_t total_completed_count[MARS_PRIO_NR];
+#endif
 	// private
 	spinlock_t lock;
 	struct list_head queue_list[MARS_PRIO_NR];

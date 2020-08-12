@@ -684,7 +684,9 @@ int bio_response_thread(void *data)
 			MARS_IO("%d callback done.\n", round);
 			
 			atomic_dec(&brick->fly_count[PRIO_INDEX(mref)]);
+#ifdef MARS_BIO_DEBUG
 			atomic_inc(&brick->total_completed_count[PRIO_INDEX(mref)]);
+#endif
 			count++;
 
 			MARS_IO("%d completed_count = %d fly_count = %d\n", round, atomic_read(&brick->completed_count), atomic_read(&brick->fly_count[PRIO_INDEX(mref)]));
@@ -939,10 +941,12 @@ char *bio_statistics(struct bio_brick *brick, int verbose)
 	pos += report_timing(&timings[1], res + pos, 4096 - pos);
 
 	snprintf(res + pos, 4096 - pos,
+#ifdef MARS_BIO_DEBUG
 		 "total "
 		 "completed[0] = %d "
 		 "completed[1] = %d "
 		 "completed[2] = %d | "
+#endif
 		 "queued[0] = %d "
 		 "queued[1] = %d "
 		 "queued[2] = %d "
@@ -950,9 +954,11 @@ char *bio_statistics(struct bio_brick *brick, int verbose)
 		 "flying[1] = %d "
 		 "flying[2] = %d "
 		 "completing = %d\n",
+#ifdef MARS_BIO_DEBUG
 		 atomic_read(&brick->total_completed_count[0]),
 		 atomic_read(&brick->total_completed_count[1]),
 		 atomic_read(&brick->total_completed_count[2]),
+#endif
 		 atomic_read(&brick->fly_count[0]),
 		 atomic_read(&brick->queue_count[0]),
 		 atomic_read(&brick->queue_count[1]),
@@ -967,9 +973,11 @@ char *bio_statistics(struct bio_brick *brick, int verbose)
 static noinline
 void bio_reset_statistics(struct bio_brick *brick)
 {
+#ifdef MARS_BIO_DEBUG
 	atomic_set(&brick->total_completed_count[0], 0);
 	atomic_set(&brick->total_completed_count[1], 0);
 	atomic_set(&brick->total_completed_count[2], 0);
+#endif
 }
 
 
