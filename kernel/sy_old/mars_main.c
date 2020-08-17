@@ -730,6 +730,39 @@ enum {
 	CL_TIME,
 };
 
+/* Performance optimization:
+ * Check whether an incative subtree can be skipped.
+ */
+static
+void skip_scan_resource(struct mars_dent *dent)
+{
+	const char *probe_path;
+	const char *probe_link;
+
+	if (!dent->d_name ||
+	    !dent->d_path ||
+	    strncmp(dent->d_name, "resource-", 9)) {
+		dent->d_no_scan = false;
+		dent->d_running = true;
+		MARS_DBG("no check '%s'\n", dent->d_path);
+		return;
+	}
+
+	probe_path = path_make("%s/device-%s", dent->d_path, my_id());
+	probe_link = ordered_readlink(probe_path, NULL);
+	dent->d_no_scan = (!probe_link || !probe_link[0]);
+	brick_string_free(probe_path);
+	brick_string_free(probe_link);
+	if (!dent->d_no_scan)
+		dent->d_running = true;
+	else if (!dent->d_private)
+		dent->d_running = false;
+	MARS_DBG("d_no_scan=%d d_running=%d '%s'\n",
+		 dent->d_no_scan,
+		 dent->d_running,
+		 dent->d_path);
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 // needed for logfile rotation
@@ -5978,6 +6011,9 @@ int make_res(void *buf, struct mars_dent *dent)
 {
 	struct mars_rotate *rot = dent->d_private;
 
+	MARS_DBG("init '%s'\n", dent->d_path);
+	dent->d_skip_fn = skip_scan_resource;
+	dent->d_running = true;
 	if (!rot) {
 		MARS_DBG("nothing to do\n");
 		goto done;
@@ -5998,6 +6034,7 @@ int kill_res(void *buf, struct mars_dent *dent)
 		MARS_DBG("nothing to do\n");
 		goto done;
 	}
+	dent->d_running = true;
 
 	show_vals(rot->msgs, rot->parent_path, "");
 
@@ -6005,8 +6042,9 @@ int kill_res(void *buf, struct mars_dent *dent)
 		MARS_DBG("nothing to do\n");
 		goto done;
 	}
-	if (rot->has_symlinks) {
-		MARS_DBG("symlinks were present, nothing to kill.\n");
+	if (!dent->d_no_scan) {
+		MARS_DBG("resource '%s' is active, nothing to kill.\n",
+			 rot->parent_path);
 		goto done;
 	}
 
@@ -6057,9 +6095,11 @@ int kill_res(void *buf, struct mars_dent *dent)
 	}
 	if (!rot->if_brick && !rot->sync_brick && !rot->fetch_brick && !rot->trans_brick) {
 		rot->res_shutdown = false;
+		dent->d_running = false;
 	}
 
  done:
+	MARS_DBG("d_running=%d\n", dent->d_running);
 	return 0;
 }
 

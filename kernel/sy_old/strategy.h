@@ -74,12 +74,16 @@ extern int mars_fast_fullsync;
 
 extern char *my_id(void);
 
+struct mars_dent;
+typedef void (*dent_skip_fn)(struct mars_dent *);
+
 #define MARS_DENT(TYPE)							\
 	struct list_head dent_link;					\
 	struct list_head dent_hash_link;				\
 	struct list_head dent_quick_link;				\
 	struct list_head brick_list;					\
 	struct TYPE *d_parent;						\
+	dent_skip_fn d_skip_fn;						\
 	char *d_argv[MARS_ARGV_MAX];  /* for internal use, will be automatically deallocated*/ \
 	char *d_args; /* ditto uninterpreted */				\
 	char *d_name; /* current path component */			\
@@ -97,6 +101,8 @@ extern char *my_id(void);
 	int   d_hash;							\
 	int   d_proto;							\
 	char d_once_error;						\
+	bool d_no_scan;							\
+	bool d_running;							\
 	bool d_killme;							\
 	bool d_use_channel;						\
 	struct kstat new_stat;						\

@@ -1709,6 +1709,19 @@ static int _mars_readdir(struct mars_cookie *cookie)
 	if (unlikely(strstr(cookie->path, MARS_BACKUP_STR)))
 		goto done;
 
+	/* Performance optimization.
+	 * Skip readdir() when not activated and no device-$host exists
+	 */
+	if (cookie->parent &&
+	    cookie->parent->d_skip_fn) {
+		cookie->parent->d_skip_fn(cookie->parent);
+		if (cookie->parent->d_no_scan &&
+		    !cookie->parent->d_running) {
+			MARS_DBG("scan_skip '%s'\n", cookie->parent->d_path);
+			goto done;
+		}
+	}
+
         oldfs = get_fs();
         set_fs(get_ds());
         f = filp_open(cookie->path, O_DIRECTORY | O_RDONLY, 0);
@@ -1839,6 +1852,9 @@ int _op_scan(struct say_channel **say_channel,
 		if (S_ISDIR(dent->new_stat.mode) &&
 		    (maxdepth <= 0 ||
 		     dent->d_depth <= maxdepth) &&
+		    (!dent->d_no_scan ||
+		     dent->d_running ||
+		     dent->d_depth <= 1) &&
 		    (!has_dir_list || 
 		     dent->d_depth > 0 ||
 		     dir_path_is_in(dent->d_path, path_list))) {
@@ -1898,6 +1914,11 @@ int _op_forward(struct say_channel **say_channel,
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		int status;
 
+		if (dent->d_no_scan && !dent->d_running) {
+			MARS_DBG("scan_skip '%s'\n", dent->d_path);
+			continue;
+		}
+
 		up_read(&global->dent_mutex);
 
 		brick_yield();
@@ -1939,6 +1960,11 @@ int _op_backward(struct say_channel **say_channel,
 	for (tmp = global->dent_anchor.prev, next = tmp->prev; tmp != &global->dent_anchor; tmp = next, next = next->prev) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		int status;
+
+		if (dent->d_no_scan && !dent->d_running) {
+			MARS_DBG("scan_skip '%s'\n", dent->d_path);
+			continue;
+		}
 
 		up_read(&global->dent_mutex);
 
