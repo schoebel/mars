@@ -482,6 +482,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	int total_len = bio->bi_size;
 #endif
 //      end_remove_this
+	int kb = (total_len + 512) / 1024;
 	bool assigned = false;
         int error = -EINVAL;
 
@@ -534,10 +535,12 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 	// throttling of too big write requests
 	if (rw && if_throttle_start_size > 0) {
-		int kb = (total_len + 512) / 1024;
 		if (kb >= if_throttle_start_size)
 			mars_limit_sleep(&if_throttle, kb);
 	}
+
+	/* gather statistics on IOPS etc */
+	mars_limit(&brick->io_limiter, kb);
 
 #ifdef DENY_READA // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
 	if (ahead) {
@@ -595,9 +598,6 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #endif
 //      end_remove_this
 		void *data;
-
-		/* gather statistics on IOPS etc */
-		mars_limit(&brick->io_limiter, bv_len);
 
 #ifdef ARCH_HAS_KMAP
 #error FIXME: the current infrastructure cannot deal with HIGHMEM / kmap()
