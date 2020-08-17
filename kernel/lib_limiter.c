@@ -28,7 +28,17 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
+/* For precisions, _internal_ time is in multiples of the following basic time units */
+
 #define LIMITER_TIME_RESOLUTION NSEC_PER_SEC
+
+#define DEFAULT_MIN_WINDOW (LIMITER_TIME_RESOLUTION * 1)
+#define DEFAULT_MAX_WINDOW (LIMITER_TIME_RESOLUTION * 4)
+
+#define MAX_DIVIDER        (DEFAULT_MIN_WINDOW / 10)
+
+#define MS_TO_TR(x)         ((__s64)(x) * (LIMITER_TIME_RESOLUTION / 1000))
+#define TR_TO_MS(x)         ((x) / (LIMITER_TIME_RESOLUTION / 1000))
 
 int mars_limit(struct mars_limiter *lim, int amount)
 {
@@ -45,17 +55,22 @@ int mars_limit(struct mars_limiter *lim, int amount)
 	 */
 	while (lim != NULL) {
 		struct lamport_time diff = lamport_time_sub(now, lim->lim_stamp);
-		s64 window = lamport_time_to_ns(&diff);
+		__s64 window = lamport_time_to_ns(&diff);
+		__s64 rate_raw;
+		int rate;
+		int max_rate;
 
 		/* Sometimes, raw CPU clocks may do weired things...
-		 * Smaller windows in the denominator than 1s could fake unrealistic rates.
+		 * Small windows in the denominator could fake unrealistic rates.
+		 * Do not divide by too small numbers.
 		 */
-		if (unlikely(lim->lim_min_window <= 0))
-			lim->lim_min_window = 1000;
-		if (unlikely(lim->lim_max_window <= lim->lim_min_window))
-			lim->lim_max_window = lim->lim_min_window + 8000;
-		if (unlikely(window < (long long)lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000)))
-			window = (long long)lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000);
+		if (window < MAX_DIVIDER)
+			window = MAX_DIVIDER;
+
+		if (unlikely(lim->lim_min_window_ms <= TR_TO_MS(MAX_DIVIDER)))
+			lim->lim_min_window_ms = TR_TO_MS(DEFAULT_MIN_WINDOW);
+		if (unlikely(lim->lim_max_window_ms <= lim->lim_min_window_ms))
+			lim->lim_max_window_ms = lim->lim_min_window_ms + TR_TO_MS(DEFAULT_MAX_WINDOW);
 
 		/* Update total statistics.
 		 * They will intentionally wrap around.
@@ -69,90 +84,101 @@ int mars_limit(struct mars_limiter *lim, int amount)
 		/* Only use incremental accumulation at repeated calls, but
 		 * never after longer pauses.
 		 */
-		if (likely(lim->lim_stamp.tv_sec &&
-			   window < (long long)lim->lim_max_window * (LIMITER_TIME_RESOLUTION / 1000))) {
-			long long rate_raw;
-			int rate;
-			int max_rate;
-			
-			/* Races are possible, but taken into account.
-			 * There is no real harm from rarely lost updates.
+		if (!lim->lim_stamp.tv_sec ||
+		    window > MS_TO_TR(lim->lim_max_window_ms)) {
+			/* reset, start over with new measurement cycle */
+			memset(&diff, 0, sizeof(diff));
+			lim->lim_stamp = now;
+			lim->lim_ops_accu = 0;
+			lim->lim_amount_accu = 0;
+			lim->lim_ops_rate = 0;
+			lim->lim_amount_rate = 0;
+			window = MAX_DIVIDER;
+		} else {
+			__s64 diff_window;
+
+			/* Try to keep the window between min_window and 2 * min_window.
+			 * We wait until min_window has been exceeded _twice_,
+			 * and then reduce the window by only 1 * min_window.
 			 */
-			if (likely(amount > 0)) {
-				lim->lim_amount_accu += amount;
-				lim->lim_amount_cumul += amount;
-				lim->lim_ops_accu++;
-				lim->lim_ops_cumul++;
-			}
+			diff_window = window - MS_TO_TR(lim->lim_min_window_ms);
+			if (diff_window > MS_TO_TR(lim->lim_min_window_ms)) {
+				__s64 used_up;
+				__s64 add_window = 0;
 
-			/* compute amount values */
-			rate_raw = lim->lim_amount_accu * LIMITER_TIME_RESOLUTION / window;
-			rate = rate_raw;
-			if (unlikely(rate_raw > INT_MAX)) {
-				rate = INT_MAX;
-			}
-			lim->lim_amount_rate = rate;
-			
-			/* amount limit exceeded? */
-			max_rate = lim->lim_max_amount_rate;
-			if (max_rate > 0 && rate > max_rate) {
-				int this_delay = (window * rate / max_rate - window) / (LIMITER_TIME_RESOLUTION / 1000);
-				// compute maximum
-				if (this_delay > delay && this_delay > 0)
-					delay = this_delay;
-			}
-
-			/* compute ops values */
-			rate_raw = lim->lim_ops_accu * LIMITER_TIME_RESOLUTION / window;
-			rate = rate_raw;
-			if (unlikely(rate_raw > INT_MAX)) {
-				rate = INT_MAX;
-			}
-			lim->lim_ops_rate = rate;
-			
-			/* ops limit exceeded? */
-			max_rate = lim->lim_max_ops_rate;
-			if (max_rate > 0 && rate > max_rate) {
-				int this_delay = (window * rate / max_rate - window) / (LIMITER_TIME_RESOLUTION / 1000);
-
-				// compute maximum
-				if (this_delay > delay && this_delay > 0)
-					delay = this_delay;
-			}
-
-			/* Try to keep the next window below min_window
-			 */
-			window -= lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000);
-			if (window > 0) {
-				long long used_up = (long long)lim->lim_amount_rate * window / LIMITER_TIME_RESOLUTION;
+				used_up = lim->lim_amount_accu * diff_window / window;
 				if (used_up > 0) {
-					lamport_time_add_ns(&lim->lim_stamp, window);
+					add_window = diff_window;
 					lim->lim_amount_accu -= used_up;
 					if (unlikely(lim->lim_amount_accu < 0))
 						lim->lim_amount_accu = 0;
 				}
-				used_up = (long long)lim->lim_ops_rate * window / LIMITER_TIME_RESOLUTION;
+
+				used_up = lim->lim_ops_accu * diff_window / window;
 				if (used_up > 0) {
-					lamport_time_add_ns(&lim->lim_stamp, window);
+					if (diff_window > add_window)
+						add_window = diff_window;
 					lim->lim_ops_accu -= used_up;
 					if (unlikely(lim->lim_ops_accu < 0))
 						lim->lim_ops_accu = 0;
 				}
+  
+				if (add_window > 0) {
+					lamport_time_add_ns(&lim->lim_stamp, add_window);
+					/* recompute the new window */
+					diff = lamport_time_sub(now, lim->lim_stamp);
+					window = lamport_time_to_ns(&diff);
+				}
 			}
-		} else { // reset, start over with new measurement cycle
-			struct lamport_time sub = ns_to_lamport_time(lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000));
-
-			if (unlikely(amount < 0))
-				amount = 0;
-			lim->lim_ops_accu = 1;
-			lim->lim_amount_accu = amount;
-			lim->lim_stamp = lamport_time_sub(now, sub);
-			lim->lim_ops_rate = 0;
-			lim->lim_amount_rate = 0;
 		}
+
+		/* Races are possible, but taken into account.
+		 * There is no real harm from rarely lost updates.
+		 */
+		if (likely(amount > 0)) {
+			lim->lim_amount_accu += amount;
+			lim->lim_ops_accu++;
+		}
+
+		/* compute amount values */
+		rate_raw = lim->lim_amount_accu * LIMITER_TIME_RESOLUTION / window;
+		rate = rate_raw;
+		if (unlikely(rate_raw > INT_MAX)) {
+			rate = INT_MAX;
+		}
+		lim->lim_amount_rate = rate;
+
+		/* amount limit exceeded? */
+		max_rate = lim->lim_max_amount_rate;
+		if (max_rate > 0 && rate > max_rate) {
+			int this_delay = (window * rate / max_rate - window);
+
+			// compute maximum
+			if (this_delay > delay && this_delay > 0)
+				delay = this_delay;
+		}
+
+		/* compute ops values */
+		rate_raw = lim->lim_ops_accu * LIMITER_TIME_RESOLUTION / window;
+		rate = rate_raw;
+		if (unlikely(rate_raw > INT_MAX)) {
+			rate = INT_MAX;
+		}
+		lim->lim_ops_rate = rate;
+
+		/* ops limit exceeded? */
+		max_rate = lim->lim_max_ops_rate;
+		if (max_rate > 0 && rate > max_rate) {
+			int this_delay = (window * rate / max_rate - window);
+
+			// compute maximum
+			if (this_delay > delay && this_delay > 0)
+				delay = this_delay;
+		}
+
 		lim = lim->lim_father;
 	}
-	return delay;
+	return TR_TO_MS(delay);
 }
 
 void mars_limit_sleep(struct mars_limiter *lim, int amount)
@@ -160,10 +186,10 @@ void mars_limit_sleep(struct mars_limiter *lim, int amount)
 	int sleep = mars_limit(lim, amount);
 
 	if (sleep > 0) {
-		if (unlikely(lim->lim_max_delay <= 0))
-			lim->lim_max_delay = 1000;
-		if (sleep > lim->lim_max_delay)
-			sleep = lim->lim_max_delay;
+		if (unlikely(lim->lim_max_delay_ms <= 0))
+			lim->lim_max_delay_ms = 1000;
+		if (sleep > lim->lim_max_delay_ms)
+			sleep = lim->lim_max_delay_ms;
 		brick_msleep(sleep);
 	}
 }

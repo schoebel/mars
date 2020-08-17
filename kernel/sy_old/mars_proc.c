@@ -256,30 +256,37 @@ done:
 #define _CTL_STRATEGY(handler)	/*empty*/
 #endif
 
-#define VEC_ENTRY(NAME,VAR,MODE,COUNT)			\
+#define _VEC_ENTRY(NAME,VAR,TYPE,HANDLER,MODE,COUNT)	\
 	{						\
 		_CTL_NAME				\
 		.procname	= NAME,			\
 		.data           = &(VAR),		\
-		.maxlen         = sizeof(int) * (COUNT),\
+		.maxlen         = sizeof(TYPE) * (COUNT),\
 		.mode		= MODE,			\
-		.proc_handler	= &proc_dointvec,	\
+		.proc_handler	= &HANDLER,		\
 		_CTL_STRATEGY(sysctl_intvec)		\
 	}
 
+#define VEC_INT_ENTRY(NAME,VAR,MODE,COUNT)		\
+	_VEC_ENTRY(NAME,VAR,int,proc_dointvec,MODE,COUNT)
+
 #define INT_ENTRY(NAME,VAR,MODE)			\
-	VEC_ENTRY(NAME, VAR, MODE, 1)
+	VEC_INT_ENTRY(NAME, VAR, MODE, 1)
+
+#define VEC_ULONG_ENTRY(NAME,VAR,MODE,COUNT)		\
+	_VEC_ENTRY(NAME,VAR,unsigned long,proc_doulongvec_minmax,MODE,COUNT)
+
+#define ULONG_ENTRY(NAME,VAR,MODE)			\
+	VEC_ULONG_ENTRY(NAME, VAR, MODE, 1)
 
 #define LIMITER_ENTRIES(VAR, PREFIX, SUFFIX)				\
-	INT_ENTRY(PREFIX "_total_ops",          (VAR)->lim_total_ops,    0400), \
-	INT_ENTRY(PREFIX "_total_" SUFFIX,      (VAR)->lim_total_amount, 0400), \
+	ULONG_ENTRY(PREFIX "_total_ops",        (VAR)->lim_total_ops,    0400), \
+	ULONG_ENTRY(PREFIX "_total_" SUFFIX,    (VAR)->lim_total_amount, 0400), \
 	INT_ENTRY(PREFIX "_ratelimit_ops",      (VAR)->lim_max_ops_rate, 0600), \
 	INT_ENTRY(PREFIX "_ratelimit_" SUFFIX,  (VAR)->lim_max_amount_rate, 0600), \
-	INT_ENTRY(PREFIX "_maxdelay_ms",   (VAR)->lim_max_delay,0600),	\
-	INT_ENTRY(PREFIX "_minwindow_ms",  (VAR)->lim_min_window,0600),	\
-	INT_ENTRY(PREFIX "_maxwindow_ms",  (VAR)->lim_max_window,0600),	\
-	INT_ENTRY(PREFIX "_cumul_ops",     (VAR)->lim_ops_cumul,       0600),	\
-	INT_ENTRY(PREFIX "_cumul_" SUFFIX, (VAR)->lim_amount_cumul,    0600),	\
+	INT_ENTRY(PREFIX "_maxdelay_ms",   (VAR)->lim_max_delay_ms, 0600),   \
+	INT_ENTRY(PREFIX "_minwindow_ms",  (VAR)->lim_min_window_ms,  0600), \
+	INT_ENTRY(PREFIX "_maxwindow_ms",  (VAR)->lim_max_window_ms,  0600), \
 	INT_ENTRY(PREFIX "_rate_ops",      (VAR)->lim_ops_rate,        0400), \
 	INT_ENTRY(PREFIX "_rate_"  SUFFIX, (VAR)->lim_amount_rate,     0400)	\
 
@@ -400,9 +407,9 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("mem_used_raw_kb",      brick_global_block_used,0400),
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	INT_ENTRY("mem_allow_freelist",   brick_allow_freelist,   0600),
-	VEC_ENTRY("mem_freelist_max",     brick_mem_freelist_max,  0600, BRICK_MAX_ORDER+1),
-	VEC_ENTRY("mem_alloc_count",      brick_mem_alloc_count,  0400, BRICK_MAX_ORDER+1),
-	VEC_ENTRY("mem_alloc_max",        brick_mem_alloc_count,  0600, BRICK_MAX_ORDER+1),
+	VEC_INT_ENTRY("mem_freelist_max", brick_mem_freelist_max,  0600, BRICK_MAX_ORDER+1),
+	VEC_INT_ENTRY("mem_alloc_count",  brick_mem_alloc_count,  0400, BRICK_MAX_ORDER+1),
+	VEC_INT_ENTRY("mem_alloc_max",    brick_mem_alloc_count,  0600, BRICK_MAX_ORDER+1),
 #endif
 	INT_ENTRY("io_flying_count",      mars_global_io_flying,  0400),
 	INT_ENTRY("copy_overlap",         mars_copy_overlap,      0600),
