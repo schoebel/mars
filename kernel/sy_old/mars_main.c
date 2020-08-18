@@ -3194,6 +3194,7 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 		MARS_DBG("assuming default versions for '%s'\n", mypeer);
 		peer->features_version = OPTIONAL_FEATURES_VERSION;
 		peer->strategy_version = OPTIONAL_STRATEGY_VERSION;
+		peer->do_additional = true;
 		/* Safeguard: peer->available_mask is _not_ set */
 	}
 	MARS_DBG("versions '%s': %d %d 0x%x\n",
@@ -3205,6 +3206,7 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 	if (peer->features_version < 3) {
 		peer->strategy_version = 0;
 		peer->available_mask = 0;
+		peer->do_additional = true;
 	}
 
 	brick_string_free(feature_str);
