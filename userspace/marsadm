@@ -38,6 +38,7 @@ my $compat_deletions = 1;
 my $compat_alivelinks = 1;
 my $threshold = 10 * 1024 * 1024;
 my $window = 60;
+my $keep_backups = 24 * 7;
 my $verbose = 0;
 my $max_deletions = 512;
 my $thresh_logfiles = 10;
@@ -4181,13 +4182,18 @@ sub delete_file_cmd {
 
 sub link_purge_res {
   my ($cmd, $res) = @_;
+  # keep internal backups for at least 1 hour
+  if ($keep_backups < 1) {
+    $keep_backups = 1;
+  }
   lprint "removing left-over symlinks...\n" if $verbose;
   my $start_time = mars_time();
   # remove any old alivelinks
   my $kernel_compat = get_alive_link("compat-alivelinks", $host, 2);
   # only when a new kernel is running
   if (defined($kernel_compat) && $kernel_compat ne "") {
-    my $glob = "{alive,buildtag,emergency,features,rest-space,time,tree,usable,used,compat}";
+    my $keep_time = 0;
+    my $glob = "{alive,buildtag,emergency,features,rest-space,time,tree,usable,used,compat-alive}";
     # Notice: $kernel_compat might differ from $compat_alivelinks
     # For example, this can happen temporarily during join-cluster & co
     if (!$kernel_compat) {
@@ -4199,17 +4205,20 @@ sub link_purge_res {
       # during compat mode.
       lprint "OLD alivelinks active: purging NEW alivelinks\n" if $verbose;
       $glob = "$mars/actual-$host/$glob*";
+      $keep_time = $keep_backups unless $force;
     } else {
       $glob = "";
     }
     if ($glob) {
       foreach my $leftlink (lamport_glob($glob)) {
+	if ($keep_time) {
+	  my $stamp = get_link_stamp($leftlink);
+	  next unless $stamp + 3600 * $keep_time < $start_time;
+	}
 	_create_delete($leftlink);
       }
     }
   }
-  # keep internal backups for 1 week
-  my $keep_backups = 24 * 7;
   foreach my $leftlink (lamport_glob("$mars/backup*")) {
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * $keep_backups < $start_time;
@@ -8049,6 +8058,10 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Current default: $window
     Treat other cluster nodes as healthy when some communcation has
     occured during the given time window.
+  --keep-backups=<hours>
+    link-purge-all and cron will delete old backup files and old
+    symlinks after this number of hours.
+    Current default: $keep_backups
   --threshold=<bytes>
     Some macros like 'fetch-threshold-reached' use this for determining
     their sloppyness.
@@ -8203,6 +8216,9 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg =~ s/--window\s*=\s*([0-9]+)/$1/) {
     $window = $arg;
+    next;
+  } elsif ($arg =~ s/--keep-backups\s*=\s*([0-9]+)/$1/) {
+    $keep_backups = $arg;
     next;
   } elsif ($arg =~ s/--threshold\s*=\s*([0-9]+)/$1/) {
     $threshold = get_size($arg);
