@@ -852,9 +852,23 @@ struct mars_rotate {
 	struct mars_dent *next_log;
 	struct mars_dent *syncstatus_dent;
 	struct lamport_time sync_finish_stamp;
+	struct client_brick *prosumer_brick;
+	struct client_brick *prosumer_new;
+	struct client_brick *prosumer_old;
 	struct gate_brick *gate_brick;
 	struct if_brick *if_brick;
+	struct lamport_time new_primary_stamp;
+	struct lamport_time prosumer_new_stamp;
 	const char *log_from_peer;
+	const char *primary;
+	const char *new_primary;
+	const char *prosumer_path;
+	const char *prosumer_peer;
+	const char *prosumer_remote;
+	const char *prosumer_server;
+	const char *prosumer_server_old;
+	const char *prosumer_peers_old;
+	const char *dev_fmt;
 	const char *fetch_path;
 	const char *fetch_peer;
 	const char *avoid_peer;
@@ -913,6 +927,9 @@ struct mars_rotate {
 	bool is_log_damaged;
 	bool has_emergency;
 	bool log_is_really_damaged;
+	bool todo_prosumer;
+	bool detach_device;
+	bool kill_device;
 	bool todo_gate;
 	struct mutex inf_mutex;
 	bool infs_is_dirty[INFS_MAX];
@@ -1296,6 +1313,19 @@ int _check_allow(const char *parent_path, const char *name)
 done:
 	brick_string_free(path);
 	return res;
+}
+
+static
+void _reset_allow(struct mars_rotate *rot, const char *name, const char *val)
+{
+	const char *switch_path;
+
+	switch_path = path_make("%s/todo-%s/%s",
+				rot->parent_path,
+				my_id(),
+				name);
+	ordered_symlink(val, switch_path, NULL);
+	brick_string_free(switch_path);
 }
 
 #define skip_part(s) _skip_part(s, ',', ':')
@@ -4333,6 +4363,14 @@ void rot_destruct(void *_rot)
 		assign_dent(&rot->next_log, NULL);
 		assign_dent(&rot->syncstatus_dent, NULL);
 		brick_string_free(rot->log_from_peer);
+		brick_string_free(rot->primary);
+		brick_string_free(rot->new_primary);
+		brick_string_free(rot->prosumer_path);
+		brick_string_free(rot->prosumer_peer);
+		brick_string_free(rot->prosumer_remote);
+		brick_string_free(rot->prosumer_server);
+		brick_string_free(rot->prosumer_server_old);
+		brick_string_free(rot->prosumer_peers_old);
 		brick_string_free(rot->fetch_path);
 		brick_string_free(rot->fetch_peer);
 		brick_string_free(rot->avoid_peer);
@@ -4377,21 +4415,14 @@ int make_log_init(struct mars_dent *dent)
 	rot = parent->d_private;
 	if (!rot) {
 		const char *fetch_path;
+		const char *prosumer_path;
+
 		rot = brick_zmem_alloc(sizeof(struct mars_rotate));
-		if (unlikely(!rot)) {
-			MARS_ERR("cannot allocate rot structure\n");
-			status = -ENOMEM;
-			goto done;
-		}
 		mutex_init(&rot->inf_mutex);
 		fetch_path = path_make("%s/logfile-update", parent_path);
-		if (unlikely(!fetch_path)) {
-			MARS_ERR("cannot create fetch_path\n");
-			brick_mem_free(rot);
-			status = -ENOMEM;
-			goto done;
-		}
 		rot->fetch_path = fetch_path;
+		prosumer_path = path_make("%s/prosumer", parent_path);
+		rot->prosumer_path = prosumer_path;
 		parent->d_private = rot;
 		parent->d_private_destruct = rot_destruct;
 		assign_keys(rot->msgs, rot_keys);
@@ -4421,7 +4452,67 @@ int make_log_init(struct mars_dent *dent)
 	rot->has_error = false;
 	brick_string_free(rot->preferred_peer);
 
+	brick_string_free(rot->prosumer_peer);
+	rot->prosumer_peer =
+		ordered_readlink(rot->prosumer_path, NULL);
+
+	rot->detach_device =
+		_check_allow(rot->parent_path, "detach-device");
+
+	rot->todo_prosumer =
+		(rot->prosumer_peer &&
+		 rot->prosumer_peer[0] &&
+		 rot->prosumer_peer[0] != '(' &&
+		 !rot->detach_device &&
+		 is_host_in(my_id(), rot->prosumer_peer));
+
+	rot->kill_device =
+		(rot->gate_brick &&
+		 rot->gate_brick->inhibit_mask < 0) ||
+		_check_allow(rot->parent_path, "kill-device");
+
+	/* release when connected with the wrong target and possible */
+	if (rot->prosumer_brick &&
+	    rot->prosumer_brick->resource_name &&
+	    rot->primary &&
+	    (!rot->if_brick ||
+	     atomic_read(&rot->if_brick->open_count) <= 0)) {
+		char *test;
+		char *colon;
+
+		test = strchr(rot->prosumer_brick->resource_name, '@');
+		if (test) {
+			test = brick_strdup(test + 1);
+			colon = strchr(test, ':');
+			if (colon)
+				*colon = '\0';
+			MARS_DBG("Check '%s' '%s'\n", test, rot->primary);
+			if (!is_host_in(test, rot->primary)) {
+				MARS_DBG("kill_device '%s'\n",
+					 test);
+				rot->kill_device = true;
+			}
+			brick_string_free(test);
+		}
+	}
+
+	if (rot->kill_device &&
+	    !rot->if_brick &&
+	    !rot->gate_brick &&
+	    !rot->prosumer_brick) {
+		/* Reset the kill switch.
+		 * This is a one-shot operation.
+		 * The Lamport timestamp should compensate races with userspace.
+		 */
+		MARS_DBG("reset kill switch '%s'\n",
+			 dent->d_path);
+		rot->kill_device = false;
+		_reset_allow(rot, "kill-device", "0");
+		_reset_allow(rot, "gate-mask", "0");
+	}
+
 	rot->todo_gate =
+		rot->todo_prosumer ||
 		_check_allow(parent_path, "gate");
 
 	activate_peer(dent->d_rest, NULL, NULL, false);
@@ -5385,6 +5476,10 @@ int _stop_trans(struct mars_rotate *rot)
 	if (!trans_brick || !parent_path) {
 		goto done;
 	}
+	if (trans_brick->outputs[0] && trans_brick->outputs[0]->nr_connected) {
+		MARS_DBG("Cannot stop used logger\n");
+		goto done;
+	}
 
 	/* Switch off temporarily....
 	 */
@@ -5646,6 +5741,7 @@ int make_log_finalize(struct mars_dent *dent)
 		   trans_brick->power.led_on &&
 		   !trans_brick->power.led_off) {
 		bool do_stop = true;
+
 		if (trans_brick->replay_mode) {
 			rot->is_log_damaged =
 				(trans_brick->replay_code == -EAGAIN ||
@@ -5657,12 +5753,20 @@ int make_log_finalize(struct mars_dent *dent)
 				!_check_allow(parent->d_path, "attach") ;
 
 		} else {
+			/* For backwards compatibility with old (local) behaviour,
+			 * only stop when if is fully gone (so-called RemainsPrimary mode).
+			 * When exporting a prosumer, now the connections on trans_brick
+			 * are the main obstacle for not shutting down primary mode.
+			 * There is a subtle difference in case of network outages.
+			 */
 			do_stop =
-				!rot->if_brick &&
-				!rot->gate_brick &&
-				!rot->is_primary &&
-				(!rot->todo_primary ||
-				 !_check_allow(parent->d_path, "attach"));
+				(!rot->todo_primary &&
+				 !trans_brick->outputs[0]->nr_connected &&
+				 (!rot->if_brick ||
+				  rot->todo_prosumer));
+			/* detach implies forceful stopping even when prosumers are present */
+			if (!_check_allow(parent->d_path, "attach"))
+				do_stop = true;
 		}
 
 		MARS_DBG("replay_mode = %d replay_code = %d is_primary = %d do_stop = %d\n", trans_brick->replay_mode, trans_brick->replay_code, rot->is_primary, (int)do_stop);
@@ -5793,8 +5897,10 @@ int make_primary(struct mars_dent *dent)
 {
 	struct mars_dent *parent;
 	struct mars_rotate *rot;
+	const char *new_path;
 	int status = -EINVAL;
 
+	CHECK_PTR(dent->new_link, done);
 	parent = dent->d_parent;
 	if (!parent)
 		goto done;
@@ -5804,6 +5910,12 @@ int make_primary(struct mars_dent *dent)
 		goto done;
 	CHECK_PTR(rot, done);
 
+	brick_string_free(rot->primary);
+	rot->primary = brick_strdup(dent->new_link);
+	brick_string_free(rot->new_primary);
+	new_path = path_make("%s/new-primary", rot->parent_path);
+	rot->new_primary = ordered_readlink(new_path, &rot->new_primary_stamp);
+	brick_string_free(new_path);
 	status = 0;
 
 	/* Do not activate primary role shortly after modprobe.
@@ -5984,16 +6096,23 @@ done:
 static
 void _show_gate(struct mars_rotate *rot)
 {
+	const char *val;
+
 	if (!rot->gate_brick)
 		return;
 	__show_actual(rot->parent_path, "gate-on",
 		      rot->gate_brick->power.led_on);
 	__show_actual(rot->parent_path, "gate-queued",
 		      rot->gate_brick->gate_queued);
+	val = path_make("0x%016lx",
+			rot->gate_brick->inhibit_mask);
+	__show_actual_str(rot->parent_path, "gate-mask",
+			 val, NULL);
+	brick_string_free(val);
 }
 
 static
-bool allow_dev(struct mars_rotate *rot)
+bool allow_localdev(struct mars_rotate *rot)
 {
 	bool switch_on =
 		rot->todo_primary &&
@@ -6002,13 +6121,18 @@ bool allow_dev(struct mars_rotate *rot)
 		!rot->trans_brick->replay_mode &&
 		(rot->trans_brick->power.led_on ||
 		 (!rot->trans_brick->power.button && !rot->trans_brick->power.led_off)) &&
+		!rot->detach_device &&
 		mars_global->global_power.button &&
+		(!rot->prosumer_peer ||
+		 !rot->prosumer_peer[0] ||
+		 !strcmp(rot->prosumer_peer, "(local)")) &&
 		_check_allow(rot->parent_path, "attach");
 
 	if (switch_on && rot->res_shutdown) {
 		MARS_ERR("cannot create device: resource shutdown mode is currently active\n");
 		switch_on = false;
 	}
+	MARS_DBG("switch_on=%d\n", switch_on);
 	return switch_on;
 }
 
@@ -6018,6 +6142,7 @@ int make_gate(struct mars_rotate *rot, struct mars_dent *dent)
 	struct mars_dent *parent = dent->d_parent;
 	struct mars_brick *_gate_brick = (void *)rot->gate_brick;
 	__u32 inhibit_mask;
+	const char *prev_fmt = "%s/logger-%s";
 	bool switch_on = false;
 
 	if (!parent)
@@ -6030,12 +6155,20 @@ int make_gate(struct mars_rotate *rot, struct mars_dent *dent)
 	else if (!rot->todo_gate)
 		goto done;
 
+	if (rot->todo_prosumer)
+		prev_fmt = "%s/prosumer-%s%s";
+
 	switch_on =
 		(rot->gate_brick &&
 		 rot->gate_brick->outputs[0] &&
 		 rot->gate_brick->outputs[0]->nr_connected) ||
 		(rot->todo_gate &&
-		 allow_dev(rot));
+		 mars_global->global_power.button &&
+		 !rot->kill_device &&
+		 (rot->prosumer_brick &&
+		  rot->prosumer_brick->power.led_on &&
+		  rot->prosumer_brick->outputs[0] &&
+		  rot->prosumer_brick->outputs[0]->got_info));
 
 	MARS_DBG("switch_on=%d\n", switch_on);
 
@@ -6049,12 +6182,13 @@ int make_gate(struct mars_rotate *rot, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&gate_brick_type,
 			       switch_on ? 2 : -1,
 			       "%s/gate-%s",
-			       (const char *[]){"%s/logger-%s"},
+			       &prev_fmt,
 			       1,
 			       parent->d_path,
 			       my_id(),
 			       parent->d_path,
-			       my_id());
+			       my_id(),
+			       rot->prosumer_remote);
 	mutex_unlock(&server_connect_lock);
 	rot->gate_brick = (void *)_gate_brick;
 
@@ -6078,6 +6212,256 @@ int make_gate(struct mars_rotate *rot, struct mars_dent *dent)
 	rot->old_inhibit_mask = inhibit_mask;
 
  done:
+	return 0;
+}
+
+static
+int make_prosumer(struct mars_rotate *rot, struct mars_dent *dent)
+{
+	struct mars_dent *parent = dent->d_parent;
+	struct mars_brick *_prosumer_brick = (void *)rot->prosumer_brick;
+	struct client_brick *prosumer_brick;
+	struct client_brick *prosumer_new;
+	const char *this_primary;
+	const char *remote_path = NULL;
+	const char *server_path = NULL;
+	bool switch_on = false;
+	bool prosumer_now_ready;
+	bool prosumer_new_ready;
+	bool need_handover;
+	bool do_handover;
+
+	if (!parent)
+		goto done;
+
+	MARS_DBG("todo_prosumer=%d\n", rot->todo_prosumer);
+
+	if (!_prosumer_brick &&
+	    (!rot->todo_prosumer || !rot->primary))
+		goto done;
+
+	switch_on =
+		(rot->todo_prosumer &&
+		 mars_global->global_power.button &&
+		 !rot->kill_device) ||
+		(rot->prosumer_brick &&
+		 !rot->kill_device &&
+		 rot->prosumer_brick->socket_count > 0 &&
+		 atomic_read(&rot->prosumer_brick->fly_count) > 0) ||
+		(rot->gate_brick &&
+		 (rot->gate_brick->outputs[0]->nr_connected > 0 ||
+		  rot->gate_brick->gate_queued > 0 ||
+		  !rot->gate_brick->power.led_off));
+
+	this_primary = rot->primary;
+	if (rot->new_primary &&
+	    rot->new_primary[0] &&
+	    rot->new_primary[0] != '(')
+		this_primary = rot->new_primary;
+	/* Promotion from LocalProsumer: always _start_ with myself
+	 * before doing any handover / failover.
+	 */
+	if (rot->is_primary &&
+	    !rot->prosumer_new &&
+	    rot->if_brick &&
+	    atomic_read(&rot->if_brick->open_count) > 0 &&
+	    (!rot->prosumer_brick ||
+	     !rot->gate_brick ||
+	     !rot->prosumer_brick->power.led_on ||
+	     !rot->gate_brick->power.led_on))
+		this_primary = my_id();
+
+	remote_path = path_make("@%s:%d",
+				this_primary,
+				mars_net_port + MARS_TRAFFIC_PROSUMER);
+	server_path = path_make("%s/logger-%s/export-%s%s",
+				parent->d_path,
+				this_primary,
+				my_id(),
+				remote_path);
+
+	prosumer_now_ready =
+		rot->prosumer_brick &&
+		rot->prosumer_brick->outputs[0] &&
+		rot->prosumer_brick->outputs[0]->got_info;
+
+	prosumer_new_ready =
+		rot->prosumer_new &&
+		rot->prosumer_new->power.led_on &&
+		rot->prosumer_new->outputs[0] &&
+		rot->prosumer_new->outputs[0]->got_info;
+
+	need_handover =
+		(switch_on &&
+		 rot->gate_brick &&
+		 rot->gate_brick->power.led_on &&
+		 rot->gate_brick->inhibit_mask > 0 &&
+		 !rot->prosumer_old &&
+		 prosumer_now_ready &&
+		 this_primary &&
+		 this_primary[0] &&
+		 this_primary[0] != '(' &&
+		 strcmp(rot->prosumer_brick->resource_name, server_path) != 0);
+
+	do_handover =
+		prosumer_new_ready &&
+		_check_allow(rot->parent_path, "handover-prosumer");
+
+	/* Reset the controls when either done, or when
+	 * handover is aborted.
+	 */
+	if (do_handover &&
+	    (!need_handover ||
+	     !prosumer_new_ready)) {
+		const char *path;
+
+		_reset_allow(rot, "handover-prosumer", "0");
+		path = path_make("%s/new-primary",
+				 rot->parent_path);
+		ordered_symlink("(none)", path, NULL);
+		brick_string_free(path);
+		do_handover = false;
+	}
+
+	MARS_DBG("switch_on=%d kill_device=%d need_handover=%d do_handover=%d this_primary='%s' server_path='%s'\n",
+		 switch_on,
+		 rot->kill_device,
+		 need_handover,
+		 do_handover,
+		 this_primary,
+		 server_path);
+
+
+	/* Atomically switch the paths and the bricks
+	 * at the moment of handover, or when the
+	 * old instances need to disappear.
+	 */
+	if (!rot->prosumer_server ||
+	    !_prosumer_brick ||
+	    (do_handover &&
+	     need_handover)) {
+		MARS_INF("prosumer handover '%s' => '%s'\n",
+			 rot->prosumer_server_old,
+			 rot->prosumer_server);
+		brick_string_free(rot->prosumer_remote);
+		brick_string_free(rot->prosumer_server_old);
+		rot->prosumer_server_old = rot->prosumer_server;
+		rot->prosumer_remote = brick_strdup(remote_path);
+		rot->prosumer_server = brick_strdup(server_path);
+		if (!rot->prosumer_server_old)
+			rot->prosumer_server_old = brick_strdup(rot->prosumer_server);
+		rot->prosumer_old = rot->prosumer_brick;
+		if (rot->prosumer_old) {
+			rot->prosumer_old->rewire = false;
+			rot->prosumer_old->kill_ptr = (void **)&rot->prosumer_old;
+		}
+		rot->prosumer_brick = rot->prosumer_new;
+		if (rot->prosumer_brick)
+			rot->prosumer_brick->kill_ptr = (void **)&rot->prosumer_brick;
+		rot->prosumer_new = NULL;
+		need_handover = false;
+	}
+	if (rot->prosumer_old) {
+		struct mars_brick *_prosumer_old = (void *)rot->prosumer_old;
+
+		if (!_prosumer_old->outputs[0]->nr_connected)
+			mars_power_button(_prosumer_old, false, false);
+		if (_prosumer_old->power.led_off) {
+			mars_kill_brick(_prosumer_old);
+			rot->prosumer_old = NULL;
+		}
+	}
+	/* Prepare the new prosumer instance for handover.
+	 */
+	if (rot->prosumer_new ||
+	    need_handover) {
+		/* prosumer handover */
+		struct mars_brick *_prosumer_new = (void *)rot->prosumer_new;
+
+		if (rot->prosumer_new &&
+		    lamport_time_compare(&rot->new_primary_stamp,
+					 &rot->prosumer_new_stamp) != 0)
+			need_handover = false;
+
+		_prosumer_new =
+			make_brick_all(mars_global,
+				       dent,
+				       server_path,
+				       _set_client_params,
+				       NULL,
+				       (const struct generic_brick_type*)&client_brick_type,
+				       need_handover ? 2 : -1,
+				       "%s/prosumer-%s%s",
+				       (const char *[]){},
+				       0,
+				       parent->d_path,
+				       my_id(),
+				       remote_path);
+		if (!rot->prosumer_new) {
+			rot->prosumer_new_stamp = rot->new_primary_stamp;
+			mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
+		}
+		rot->prosumer_new = (void *)_prosumer_new;
+		rot->prosumer_old = NULL;
+	}
+
+	prosumer_new = rot->prosumer_new;
+	if (prosumer_new) {
+		prosumer_new->keep_idle_sockets = switch_on;
+		prosumer_new->power.io_timeout = 10;
+		prosumer_new->kill_ptr = (void **)&rot->prosumer_new;
+		prosumer_new->rewire = true;
+		if (!rot->prosumer_server_old ||
+		    strcmp(rot->prosumer_server, rot->prosumer_server_old)) {
+			mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
+		}
+	}
+
+	_prosumer_brick =
+		make_brick_all(mars_global,
+			       dent,
+			       rot->prosumer_server,
+			       _set_client_params,
+			       NULL,
+			       (const struct generic_brick_type*)&client_brick_type,
+			       switch_on ? 2 : -1,
+			       "%s/prosumer-%s%s",
+			       (const char *[]){},
+			       0,
+			       parent->d_path,
+			       my_id(),
+			       rot->prosumer_remote);
+	prosumer_brick = (void *)_prosumer_brick;
+	rot->prosumer_brick = prosumer_brick;
+
+	if (!prosumer_brick) {
+		MARS_DBG("prosumer not present\n");
+		goto done;
+	}
+	prosumer_brick->keep_idle_sockets = switch_on;
+	/* When on, set the timeout to infinite.
+	 * This is necessary for prevention of IO errors reported to
+	 * filesystems like XFS. Some fs could run into problems when
+	 * other requests after the timeout could succeed again, e.g.
+	 * needing an xfs_repair (which is worse than hanging or
+	 * simple power loss).
+	 */
+	if (switch_on) {
+		if (rot->gate_brick && rot->gate_brick->inhibit_mask < 0)
+			prosumer_brick->power.io_timeout = 1;
+		else
+			prosumer_brick->power.io_timeout = -1;
+	} else {
+		prosumer_brick->power.io_timeout = 1;
+		MARS_DBG("setting killme on prosumer_brick\n");
+		_prosumer_brick->killme = true;
+	}
+	prosumer_brick->kill_ptr = (void **)&rot->prosumer_brick;
+	prosumer_brick->rewire = true;
+
+ done:
+	brick_string_free(server_path);
+	brick_string_free(remote_path);
 	return 0;
 }
 
@@ -6115,7 +6499,6 @@ int make_dev(struct mars_dent *dent)
 	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot = NULL;
 	struct mars_brick *dev_brick;
-	const char *prev_fmt = "%s/logger-%s";
 	bool switch_on;
 	int status = 0;
 
@@ -6124,7 +6507,7 @@ int make_dev(struct mars_dent *dent)
 		return -EINVAL;
 	}
 	rot = parent->d_private;
-	if (!rot || !rot->parent_path) {
+	if (!rot || !rot->parent_path || !rot->primary) {
 		MARS_DBG("no rot '%s'\n", dent->d_rest);
 		goto err;
 	}
@@ -6133,7 +6516,7 @@ int make_dev(struct mars_dent *dent)
 		MARS_DBG("nothing to do\n");
 		goto err;
 	}
-	if (!rot->trans_brick) {
+	if (!rot->trans_brick && !rot->todo_prosumer) {
 		MARS_DBG("transaction logger does not exist\n");
 		goto done;
 	}
@@ -6142,11 +6525,9 @@ int make_dev(struct mars_dent *dent)
 		goto done;
 	}
 
+	make_prosumer(rot, dent);
+
 	make_gate(rot, dent);
-	if (rot->todo_gate ||
-	    (rot->gate_brick &&
-	     rot->gate_brick->power.led_on))
-		prev_fmt = "%s/gate-%s";
 
 	status = _parse_args(dent, dent->new_link, 1);
 	if (status < 0) {
@@ -6155,11 +6536,33 @@ int make_dev(struct mars_dent *dent)
 	}
 
 	switch_on =
-		(rot->if_brick && atomic_read(&rot->if_brick->open_count) > 0) ||
-		allow_dev(rot);
+		(rot->if_brick &&
+		 atomic_read(&rot->if_brick->open_count) > 0) ||
+		(rot->todo_prosumer &&
+		 !rot->detach_device &&
+		 !rot->kill_device &&
+		 rot->gate_brick &&
+		 rot->gate_brick->power.led_on &&
+		 rot->prosumer_brick &&
+		 rot->prosumer_brick->power.led_on &&
+		 rot->prosumer_brick->outputs[0] &&
+		 rot->prosumer_brick->outputs[0]->got_info &&
+		 mars_global->global_power.button) ||
+		allow_localdev(rot);
 
-	MARS_DBG("switch_on=%d prev_fmp='%s'\n",
-		 switch_on, prev_fmt);
+	/* Hysteresis: keep the old state during transition.
+	 */
+	if (!rot->todo_gate)
+		rot->dev_fmt = "%s/logger-%s";
+	else if (rot->gate_brick &&
+		 rot->gate_brick->power.led_on)
+		rot->dev_fmt = "%s/gate-%s";
+	else if (!rot->dev_fmt)
+		rot->dev_fmt = "%s/unknown-%s";
+
+	MARS_DBG("switch_on=%d dev_fmp='%s'\n",
+		 switch_on,
+		 rot->dev_fmt);
 
 	mutex_lock(&server_connect_lock);
 	dev_brick =
@@ -6171,7 +6574,7 @@ int make_dev(struct mars_dent *dent)
 			       (const struct generic_brick_type*)&if_brick_type,
 			       switch_on ? 2 : -1,
 			       "%s/device-%s", 
-			       &prev_fmt,
+			       &rot->dev_fmt,
 			       1,
 			       parent->d_path,
 			       my_id(),
@@ -6183,10 +6586,8 @@ int make_dev(struct mars_dent *dent)
 		MARS_DBG("device not shown\n");
 		goto done;
 	}
-	if (!switch_on) {
-		MARS_DBG("setting killme on if_brick\n");
-		dev_brick->killme = true;
-	}
+	rot->if_brick->shutdown = rot->kill_device;
+	dev_brick->killme = true;
 	dev_brick->kill_ptr = (void**)&rot->if_brick;
 	dev_brick->rewire = true;
 
@@ -6928,6 +7329,7 @@ int kill_res(struct mars_dent *dent)
 	// this code is only executed in case of forced deletion of symlinks
 	if (rot->if_brick ||
 	    rot->gate_brick ||
+	    rot->prosumer_brick ||
 	    rot->sync_brick ||
 	    rot->fetch_brick ||
 	    rot->trans_brick) {
