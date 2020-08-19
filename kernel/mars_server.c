@@ -932,7 +932,7 @@ static int port_thread(void *data)
 				     ++cookie->thread_nr);
 		brick = (void*)mars_make_brick(server_global, NULL,
 					       &server_brick_type,
-					       "(none)",
+					       ini_path,
 					       ini_path);
 		brick_string_free(ini_path);
 		if (!brick) {
