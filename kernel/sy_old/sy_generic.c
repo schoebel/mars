@@ -1552,8 +1552,12 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 	tmp = anchor->next;
 	while (tmp != anchor) {
 		struct mars_dent *test = container_of(tmp, struct mars_dent, dent_link);
-		int cmp = dent_compare(test, dent);
+		int cmp;
 
+		if (test->d_unordered)
+			break;
+
+		cmp = dent_compare(test, dent);
 		if (!cmp) {
 			mars_free_dent(global, dent);
 			dent = test;
@@ -1582,6 +1586,8 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 			test = container_of(hash_try,
 					    struct mars_dent,
 					    dent_hash_link);
+			if (test->d_unordered)
+				break;
 			if (unlikely(test->d_hash != hash_try_index)) {
 				MARS_ERR("bad target hash index %d\n", test->d_hash);
 				break;
@@ -1602,6 +1608,7 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 
 	/* not found: finish dent and insert into data stuctures */
 
+	dent->d_unordered = false;
 	list_add(&dent->dent_link, start);
 
 	start = hash_anchor;
@@ -1659,6 +1666,7 @@ void _mars_order_all(struct mars_cookie *cookie)
 		    strncmp(dent->d_name, "alive-", 6) &&
 		    true) {
 			get_inode(dent->d_path, dent, true);
+			dent->d_unordered = true;
 			/* time-* must be the very last items */
 			if (strncmp(dent->d_name, "time-", 5))
 				list_add(&dent->dent_link, &later_anchor);

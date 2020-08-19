@@ -105,6 +105,7 @@ typedef void (*dent_skip_fn)(struct mars_dent *);
 	bool d_running;							\
 	bool d_killme;							\
 	bool d_use_channel;						\
+	bool d_unordered;						\
 	struct kstat new_stat;						\
 	struct kstat old_stat;						\
 	char *new_link;							\
