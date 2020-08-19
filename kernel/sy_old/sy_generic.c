@@ -1526,6 +1526,19 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 }
 
 static
+void _reconnect_dent(struct mars_cookie *cookie, struct mars_dent *dent)
+{
+	if (dent->d_parent == cookie->parent)
+		return;
+
+	if (dent->d_parent)
+		dent->d_parent->d_child_count--;
+	dent->d_parent = cookie->parent;
+	if (dent->d_parent)
+		dent->d_parent->d_child_count++;
+}
+
+static
 void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 {
 	struct mars_global *global = cookie->global;
@@ -1603,11 +1616,7 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 	list_add(&dent->dent_hash_link, start);
 
 found:
-	if (dent->d_parent)
-		dent->d_parent->d_child_count--;
-	dent->d_parent = cookie->parent;
-	if (dent->d_parent)
-		dent->d_parent->d_child_count++;
+	_reconnect_dent(cookie, dent);
 }
 
 static inline
@@ -1655,11 +1664,7 @@ void _mars_order_all(struct mars_cookie *cookie)
 				list_add(&dent->dent_link, &later_anchor);
 			else
 				list_add_tail(&dent->dent_link, &later_anchor);
-			if (dent->d_parent)
-				dent->d_parent->d_child_count--;
-			dent->d_parent = cookie->parent;
-			if (dent->d_parent)
-				dent->d_parent->d_child_count++;
+			_reconnect_dent(cookie, dent);
 			continue;
 		}
 		if (!cookie->some_ordered) {
