@@ -1542,15 +1542,53 @@ static
 void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 {
 	struct mars_global *global = cookie->global;
-	struct list_head *anchor = &global->dent_anchor;
-	struct list_head *start = anchor;
+	struct list_head *sorted_anchor;
+	struct list_head *sorted_prev;
 	struct list_head *hash_anchor;
+	struct list_head *hash_try;
+	struct list_head *hash_prev;
 	struct list_head *tmp;
 
+	/* Fuzzy hashing algorithm.
+	 * Although based on external hashing, it produces an additional
+	 * sorted list and allows for neighbour search.
+	 + A description and an evaluation can be found at the
+	 * University of Stattgart, Institut fuer Informatik
+	 * (sorry, much is in German, produced in the 1990s)
+	 */
+	sorted_anchor = &global->dent_anchor;
 	hash_anchor = &global->dent_hash_anchor[dent->d_hash];
 
-	tmp = anchor->next;
-	while (tmp != anchor) {
+	sorted_prev = sorted_anchor;
+	tmp = sorted_anchor->next;
+
+	for (hash_try = hash_anchor->next; hash_try != hash_anchor; hash_try = hash_try->next) {
+		struct mars_dent *hash_test = container_of(hash_try, struct mars_dent, dent_hash_link);
+		int cmp;
+
+		if (hash_test->d_unordered)
+			break;
+#ifdef CONFIG_MARS_DEBUG
+		if (unlikely(hash_test->d_hash != dent->d_hash)) {
+			MARS_ERR("bad target hash index %d\n", hash_test->d_hash);
+			break;
+		}
+#endif
+
+		cmp = dent_compare(hash_test, dent);
+		if (!cmp) {
+			mars_free_dent(global, dent);
+			dent = hash_test;
+			goto found;
+		}
+		if (cmp >= 0)
+			break;
+
+		tmp = &hash_test->dent_link;
+		sorted_prev = tmp->prev;
+	}
+
+	while (tmp != sorted_anchor) {
 		struct mars_dent *test = container_of(tmp, struct mars_dent, dent_link);
 		int cmp;
 
@@ -1572,10 +1610,13 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 			struct list_head *hash_try_anchor;
 			int hash_try_index = test->d_hash;
 
+#ifdef CONFIG_MARS_DEBUG
 			if (unlikely(hash_try_index < 0 || hash_try_index >= MARS_GLOBAL_HASH)) {
 				MARS_ERR("bad hash index %d\n", hash_try_index);
 				break;
 			}
+#endif
+
 			hash_try_anchor =  &global->dent_hash_anchor[hash_try_index];
 			hash_try = test->dent_hash_link.next;
 			if (hash_try == hash_try_anchor ||
@@ -1588,10 +1629,13 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 					    dent_hash_link);
 			if (test->d_unordered)
 				break;
+#ifdef CONFIG_MARS_DEBUG
 			if (unlikely(test->d_hash != hash_try_index)) {
 				MARS_ERR("bad target hash index %d\n", test->d_hash);
 				break;
 			}
+#endif
+
 			cmp = dent_compare(test, dent);
 			if (!cmp) {
 				mars_free_dent(global, dent);
@@ -1602,25 +1646,25 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 				break;
 			tmp = &test->dent_link;
 		}
-		start = tmp;
+		sorted_prev = tmp;
 		tmp = tmp->next;
 	}
 
 	/* not found: finish dent and insert into data stuctures */
 
 	dent->d_unordered = false;
-	list_add(&dent->dent_link, start);
+	list_add(&dent->dent_link, sorted_prev);
 
-	start = hash_anchor;
+	hash_prev = hash_anchor;
 	for (tmp = hash_anchor->next; tmp != hash_anchor; tmp = tmp->next) {
 		struct mars_dent *test = container_of(tmp, struct mars_dent, dent_hash_link);
 		int cmp = dent_compare(test, dent);
 
 		if (cmp >= 0)
 			break;
-		start = tmp;
+		hash_prev = tmp;
 	}
-	list_add(&dent->dent_hash_link, start);
+	list_add(&dent->dent_hash_link, hash_prev);
 
 found:
 	_reconnect_dent(cookie, dent);
