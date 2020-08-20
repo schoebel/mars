@@ -1462,6 +1462,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 //      end_remove_this
 	struct mars_dent *dent;
 	char *newpath;
+	unsigned char digest[MARS_DIGEST_SIZE];
 	int hash;
 	int prefix = 0;
 	int pathlen;
@@ -1494,6 +1495,11 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	pathlen += namlen;
 	newpath[pathlen] = '\0';
 
+	mars_digest(MREF_CHKSUM_CRC32C,
+		    NULL,
+		    digest,
+		    newpath, pathlen);
+
 	dent = brick_zmem_alloc(cookie->allocsize);
 
 	dent->d_class = class;
@@ -1501,7 +1507,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	dent->d_path = newpath;
 	newpath = NULL;
 
-	hash = (class + serial + d_type + pathlen * 7 + namlen * 13) % MARS_GLOBAL_HASH;
+	hash = *(unsigned long *)&digest % MARS_GLOBAL_HASH;
 	dent->d_hash = hash;
 	dent->d_name = brick_string_alloc(namlen + 1);
 	memcpy(dent->d_name, name, namlen);
