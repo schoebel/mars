@@ -2971,7 +2971,7 @@ int peer_thread(void *data)
 done:
 	clear_vals(peer_pairs);
 	brick_string_free(real_peer);
-	brick_mem_free(tmp_global);
+	free_mars_global(tmp_global);
 	peer->has_terminated = true;
 	return 0;
 }
@@ -6976,7 +6976,7 @@ done:
 
 	brick_string_free(mars_resource_list);
 	brick_string_free(tmp_resource_list);
-	brick_mem_free(mars_global);
+	free_mars_global(mars_global);
 
 	MARS_INF("-------- done status = %d ----------\n", status);
 	//cleanup_mm();

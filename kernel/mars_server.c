@@ -650,7 +650,7 @@ int handler_thread(void *data)
 	MARS_DBG("#%d done.\n", debug_nr);
 	atomic_dec(&server_handler_count);
 	brick->killme = true;
-	brick_mem_free(handler_global);
+	free_mars_global(handler_global);
 	return status;
 }
 
@@ -988,7 +988,7 @@ static int port_thread(void *data)
 
 	MARS_INF("-------- port %d thread done status = %d ----------\n",
 		 cookie->port_nr, status);
-	brick_mem_free(server_global);
+	free_mars_global(server_global);
 	return status;
 }
 

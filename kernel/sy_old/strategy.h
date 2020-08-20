@@ -121,7 +121,9 @@ struct mars_dent {
 extern const struct meta mars_kstat_meta[];
 extern const struct meta mars_dent_meta[];
 
-#define MARS_GLOBAL_HASH 128
+#define MARS_GLOBAL_HASH_BASE 16
+#define MARS_GLOBAL_HASH_TABLE (PAGE_SIZE / sizeof(struct list_head))
+#define MARS_GLOBAL_HASH (MARS_GLOBAL_HASH_BASE * MARS_GLOBAL_HASH_TABLE)
 
 struct mars_global {
 	struct rw_semaphore dent_mutex;
@@ -138,10 +140,12 @@ struct mars_global {
 	int deleted_min;
 	int trigger_mode;
 	bool main_trigger;
-	struct list_head dent_hash_anchor[MARS_GLOBAL_HASH];
+	struct list_head *dent_hash_table[MARS_GLOBAL_HASH_BASE];
 };
 
 extern void _init_mars_global(struct mars_global *global);
+extern void exit_mars_global(struct mars_global *global);
+
 #define init_mars_global(__global)				\
 do {								\
 	_init_mars_global(__global);				\
@@ -157,6 +161,12 @@ do {								\
 	init_mars_global(__global);				\
 	__global;						\
  })
+
+#define free_mars_global(_global_)				\
+({								\
+	exit_mars_global(_global_);				\
+	brick_mem_free(_global_);				\
+})
 
 extern void bind_to_dent(struct mars_dent *dent, struct say_channel **ch);
 

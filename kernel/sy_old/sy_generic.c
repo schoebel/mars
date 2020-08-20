@@ -1155,8 +1155,36 @@ void _init_mars_global(struct mars_global *global)
 	INIT_LIST_HEAD(&global->brick_anchor);
 	global->global_power.button = true;
 	init_waitqueue_head(&global->main_event);
-	for (i = 0; i < MARS_GLOBAL_HASH; i++)
-		INIT_LIST_HEAD(&global->dent_hash_anchor[i]);
+	for (i = 0; i < MARS_GLOBAL_HASH_BASE; i++) {
+		struct list_head *table = brick_mem_alloc(PAGE_SIZE);
+		int j;
+
+		global->dent_hash_table[i] = table;
+		for (j = 0; j < MARS_GLOBAL_HASH_TABLE; j++)
+			INIT_LIST_HEAD(&table[j]);
+	}
+}
+
+void exit_mars_global(struct mars_global *global)
+{
+	int i;
+
+#ifdef CONFIG_MARS_DEBUG
+	CHECK_HEAD_EMPTY(&global->dent_anchor);
+	CHECK_HEAD_EMPTY(&global->dent_quick_anchor);
+	CHECK_HEAD_EMPTY(&global->brick_anchor);
+#endif
+	for (i = 0; i < MARS_GLOBAL_HASH_BASE; i++) {
+		struct list_head *table = global->dent_hash_table[i];
+#ifdef CONFIG_MARS_DEBUG
+		int j;
+
+		for (j = 0; j < MARS_GLOBAL_HASH_TABLE; j++)
+			CHECK_HEAD_EMPTY(&table[j]);
+#endif
+		brick_mem_free(table);
+	}
+
 }
 
 void __mars_trigger(int mode)
@@ -1544,6 +1572,13 @@ void _reconnect_dent(struct mars_cookie *cookie, struct mars_dent *dent)
 		dent->d_parent->d_child_count++;
 }
 
+#define _HASH_ANCHOR(global,index)					\
+({									\
+	struct list_head *table = (global)->dent_hash_table[(index) / MARS_GLOBAL_HASH_TABLE];	\
+									\
+	table + ((index) % MARS_GLOBAL_HASH_TABLE);			\
+})
+
 static
 void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 {
@@ -1563,7 +1598,7 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 	 * (sorry, much is in German, produced in the 1990s)
 	 */
 	sorted_anchor = &global->dent_anchor;
-	hash_anchor = &global->dent_hash_anchor[dent->d_hash];
+	hash_anchor = _HASH_ANCHOR(global, dent->d_hash);
 
 	sorted_prev = sorted_anchor;
 	tmp = sorted_anchor->next;
@@ -1623,7 +1658,7 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 			}
 #endif
 
-			hash_try_anchor =  &global->dent_hash_anchor[hash_try_index];
+			hash_try_anchor =  _HASH_ANCHOR(global, hash_try_index);
 			hash_try = test->dent_hash_link.next;
 			if (hash_try == hash_try_anchor ||
 			    hash_try == tmp->next ||
@@ -2362,7 +2397,7 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 	if (dent->d_subtree) {
 		mars_free_dent_all(dent->d_subtree,
 				   &dent->d_subtree->dent_anchor);
-		brick_mem_free(dent->d_subtree);
+		free_mars_global(dent->d_subtree);
 	}
 
 	for (i = 0; i < MARS_ARGV_MAX; i++) {
