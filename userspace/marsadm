@@ -3565,6 +3565,36 @@ sub create_res {
 
   ldie "implausible size $size" unless $size > 4096 * 16; # smaller floppies should not exist ;)
 
+  # check for uniqeness of $appear
+  if ($appear) {
+    foreach my $old_dev (lamport_glob("$mars/resource-*/device-$host")) {
+      $old_dev =~ m:/resource-([^/]+)/:;
+      next unless defined($1);
+      my $old_res = $1;
+      next if $old_res eq $res;
+      my $old_name = get_link($old_dev);
+      if ($old_name eq $appear) {
+	if (link_exists("$mars/resource-$old_res/data-$host")) {
+	  ldie "Device name '/dev/mars/$old_name' already exists at resource '$old_res'\n";
+	} else {
+	  lwarn "Device name '/dev/mars/$old_name' already exists in another resource '$old_res'.\n";
+	  lwarn "This does no harm, but may be confusing.\n";
+	  lwarn "Please name your devices equal to the resource names by convention.\n";
+	}
+      }
+    }
+    # warn if devices are named differently throughout the cluster
+    foreach my $old_dev (lamport_glob("$resdir/device-*")) {
+      my $old_name = get_link($old_dev);
+      if ($old_name ne $appear) {
+	$old_dev =~ m:/device-(.+)$:;
+	my $old_host = $1;
+	lwarn "your name '/dev/mars/$appear' differs from '/dev/mars/$old_name' on host '$old_host'.";
+	lwarn "this does no harm, but may be confusing.";
+      }
+    }
+  }
+
   err_purge_res($cmd, $res);
 
   my $primary;
@@ -3629,36 +3659,6 @@ sub create_res {
       $replay_nr = $1;
     } else {
       ldie "cannot determine current logfile number.\n";
-    }
-  }
-
-  # check for uniqeness of $appear
-  if ($appear) {
-    foreach my $old_dev (lamport_glob("$mars/resource-*/device-$host")) {
-      $old_dev =~ m:/resource-([^/]+)/:;
-      next unless defined($1);
-      my $old_res = $1;
-      next if $old_res eq $res;
-      my $old_name = get_link($old_dev);
-      if ($old_name eq $appear) {
-	if (link_exists("$mars/resource-$old_res/data-$host")) {
-	  ldie "Device name '/dev/mars/$old_name' already exists at resource '$old_res'\n";
-	} else {
-	  lwarn "Device name '/dev/mars/$old_name' already exists in another resource '$old_res'.\n";
-	  lwarn "This does no harm, but may be confusing.\n";
-	  lwarn "Please name your devices equal to the resource names by convention.\n";
-	}
-      }
-    }
-    # warn if devices are named differently throughout the cluster
-    foreach my $old_dev (lamport_glob("$resdir/device-*")) {
-      my $old_name = get_link($old_dev);
-      if ($old_name ne $appear) {
-	$old_dev =~ m:/device-(.+)$:;
-	my $old_host = $1;
-	lwarn "your name '/dev/mars/$appear' differs from '/dev/mars/$old_name' on host '$old_host'.";
-	lwarn "this does no harm, but may be confusing.";
-      }
     }
   }
 
