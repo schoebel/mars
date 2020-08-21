@@ -245,7 +245,7 @@ sub _device_name {
   my ($res, $peer) = @_;
   $peer = $host unless defined($peer);
   my $name = get_link("$mars/resource-$res/device-$peer", 1);
-  $name = $res unless $name;
+  $name = $res if (!$name || $name eq "(none)");
   return $name;
 }
 
@@ -258,6 +258,7 @@ sub device_name {
 sub device_exists {
   my ($res, $peer) = @_;
   $peer = $host unless defined($peer);
+  return 0 if $peer eq "(none)";
   if ($peer eq $real_host) {
     # Silent fallback to local detection for old kernel module versions
     my $buildtag = get_alive_link("buildtag", $peer, 1);
@@ -1637,7 +1638,7 @@ sub get_alive_links {
     $path =~ m:/data-(.*):;
     my $peer = $1;
     next unless $peer;
-    next if $peer eq $host;
+    next if ($peer eq $host && $hosts ne $host);
     # avoid O(n^2) globbing
     next if $peers{$peer};
     # peer must be a candiate matching the hosts spec
@@ -1652,6 +1653,7 @@ sub get_alive_links {
     # OK: remember peer
     $peers{$peer} = 1;
   }
+  $peers{$host} = 1 if $hosts eq $host;
   return %peers unless %peers;
   my %links;
   foreach my $peer (keys(%peers)) {
@@ -1820,7 +1822,7 @@ sub wait_cluster {
     my %status = get_alive_links($res, "^time", $hosts, 0, $non_participating);;
     my $now = mars_time();
     foreach my $peer (keys(%status)) {
-      next if $peer eq $host;
+      next if ($peer eq $host && $hosts ne $host);
       if (!$status{$peer}) {
 	# This can happen at join-cluster & co
 	my $ip_link = "$mars/ips/ip-$peer";
@@ -1918,6 +1920,57 @@ sub recent_cluster {
   return 1 if (!$dead_count && !$unknown_count);
   wait_cluster($cmd, $res, $hosts, 0);
   return 0;
+}
+
+# Newer kernel modules do no longer work on non-member resources
+# by defaults, for scalability reasons.
+# Activate such a resource as a guest.
+sub _activate_resource {
+  my ($cmd, $res, $peer) = @_;
+  return unless $res;
+  $peer = $host unless $peer;
+  if ($res eq "*" || $res eq "all") {
+    update_cluster($cmd, $res);
+    return;
+  }
+  my $resdir = "$mars/resource-$res";
+  if (! -d $resdir) {
+    update_cluster($cmd, $res);
+  }
+  if (! -d $resdir) {
+    ldie "Resource directory '$resdir' does not exist\n";
+  }
+  finish_links();
+  my $active_path = "$resdir/device-$peer";
+  my $check = get_link($active_path, 2);
+  if ($check) {
+    lprint "Resource '$res' is already activated at '$peer'\n" if $verbose;
+    return;
+  }
+  lprint "ENABLING resource '$res' at '$peer'\n" if $verbose;
+  # Ensure guest communication: a faked device-$peer must exist
+  # for activation.
+  # Notice: this will be later overwritten with the final value.
+  set_link("(none)", $active_path);
+  # prevent fallback to old device detection
+  my $actual_dir = "$resdir/actual-$peer";
+  mkdir($actual_dir);
+  my $if_path = "$actual_dir/if-on";
+  set_link("0", $if_path);
+  # Make PRELIMINARY links, timestamp is 1 second after the Big Bang (1970)
+  # Thanks to Lamport, this will turn into a NOP when a link already exists.
+  finish_links(1);
+  _trigger();
+  # wait for (self-)activation
+  wait_cluster($cmd, $res, $peer, 0);
+  # activated peers might have changed
+  _trigger(3);
+  update_cluster($cmd, $res, "*", 0);
+}
+
+sub activate_resource {
+  my ($cmd, $res) = @_;
+	_activate_resource($cmd, $res);
 }
 
 ##################################################################
@@ -3569,9 +3622,8 @@ sub create_res {
   if ($appear) {
     foreach my $old_dev (lamport_glob("$mars/resource-*/device-$host")) {
       $old_dev =~ m:/resource-([^/]+)/:;
-      next unless defined($1);
       my $old_res = $1;
-      next if $old_res eq $res;
+      next if (!$old_res || $old_res eq $res || $old_res eq "(none)");
       my $old_name = get_link($old_dev);
       if ($old_name eq $appear) {
 	if (link_exists("$mars/resource-$old_res/data-$host")) {
@@ -3586,16 +3638,23 @@ sub create_res {
     # warn if devices are named differently throughout the cluster
     foreach my $old_dev (lamport_glob("$resdir/device-*")) {
       my $old_name = get_link($old_dev);
+      next unless $old_name;
+      next if $old_name eq "(none)";
       if ($old_name ne $appear) {
 	$old_dev =~ m:/device-(.+)$:;
 	my $old_host = $1;
-	lwarn "your name '/dev/mars/$appear' differs from '/dev/mars/$old_name' on host '$old_host'.";
-	lwarn "this does no harm, but may be confusing.";
+	next unless $old_host;
+	lwarn "your name '/dev/mars/$appear' differs from '/dev/mars/$old_name' on host '$old_host'.\n";
+	lwarn "this does no harm, but may be confusing.\n";
       }
     }
   }
 
   err_purge_res($cmd, $res);
+
+  if (!$create) {
+    _activate_resource($cmd, $res, $host);
+  }
 
   my $primary;
   my $replay_nr = -1;
@@ -7148,6 +7207,9 @@ my %cmd_table =
        "After the initial full sync has finished, the current host will",
        "act in secondary role.",
        "For details on size constraints etc, refer to the PDF manual.",
+       [
+	\&activate_resource,
+       ],
        \&create_res,
       ],
    "leave-resource"
