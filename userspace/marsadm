@@ -4307,11 +4307,23 @@ sub logdelete_res {
 
     _create_delete($first);
   }
+  # Determine whether a parallel join-resource is ongoing
+  my $transient_join = 0;
+  foreach my $path (lamport_glob("$mars/resource-$res/device-*")) {
+    my $val = get_link($path, 1);
+    next unless $val;
+    if ($val eq "(none)") {
+      lwarn "Transient join-resource detected at '$path'\n";
+      $transient_join = 1;
+    }
+  }
   my @versionlinks = lamport_glob("$mars/resource-$res/version-*");
-  # dont remove versionlinks during split-brain as long as possible
+  # When join-resource is humming, or during split-brain,
+  # don't remove versionlinks as far as possible.
   if (scalar(@versionlinks) < $max_deletions / 8 &&
-      !detect_splitbrain($res, 1)) {
-    lwarn "SPLIT BRAIN: keep some versionlinks for better reporting\n";
+      ($transient_join ||
+       !detect_splitbrain($res, 1))) {
+    lwarn "Keeping some versionlinks\n";
     return unless $force;
   }
   lprint "removing left-over version symlinks...\n" if $verbose;
