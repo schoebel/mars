@@ -3163,17 +3163,17 @@ sub _fake_versionlink {
     }
     my $pri_link = get_link($pri_version, 1);
     if ($pri_link) {
-      lprint "creating new version symlink '$new_version' -> '$pri_link'\n";
+      lprint "Creating new versionlink '$new_version' -> '$pri_link'\n";
       set_link($pri_link, $new_version);
       $make_count++;
     } elsif ($rounds == 2) {
-      lwarn "cannot create new version symlink '$new_version'\n";
+      lwarn "Cannot create new versionlink '$new_version'\n";
     } else {
-      lprint "cannot create new version symlink '$new_version'\n";
+      lprint "Cannot create new versionlink '$new_version'\n";
     }
     $log_nr--;
   }
-  lwarn "cannot create faked versionlink\n" if !$make_count;
+  lwarn "Cannot create faked versionlink\n" if !$make_count;
 }
 
 sub _set_replaylink {
@@ -4361,7 +4361,7 @@ sub logdelete_res {
     lwarn "Keeping some versionlinks\n";
     return unless $force;
   }
-  lprint "removing left-over version symlinks...\n" if $verbose;
+  lprint "Removing left-over versionlinks...\n" if $verbose;
   foreach my $versionlink (@versionlinks) {
     my $nrv = $versionlink;
     $nrv =~ s/^.*\/version-([0-9]+)-.+$/$1/;
