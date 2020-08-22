@@ -4321,9 +4321,35 @@ sub logdelete_res {
   foreach my $path (lamport_glob("$mars/resource-$res/device-*")) {
     my $val = get_link($path, 1);
     next unless $val;
+    my $stamp = get_link_stamp($path);
     if ($val eq "(none)") {
       lwarn "Transient join-resource detected at '$path'\n";
       $transient_join = 1;
+      # Remove any transient links after a while
+      if ($stamp < 10 ) {
+	finish_links();
+	set_link($val, $path);
+	finish_links($stamp + 1);
+      } elsif ($stamp < 20) {
+	_create_delete($path);
+      }
+      next;
+    }
+    next if is_member($res, $host);
+    next unless is_guest($res, $host);
+    # remove any inactive guests after backup retention period
+    my $device_on_path = "$mars/resource-$res/actual-$host/if-on";
+    my $device_on_val = get_link($device_on_path, 1);
+    my $device_on_stamp = get_link_stamp($device_on_path);
+    $device_on_stamp = $stamp if $stamp > $device_on_stamp;
+    # is the guest inactive?
+    if (defined($device_on_val) &&
+	$device_on_val ne "" &&
+	!$device_on_val &&
+	$device_on_stamp > 20 &&
+	$device_on_stamp + $keep_backups < $start_time) {
+      lprint "Purging guest '$res'\n";
+      #_create_delete($path);
     }
   }
   my @versionlinks = lamport_glob("$mars/resource-$res/version-*");
