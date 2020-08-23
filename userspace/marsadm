@@ -3265,7 +3265,7 @@ sub _switch {
   my ($cmd, $res, $path, $on) = @_;
   my $src = $on ? "1" : "0";
   $path = correct_path($path);
-  my $old = get_link($path);
+  my $old = get_link($path, 1);
   if ($old && $old eq $src) {
     lprint "${cmd} on resource $res is already activated\n" if $cmd;
     return;
@@ -3818,6 +3818,9 @@ sub create_res {
     _activate_resource($cmd, $res, $host);
   }
 
+  my $max_primary_retry = 5;
+ primary_retry:
+
   my $primary;
   my $replay_nr = -1;
   my $use_rsync = 0;
@@ -3891,8 +3894,14 @@ sub create_res {
     my $replay = get_link("$resdir/replay-$primary");
     if ($replay =~ m/^log-([0-9]+)-/) {
       $replay_nr = $1;
+      $replay_nr =~ s/^0+//;
     } else {
-      ldie "cannot determine current logfile number.\n";
+      lwarn "'$res' cannot determine current primary '$primary' logfile number from '$replay'.\n";
+      if ($max_primary_retry-- >= 0) {
+	wait_cluster($cmd, $res);
+	goto primary_retry;
+      }
+      ldie "Primary '$primary' info is missing for '$res'.\n";
     }
   }
 
@@ -3945,6 +3954,9 @@ sub create_res {
     _push_link($primary, $dev, $file) if $primary;
   }
 
+  my $max_join_retry = 5;
+ join_retry:
+
   if ($appear) {
     lprint "resource '$res' will appear as local device '/dev/mars/$appear'\n";
     my $device_path = "$resdir/device-$host";
@@ -3992,20 +4004,37 @@ sub create_res {
     _set_replaylink($resdir, $replay_nr, $primary, "");
     set_link("0", "$resdir/syncstatus-$host");
     finish_links();
+    _trigger(3);
     if ($use_rsync) {
       rsync_cmd($primary, "--max-size=1 --update $file $primary:$mars/resource-$res/", 1);
     }
-    # Re-read the primary replaylink because it might have log-rotated in the meantime
     wait_cluster($cmd, $res, $primary);
-    my $replay = get_link("$resdir/replay-$primary");
-    if ($replay =~ m/^log-([0-9]+)-/) {
-      $replay_nr = $1;
-      _set_replaylink($resdir, $replay_nr, $primary, "");
-    }
-    lprint "successfully joined resource '$res'\n";
   }
   set_link("1", "$todo/attach");
   finish_links();
+  _trigger(3);
+  if (!$create) {
+    # Check for races with logrotate
+    wait_cluster($cmd, $res, $primary, 0);
+    # Split brain or orphanness can happen due to _inherent_ races
+    # with fresh appearance of the new replaylink.
+    lprint "Checking '$res' for split brain\n";
+    %detected_splits = ();
+    my $ok = detect_splitbrain($res, 1);
+    lprint "'$res' ok=$ok\n";
+    if (!$ok) {
+      lwarn "Race '$res' with log-rotate detected.\n";
+      if ($max_join_retry-- >= 0) {
+	wait_cluster($cmd, $res, "*", 0);
+	invalidate_res_phase1($cmd, $res);
+	wait_cluster($cmd, $res, $host, 0);
+	invalidate_res_phase2($cmd, $res);
+	lwarn "Restarting '$res' due to unstable situation at primary '$primary'\n";
+	goto join_retry;
+      }
+    }
+    lprint "Successfully joined resource '$res' to primary '$primary'\n";
+  }
   _systemd_trigger($cmd);
 }
 
