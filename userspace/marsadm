@@ -1529,11 +1529,6 @@ sub finish_links {
     my $target = readlink($link_tmp);
     next unless defined($target);
     my $this_timestamp = $timestamp;
-    # allow overriding of secondaries in partitioned clusters by use of small timestamps
-    if ($target eq "(none)") {
-      my @stat = lstat($link);
-      $this_timestamp = $stat[9] + 1 if @stat;
-    }
     unless (system("touch -h -d \"\@$this_timestamp\" $link_tmp") == 0) {
       lwarn "cannot set mtime on symlink '$link_tmp'\n";
     }
@@ -4489,8 +4484,19 @@ sub fake_sync_phase3 {
 sub _primary_res {
   my ($res, $new, $old) = @_;
   my $pri = "$mars/resource-$res/primary";
+  finish_links();
+  my $old_stamp = get_link_stamp($pri);
   set_link($new, $pri);
-  unless ($new eq "(none)") {
+  if ($new eq "(none)") {
+    # Allow overriding of secondaries in a partitioned cluster
+    # by using a weaker timestamp.
+    # When somebody issues a (more or less) _concurrent_ "primary" command
+    # during a network partition, let the "primary" win over the "secondary".
+    # Notice: the definition of "concurrent" in the sense of Lamport
+    # (where _any_ communication may take "arbitrarily" long)
+    # may be non-intuitive to humans in the presence of a network outage.
+    finish_links($old_stamp + 1) if $old_stamp;
+  } else {
     my $last_lnk = "$mars/resource-$res/userspace/last-primary";
     my $prev_lnk = "$mars/resource-$res/userspace/prev-primary";
     system("mv -f $last_lnk $prev_lnk");
