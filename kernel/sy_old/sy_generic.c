@@ -3246,6 +3246,36 @@ void _show_one(struct mars_brick *test, int *brick_count)
 	}
 }
 
+static
+void _show_dent_list(struct mars_global *global, int *count)
+{
+	struct list_head *tmp;
+
+	down_read(&global->dent_mutex);
+	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
+		struct mars_dent *dent;
+		struct list_head *sub;
+
+		dent = container_of(tmp, struct mars_dent, dent_link);
+		MARS_STAT("dent %d%d %d '%s' '%s' stamp=%ld.%09ld\n",
+			  dent->d_no_scan,
+			  dent->d_running,
+			  dent->d_class,
+			  SAFE_STR(dent->d_path),
+			  SAFE_STR(dent->new_link),
+			  dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
+		(*count)++;
+		for (sub = dent->brick_list.next; sub != &dent->brick_list; sub = sub->next) {
+			struct mars_brick *test;
+			test = container_of(sub, struct mars_brick, dent_brick_link);
+			MARS_STAT("  owner of brick '%s'\n", SAFE_STR(test->brick_path));
+		}
+		if (dent->d_subtree)
+			_show_dent_list(dent->d_subtree, count);
+	}
+	up_read(&global->dent_mutex);
+}
+
 void show_statistics(struct mars_global *global, const char *class)
 {
 	struct list_head *tmp;
@@ -3274,27 +3304,14 @@ void show_statistics(struct mars_global *global, const char *class)
 	MARS_STAT("================================== %s bricks:\n", class);
 	for (tmp = global->brick_anchor.next; tmp != &global->brick_anchor; tmp = tmp->next) {
 		struct mars_brick *test;
+
 		test = container_of(tmp, struct mars_brick, global_brick_link);
 		_show_one(test, &brick_count);
 	}
 	up_read(&global->brick_mutex);
 	
 	MARS_STAT("================================== %s dents:\n", class);
-	down_read(&global->dent_mutex);
-	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
-		struct mars_dent *dent;
-		struct list_head *sub;
-		dent = container_of(tmp, struct mars_dent, dent_link);
-		MARS_STAT("dent %d '%s' '%s' stamp=%ld.%09ld\n", dent->d_class, SAFE_STR(dent->d_path), SAFE_STR(dent->new_link), dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
-		dent_count++;
-		for (sub = dent->brick_list.next; sub != &dent->brick_list; sub = sub->next) {
-			struct mars_brick *test;
-			test = container_of(sub, struct mars_brick, dent_brick_link);
-			MARS_STAT("  owner of brick '%s'\n", SAFE_STR(test->brick_path));
-		}
-	}
-	up_read(&global->dent_mutex);
-
+	_show_dent_list(global, &dent_count);
 	MARS_STAT("==================== %s STATISTICS: %d dents, %d bricks, %lld KB free\n", class, dent_count, brick_count, global_remaining_space);
 }
 EXPORT_SYMBOL_GPL(show_statistics);
