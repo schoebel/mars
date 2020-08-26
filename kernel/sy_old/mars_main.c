@@ -822,7 +822,6 @@ struct mars_rotate {
 	int replay_code;
 	int avoid_count;
 	int old_open_count;
-	bool has_symlinks;
 	bool is_attached;
 	bool res_shutdown;
 	bool has_error;
@@ -3702,7 +3701,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		rot->split_brain_serial = 0;
 	rot->fetch_next_serial = 0;
 	rot->has_error = false;
-	rot->has_symlinks = true;
 	brick_string_free(rot->preferred_peer);
 
 	activate_peer(rot, dent->d_rest);
@@ -4698,7 +4696,6 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	if (!rot)
 		goto err;
 	CHECK_PTR(rot, err);
-	rot->has_symlinks = true;
 	trans_brick = rot->trans_brick;
 	status = 0;
 	if (!trans_brick) {
@@ -5041,7 +5038,6 @@ int make_primary(void *buf, struct mars_dent *dent)
 		goto done;
 	CHECK_PTR(rot, done);
 
-	rot->has_symlinks = true;
 	status = 0;
 
 	/* Do not activate primary role shortly after modprobe.
@@ -5110,7 +5106,6 @@ int make_bio(void *buf, struct mars_dent *dent)
 		rot->is_attached = false;
 	_show_actual(rot->parent_path, "is-attached", rot->is_attached);
 
-	rot->has_symlinks = true;
 	if (rot->rot_activated)
 		activate_peer(rot, dent->d_rest);
 	if (strcmp(dent->d_rest, my_id()))
@@ -5183,7 +5178,6 @@ int make_work(void *buf, struct mars_dent *dent)
 	rot = dent->d_parent->d_private;
 	if (!rot)
 		goto done;
-	rot->has_symlinks = true;
 
 	activate_rot(rot);
 
@@ -5262,7 +5256,6 @@ int make_dev(void *buf, struct mars_dent *dent)
 		MARS_DBG("nothing to do\n");
 		goto err;
 	}
-	rot->has_symlinks = true;
 	if (!rot->trans_brick) {
 		MARS_DBG("transaction logger does not exist\n");
 		goto done;
@@ -5637,7 +5630,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	status = -ENOENT;
 	CHECK_PTR(rot, done);
 
-	rot->has_symlinks = true;
 	rot->allow_update = true;
 	rot->syncstatus_dent = dent;
 
@@ -6009,19 +6001,10 @@ int get_compat_deletions(void *buf, struct mars_dent *dent)
 static
 int make_res(void *buf, struct mars_dent *dent)
 {
-	struct mars_rotate *rot = dent->d_private;
-
 	MARS_DBG("init '%s'\n", dent->d_path);
 	dent->d_skip_fn = skip_scan_resource;
 	dent->d_running = true;
-	if (!rot) {
-		MARS_DBG("nothing to do\n");
-		goto done;
-	}
 
-	rot->has_symlinks = false;
-
- done:
 	return 0;
 }
 
