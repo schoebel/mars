@@ -242,6 +242,12 @@ extern struct mars_brick *make_brick_all(
 
 #define MARS_ERR_ONCE(dent, args...) if (!dent->d_once_error++) MARS_ERR(args)
 
+static inline
+bool is_deleted_link(const char *str)
+{
+	return (!str || !str[0]);
+}
+
 bool push_link(const char *peer_name,
 	       const char *src,
 	       const char *dst);

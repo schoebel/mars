@@ -4756,19 +4756,22 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		 */
 		if (!rot->created_hole) {
 			int new_sequence = rot->max_sequence + 10;
-			char *new_vers = path_make("%s/version-%09d-%s", rot->parent_path, new_sequence, my_id());
-			char *new_vval = path_make("00000000000000000000000000000000,log-%09d-%s,0:", new_sequence, my_id());
 			char *new_path = path_make("%s/log-%09d-%s", rot->parent_path, new_sequence + 1, my_id());
-			if (likely(new_vers && new_vval && new_path &&
-				   !mars_find_dent(global, new_path))) {
+			unsigned char *new_val = ordered_readlink(new_path, NULL);
+			bool is_deleted = is_deleted_link(new_val);
+
+			if (is_deleted) {
+				char *new_vers = path_make("%s/version-%09d-%s", rot->parent_path, new_sequence, my_id());
+				char *new_vval = path_make("00000000000000000000000000000000,log-%09d-%s,0:", new_sequence, my_id());
 				MARS_INF_TO(rot->log_say, "EMERGENCY: creating new logfile '%s'\n", new_path);
 				ordered_symlink(new_vval, new_vers, NULL);
 				_create_new_logfile(new_path);
 				rot->created_hole = true;
+				brick_string_free(new_vers);
+				brick_string_free(new_vval);
 			}
-			brick_string_free(new_vers);
-			brick_string_free(new_vval);
 			brick_string_free(new_path);
+			brick_string_free(new_val);
 		}
 	} else {
 		rot->created_hole = false;
