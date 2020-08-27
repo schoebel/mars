@@ -5592,9 +5592,8 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	struct mars_rotate *rot;
 	loff_t start_pos = 0;
 	loff_t end_pos = 0;
-	struct mars_dent *size_dent;
-	struct mars_dent *primary_dent;
-	struct mars_dent *syncfrom_dent;
+	const char *size_str = NULL;
+	const char *syncfrom_str = NULL;
 	char *peer;
 	struct copy_brick *copy = NULL;
 	char *tmp = NULL;
@@ -5614,13 +5613,12 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	/* Determine peer
 	 */
 	tmp = path_make("%s/primary", dent->d_parent->d_path);
-	primary_dent = (void*)mars_find_dent(global, tmp);
-	if (!primary_dent || !primary_dent->new_link) {
+	peer = ordered_readlink(tmp, NULL);
+	if (is_deleted_link(peer)) {
 		MARS_ERR("cannot determine primary, symlink '%s'\n", tmp);
 		status = 0;
 		goto done;
 	}
-	peer = primary_dent->new_link;
 
 	do_start = _check_allow(global, dent->d_parent->d_path, "attach");
 
@@ -5647,15 +5645,15 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	status = -ENOMEM;
 	if (unlikely(!tmp))
 		goto done;
-	size_dent = (void*)mars_find_dent(global, tmp);
-	if (!size_dent || !size_dent->new_link) {
+	size_str = ordered_readlink(tmp, NULL);
+	if (is_deleted_link(size_str)) {
 		MARS_ERR("cannot determine size '%s'\n", tmp);
 		status = -ENOENT;
 		goto done;
 	}
-	status = sscanf(size_dent->new_link, "%lld", &end_pos);
+	status = sscanf(size_str, "%lld", &end_pos);
 	if (status != 1) {
-		MARS_ERR("bad size symlink syntax '%s' (%s)\n", size_dent->new_link, tmp);
+		MARS_ERR("bad size symlink syntax '%s' (%s)\n", size_str, tmp);
 		status = -EINVAL;
 		goto done;
 	}
@@ -5697,11 +5695,12 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	 */
 	brick_string_free(tmp);
 	tmp = path_make("%s/syncfrom-%s", dent->d_parent->d_path, my_id());
-	syncfrom_dent = (void*)mars_find_dent(global, tmp);
-	if (do_start && syncfrom_dent && syncfrom_dent->new_link &&
-	    strcmp(syncfrom_dent->new_link, peer)) {
+	syncfrom_str = ordered_readlink(tmp, NULL);
+	if (do_start &&
+	    !is_deleted_link(syncfrom_str) &&
+	    strcmp(syncfrom_str, peer)) {
 		MARS_WRN("cannot start sync, primary has changed: '%s' != '%s'\n",
-			 syncfrom_dent->new_link, peer);
+			 syncfrom_str, peer);
 		if (do_start)
 			start_pos = 0;
 		do_start = false;
@@ -5810,6 +5809,9 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 done:
 	MARS_DBG("status = %d\n", status);
+	brick_string_free(peer);
+	brick_string_free(size_str);
+	brick_string_free(syncfrom_str);
 	brick_string_free(tmp);
 	brick_string_free(src);
 	brick_string_free(dst);
