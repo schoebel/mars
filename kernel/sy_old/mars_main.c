@@ -1197,20 +1197,21 @@ static
 int _check_switch(struct mars_global *global, const char *path)
 {
 	int res = 0;
-	struct mars_dent *allow_dent;
-
-	/* Upon shutdown, treat all switches as "off"
-	 */
-	if (!global->global_power.button)
-		goto done;
-
-	allow_dent = mars_find_dent(global, path);
-	if (!allow_dent || !allow_dent->new_link)
-		goto done;
-	sscanf(allow_dent->new_link, "%d", &res);
-	MARS_DBG("'%s' -> %d\n", path, res);
-
-done:
+	const char *val_str = NULL;
+ 
+ 	/* Upon shutdown, treat all switches as "off"
+ 	 */
+ 	if (!global->global_power.button)
+ 		goto done;
+ 
+	val_str = ordered_readlink(path, NULL);
+	if (!val_str || !val_str[0])
+ 		goto done;
+	sscanf(val_str, "%d", &res);
+ 	MARS_DBG("'%s' -> %d\n", path, res);
+ 
+ done:
+	brick_string_free(val_str);
 	return res;
 }
 
