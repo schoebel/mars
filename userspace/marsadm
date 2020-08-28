@@ -3390,6 +3390,12 @@ sub lowlevel_delete_host {
   my $path = "$mars/ips/ip-$peer";
   my $old = get_link($path);
   lprint "Removing host '$peer' old IP '$old'\n";
+  if (!$compat_deletions) {
+    foreach my $peer2 (get_total_peers()) {
+      next if $peer2 eq $peer;
+      _push_link($peer2, ".deleted", $path);
+    }
+  }
   _create_delete($path);
 }
 
@@ -8239,7 +8245,7 @@ my %cmd_table =
       ],
    "lowlevel-delete-host"
    => [
-       "usage: lowlevel-ls-host-ips <hostname>",
+       "usage: lowlevel-delete-host <hostname>",
        "Delete cluster member.",
        \&lowlevel_delete_host,
       ],
