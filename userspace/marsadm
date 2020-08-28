@@ -3378,6 +3378,10 @@ sub lowlevel_set_host_ip {
   my $old = get_link($path, 2) || "";
   lprint "Set host '$peer' IP from '$old' to '$ip'\n";
   set_link($ip, $path);
+  foreach my $peer2 (get_total_peers()) {
+    next if $peer2 eq $peer;
+    _push_link($peer2, $ip, $path);
+  }
 }
 
 sub lowlevel_delete_host {
@@ -8229,7 +8233,7 @@ my %cmd_table =
       ],
    "lowlevel-set-host-ip"
    => [
-       "usage: lowlevel-ls-host-ips <hostname> <new_ip>",
+       "usage: lowlevel-set-host-ip <hostname> <new_ip>",
        "Set IP for host.",
        \&lowlevel_set_host_ip,
       ],
