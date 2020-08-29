@@ -8389,6 +8389,7 @@ sub do_all_res {
       );
     if ($has_died && !$skip_res{$res}) {
       fail_action($cmd, $res);
+      $status = 1;
     }
     return $status;
   }
