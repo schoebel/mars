@@ -394,15 +394,54 @@ const char *rot_keys[] = {
 #define IS_JAMMED()                (mars_emergency_mode > 3)
 
 static bool compat_alivelinks = false;
+static bool needed_compat_alivelinks = false;
 
+/* for safety, consider both the old and new alivelink path */
+static
+void get_alivelink_stamp(const char *name, const char *peer,
+			 struct lamport_time *stamp)
+{
+	const char *peer_time_path1 = NULL;
+	const char *peer_time_path2 = NULL;
+	struct kstat peer_time_stat1 = {};
+	struct kstat peer_time_stat2 = {};
+
+	peer_time_path1 = path_make("/mars/actual-%s/%s", peer, name);
+	peer_time_path2 = path_make("/mars/%s-%s", name, peer);
+	mars_stat(peer_time_path1, &peer_time_stat1, true);
+	mars_stat(peer_time_path2, &peer_time_stat2, true);
+	*stamp = peer_time_stat1.mtime;
+	if (lamport_time_compare(&peer_time_stat1.mtime,
+				 &peer_time_stat2.mtime) < 0) {
+		needed_compat_alivelinks = true;
+		*stamp = peer_time_stat2.mtime;
+	}
+	brick_string_free(peer_time_path1);
+	brick_string_free(peer_time_path2);
+}
+
+/* for safety, consider both the old and new alivelink path */
 static
 const char *get_alivelink(const char *name, const char *peer)
 {
-	char *path = path_make("/mars/actual-%s/%s", peer, name);
-	const char *result = ordered_readlink(path, NULL);
+	const char *path1 = path_make("/mars/actual-%s/%s", peer, name);
+	const char *path2 = path_make("/mars/%s-%s", name, peer);
+	struct lamport_time stamp1 = {};
+	struct lamport_time stamp2 = {};
+	const char *result1 = ordered_readlink(path1, &stamp1);
+	const char *result2 = ordered_readlink(path2, &stamp2);
 
-	brick_string_free(path);
-	return result;
+	if (lamport_time_compare(&stamp1, &stamp2) < 0) {
+		needed_compat_alivelinks = true;
+		brick_string_free(result1);
+		result1 = result2;
+	} else {
+		brick_string_free(result2);
+	}
+
+	brick_string_free(path1);
+	brick_string_free(path2);
+	return result1;
 }
 
 static
@@ -453,6 +492,8 @@ void __make_alivelink_str(const char *name, const char *src, bool lazy)
 		MARS_ERR("cannot make alivelink paths\n");
 		goto err;
 	}
+	if (compat_alivelinks)
+		__make_alivelink_str_old(name, src, lazy);
 	if (lazy) {
 		char *check = mars_readlink(dst, NULL);
 		bool ok = (check && !strcmp(check, src));
@@ -467,8 +508,6 @@ void __make_alivelink_str(const char *name, const char *src, bool lazy)
 	ordered_symlink(src, dst, NULL);
 err:
 	brick_string_free(dst);
-	if (compat_alivelinks)
-		__make_alivelink_str_old(name, src, lazy);
 }
 
 #define _make_alivelink_str(name,src)		\
@@ -3090,9 +3129,7 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 	struct mars_peerinfo *peer;
 	char *mypeer;
 	char *parent_path;
-	char *feature_path;
-	char *feature_str;
-	char *feature_str_old;
+	const char *feature_str;
 	int status = 0;
 
 	if (!global || !dent || !dent->new_link || !dent->d_parent || !(parent_path = dent->d_parent->d_path)) {
@@ -3145,21 +3182,9 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 	peer = dent->d_private;
 
 	/* Determine remote features and digest mask */
-	feature_path = path_make("/mars/features-%s", mypeer);
-	feature_str_old = mars_readlink(feature_path, NULL);
-	brick_string_free(feature_path);
-	feature_path = path_make("/mars/actual-%s/features", mypeer);
-	feature_str = mars_readlink(feature_path, NULL);
-	brick_string_free(feature_path);
-
+	feature_str = get_alivelink("features", mypeer);
 	if (feature_str && feature_str[0]) {
 		sscanf(feature_str,
-		       "%d,%d,0x%x",
-		       &peer->features_version,
-		       &peer->strategy_version,
-		       &peer->available_mask);
-	} else if (feature_str_old) {
-		sscanf(feature_str_old,
 		       "%d,%d,0x%x",
 		       &peer->features_version,
 		       &peer->strategy_version,
@@ -3183,7 +3208,6 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 	}
 
 	brick_string_free(feature_str);
-	brick_string_free(feature_str_old);
 
 	/* at least one digest must remain usable */
 	peer->available_mask |= MREF_CHKSUM_MD5_OLD;
@@ -5414,7 +5438,6 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 	const char *syncpos_path = NULL;
 	const char *peer_replay_path = NULL;
 	const char *peer_replay_link = NULL;
-	const char *peer_time_path = NULL;
 	int status = -EINVAL;
 
 	/* create syncpos symlink when necessary */
@@ -5430,15 +5453,12 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 		goto done;
 	}
 	if (rot->sync_finish_stamp.tv_sec) {
-		struct kstat peer_time_stat = {};
+		struct lamport_time peer_time = {};
 
-		if (compat_alivelinks)
-			peer_time_path = path_make("/mars/alive-%s", peer);
-		else
-			peer_time_path = path_make("/mars/actual-%s/alive", peer);
-		status = mars_stat(peer_time_path, &peer_time_stat, true);
-		if (unlikely(status < 0)) {
-			MARS_ERR("cannot stat '%s'\n", peer_time_path);
+		get_alivelink_stamp("alive", peer, &peer_time);
+		if (unlikely(!peer_time.tv_sec)) {
+			MARS_ERR("cannot stat '%s' alivelinks\n",
+				 peer);
 			goto done;
 		}
 
@@ -5470,10 +5490,10 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 		 */
 		if (unlikely(status < 0))
 			goto done;
-		if (lamport_time_compare(&peer_time_stat.mtime, &rot->sync_finish_stamp) < 0) {
+		if (lamport_time_compare(&peer_time, &rot->sync_finish_stamp) < 0) {
 			MARS_INF("peer replay link '%s' is not recent enough (%lu < %lu)\n",
 				 peer_replay_path,
-				 peer_time_stat.mtime.tv_sec,
+				 peer_time.tv_sec,
 				 rot->sync_finish_stamp.tv_sec);
 			mars_remote_trigger(MARS_TRIGGER_TO_REMOTE);
 			status = -EAGAIN;
@@ -5504,7 +5524,6 @@ done:
 	brick_string_free(peer_replay_link);
 	brick_string_free(peer_replay_path);
 	brick_string_free(syncpos_path);
-	brick_string_free(peer_time_path);
 	return status;
 }
 
@@ -6862,10 +6881,12 @@ static int _main_thread(void *data)
 
 		/* determine compat_* variables */
 		compat_alivelinks =
+			needed_compat_alivelinks ||
 			!(usable_strategy_version >= 3 &&
 			  (marsadm_version_major > 2 ||
 			   (marsadm_version_major == 2 &&
 			    marsadm_version_minor >= 8)));
+		needed_compat_alivelinks = false;
 
 		__make_alivelink("compat-alivelinks", compat_alivelinks, true);
 
