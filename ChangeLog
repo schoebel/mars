@@ -66,7 +66,7 @@ Release Conventions / Branches / Tagnames
 	    including network outages and HumanError(tm) at 1&1 Ionos
 	    ShaHoLin. Thus the _component_ SLA of MARS must be much better.
 	  - There is always an upgrade path. Simply install the new
-	    version.
+	    version, obeying the below compatibility rules.
 	  - Rolling upgrades (temporarily different MARS kernel module
 	    versions at primary vs secondary side) are supported.
 	    Typically, do "rmmod mars; modprobe mars" at the secondary
@@ -74,21 +74,46 @@ Release Conventions / Branches / Tagnames
 	    primary side.
 	    Or, of course, you may combine it with (typically security-
 	    triggered) rolling kernel reboots.
-	    HINT: update marsadm first, before updating the kernel module.
+	    I am putting high effort into maintaining rolling upgrades
+	    of kernel modules. The network protocols are designed to
+	    support this.
+	-   COMPATIBILITY RULES:
+	    Ensure that $marsadm_version >= $module_version.
+	    This is the safe side of your update strategy.
+	    Update marsadm first, before updating the kernel module.
 	    This way, the controls for newer features are already in
 	    place when the new kernel module is activated (no blind
 	    flight).
-	  - marsadm may be upgraded and downgraded independently from kernel
-	    (during operations, best via your favorite package manager).
-	    Of course, no magic will happen: newer features are only
-	    available when newer version of both the userspace tool and
-	    the kernel modules are installed.
+	    Since marsadm is a plain Perl script with _no_ dependencies
+	    from anything else, this is something I can reasonably expect
+	    from users.
+	    REASON: ensuring forever backwards compatibility to stone-aged
+	    marsadm versions would make me ill. I cannot change old versions
+	    anymore, but just provide new versions. I cannot ensure and
+	    test all possible O(n^2) combinations of marsadm versions with
+	    kernel module versions to work eternally for all times when
+	    marsadm would be frozen, or even all O(n^3) combinations of
+	    frozen marsadm with mixed-operations kernel modules.
+	    The development of MARS would be hindered by too old marsadm
+	    versions, since my effort would grow quadratically or
+	    even worse.
+	    Hint: nevertheless, many combinations of old marsadm with newer
+	    kernel module version are working anyway, in particular when
+	    the gap is a small $epsilon. But I cannot guarantee in general.
+	    If you want to violate the above rule, you must test the
+	    combination yourself.
 	  - Best practice in bigger installations: first test your upgrade
-	    or downgrade at some test clusters first. I cannot lab-test all
-	    possible O(n^2) combinations of marsadm versions with kernel
-	    module versions, or even all O(n^3) combinations of marsadm
-	    with mixed-operations kernel modules. But I am doing my best
-	    lab-testing some important combinations.
+	    or downgrade at some test clusters first.
+	    If you have a separate pre-live stage, it definitely is
+	    your friend.
+	  - As long as $marsadm_version + $epsilon >= $module_version
+	    remains true (at least "approximately") and has been tested
+	    in pre-live, marsadm may be upgraded and downgraded
+	    independently from kernel, and during operations
+	    (best via your favorite package manager).
+	    Of course, no magic will happen: newer features are only
+	    available when newer versions of both the userspace tool and
+	    the kernel modules are installed.
 	  - Please check this ChangeLog for any upgrade / downgrade
 	    incompatibility bugs. In case they are detected, they will
 	    be fixed. But I cannot retrospectivly change already released
@@ -117,6 +142,36 @@ Changelog for series 0.1a:
 	Based on 0.1balpha4. Merged 0.1stable.
 	Now stable.
 	Receive mainly fixes.
+
+mars0.1astable104
+	* Major fix: marsadm did not obey an abort of certain phased
+	  commands when a single resource argument was given. As a result,
+	  a wrong exit code could be returned in such a case.
+	* Minor fix: when beta feature logfile digests were disabled
+	  _during_ operations, already existing old logfiles were
+	  not always checked correctly at the secondary,
+	  reporting DefectiveLog (although they were healthy).
+	  Workaround by just enabling again and invalidate.
+	  With the fix, you may now replay the old logfiles :)
+	* Minor fix: inherent race between join-resource and log-rotate
+	  (unavoidable in the Distributed System) could lead to split brain,
+	  or to hanging replay. Now compensated.
+	* Minor fix: join-cluster without ssh was sometimes not
+	  updating the local link tree immediately.
+	* Usability (BETA feature): improved scalability in #hosts.
+	  The below BETA feature warnings apply.
+	  Do not exceed the "officially documented" limits too much.
+	* Usability: join-resource avoids unnecessary fallback
+	  to ssh / rsync.
+	  IMPORTANT: please update marsadm first, before updating the
+	  kernel module. See the above compatibility rules.
+	  This time the compatibility rules are important. I know that
+	  marsadm < 0.1astable85 does no reliable join-resource anymore,
+	  while combinations with old 0.1astable95 appear to work. There is
+	  no merit in bisecting old marsadm releases, instead of just
+	  fucking update the old userspace script in a controlled manner.
+	* Usability: more accurate IOPS and friends.
+	* Several smaller fixes and improvements.
 
 mars0.1astable103
 	* Major regression from mars0.1astable99: secondary replay could
