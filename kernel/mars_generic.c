@@ -371,7 +371,6 @@ __u32 mars_digest(__u32 digest_flags,
 		  void *digest,
 		  const void *data, int len)
 {
-	digest_flags &= usable_digest_mask;
 	/* The order defines the preference:
 	 * place the most performant algorithms first.
 	 */
