@@ -3245,12 +3245,15 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 
 	/* at least one digest must remain usable */
 	peer->available_mask |= MREF_CHKSUM_MD5_OLD;
-	_tmp_digest_mask &= peer->available_mask;
-	_tmp_compression_mask &= peer->available_mask;
-	if (peer->features_version < _tmp_features_version)
-		_tmp_features_version = peer->features_version;
-	if (peer->strategy_version < _tmp_strategy_version)
-		_tmp_strategy_version = peer->strategy_version;
+	/* only active peers shall count for usable masks */
+	if (peer->do_communicate) {
+		_tmp_digest_mask &= peer->available_mask;
+		_tmp_compression_mask &= peer->available_mask;
+		if (peer->features_version < _tmp_features_version)
+			_tmp_features_version = peer->features_version;
+		if (peer->strategy_version < _tmp_strategy_version)
+			_tmp_strategy_version = peer->strategy_version;
+	}
 
 	// create or stop communication thread when necessary
 	if (peer->do_communicate | peer->do_additional) {
