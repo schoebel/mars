@@ -2961,6 +2961,7 @@ sub err_purge_res {
     lprint "  deleting '$leftlink'\n" if $verbose;
     _create_delete($leftlink);
   }
+  finish_links();
 }
 
 sub try_to_avoid_splitbrain {
@@ -3160,12 +3161,6 @@ sub is_actual_primary {
   my $is_primary = get_link("$mars/resource-$res/actual-$peer/is-primary");
   # notice: device presence _must not_ be used anymore.
   return $is_primary;
-}
-
-sub get_peers {
-  my ($res) = @_;
-  my @list = lamport_glob("$mars/resource-$res/data-*");
-  return map { $_ =~ s:$mars/resource-$res/data-::; $_ } @list;
 }
 
 sub __conv_tv {
@@ -4288,14 +4283,20 @@ sub _get_deletable_logfiles {
   return ($min, $max);
 }
 
+# for old deletion method (to disappear)
 my %delete_nrs;
 
 sub _get_delete_nr {
-  my ($basedir) = @_;
+  my ($basedir, $total) = @_;
   return @{$delete_nrs{$basedir}} if defined($delete_nrs{$basedir});
+  my %any = get_any_peers();
   my $min_nr = 0;
   my $max_nr = 0;
   foreach my $path (lamport_glob("$basedir/deleted-*")) {
+    $path =~ m:/deleted-(.+):;
+    my $peer = $1;
+    next unless $peer;
+    next unless $total || $peer eq $real_host || $any{$peer};
     my $link = get_link($path, 1);
     $link =~ m/0*([0-9]+)/;
     $min_nr = $1 if (defined($1) && ($1 < $min_nr || !$min_nr));
@@ -4303,8 +4304,12 @@ sub _get_delete_nr {
   }
   my @deletes = lamport_glob("$basedir/delete-*");
   foreach my $path (@deletes) {
-    $path =~ m:/delete-0*([0-9]+):;
-    $max_nr = $1 if (defined($1) && $1 > $max_nr);
+    $path =~ m:/delete-0*([0-9]+)-(.+):;
+    my $nr = $1;
+    my $peer = $2;
+    next unless $peer;
+    next unless $total || $peer eq $real_host || $any{$peer};
+    $max_nr = $nr if (defined($nr) && $nr > $max_nr);
   }
   my $nr_links = $max_nr - $min_nr;
   if ($nr_links > $max_deletions / 2) {
@@ -4342,7 +4347,7 @@ sub _replace_delete {
     }
     $del_dirs{$basedir} = 1;
   }
-  my ($min_nr, $delete_nr) = _get_delete_nr($basedir);
+  my ($min_nr, $delete_nr) = _get_delete_nr($basedir, 1);
   if (defined($del_targets{$target})) {
     my $old = $del_targets{$target};
     $old =~ m:/delete-([0-9]+)-:;
@@ -4374,6 +4379,7 @@ sub _create_delete {
 sub _wait_delete {
   return if $dry_run;
   lwarn "Do not run this in --parallel mode\n" if $child_prefix;
+  finish_links();
   return if !$nr_deletions;
   $nr_deletions = 0;
   for (;;) {
