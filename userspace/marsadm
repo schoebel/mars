@@ -3213,7 +3213,7 @@ sub __conv_errno {
   my ($txt, $error) = @_;
   return "$txt$error" if !defined($error) || ($error <= 0);
   $! = $error;
-  my $res = "${txt}${error}[$!]";
+  my $res = "${txt}[$!]";
   $! = 0;
   return $res;
 }
