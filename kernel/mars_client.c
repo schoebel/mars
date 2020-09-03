@@ -635,6 +635,8 @@ int receiver_thread(void *data)
 			mars_trigger();
 			break;
 		case CMD_CONNECT:
+		case CMD_CONNECT_LOGGER:
+			output->get_info = true;
 			if (cmd.cmd_int1 < 0) {
 				status = cmd.cmd_int1;
 				MARS_ERR("remote brick connect '%s' @%s failed, remote status = %d\n",
