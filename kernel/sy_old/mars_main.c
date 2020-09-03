@@ -2036,13 +2036,23 @@ int __make_copy(struct mars_dent *belongs,
 
 	// create/find predecessor aio bricks
 	for (i = 0; i < 2; i++) {
-		struct mars_brick *aio;
+		struct mars_brick *aio = NULL;
+		struct client_brick *client = NULL;
+		bool do_start;
 
 		/* do not change names underway */
 		if (copy && copy->inputs[i] && copy->inputs[i]->connect) {
 			aio = copy->inputs[i]->connect->brick;
-			if (aio && aio->power.button)
+			if (aio && aio->type == (void *)&client_brick_type)
+				client = (void *)aio;
+			if (aio &&
+			    aio->power.led_on &&
+			    (!client ||
+			     (client->connection_error >= 0 &&
+			      client->protocol_error >= 0))) {
+				MARS_DBG("shortcut %d\n", i);
 				goto found;
+			}
 		}
 
 		cc.argv[i] = argv[i];
@@ -2056,6 +2066,22 @@ int __make_copy(struct mars_dent *belongs,
 			cc.fullpath[i] = argv[i];
 		}
 
+		/* any clients may suffer from network interruptions */
+		if (client &&
+		    !client->power.led_off &&
+		    (client->connection_error < 0 ||
+		     client->protocol_error < 0)) {
+			MARS_DBG("client '%s' error = %d/%d\n",
+				 client->resource_name,
+				 client->connection_error,
+				 client->protocol_error);
+			switch_copy = false;
+		}
+		
+		do_start =
+			switch_copy ||
+			(copy && !copy->power.led_off);
+
 		aio =
 			make_brick_all(mars_global,
 				       NULL,
@@ -2063,7 +2089,7 @@ int __make_copy(struct mars_dent *belongs,
 				       _set_bio_params,
 				       &clc[i],
 				       (const struct generic_brick_type*)&bio_brick_type,
-				       switch_copy || (copy && !copy->power.led_off) ? 2 : -1,
+				       do_start ? 2 : -1,
 				       cc.fullpath[i],
 				       (const char *[]){},
 				       0);

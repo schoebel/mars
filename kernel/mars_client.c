@@ -258,7 +258,7 @@ int _request_connect(struct client_channel *ch, int code, const char *path)
 }
 
 static
-int _request_info(struct client_channel *ch)
+int _request_info(struct client_channel *ch, int *error_code)
 {
 	struct mars_cmd cmd = {
 		.cmd_code = CMD_GETINFO,
@@ -267,13 +267,16 @@ int _request_info(struct client_channel *ch)
 
 	status = mars_send_cmd(&ch->socket, &cmd, false);
 	MARS_DBG("send CMD_GETINFO status = %d\n", status);
+	if (error_code)
+		*error_code = status;
 	return status;
 }
 
 static
 struct client_channel *_get_channel(struct client_bundle *bundle,
 				    int min_channel, int max_channel,
-				    bool keep_idle_sockets)
+				    bool keep_idle_sockets,
+				    int *error_code)
 {
 	struct client_channel *res;
 	long best_space;
@@ -319,6 +322,8 @@ struct client_channel *_get_channel(struct client_bundle *bundle,
 			// only create one new channel at a time
 			status = _setup_channel(bundle, i, keep_idle_sockets);
 			MARS_DBG("setup channel %d status=%d\n", i, status);
+			if (error_code)
+				*error_code = status;
 			if (unlikely(status < 0))
 				continue;
 
@@ -361,6 +366,8 @@ struct client_channel *_get_channel(struct client_bundle *bundle,
 
 		status = _request_connect(res, code, bundle->path);
 		if (unlikely(status < 0)) {
+			if (error_code)
+				*error_code = status;
 			MARS_WRN("connect '%s' @%s on channel %d failed, status = %d\n",
 				 bundle->path,
 				 bundle->host,
@@ -371,7 +378,7 @@ struct client_channel *_get_channel(struct client_bundle *bundle,
 			goto done;
 		}
 		res->is_connected = true;
-		status = _request_info(res);
+		status = _request_info(res, &output->brick->connection_error);
 		if (unlikely(status < 0) || !output) {
 			MARS_WRN("request_info '%s' @%s on channel %d failed, status = %d\n",
 				 bundle->path,
@@ -619,6 +626,7 @@ int receiver_thread(void *data)
 		status = mars_recv_cmd(&ch->socket, &cmd);
 		MARS_IO("got cmd = %d status = %d\n", cmd.cmd_code, status);
 		if (status <= 0) {
+			brick->connection_error = status;
 			if (brick->power.button &&
 			    !mars_socket_is_alive(&ch->socket)) {
 				MARS_DBG("socket is dead\n");
@@ -637,15 +645,18 @@ int receiver_thread(void *data)
 		case CMD_CONNECT:
 		case CMD_CONNECT_LOGGER:
 			output->get_info = true;
-			if (cmd.cmd_int1 < 0) {
-				status = cmd.cmd_int1;
-				MARS_ERR("remote brick connect '%s' @%s failed, remote status = %d\n",
-					 output->bundle.path,
-					 output->bundle.host,
-					 status);
+			brick->protocol_error = cmd.cmd_int1;
+			if (cmd.cmd_int1 >= 0)
+				break;
+			status = cmd.cmd_int1;
+			if (status == -EBUSY)
 				goto done;
-			}
-			break;
+			MARS_INF("0x%x remote '%s' connect @%s failed, status=%d\n",
+				 cmd.cmd_code,
+				 output->bundle.path,
+				 output->bundle.host,
+				 status);
+			goto done;
 		case CMD_CB:
 		{
 			int hash_index = cmd.cmd_int1 % CLIENT_HASH_MAX;
@@ -716,6 +727,7 @@ int receiver_thread(void *data)
 
 			status = mars_recv_struct(&ch->socket, &this_info, mars_info_meta);
 			if (status < 0) {
+				brick->connection_error = status;
 				MARS_WRN("got bad info from remote '%s' @%s, status = %d\n",
 					 output->bundle.path,
 					 output->bundle.host,
@@ -740,6 +752,7 @@ int receiver_thread(void *data)
 		brick_string_free(cmd.cmd_str1);
 		brick_string_free(cmd.cmd_str2);
 		if (unlikely(status < 0)) {
+			brick->connection_error = status;
 			if (!ch->recv_error) {
 				MARS_DBG("signalling recv_error = %d\n", status);
 				ch->recv_error = status;
@@ -936,13 +949,15 @@ static int sender_thread(void *data)
 				old_cork = false;
 				mars_send_raw(&ch->socket, NULL, 0, false);
 			}
-			ch = _get_channel(bundle, 0, 1, brick->keep_idle_sockets);
+			ch = _get_channel(bundle, 0, 1,
+					  brick->keep_idle_sockets,
+					  &brick->connection_error);
 			if (unlikely(!ch)) {
 				do_timeout = true;
 				brick_msleep(100);
 				continue;
 			}
-			status = _request_info(ch);
+			status = _request_info(ch, &brick->connection_error);
 			if (unlikely(status < 0)) {
 				MARS_WRN("cannot send info request '%s' @%s, status = %d\n",
 					 output->bundle.path,
@@ -964,7 +979,9 @@ static int sender_thread(void *data)
 			MARS_DBG("empty %d %d\n", output->get_info, brick_thread_should_stop());
 			do_timeout = true;
 			if (brick->keep_idle_sockets) {
-				ch = _get_channel(bundle, 0, 1, true);
+				ch = _get_channel(bundle, 0, 1,
+						  true,
+						  &brick->connection_error);
 				if (!ch) {
 					output->get_info = true;
 					brick_msleep(100);
@@ -1008,7 +1025,9 @@ static int sender_thread(void *data)
 				old_cork = false;
 				mars_send_raw(&ch->socket, NULL, 0, false);
 			}
-			ch = _get_channel(bundle, min_nr, max_nr, brick->keep_idle_sockets);
+			ch = _get_channel(bundle, min_nr, max_nr,
+					  brick->keep_idle_sockets,
+					  &brick->connection_error);
 			if (unlikely(!ch)) {
 				// notice: this will re-assign hash_head without harm
 				_hash_insert(output, mref_a);
