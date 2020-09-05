@@ -4323,14 +4323,14 @@ my %delete_nrs;
 sub _get_delete_nr {
   my ($basedir, $total) = @_;
   return @{$delete_nrs{$basedir}} if defined($delete_nrs{$basedir});
-  my %any = get_any_peers();
+  _scan_caches() unless %total_peers;
   my $min_nr = 0;
   my $max_nr = 0;
   foreach my $path (lamport_glob("$basedir/deleted-*")) {
     $path =~ m:/deleted-(.+):;
     my $peer = $1;
     next unless $peer;
-    next unless $total || $peer eq $real_host || $any{$peer};
+    next unless $total || $peer eq $real_host || $any_peers{$peer};
     my $link = get_link($path, 1);
     $link =~ m/0*([0-9]+)/;
     $min_nr = $1 if (defined($1) && ($1 < $min_nr || !$min_nr));
@@ -4342,7 +4342,7 @@ sub _get_delete_nr {
     my $nr = $1;
     my $peer = $2;
     next unless $peer;
-    next unless $total || $peer eq $real_host || $any{$peer};
+    next unless $total || $peer eq $real_host || $any_peers{$peer};
     $max_nr = $nr if (defined($nr) && $nr > $max_nr);
   }
   my $nr_links = $max_nr - $min_nr;
