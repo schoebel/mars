@@ -143,6 +143,11 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable105
+	* Minor marsadm regression from mars0.1astable104: race on
+	  _old_ deletions could lead to lost deletions. Workaround
+	  by repeating any affected commands, e.g. leave-resource.
+
 mars0.1astable104
 	* Major fix: marsadm did not obey an abort of certain phased
 	  commands when a single resource argument was given. As a result,
