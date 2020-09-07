@@ -4509,6 +4509,15 @@ int make_log_init(struct mars_dent *dent)
 			brick_string_free(test);
 		}
 	}
+	/* also release on fatal error */
+	if (rot->prosumer_brick &&
+	    rot->prosumer_brick->outputs[0] &&
+	    rot->prosumer_brick->outputs[0]->fatal_error &&
+	    (!rot->if_brick ||
+	     atomic_read(&rot->if_brick->open_count) <= 0)) {
+		MARS_DBG("kill_device due to fatal_error\n");
+		rot->kill_device = true;
+	}
 
 	if (rot->kill_device &&
 	    !rot->if_brick &&
@@ -6764,6 +6773,15 @@ int make_dev(struct mars_dent *dent)
 	dev_brick->killme = true;
 	dev_brick->kill_ptr = (void**)&rot->if_brick;
 	dev_brick->rewire = true;
+	/* allow a new epoch when not opened */
+	if (atomic_read(&rot->if_brick->open_count) <= 0 &&
+	    rot->prosumer_brick &&
+	    rot->prosumer_brick->power.led_off &&
+	    rot->prosumer_brick->outputs[0]) {
+		MARS_DBG("reset epoch '%s'\n", rot->parent_path);
+		memset(&rot->prosumer_brick->outputs[0]->stor_epoch,
+		       0, sizeof(struct lamport_time));
+	}
 
 done:
 	_show_dev(rot);

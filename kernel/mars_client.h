@@ -115,7 +115,9 @@ struct client_output {
 	struct list_head mref_list;
 	struct client_bundle bundle;
 	struct mars_info info;
+	struct lamport_time stor_epoch;
 	int  last_id;
+	bool fatal_error;
 	bool get_info;
 	bool got_info;
 	struct list_head *hash_table;

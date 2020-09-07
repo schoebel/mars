@@ -488,6 +488,9 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 {
 	int maxlen;
 
+	if (output->fatal_error)
+		return -EREMOTEIO;
+
 	if (mref->ref_initialized) {
 		_mref_get(mref);
 		return mref->ref_len;
@@ -552,8 +555,12 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 {
 	struct client_brick *brick = output->brick;
 	struct client_mref_aspect *mref_a;
-	int error = -EINVAL;
+	int error = -EREMOTEIO;
 
+	if (output->fatal_error)
+		goto remote_fatal;
+
+	error = -EINVAL;
 	mref_a = client_mref_get_aspect(brick, mref);
 	if (unlikely(!mref_a))
 		goto fatal;
@@ -591,6 +598,7 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 error:
 	MARS_ERR("IO submission on dead instance\n");
 	error = -ESHUTDOWN;
+ remote_fatal:
 	SIMPLE_CALLBACK(mref, error);
 	return;
 
@@ -607,7 +615,10 @@ int receiver_thread(void *data)
 	int status = 0;
 
 	atomic_inc(&brick->receiver_count);
-        while (brick->power.button && !brick_thread_should_stop()) {
+
+        while (!output->fatal_error &&
+	       brick->power.button &&
+	       !brick_thread_should_stop()) {
 		struct mars_cmd cmd = {};
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a = NULL;
@@ -736,6 +747,22 @@ int receiver_thread(void *data)
 			}
 			mutex_lock(&output->mutex);
 			memcpy(&output->info, &this_info, sizeof(this_info));
+			if (this_info.stor_state.stor_epoch.tv_sec) {
+				if (output->stor_epoch.tv_sec &&
+				    lamport_time_compare(&output->stor_epoch,
+							 &this_info.stor_state.stor_epoch)) {
+					mutex_unlock(&output->mutex);
+					MARS_ERR("stor_epoch mismatch %lld.%09ld != %lld.%09ld\n",
+						 (s64)this_info.stor_state.stor_epoch.tv_sec,
+						 this_info.stor_state.stor_epoch.tv_nsec,
+						 (s64)output->stor_epoch.tv_sec,
+						 output->stor_epoch.tv_nsec);
+					status = -EREMOTEIO;
+					output->fatal_error = true;
+					break;
+				}
+				output->stor_epoch = this_info.stor_state.stor_epoch;
+			}
 			mutex_unlock(&output->mutex);
 			output->got_info = true;
 			break;
@@ -797,7 +824,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 	if (!io_timeout)
 		io_timeout = global_net_io_timeout;
 
-	if (!mars_net_is_alive || !brick->power.button)
+	if (output->fatal_error || !mars_net_is_alive || !brick->power.button)
 		force = true;
 
 	/* logically infinite timeout */
@@ -924,7 +951,9 @@ static int sender_thread(void *data)
 		mars_limit_reset(&client_limiter);
 	atomic_inc(&brick->sender_count);
 
-        while (brick->power.button && !brick_thread_should_stop()) {
+        while (!output->fatal_error &&
+	       brick->power.button &&
+	       !brick_thread_should_stop()) {
 		struct list_head *tmp = NULL;
 		struct client_mref_aspect *mref_a;
 		struct mref_object *mref;
@@ -1170,8 +1199,13 @@ char *client_statistics(struct client_brick *brick, int verbose)
 			socket_count++;
 	}
 	snprintf(res, 1024,
+		 "state = %d "
+		 "conn_err = %d "
+		 "prot_err = %d "
+		 "fatal_error = %d "
 		 "get_info = %d "
 		 "got_info = %d "
+		 "stor_epoch = %lld.%09ld "
 		 "socket_count = %d "
 		 "max_flying = %d "
 		 "io_timeout = %d | "
@@ -1182,8 +1216,14 @@ char *client_statistics(struct client_brick *brick, int verbose)
 		 "timeout_count = %d "
 #endif
 		 "fly_count = %d\n",
+		 brick->connection_state,
+		 brick->connection_error,
+		 brick->protocol_error,
+		 output->fatal_error,
 		 output->get_info,
 		 output->got_info,
+		 (s64)output->stor_epoch.tv_sec,
+		 output->stor_epoch.tv_nsec,
 		 socket_count,
 		 brick->max_flying,
 		 brick->power.io_timeout,
