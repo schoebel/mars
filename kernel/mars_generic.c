@@ -121,6 +121,7 @@ EXPORT_SYMBOL_GPL(mref_type);
 // meta descriptions
 
 const struct meta stor_state_meta[] = {
+	META_INI_SUB(stor_epoch, struct stor_state, mars_lamport_time_meta),
 	META_INI_SUB(stor_stamp, struct stor_state, mars_lamport_time_meta),
 	META_INI(stor_id,        struct stor_state, FIELD_UINT),
 	META_INI(stor_hash,      struct stor_state, FIELD_UINT),

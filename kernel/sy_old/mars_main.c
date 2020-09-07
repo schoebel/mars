@@ -1961,7 +1961,9 @@ void _show_info(const char *parent_path,
 	if (status < 0)
 		return;
 
-	val = path_make("0x%016llx,0x%016llx,%d",
+	val = path_make("%lld.%09ld,0x%016llx,0x%016llx,%d",
+			(s64)info.stor_state.stor_epoch.tv_sec,
+			info.stor_state.stor_epoch.tv_nsec,
 			info.stor_state.stor_id,
 			info.stor_state.stor_hash,
 			info.stor_state.stor_dirty);

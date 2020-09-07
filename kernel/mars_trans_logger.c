@@ -650,7 +650,7 @@ int trans_logger_get_info(struct trans_logger_output *output, struct mars_info *
 	status = GENERIC_INPUT_CALL(input, mars_get_info, info);
 	if (status < 0)
 		goto done;
-
+	sst->stor_epoch = brick->logger_epoch;
 	if (!brick->log_input_nr) {
 		sst->stor_dirty = true;
 		goto done;

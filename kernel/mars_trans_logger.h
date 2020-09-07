@@ -179,6 +179,7 @@ struct trans_logger_hash_anchor;
 struct trans_logger_brick {
 	MARS_BRICK(trans_logger);
 	// parameters
+	struct lamport_time logger_epoch;
 	struct mars_limiter *replay_limiter;
 	int shadow_mem_limit; // max # master shadows
 	bool replay_mode;   // mode of operation

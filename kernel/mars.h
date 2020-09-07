@@ -283,6 +283,7 @@ struct mref_object {
  * currently flying IO requests etc).
  */
 struct stor_state {
+	struct lamport_time stor_epoch;
 	struct lamport_time stor_stamp;
 	__u64               stor_id;
 	__u64               stor_hash;
