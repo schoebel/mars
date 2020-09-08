@@ -33,6 +33,9 @@
 #include <linux/wait.h>
 #include <linux/file.h>
 
+/* needed for symlink checking */
+#include "sy_old/strategy.h"
+
 // time to wait between background mapfree operations
 int mapfree_period_sec = 10;
 EXPORT_SYMBOL_GPL(mapfree_period_sec);
@@ -183,6 +186,16 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 			MARS_ERR("no mem, name = '%s'\n", name);
 			brick_mem_free(mf);
 			continue;
+		}
+
+		/* allow replacement of a .deleted symlink */
+		if (flags & O_CREAT) {
+			const char *check = ordered_readlink(name, NULL);
+
+			if (check && !*check)
+				mars_unlink(name);
+
+			brick_string_free(check);
 		}
 
 		mf->mf_flags = flags;
