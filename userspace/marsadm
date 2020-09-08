@@ -228,6 +228,7 @@ my $real_host = $host;
 my $backup_dir = "$mars/backups-" . time();
 my $force = 0;
 my $ignore_sync = 0;
+my $ignore_umount = 0;
 my $multi_prosumer = 0;
 my $cron_mode = 0;
 my $timeout = 600;
@@ -6318,7 +6319,7 @@ sub detach_phase0 {
     if ($device_in_use) {
       my $dev = device_name($res, $peer);
       lwarn "Device '$dev' is in use at prosumer '$peer'\n";
-      $errors++;
+      $errors++ unless $ignore_umount;
     }
   }
   if ($errors && !$force) {
@@ -6338,7 +6339,7 @@ sub detach_phase0b {
     my $dev = device_name($res, $peer);
     if ($device_in_use) {
       lprint "Device '$dev' is in use at peer '$peer'\n";
-      $count++;
+      $count++ unless $ignore_umount;
     } else {
       lprint "Device '$dev' is not in use at peer '$peer'\n";
     }
@@ -6688,8 +6689,19 @@ sub primary_phase0 {
        todo_local(@_))) {
     my $dev = device_name($res, $old);
     lwarn "device '$dev' for resource '$res' is $device_in_use times in use on primary host '$old'\n";
-    ldie "first you must umount/close the device (on host '$old')\n" unless $force;
-    lwarn "First you SHOULD umount/close the device (on host '$old'), but you ignore this recommendation by giving the --force option.\n";
+    if (!$force && !$ignore_umount) {
+      ldie "first you must umount/close the device '$dev' (on host '$old')\n";
+    }
+    my $lnk_kill = "$mars/resource-$res/todo-$old/kill-device";
+    my $val_kill = get_link($lnk_kill, 1);
+    my $lnk_mask = "$mars/resource-$res/actual-$old/gate-mask";
+    my $val_mask = get_link($lnk_mask, 1);
+    if ($val_kill || $val_mask < 0) {
+      lwarn "device '$dev' (on host '$old') is in SHUTDOWN mode\n";
+      ldie "you must umount/close the dead device '$dev' (on host '$old')\n";
+    }
+    lwarn "First you SHOULD umount/close the device (on host '$old').\n";
+    lwarn "Continuing upon --force or --ignore-umount option.\n";
     if (is_link_recent($open_count_path)) {
       lwarn "You are forcing a SPLIT BRAIN via --force right now. Do you know that this is an ERRONEOUS state? Do you really know what you are doing?\n";
     } else {
@@ -6918,7 +6930,7 @@ sub primary_phase1b {
       # This can happen during incidents.
       if (!defined($status) || !$status) {
 	lprint "Gate at '$peer' is not active.\n";
-	if (!$gate_set{$peer}) {
+	if ($ignore_umount || !$gate_set{$peer}) {
 	  lprint "Ignoring inactive gate at '$peer'.\n";
 	  next;
 	}
@@ -6935,20 +6947,21 @@ sub primary_phase1b {
       if (!defined($status) || $status eq "") {
 	lwarn "Gate at '$peer' does not respond.\n";
 	delete $gate_stamps{$res};
-	return 1;
+	return 1 unless $ignore_umount;
       }
       # remove leading 0
       $status =~ s/^0x0*(.)/0x$1/;
       lprint "Gate at '$peer' is '$status'\n";
       if ($status ne $gate_code) {
 	delete $gate_stamps{$res};
-	return 1;
+	return 1 unless $ignore_umount;
       }
       # Get timestamp of lastly closed gate
       if (!defined($gate_stamps{$res})) {
 	my $stamp = get_link_stamp($lnk);
 	$this_stamp = $stamp if $stamp > $this_stamp;
       }
+      next if $ignore_umount;
       lprint "Gate at '$peer' is closed.\n";
     }
     # Check logger states
@@ -7055,17 +7068,17 @@ sub primary_phase3b {
       $val = get_link($lnk, 1);
       if (!$val) {
 	lprint "Prosumer handover not yet prepared at '$peer'\n";
-	return 1;
+	return 1 unless $ignore_umount;
       }
       $lnk = "$mars/resource-$res/actual-$peer/new-prosumer-peer-path";
       $val = get_link($lnk, 1);
-      return 1 unless $val;
+      return 1 if (!$val && !$ignore_umount);
       $val =~ m/@(.+?)(?:$|:)/;
       $connected = $1;
       lprint "Prosumer handover preparation at '$peer' is connected with '$connected'\n";
       unless ($connected eq $primary) {
 	lprint "Waiting for handover prepare at '$peer'\n";
-	return 1;
+	return 1 unless $ignore_umount;
       }
       lprint "OK handover prepared at '$peer'\n";
     }
@@ -7108,20 +7121,20 @@ sub primary_phase3d {
     $val = get_link($lnk, 1);
     if ($val) {
       lprint "Prosumer handover not yet finished at '$peer'\n";
-      return 1;
+      return 1 unless $ignore_umount;
     }
     $lnk = "$mars/resource-$res/actual-$peer/prosumer-peer-path";
     $val = get_link($lnk, 1);
     unless ($val) {
       lwarn "UNEXPECTED: host '$peer' suddenly reports no peer path anymore.\n";
-      return 1;
+      return 1 unless $ignore_umount;
     }
     $val =~ m/@(.+?)(?:$|:)/;
     my $connected = $1;
     lprint "Prosumer at '$peer' is connected with '$connected'\n";
     if ($connected ne $new) {
       lwarn "UNEXPECTED: host '$peer' is connected with '$connected' instead of '$new'.\n";
-      return 1;
+      return 1 unless $ignore_umount;
     }
     lprint "Prosumer handover finished at '$peer'\n";
   }
@@ -7381,6 +7394,8 @@ sub prosumer_phase0 {
     }
   }
   if ($ensure_umount) {
+    my $max_restart = 3;
+  restart:
     # disallow additions during split brain
     if ($old_prosumers &&
 	nr_prosumers_opened($cmd, $res, "", $old_prosumers) &&
@@ -7400,7 +7415,15 @@ sub prosumer_phase0 {
     # BUT disallow when mounted _remotely_.
     my $mounted = nr_prosumers_opened($cmd, $res, $old_prosumers, $new_prosumers);
     if ($mounted) {
-      ldie "Cannot switch $cmd: device is in use at $mounted peers\n" unless $force;
+      if (!$force && !$ignore_umount) {
+	lwarn "device is in use at $mounted peers\n";
+	if ($max_restart-- > 0) {
+	  wait_cluster_noforce($cmd, $res);
+	  goto restart;
+	}
+	ldie "Cannot switch $cmd: device is in use at $mounted peers\n";
+      }
+      ldie "Cannot switch $cmd: device is in use at $mounted peers\n" if (!$force && !$ignore_umount);
       lwarn "TRYING to FORECFULLY switch $cmd: device is in use at $mounted peers\n";
     }
   }
@@ -7415,7 +7438,7 @@ sub prosumer_phase1 {
   _reset_gate(@_);
   _reset_new_primary(@_);
   # when necessary, wait for systemd
-  if ($pros_umount{$res} && !$force) {
+  if ($pros_umount{$res} && !$force && !$ignore_umount) {
     my $old_prosumers = $pros_old{$res};
     my $mounted = nr_prosumers_opened($cmd, $res, $old_prosumers, $new_prosumers);
     if ($mounted) {
@@ -7475,7 +7498,7 @@ sub _check_prosumers_vanished {
     my $val = device_exists($res, $peer);
     if ($val) {
       lprint "Device at '$peer' has not vanished.\n";
-      $errors++;
+      $errors++ unless $ignore_umount;
     }
   }
   if ($errors) {
@@ -7492,7 +7515,15 @@ sub prosumer_phase2 {
   my ($cmd, $res) = @_;
   my $minus_prosumers = $pros_vanish{$res};
   return 0 unless $minus_prosumers;
+  # --ignore-umount does not kill, but just ignore
+  return 0 if $ignore_umount;
   if ($force) {
+    # only kill the old prosumer when competing for the _same_ storage
+    if ($cmd =~ m/^primary/) {
+      my $old = $pri_old{$res};
+      my $new = $pri_new{$res};
+      return 0 unless ($old && $new && $new eq $old);
+    }
     lwarn "killing the vanishing prosumers '$minus_prosumers' due to --force\n";
     foreach my $peer (split("\\+", $minus_prosumers)) {
       lprint "Killing prosumer at '$peer'\n";
@@ -7505,6 +7536,7 @@ sub prosumer_phase2 {
     _trigger(3);
     return 0;
   }
+  return 0 if $multi_prosumer;
   return _check_prosumers_vanished($cmd, $res, $minus_prosumers);
 }
 
@@ -7574,7 +7606,7 @@ sub prosumer_phase6 {
     lprint "Device '$dev' has not yet appeared at '$peer'\n";
     $fail++;
   }
-  if (!$fail && systemd_present($cmd, $res)) {
+  if (!$fail && !$ignore_umount && systemd_present($cmd, $res)) {
     my $want_path = "$mars/resource-$res/systemd-want";
     my $want = get_link($want_path, 1);
     if ($want && $want !~ m/^\(/) {
@@ -11657,6 +11689,9 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg eq "--ignore-sync") {
     $ignore_sync++;
+    next;
+  } elsif ($arg eq "--ignore-umount") {
+    $ignore_umount++;
     next;
   } elsif ($arg eq "--multi-prosumer") {
     lwarn "EXPERIMENTAL option --multi-prosumer DO NOT USE FOR PRODUCTION!";
