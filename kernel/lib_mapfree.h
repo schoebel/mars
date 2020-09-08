@@ -68,11 +68,13 @@ struct mapfree_info {
 	int              mf_flags;
 	int              mf_mode;
 	atomic_t         mf_count;
+	/* private */
 	struct rw_semaphore mf_mutex;
 	loff_t           mf_min[2];
 	loff_t           mf_last;
 	loff_t           mf_max;
 	long long        mf_jiffies;
+	unsigned int     mf_hash;
 	struct dirty_length mf_length[DIRTY_MAX];
 };
 

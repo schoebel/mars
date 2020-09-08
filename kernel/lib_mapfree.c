@@ -44,11 +44,32 @@ EXPORT_SYMBOL_GPL(mapfree_period_sec);
 int mapfree_grace_keep_mb = 16;
 EXPORT_SYMBOL_GPL(mapfree_grace_keep_mb);
 
-static
-DECLARE_RWSEM(mapfree_mutex);
+struct mf_hash_anchor {
+	struct rw_semaphore hash_mutex;
+	struct list_head    hash_anchor;
+	struct task_struct *hash_thread;
+};
+
+#define MAPFREE_HASH 16
+
+static inline
+unsigned int mf_hash(const char *name)
+{
+	unsigned char digest[MARS_DIGEST_SIZE] = {};
+	unsigned int res = 0;
+
+	mars_digest(MREF_CHKSUM_CRC32C | MREF_CHKSUM_MD5_OLD,
+		    NULL,
+		    digest,
+		    name, strlen(name));
+
+	res = *(unsigned int *)&digest % MAPFREE_HASH;
+
+	return res;
+}
 
 static
-LIST_HEAD(mapfree_list);
+struct mf_hash_anchor mf_table[MAPFREE_HASH];
 
 void mapfree_pages(struct mapfree_info *mf, int grace_keep)
 {
@@ -124,10 +145,10 @@ void _mapfree_put(struct mapfree_info *mf)
 
 void mapfree_put(struct mapfree_info *mf)
 {
-	if (likely(mf)) {
-		down_write(&mapfree_mutex);
+	if (likely(mf && mf->mf_hash < MAPFREE_HASH)) {
+		down_write(&mf_table[mf->mf_hash].hash_mutex);
 		_mapfree_put(mf);
-		up_write(&mapfree_mutex);
+		up_write(&mf_table[mf->mf_hash].hash_mutex);
 	}
 }
 EXPORT_SYMBOL_GPL(mapfree_put);
@@ -136,10 +157,13 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 {
 	struct mapfree_info *mf = NULL;
 	struct list_head *tmp;
+	unsigned int hash = mf_hash(name);
 
 	if (!(flags & O_DIRECT)) {
-		down_read(&mapfree_mutex);
-		for (tmp = mapfree_list.next; tmp != &mapfree_list; tmp = tmp->next) {
+		down_read(&mf_table[hash].hash_mutex);
+		for (tmp = mf_table[hash].hash_anchor.next;
+		     tmp != &mf_table[hash].hash_anchor;
+		     tmp = tmp->next) {
 			struct mapfree_info *_mf = container_of(tmp, struct mapfree_info, mf_head);
 			if (_mf->mf_flags == flags && !strcmp(_mf->mf_name, name)) {
 				mf = _mf;
@@ -147,7 +171,7 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 				break;
 			}
 		}
-		up_read(&mapfree_mutex);
+		up_read(&mf_table[hash].hash_mutex);
 	
 		if (mf) {
 			struct inode *inode = mf->mf_filp->f_mapping->host;
@@ -181,6 +205,7 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 			continue;
 		}
 
+		mf->mf_hash = hash;
 		mf->mf_name = brick_strdup(name);
 		if (unlikely(!mf->mf_name)) {
 			MARS_ERR("no mem, name = '%s'\n", name);
@@ -257,8 +282,10 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 		}
 
 		// maintain global list of all open files
-		down_write(&mapfree_mutex);
-		for (tmp = mapfree_list.next; tmp != &mapfree_list; tmp = tmp->next) {
+		down_write(&mf_table[hash].hash_mutex);
+		for (tmp = mf_table[hash].hash_anchor.next;
+		     tmp != &mf_table[hash].hash_anchor;
+		     tmp = tmp->next) {
 			struct mapfree_info *_mf = container_of(tmp, struct mapfree_info, mf_head);
 			if (unlikely(_mf->mf_flags == flags && !strcmp(_mf->mf_name, name))) {
 				MARS_WRN("race on creation of '%s' detected\n", name);
@@ -268,9 +295,9 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 				goto leave;
 			}
 		}
-		list_add_tail(&mf->mf_head, &mapfree_list);
+		list_add_tail(&mf->mf_head, &mf_table[hash].hash_anchor);
 	leave:
-		up_write(&mapfree_mutex);
+		up_write(&mf_table[hash].hash_mutex);
 		break;
 	}
  done:
@@ -280,13 +307,15 @@ EXPORT_SYMBOL_GPL(mapfree_get);
 
 void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max)
 {
-	if (likely(mf)) {
-		down_write(&mf->mf_mutex);
+	if (likely(mf && mf->mf_hash < MAPFREE_HASH)) {
+		struct mf_hash_anchor *mha = &mf_table[mf->mf_hash];
+
+		down_write(&mha->hash_mutex);
 		if (!mf->mf_min[0] || mf->mf_min[0] > min)
 			mf->mf_min[0] = min;
 		if (max >= 0 && mf->mf_max < max)
 			mf->mf_max = max;
-		up_write(&mf->mf_mutex);
+		up_write(&mha->hash_mutex);
 	}
 }
 EXPORT_SYMBOL_GPL(mapfree_set);
@@ -294,6 +323,8 @@ EXPORT_SYMBOL_GPL(mapfree_set);
 static
 int mapfree_thread(void *data)
 {
+	struct mf_hash_anchor *mha = data;
+
 	while (!brick_thread_should_stop()) {
 		struct mapfree_info *mf = NULL;
 		struct list_head *tmp;
@@ -304,9 +335,11 @@ int mapfree_thread(void *data)
 		if (mapfree_period_sec <= 0)
 			continue;
 		
-		down_read(&mapfree_mutex);
+		down_read(&mha->hash_mutex);
 
-		for (tmp = mapfree_list.next; tmp != &mapfree_list; tmp = tmp->next) {
+		for (tmp = mha->hash_anchor.next;
+		     tmp != &mha->hash_anchor;
+		     tmp = tmp->next) {
 			struct mapfree_info *_mf = container_of(tmp, struct mapfree_info, mf_head);
 			if (unlikely(!_mf->mf_jiffies)) {
 				_mf->mf_jiffies = jiffies;
@@ -321,7 +354,7 @@ int mapfree_thread(void *data)
 		if (mf)
 			atomic_inc(&mf->mf_count);
 
-		up_read(&mapfree_mutex);
+		up_read(&mha->hash_mutex);
 
 		if (!mf) {
 			continue;
@@ -398,43 +431,59 @@ loff_t mf_dirty_length(struct mapfree_info *mf, enum dirty_stage stage)
 
 loff_t mf_get_any_dirty(const char *filename, int stage)
 {
+	unsigned int hash = mf_hash(filename);
 	loff_t res = -1;
 	struct list_head *tmp;
 
-	down_read(&mapfree_mutex);
-	for (tmp = mapfree_list.next; tmp != &mapfree_list; tmp = tmp->next) {
+	down_read(&mf_table[hash].hash_mutex);
+	for (tmp = mf_table[hash].hash_anchor.next;
+	     tmp != &mf_table[hash].hash_anchor;
+	     tmp = tmp->next) {
 		struct mapfree_info *mf = container_of(tmp, struct mapfree_info, mf_head);
 		if (!strcmp(mf->mf_name, filename)) {
 			res = mf_dirty_length(mf, stage);
 			break;
 		}
 	}
-	up_read(&mapfree_mutex);
+	up_read(&mf_table[hash].hash_mutex);
 	return res;
 }
 EXPORT_SYMBOL_GPL(mf_get_any_dirty);
 
 ////////////////// module init stuff /////////////////////////
 
-static
-struct task_struct *mf_thread = NULL;
-
 int __init init_mars_mapfree(void)
 {
+	int i;
+
 	MARS_DBG("init_mapfree()\n");
-	mf_thread = brick_thread_create(mapfree_thread, NULL, "mars_mapfree");
-	if (unlikely(!mf_thread)) {
-		MARS_ERR("could not create mapfree thread\n");
-		return -ENOMEM;
+	for (i = 0; i < MAPFREE_HASH; i++) {
+		struct task_struct *thread;
+
+		init_rwsem(&mf_table[i].hash_mutex);
+		INIT_LIST_HEAD(&mf_table[i].hash_anchor);
+		thread = brick_thread_create(mapfree_thread,
+					     &mf_table[i],
+					     "mars_mf%d", i);
+		if (unlikely(!thread)) {
+			MARS_ERR("could not create mapfree thread %d\n", i);
+			return -ENOMEM;
+		}
+		mf_table[i].hash_thread = thread;
 	}
 	return 0;
 }
 
 void exit_mars_mapfree(void)
 {
+	int i;
+
 	MARS_DBG("exit_mapfree()\n");
-	if (likely(mf_thread)) {
-		brick_thread_stop(mf_thread);
-		mf_thread = NULL;
+	for (i = 0; i < MAPFREE_HASH; i++) {
+		if (likely(mf_table[i].hash_thread)) {
+			brick_thread_stop(mf_table[i].hash_thread);
+			mf_table[i].hash_thread = NULL;
+		}
+		CHECK_HEAD_EMPTY(&mf_table[i].hash_anchor);
 	}
 }
