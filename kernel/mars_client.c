@@ -878,7 +878,6 @@ static int sender_thread(void *data)
 			ch = _get_channel(bundle, 0, 1);
 			if (unlikely(!ch)) {
 				do_timeout = true;
-				output->get_info = true;
 				brick_msleep(100);
 				continue;
 			}
@@ -889,7 +888,6 @@ static int sender_thread(void *data)
 					 output->bundle.host,
 					 status);
 				do_timeout = true;
-				output->get_info = true;
 				brick_msleep(100);
 				continue;
 			}
@@ -934,7 +932,6 @@ static int sender_thread(void *data)
 		if (!ch || ch->recv_error ||
 		    !mars_socket_is_alive(&ch->socket)) {
 			do_timeout = true;
-			output->get_info = true;
 		}
 		if (do_timeout || ch->ch_nr >= max_nr || --ch_skip < 0) {
 			if (ch && old_cork) {
@@ -947,7 +944,6 @@ static int sender_thread(void *data)
 				// notice: this will re-assign hash_head without harm
 				_hash_insert(output, mref_a);
 				do_timeout = true;
-				output->get_info = true;
 				brick_msleep(100);
 				continue;
 			}
@@ -970,7 +966,6 @@ static int sender_thread(void *data)
 		if (unlikely(status < 0)) {
 			_hash_insert(output, mref_a);
 			do_timeout = true;
-			output->get_info = true;
 			ch = NULL;
 			// retry submission on next occasion..
 			MARS_WRN("mref send '%s' @%s failed, status = %d\n",
