@@ -219,6 +219,33 @@ void _maintain_bundle(struct client_bundle *bundle)
 }
 
 static
+int _request_connect(struct client_channel *ch, const char *path)
+{
+	struct mars_cmd cmd = {
+		.cmd_code = CMD_CONNECT,
+		.cmd_str1 = path,
+	};
+	int status;
+
+	status = mars_send_cmd(&ch->socket, &cmd, false);
+	MARS_DBG("send CMD_CONNECT status = %d\n", status);
+	return status;
+}
+
+static
+int _request_info(struct client_channel *ch)
+{
+	struct mars_cmd cmd = {
+		.cmd_code = CMD_GETINFO,
+	};
+	int status;
+
+	status = mars_send_cmd(&ch->socket, &cmd, false);
+	MARS_DBG("send CMD_GETINFO status = %d\n", status);
+	return status;
+}
+
+static
 struct client_channel *_get_channel(struct client_bundle *bundle, int min_channel, int max_channel)
 {
 	struct client_channel *res;
@@ -295,12 +322,9 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 
 	// send initial connect command
 	if (unlikely(!res->is_connected)) {
-		struct mars_cmd cmd = {
-			.cmd_code = CMD_CONNECT,
-			.cmd_str1 = bundle->path,
-		};
-		int status = mars_send_cmd(&res->socket, &cmd, false);
-		MARS_DBG("send CMD_CONNECT status = %d\n", status);
+		int status;
+
+		status = _request_connect(res, bundle->path);
 		if (unlikely(status < 0)) {
 			MARS_WRN("connect '%s' @%s on channel %d failed, status = %d\n",
 				 bundle->path,
@@ -319,23 +343,6 @@ found:
 
  done:
 	return res;
-}
-
-static
-int _request_info(struct client_channel *ch)
-{
-	struct mars_cmd cmd = {
-		.cmd_code = CMD_GETINFO,
-	};
-	int status;
-	
-	MARS_DBG("\n");
-	status = mars_send_cmd(&ch->socket, &cmd, false);
-	MARS_DBG("send CMD_GETINFO status = %d\n", status);
-	if (unlikely(status < 0)) {
-		MARS_DBG("send of getinfo failed, status = %d\n", status);
-	}
-	return status;
 }
 
 static int sender_thread(void *data);

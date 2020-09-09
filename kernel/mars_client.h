@@ -100,9 +100,9 @@ struct client_output {
 	MARS_OUTPUT(client);
 	struct mutex mutex;
 	struct list_head mref_list;
-	int  last_id;
 	struct client_bundle bundle;
 	struct mars_info info;
+	int  last_id;
 	bool get_info;
 	bool got_info;
 	struct list_head *hash_table;
