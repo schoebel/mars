@@ -320,8 +320,12 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 		goto done;
 	}
 
-	// send initial connect command
+	/* Send initial connect command.
+	 * We speculate for success, and also request the
+	 * first info structure.
+	 */
 	if (unlikely(!res->is_connected)) {
+		struct client_output *output = res->output;
 		int status;
 
 		status = _request_connect(res, bundle->path);
@@ -336,6 +340,17 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 			goto done;
 		}
 		res->is_connected = true;
+		status = _request_info(res);
+		if (unlikely(status < 0) || !output) {
+			MARS_WRN("request_info '%s' @%s on channel %d failed, status = %d\n",
+				 bundle->path,
+				 bundle->host,
+				 best_channel,
+				 status);
+			_kill_channel(res);
+			res = NULL;
+			goto done;
+		}
 	}
 
 found:
