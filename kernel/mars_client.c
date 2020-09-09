@@ -663,7 +663,10 @@ int receiver_thread(void *data)
 			break;
 		}
 		case CMD_GETINFO:
-			status = mars_recv_struct(&ch->socket, &output->info, mars_info_meta);
+		{
+			struct mars_info this_info = {};
+
+			status = mars_recv_struct(&ch->socket, &this_info, mars_info_meta);
 			if (status < 0) {
 				MARS_WRN("got bad info from remote '%s' @%s, status = %d\n",
 					 output->bundle.path,
@@ -671,8 +674,12 @@ int receiver_thread(void *data)
 					 status);
 				goto done;
 			}
+			mutex_lock(&output->mutex);
+			memcpy(&output->info, &this_info, sizeof(this_info));
+			mutex_unlock(&output->mutex);
 			output->got_info = true;
 			break;
+		}
 		default:
 			MARS_ERR("got bad command %d from remote '%s' @%s, terminating.\n",
 				 cmd.cmd_code,
