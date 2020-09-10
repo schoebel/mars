@@ -143,6 +143,16 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable106
+	* Major regression from mars0.1astable97: marsadm primitive
+	  disk-present erronously reported the disk name in place of
+	  boolean value 0 or 1.
+	* Minor fix for new deletions (beta):
+	  invalidate / re- join-resource were sometimes hanging
+	  in Orphan due to a conflict with the new deletions.
+	* Minor improvements: somewhat more improved scalability both
+	  in #resources and in #hosts.
+
 mars0.1astable105
 	* Minor marsadm regression from mars0.1astable104: race on
 	  _old_ deletions could lead to lost deletions. Workaround
