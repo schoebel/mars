@@ -6080,6 +6080,11 @@ sub eval_fn {
       my $lnk = $$env{"resdir"} . "/data-" . $$env{"host"};
       my $result = get_link($lnk, 1);
       $result = "" unless defined($result);
+      if ($result) {
+	# TODO: make this remotely retrievable via status link
+	$result = -b $result;
+	$result = "0" unless defined($result);
+      }
       return $result;
     }
     if (/^device[-_]?present$/) {
