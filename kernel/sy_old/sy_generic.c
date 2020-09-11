@@ -1501,6 +1501,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	bool use_channel = false;
 
 	cookie->hit = true;
+	cookie->global->nr_readitem++;
 
 	if (!name || !*name || name[0] == '.') {
 		return 0;
@@ -1754,6 +1755,7 @@ void _mars_order_all(struct mars_cookie *cookie)
 		    true) {
 			get_inode(dent->d_path, dent, true);
 			dent->d_unordered = true;
+			cookie->global->nr_unordered++;
 			/* time-* must be the very last items */
 			if (strncmp(dent->d_name, "time-", 5))
 				list_add(&dent->dent_link, &later_anchor);
@@ -1776,6 +1778,7 @@ void _mars_order_all(struct mars_cookie *cookie)
 			}
 			brick_string_free(check);
 		}
+		cookie->global->nr_ordered++;
 		get_inode(dent->d_path, dent, true);
 		_mars_order(cookie, dent);
 	}
@@ -1827,6 +1830,8 @@ static int _mars_readdir(struct mars_cookie *cookie)
 	if ((mapping = f->f_mapping)) {
 		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 	}
+
+	cookie->global->nr_readdir++;
 
 	for (;;) {
 //      remove_this
@@ -1971,6 +1976,10 @@ int _op_scan(struct say_channel **say_channel,
 					dent->d_subtree = alloc_mars_global();
 				}
 				sub_cookie.global = dent->d_subtree;
+				sub_cookie.global->nr_readdir = 0;
+				sub_cookie.global->nr_readitem = 0;
+				sub_cookie.global->nr_ordered = 0;
+				sub_cookie.global->nr_unordered = 0;
 			}
 			*found_dir = true;
 			status = _mars_readdir(&sub_cookie);
@@ -2160,6 +2169,11 @@ int mars_get_dent_list(struct mars_global *global,
 
 	down_write(&global->dent_mutex);
 
+	global->nr_readdir = 0;
+	global->nr_readitem = 0;
+	global->nr_ordered = 0;
+	global->nr_unordered = 0;
+
 	total_status = _mars_readdir(&cookie);
 
 	total_status =
@@ -2224,6 +2238,11 @@ int mars_dent_work(struct mars_global *global,
 	}
 
 	down_write(&global->dent_mutex);
+
+	global->nr_readdir = 0;
+	global->nr_readitem = 0;
+	global->nr_ordered = 0;
+	global->nr_unordered = 0;
 
 restart:
 	MARS_IO("at restart\n");
@@ -3378,6 +3397,11 @@ void _show_dent_list(struct mars_global *global, int *count)
 		}
 	}
 	MARS_STAT("flat_count=%d sub_count=%d\n", flat_count, sub_count);
+	MARS_STAT("nr_readdir=%d nr_readitem=%d nr_ordered=%d nr_unordered=%d\n",
+		  global->nr_readdir,
+		  global->nr_readitem,
+		  global->nr_ordered,
+		  global->nr_unordered);
 	up_read(&global->dent_mutex);
 }
 

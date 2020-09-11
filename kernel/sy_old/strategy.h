@@ -140,6 +140,11 @@ struct mars_global {
 	int deleted_border;
 	int deleted_min;
 	int trigger_mode;
+	/* statistics */
+	int nr_readdir;
+	int nr_readitem;
+	int nr_ordered;
+	int nr_unordered;
 	bool main_trigger;
 	struct list_head *dent_hash_table[MARS_GLOBAL_HASH_BASE];
 };
