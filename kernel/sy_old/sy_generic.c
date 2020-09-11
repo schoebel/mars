@@ -3348,6 +3348,8 @@ static
 void _show_dent_list(struct mars_global *global, int *count)
 {
 	struct list_head *tmp;
+	int flat_count = 0;
+	int sub_count = 0;
 
 	down_read(&global->dent_mutex);
 	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
@@ -3368,9 +3370,14 @@ void _show_dent_list(struct mars_global *global, int *count)
 			test = container_of(sub, struct mars_brick, dent_brick_link);
 			MARS_STAT("  owner of brick '%s'\n", SAFE_STR(test->brick_path));
 		}
-		if (dent->d_subtree)
+		if (dent->d_subtree) {
 			_show_dent_list(dent->d_subtree, count);
+			sub_count++;
+		} else {
+			flat_count++;
+		}
 	}
+	MARS_STAT("flat_count=%d sub_count=%d\n", flat_count, sub_count);
 	up_read(&global->dent_mutex);
 }
 
