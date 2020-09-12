@@ -4235,6 +4235,7 @@ int _make_logging_status(struct mars_rotate *rot)
 		goto done;
 
 	status = -EINVAL;
+	CHECK_PTR(dent, done);
 	parent = dent->d_parent;
 	if (!parent)
 		goto done;
