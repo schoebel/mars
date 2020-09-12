@@ -1565,14 +1565,20 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 static
 void _reconnect_dent(struct mars_cookie *cookie, struct mars_dent *dent)
 {
+	CHECK_PTR(dent, fatal);
 	if (dent->d_parent == cookie->parent)
 		return;
 
-	if (dent->d_parent)
+	if (dent->d_parent) {
+		CHECK_PTR(dent->d_parent, fatal);
 		dent->d_parent->d_child_count--;
+	}
 	dent->d_parent = cookie->parent;
-	if (dent->d_parent)
+	if (dent->d_parent) {
+		CHECK_PTR(cookie->parent, fatal);
 		dent->d_parent->d_child_count++;
+	}
+ fatal: ;
 }
 
 #define _HASH_ANCHOR(global,index)					\
@@ -1593,6 +1599,7 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 	struct list_head *hash_prev;
 	struct list_head *tmp;
 
+	CHECK_PTR(dent, fatal);
 	/* Fuzzy hashing algorithm.
 	 * Although based on external hashing, it produces an additional
 	 * sorted list and allows for neighbour search.
@@ -1601,7 +1608,9 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 	 * (sorry, much is in German, produced in the 1990s)
 	 */
 	sorted_anchor = &global->dent_anchor;
+	CHECK_PTR(sorted_anchor, fatal);
 	hash_anchor = _HASH_ANCHOR(global, dent->d_hash);
+	CHECK_PTR(hash_anchor, fatal);
 
 	sorted_prev = sorted_anchor;
 	tmp = sorted_anchor->next;
@@ -1609,6 +1618,8 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 	for (hash_try = hash_anchor->next; hash_try != hash_anchor; hash_try = hash_try->next) {
 		struct mars_dent *hash_test = container_of(hash_try, struct mars_dent, dent_hash_link);
 		int cmp;
+
+		CHECK_PTR(hash_test, fatal);
 
 		if (hash_test->d_unordered)
 			break;
@@ -1630,11 +1641,14 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 
 		tmp = &hash_test->dent_link;
 		sorted_prev = tmp->prev;
+		CHECK_PTR(sorted_prev, fatal);
 	}
 
 	while (tmp != sorted_anchor) {
 		struct mars_dent *test = container_of(tmp, struct mars_dent, dent_link);
 		int cmp;
+
+		CHECK_PTR(test, fatal);
 
 		if (test->d_unordered)
 			break;
@@ -1662,7 +1676,9 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 #endif
 
 			hash_try_anchor =  _HASH_ANCHOR(global, hash_try_index);
+			CHECK_PTR(hash_try_anchor, fatal);
 			hash_try = test->dent_hash_link.next;
+			CHECK_PTR(hash_try, fatal);
 			if (hash_try == hash_try_anchor ||
 			    hash_try == tmp->next ||
 			    hash_try == &test->dent_hash_link)
@@ -1671,6 +1687,7 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 			test = container_of(hash_try,
 					    struct mars_dent,
 					    dent_hash_link);
+			CHECK_PTR(test, fatal);
 			if (test->d_unordered)
 				break;
 #ifdef CONFIG_MARS_DEBUG
@@ -1689,9 +1706,11 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 			if (cmp >= 0)
 				break;
 			tmp = &test->dent_link;
+			CHECK_PTR(tmp, fatal);
 		}
 		sorted_prev = tmp;
 		tmp = tmp->next;
+		CHECK_PTR(tmp, fatal);
 	}
 
 	/* not found: finish dent and insert into data stuctures */
@@ -1702,8 +1721,10 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 	hash_prev = hash_anchor;
 	for (tmp = hash_anchor->next; tmp != hash_anchor; tmp = tmp->next) {
 		struct mars_dent *test = container_of(tmp, struct mars_dent, dent_hash_link);
-		int cmp = dent_compare(test, dent);
+		int cmp;
 
+		CHECK_PTR(test, fatal);
+		cmp = dent_compare(test, dent);
 		if (cmp >= 0)
 			break;
 		hash_prev = tmp;
@@ -1712,6 +1733,7 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 
 found:
 	_reconnect_dent(cookie, dent);
+ fatal: ;
 }
 
 static inline
@@ -1729,6 +1751,7 @@ void _mars_order_all(struct mars_cookie *cookie)
 	while (!list_empty(&cookie->tmp_anchor)) {
 		struct list_head *tmp = cookie->tmp_anchor.next;
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
+		CHECK_PTR(dent, fatal);
 		list_del_init(tmp);
 		/* When some_ordered: only sort links spawning
 		 * a .cl_forward action (with some unimportant exceptions).
@@ -1795,6 +1818,7 @@ void _mars_order_all(struct mars_cookie *cookie)
 		_list_connect(a, b);
 		_list_connect(c, d);
 	}
+ fatal: ;
 }
 
 static int _mars_readdir(struct mars_cookie *cookie)
@@ -2322,15 +2346,22 @@ struct mars_dent *_mars_find_dent(struct list_head *anchor, const char *path, bo
 			tmp_dent = container_of(tmp, struct mars_dent, dent_link);
 		else
 			tmp_dent = container_of(tmp, struct mars_dent, dent_quick_link);
+		CHECK_PTR(tmp_dent, done);
 
-		if (!tmp_dent->d_path)
+		if (unlikely(!tmp_dent->d_path)) {
+			MARS_ERR("dent %p has empty path\n", tmp_dent);
 			continue;
+		}
 		if (!strcmp(tmp_dent->d_path, path)) {
+			if (unlikely(tmp_dent->d_unordered))
+				MARS_ERR("found unordered '%s'\n",
+					 tmp_dent->d_path);
 			res = tmp_dent;
 			break;
 		}
 	}
 
+ done:
 	return res;
 }
 
@@ -2407,9 +2438,9 @@ EXPORT_SYMBOL_GPL(mars_kill_dent);
 void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 {
 	int i;
-	
-	MARS_IO("%p path='%s'\n", dent, dent->d_path);
 
+	CHECK_PTR(dent, fatal);
+	MARS_IO("%p path='%s'\n", dent, dent->d_path);
 	mars_kill_dent(global, dent);
 
 	CHECK_HEAD_EMPTY(&dent->dent_link);
@@ -2439,9 +2470,25 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 	brick_string_free(dent->d_path);
 	brick_string_free(dent->old_link);
 	brick_string_free(dent->new_link);
-	if (dent->d_parent)
+	if (dent->d_parent) {
+		CHECK_PTR(dent->d_parent, fatal);
 		dent->d_parent->d_child_count--;
+		dent->d_parent = NULL;
+	}
+	if (unlikely(dent->d_child_count)) {
+		MARS_ERR("dent '%s' child_count=%d\n",
+			 dent->d_path,
+			 dent->d_child_count);
+		goto fatal;
+	}
+	if (unlikely(atomic_read(&dent->d_count))) {
+		MARS_ERR("dent '%s' d_count=%d\n",
+			 dent->d_path,
+			 atomic_read(&dent->d_count));
+		goto fatal;
+	}
 	brick_mem_free(dent);
+ fatal: ;
 }
 EXPORT_SYMBOL_GPL(mars_free_dent);
 
@@ -2464,12 +2511,14 @@ void mars_free_dent_all(struct mars_global *global, struct list_head *anchor)
 		struct mars_dent *dent;
 
 		dent = container_of(tmp_list.prev, struct mars_dent, dent_link);
+		CHECK_PTR(dent, fatal);
 		list_del_init(&dent->dent_link);
 		list_del_init(&dent->dent_hash_link);
 		list_del_init(&dent->dent_quick_link);
 		MARS_IO("freeing dent %p\n", dent);
 		mars_free_dent(global, dent);
 	}
+ fatal: ;
 }
 EXPORT_SYMBOL_GPL(mars_free_dent_all);
 
