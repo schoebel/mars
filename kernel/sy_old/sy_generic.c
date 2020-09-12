@@ -3171,6 +3171,7 @@ struct mars_brick *make_brick_all(
 	const char *new_path;
 	char *_new_path = NULL;
 	struct mars_brick *brick = NULL;
+	struct mars_brick *old_brick;
 	char *paths[MAX_PREV_COUNT];
 	struct mars_brick *prev[MAX_PREV_COUNT];
 	bool switch_state;
@@ -3195,13 +3196,9 @@ struct mars_brick *make_brick_all(
 	}
 	va_end(args);
 
-	if (!new_path) {
-		MARS_ERR("could not create new path\n");
-		goto err;
-	}
-
 	// get old switch state
 	brick = mars_find_brick(global, NULL, new_path);
+	old_brick = brick;
 	switch_state = false;
 	if (brick) {
 		switch_state = brick->power.button;
@@ -3336,13 +3333,17 @@ do_switch:
 		status = mars_power_button((void *)brick, switch_state, false);
 	}
 	MARS_DBG("switch '%s' to %d status = %d\n", new_path, switch_state, status);
-	goto done;
+
+	/* only kill a fresh brick being powered off */
+	if (!old_brick || switch_state || status >= 0)
+		goto done;
 
 err:
 	if (brick) {
 		mars_kill_brick(brick);
 	}
 	brick = NULL;
+
 done:
 	for (i = 0; i < prev_count; i++) {
 		brick_string_free(paths[i]);
