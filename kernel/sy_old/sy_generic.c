@@ -1116,11 +1116,13 @@ void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
 	// Memoize the channel. This is executed only once for each dent.
 	if (unlikely(!dent->d_say_channel)) {
 		struct mars_dent *test = dent->d_parent;
+
 		for (;;) {
 			if (!test) {
 				dent->d_say_channel = default_channel;
 				break;
 			}
+			CHECK_PTR(test, fatal);
 			if (test->d_use_channel && test->d_path) {
 				dent->d_say_channel = make_channel(test->d_path,
 								   true);
@@ -1136,6 +1138,7 @@ void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
 		if (*ch)
 			bind_to_channel(*ch, current);
 	}
+ fatal: ;
 }
 EXPORT_SYMBOL_GPL(bind_to_dent);
 
@@ -1576,20 +1579,20 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 }
 
 static
-void _reconnect_dent(struct mars_cookie *cookie, struct mars_dent *dent)
+void _reconnect_dent(struct mars_dent *parent, struct mars_dent *dent)
 {
 	CHECK_PTR(dent, fatal);
-	if (dent->d_parent == cookie->parent)
+	if (dent->d_parent == parent)
 		return;
 
 	if (dent->d_parent) {
 		CHECK_PTR(dent->d_parent, fatal);
 		dent->d_parent->d_child_count--;
 	}
-	dent->d_parent = cookie->parent;
-	if (dent->d_parent) {
-		CHECK_PTR(cookie->parent, fatal);
-		dent->d_parent->d_child_count++;
+	dent->d_parent = parent;
+	if (parent) {
+		CHECK_PTR(parent, fatal);
+		parent->d_child_count++;
 	}
  fatal: ;
 }
@@ -1738,7 +1741,7 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 	list_add(&dent->dent_hash_link, hash_prev);
 
 found:
-	_reconnect_dent(cookie, dent);
+	_reconnect_dent(cookie->parent, dent);
  fatal: ;
 }
 
@@ -1790,7 +1793,7 @@ void _mars_order_all(struct mars_cookie *cookie)
 				list_add(&dent->dent_link, &later_anchor);
 			else
 				list_add_tail(&dent->dent_link, &later_anchor);
-			_reconnect_dent(cookie, dent);
+			_reconnect_dent(NULL, dent);
 			continue;
 		}
 		if (!cookie->some_ordered) {
