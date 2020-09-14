@@ -528,7 +528,7 @@ int handler_thread(void *data)
 				old_proto_level = sock->s_common_proto_level;
 
 			down(&brick->socket_sem);
-			status = mars_send_dent_list(sock, &handler_global->dent_anchor);
+			status = mars_send_dent_list(handler_global, sock);
 			up(&brick->socket_sem);
 
 			if (status < 0) {

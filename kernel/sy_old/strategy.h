@@ -209,6 +209,12 @@ extern void mars_kill_dent(struct mars_global *global, struct mars_dent *dent);
 extern void mars_free_dent(struct mars_global *global, struct mars_dent *dent);
 extern void mars_free_dent_all(struct mars_global *global, struct list_head *anchor);
 
+/* network transfer of dents */
+
+struct mars_socket;
+extern int mars_send_dent_list(struct mars_global *global, struct mars_socket *msock);
+extern int mars_recv_dent_list(struct mars_global *global, struct mars_socket *msock);
+
 // low-level brick instantiation
 
 int mars_connect(struct mars_input *a, struct mars_output *b);

@@ -66,12 +66,15 @@ done:
 	return res;
 }
 
-int mars_send_dent_list(struct mars_socket *sock, struct list_head *anchor)
+int mars_send_dent_list(struct mars_global *global, struct mars_socket *sock)
 {
+	struct list_head *anchor;
 	struct list_head *tmp;
 	struct mars_dent *dent;
 	int status = 0;
 
+	down_read(&global->dent_mutex);
+	anchor = &global->dent_anchor;
 	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
 		dent = container_of(tmp, struct mars_dent, dent_link);
 		dent->d_proto = MARS_PROTO_LEVEL;
@@ -82,15 +85,21 @@ int mars_send_dent_list(struct mars_socket *sock, struct list_head *anchor)
 	if (status >= 0) { // send EOR
 		status = mars_send_struct(sock, NULL, mars_dent_meta, false);
 	}
+	up_read(&global->dent_mutex);
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_send_dent_list);
 
-int mars_recv_dent_list(struct mars_socket *sock, struct list_head *anchor)
+int mars_recv_dent_list(struct mars_global *global, struct mars_socket *sock)
 {
+	struct list_head *anchor;
 	int status;
+
+	down_write(&global->dent_mutex);
+	anchor = &global->dent_anchor;
 	for (;;) {
 		struct mars_dent *dent = brick_zmem_alloc(sizeof(struct mars_dent));
+
 		if (!dent)
 			return -ENOMEM;
 
@@ -112,6 +121,7 @@ int mars_recv_dent_list(struct mars_socket *sock, struct list_head *anchor)
 		list_add_tail(&dent->dent_link, anchor);
 	}
 done:
+	up_write(&global->dent_mutex);
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_recv_dent_list);

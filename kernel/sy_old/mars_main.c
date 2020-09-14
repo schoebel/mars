@@ -2617,7 +2617,7 @@ int peer_action_dent_list(struct mars_global *tmp_global,
 	MARS_DBG("fetching remote dentries from '%s' '%s'\n",
 		 peer->peer, paths);
 
-	status = mars_recv_dent_list(&peer->socket, &tmp_global->dent_anchor);
+	status = mars_recv_dent_list(tmp_global, &peer->socket);
 	if (unlikely(status < 0))
 		goto free;
 
