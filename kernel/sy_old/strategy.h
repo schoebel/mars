@@ -89,7 +89,6 @@ unsigned int dent_hash(const char *str, int len);
 #define MARS_DENT(TYPE)							\
 	struct list_head dent_link;					\
 	struct list_head dent_hash_link;				\
-	struct list_head dent_quick_link;				\
 	struct list_head brick_list;					\
 	struct TYPE *d_parent;						\
 	dent_skip_fn d_skip_fn;						\
@@ -140,7 +139,6 @@ struct mars_global {
 	struct rw_semaphore brick_mutex;
 	struct generic_switch global_power;
 	struct list_head dent_anchor;
-	struct list_head dent_quick_anchor;
 	struct list_head brick_anchor;
 	wait_queue_head_t main_event;
 	int global_version;

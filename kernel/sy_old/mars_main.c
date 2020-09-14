@@ -2669,7 +2669,6 @@ int peer_action_dent_list(struct mars_global *tmp_global,
 		peer->remote_start_stamp = *start_stamp;
 		list_replace_init(&peer->remote_dent_list, &old_list);
 		list_replace_init(&tmp_global->dent_anchor, &peer->remote_dent_list);
-		list_del_init(&tmp_global->dent_quick_anchor);
 
 		mutex_unlock(&peer->peer_lock);
 
