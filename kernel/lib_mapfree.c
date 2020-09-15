@@ -146,9 +146,11 @@ void _mapfree_put(struct mapfree_info *mf)
 void mapfree_put(struct mapfree_info *mf)
 {
 	if (likely(mf && mf->mf_hash < MAPFREE_HASH)) {
-		down_write(&mf_table[mf->mf_hash].hash_mutex);
+		unsigned int hash = mf->mf_hash;
+
+		down_write(&mf_table[hash].hash_mutex);
 		_mapfree_put(mf);
-		up_write(&mf_table[mf->mf_hash].hash_mutex);
+		up_write(&mf_table[hash].hash_mutex);
 	}
 }
 EXPORT_SYMBOL_GPL(mapfree_put);
