@@ -2402,6 +2402,13 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 		free_mars_global(dent->d_subtree);
 	}
 
+	if (dent->d_private) {
+		if (dent->d_private_destruct) {
+			dent->d_private_destruct(dent->d_private);
+		}
+		brick_mem_free(dent->d_private);
+	}
+
 	for (i = 0; i < MARS_ARGV_MAX; i++) {
 		brick_string_free(dent->d_argv[i]);
 	}
@@ -2413,12 +2420,6 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 	brick_string_free(dent->new_link);
 	if (dent->d_parent)
 		dent->d_parent->d_child_count--;
-	if (dent->d_private) {
-		if (dent->d_private_destruct) {
-			dent->d_private_destruct(dent->d_private);
-		}
-		brick_mem_free(dent->d_private);
-	}
 	brick_mem_free(dent);
 }
 EXPORT_SYMBOL_GPL(mars_free_dent);

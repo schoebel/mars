@@ -7001,6 +7001,17 @@ done:
 	mars_remote_trigger(MARS_TRIGGER_TO_REMOTE);
 	brick_msleep(1000);
 
+	down_write(&rot_sem);
+	while (!list_empty(&rot_anchor)) {
+		struct mars_rotate *rot;
+
+		rot = container_of(rot_anchor.next, struct mars_rotate, rot_head);
+		up_write(&rot_sem);
+		rot_destruct(rot);
+		down_write(&rot_sem);
+	}
+	up_write(&rot_sem);
+
 	mars_free_dent_all(mars_global, &mars_global->dent_anchor);
 	mars_kill_brick_all(mars_global, &mars_global->brick_anchor, false);
 
