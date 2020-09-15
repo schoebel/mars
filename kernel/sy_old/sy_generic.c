@@ -2106,6 +2106,8 @@ void _op_remove(struct say_channel **say_channel,
 			continue;
 		if (dent->d_child_count)
 			continue;
+		if (atomic_read(&dent->d_count))
+			continue;
 		if (!list_empty(&dent->brick_list))
 			continue;
 
