@@ -765,7 +765,22 @@ void skip_scan_resource(struct mars_dent *dent)
 
 ///////////////////////////////////////////////////////////////////////
 
-// needed for logfile rotation
+/* Per-resource information (not only for logfile rotation)
+ */
+
+static inline
+void assign_dent(struct mars_dent **ptr, struct mars_dent *new_dent)
+{
+	struct mars_dent *old_dent = *ptr;
+
+	if (old_dent == new_dent)
+		return;
+	if (old_dent)
+		atomic_dec(&old_dent->d_count);
+	*ptr = new_dent;
+	if (new_dent)
+		atomic_inc(&new_dent->d_count);
+}
 
 #define INFS_MAX (TL_INPUT_LOG2 - TL_INPUT_LOG1 + 1)
 
@@ -3617,6 +3632,15 @@ void rot_destruct(void *_rot)
 		write_info_links(rot);
 		del_channel(rot->log_say);
 		rot->log_say = NULL;
+		assign_dent(&rot->replay_link, NULL);
+		assign_dent(&rot->aio_dent, NULL);
+		assign_dent(&rot->first_log, NULL);
+		assign_dent(&rot->last_log, NULL);
+		assign_dent(&rot->relevant_log, NULL);
+		assign_dent(&rot->next_relevant_log, NULL);
+		assign_dent(&rot->prev_log, NULL);
+		assign_dent(&rot->next_log, NULL);
+		assign_dent(&rot->syncstatus_dent, NULL);
 		brick_string_free(rot->fetch_path);
 		brick_string_free(rot->fetch_peer);
 		brick_string_free(rot->avoid_peer);
@@ -3687,17 +3711,17 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		up_write(&rot_sem);
 	}
 
-	rot->replay_link = NULL;
-	rot->aio_dent = NULL;
+	assign_dent(&rot->replay_link, NULL);
+	assign_dent(&rot->aio_dent, NULL);
 	rot->aio_brick = NULL;
-	rot->first_log = NULL;
-	rot->last_log = NULL;
-	rot->relevant_log = NULL;
+	assign_dent(&rot->first_log, NULL);
+	assign_dent(&rot->last_log, NULL);
+	assign_dent(&rot->relevant_log, NULL);
 	rot->relevant_serial = 0;
 	rot->relevant_brick = NULL;
-	rot->next_relevant_log = NULL;
-	rot->prev_log = NULL;
-	rot->next_log = NULL;
+	assign_dent(&rot->next_relevant_log, NULL);
+	assign_dent(&rot->prev_log, NULL);
+	assign_dent(&rot->next_log, NULL);
 	brick_string_free(rot->fetch_next_origin);
 	rot->max_sequence = 0;
 	// reset the split brain detector only when conflicts have gone for a number of rounds
@@ -3737,7 +3761,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	replay_link = (void*)mars_find_dent(global, replay_path);
+	replay_link = mars_find_dent(global, replay_path);
 	rot->repair_log_seq = -1;
 	if (unlikely(!replay_link || !replay_link->new_link)) {
 		MARS_DBG("replay status symlink '%s' does not exist (%p)\n", replay_path, replay_link);
@@ -3753,7 +3777,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	parse_logfile_name(replay_link->d_argv[0],
 			   &rot->repair_log_seq, NULL);
 
-	rot->replay_link = replay_link;
+	assign_dent(&rot->replay_link, replay_link);
 
 	/* Fetch AIO dentry of the logfile.
 	 */
@@ -3774,7 +3798,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	aio_dent = (void*)mars_find_dent(global, aio_path);
+	aio_dent = mars_find_dent(global, aio_path);
 	if (unlikely(!aio_dent)) {
 		MARS_DBG("logfile '%s' does not exist\n", aio_path);
 		status = -ENOENT;
@@ -3787,7 +3811,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		}
 		goto done;
 	}
-	rot->aio_dent = aio_dent;
+	assign_dent(&rot->aio_dent, aio_dent);
 
 	// check whether attach is allowed
 	switch_on = _check_allow(global, parent->d_path, "attach");
@@ -3963,7 +3987,7 @@ int make_log_step(void *buf, struct mars_dent *dent)
 	}
 
 	if (!rot->first_log)
-		rot->first_log = dent;
+		assign_dent(&rot->first_log, dent);
 
 	/* Skip any logfiles after the relevant one.
 	 * This should happen only when replaying multiple logfiles
@@ -3980,14 +4004,14 @@ int make_log_step(void *buf, struct mars_dent *dent)
 				} else if (!strcmp(dent->d_rest, my_id())) {
 					MARS_WRN("PREFER LOGFILE '%s' in front of '%s'\n",
 						 dent->d_path, rot->relevant_log->d_path);
-					rot->relevant_log = dent;
+					assign_dent(&rot->relevant_log, dent);
 				} else {
 					rot->has_double_logfile = true;
 					MARS_ERR("DOUBLE LOGFILES '%s' '%s'\n",
 						 dent->d_path, rot->relevant_log->d_path);
 				}
 			} else if (_next_is_acceptable(rot, rot->relevant_log, dent)) {
-				rot->next_relevant_log = dent;
+				assign_dent(&rot->next_relevant_log, dent);
 			} else if (rot->last_log && dent->d_serial > rot->last_log->d_serial + 5) {
 				rot->has_hole_logfile = true;
 			}
@@ -3998,7 +4022,7 @@ int make_log_step(void *buf, struct mars_dent *dent)
 					MARS_WRN("PREFER LOGFILE '%s' in front of '%s'\n", rot->next_relevant_log->d_path, dent->d_path);
 				} else if (!strcmp(dent->d_rest, my_id())) {
 					MARS_WRN("PREFER LOGFILE '%s' in front of '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
-					rot->next_relevant_log = dent;
+					assign_dent(&rot->next_relevant_log, dent);
 				} else {
 					rot->has_double_logfile = true;
 					MARS_ERR("DOUBLE LOGFILES '%s' '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
@@ -4018,13 +4042,13 @@ int make_log_step(void *buf, struct mars_dent *dent)
 		MARS_DBG("nothing to do on '%s'\n", dent->d_path);
 		goto ok;
 	}
-	rot->last_log = dent;
+	assign_dent(&rot->last_log, dent);
 
 	/* Remember the relevant log.
 	 */
 	if (!rot->relevant_log && rot->aio_dent->d_serial == dent->d_serial) {
 		rot->relevant_serial = dent->d_serial;
-		rot->relevant_log = dent;
+		assign_dent(&rot->relevant_log, dent);
 		rot->has_double_logfile = false;
 		rot->has_hole_logfile = false;
 	}
@@ -4033,8 +4057,8 @@ ok:
 	/* All ok: switch over the indicators.
 	 */
 	MARS_DBG("next_log = '%s'\n", dent->d_path);
-	rot->prev_log = rot->next_log;
-	rot->next_log = dent;
+	assign_dent(&rot->prev_log, rot->next_log);
+	assign_dent(&rot->next_log, dent);
 
 done:
 	if (status < 0) {
@@ -4333,8 +4357,8 @@ int _make_logging_status(struct mars_rotate *rot)
 ok:
 	/* All ok: switch over the indicators.
 	 */
-	rot->prev_log = rot->next_log;
-	rot->next_log = dent;
+	assign_dent(&rot->prev_log, rot->next_log);
+	assign_dent(&rot->next_log, dent);
 
 done:
 	if (status < 0) {
@@ -4850,7 +4874,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 						     rot->next_relevant_log->d_rest,
 						     rot->next_relevant_log->d_serial,
 						     0);
-				rot->next_relevant_log = NULL;
+				assign_dent(&rot->next_relevant_log, NULL);
 				rot->aio_brick = NULL;
 				goto done;
 			/* Designated primary must exceptionally accept a damaged
@@ -5636,7 +5660,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	CHECK_PTR(rot, done);
 
 	rot->allow_update = true;
-	rot->syncstatus_dent = dent;
+	assign_dent(&rot->syncstatus_dent, dent);
 
 	/* Sync necessary?
 	 */
