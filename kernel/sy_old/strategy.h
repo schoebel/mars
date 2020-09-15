@@ -165,8 +165,13 @@ do {								\
 
 #define free_mars_global(_global_)				\
 ({								\
-	exit_mars_global(_global_);				\
-	brick_mem_free(_global_);				\
+	struct mars_global *__global = (_global_);		\
+								\
+	if (__global) {						\
+		(_global_) = NULL;				\
+		exit_mars_global(__global);			\
+		brick_mem_free(__global);			\
+	}							\
 })
 
 extern void bind_to_dent(struct mars_dent *dent, struct say_channel **ch);

@@ -1189,10 +1189,12 @@ void exit_mars_global(struct mars_global *global)
 
 void __mars_trigger(int mode)
 {
-	if (mars_global) {
-		mars_global->trigger_mode |= mode;
-		mars_global->main_trigger = true;
-		wake_up_interruptible_all(&mars_global->main_event);
+	struct mars_global *global = mars_global;
+
+	if (global) {
+		global->trigger_mode |= mode;
+		global->main_trigger = true;
+		wake_up_interruptible_all(&global->main_event);
 	}
 }
 
