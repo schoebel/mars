@@ -6837,8 +6837,6 @@ static int _main_thread(void *data)
 	char *id = my_id();
 	int status = 0;
 
-	mars_global = alloc_mars_global();
-
 	if (!id || strlen(id) < 2) {
 		MARS_ERR("invalid hostname\n");
 		status = -EFAULT;
@@ -7020,7 +7018,6 @@ done:
 
 	brick_string_free(mars_resource_list);
 	brick_string_free(tmp_resource_list);
-	free_mars_global(mars_global);
 
 	MARS_INF("-------- done status = %d ----------\n", status);
 	//cleanup_mm();
@@ -7101,6 +7098,19 @@ static int exit_fn_nr = 0;
 	} while (0)
 
 
+static
+int init_global_mem(void)
+{
+	mars_global = alloc_mars_global();
+	return 0;
+}
+
+static
+void exit_global_mem(void)
+{
+	free_mars_global(mars_global);
+}
+
 static void exit_main(void)
 {
 	MARS_DBG("====================== stopping everything...\n");
@@ -7168,6 +7178,7 @@ static int __init init_main(void)
 	/* be careful: order is important!
 	 */
 	DO_INIT(brick_mem);
+	DO_INIT(global_mem);
 	DO_INIT(brick);
 	DO_INIT(mars);
 	DO_INIT(mars_mapfree);
