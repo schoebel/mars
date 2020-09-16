@@ -2426,8 +2426,7 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 	CHECK_HEAD_EMPTY(&dent->brick_list);
 
 	if (dent->d_subtree) {
-		mars_free_dent_all(dent->d_subtree,
-				   &dent->d_subtree->dent_anchor);
+		mars_free_dent_all(dent->d_subtree);
 		free_mars_global(dent->d_subtree);
 	}
 
@@ -2469,8 +2468,9 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 }
 EXPORT_SYMBOL_GPL(mars_free_dent);
 
-void mars_free_dent_all(struct mars_global *global, struct list_head *anchor)
+void mars_free_dent_all(struct mars_global *global)
 {
+	struct list_head *anchor = &global->dent_anchor;
 	LIST_HEAD(tmp_list);
 
 	/* Needs to be done in reverse order because later d_parent pointers may

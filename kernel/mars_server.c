@@ -535,7 +535,7 @@ int handler_thread(void *data)
 				MARS_WRN("#%d could not send dentry information, status = %d\n", sock->s_debug_nr, status);
 			}
 
-			mars_free_dent_all(handler_global, &handler_global->dent_anchor);
+			mars_free_dent_all(handler_global);
 			break;
 		}
 		case CMD_CONNECT:

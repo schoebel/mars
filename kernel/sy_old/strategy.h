@@ -207,7 +207,7 @@ extern int mars_get_dent_list(struct mars_global *global,
 extern struct mars_dent *mars_find_dent(struct mars_global *global, const char *path);
 extern void mars_kill_dent(struct mars_global *global, struct mars_dent *dent);
 extern void mars_free_dent(struct mars_global *global, struct mars_dent *dent);
-extern void mars_free_dent_all(struct mars_global *global, struct list_head *anchor);
+extern void mars_free_dent_all(struct mars_global *global);
 
 /* network transfer of dents */
 

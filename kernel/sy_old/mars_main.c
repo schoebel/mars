@@ -2562,7 +2562,7 @@ int run_bones(struct mars_peerinfo *peer)
 		brick_string_free(dst);
 	}
 
-	mars_free_dent_all(tmp_global, &tmp_global->dent_anchor);
+	mars_free_dent_all(tmp_global);
 	free_mars_global(tmp_global);
 
 	if (run_trigger) {
@@ -2697,11 +2697,11 @@ int peer_action_dent_list(struct mars_peerinfo *peer,
 
  free:
 	if (old_global) {
-		mars_free_dent_all(old_global, &old_global->dent_anchor);
+		mars_free_dent_all(old_global);
 		free_mars_global(old_global);
 	}
 	if (new_global) {
-		mars_free_dent_all(new_global, &new_global->dent_anchor);
+		mars_free_dent_all(new_global);
 		free_mars_global(new_global);
 	}
 	return status;
@@ -3156,7 +3156,7 @@ static int _kill_peer(struct mars_peerinfo *peer)
 		brick_mem_free(push);
 	}
 	if (old_global) {
-		mars_free_dent_all(old_global, &old_global->dent_anchor);
+		mars_free_dent_all(old_global);
 		free_mars_global(old_global);
 	}
 	if (peer->doing_additional) {
@@ -7035,7 +7035,7 @@ done:
 	}
 	up_write(&rot_sem);
 
-	mars_free_dent_all(mars_global, &mars_global->dent_anchor);
+	mars_free_dent_all(mars_global);
 	mars_kill_brick_all(mars_global, &mars_global->brick_anchor, false);
 
 	show_vals(gbl_pairs, "/mars", "");
