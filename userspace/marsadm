@@ -1380,7 +1380,6 @@ sub __systemd_activate_ops {
 }
 
 sub __systemd_fingerprint {
-  my () = @_;
   my $text = "";
   # Fingerprint all source templates
   get_template_files();
