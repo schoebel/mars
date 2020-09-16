@@ -152,6 +152,7 @@ struct mars_global {
 	int nr_readitem;
 	int nr_ordered;
 	int nr_unordered;
+	bool has_subtrees;
 	bool main_trigger;
 	struct list_head *dent_hash_table[MARS_GLOBAL_HASH_BASE];
 };

@@ -2012,6 +2012,7 @@ int _op_scan(struct say_channel **say_channel,
 				sub_cookie.global->nr_ordered = 0;
 				sub_cookie.global->nr_unordered = 0;
 			}
+			global->has_subtrees = true;
 			*found_dir = true;
 			status = _mars_readdir(&sub_cookie);
 			total_status |= status;
@@ -2348,7 +2349,7 @@ struct mars_dent *_mars_find_dent(struct list_head *anchor, const char *path)
 	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
 		struct mars_dent *tmp_dent;
 
-		tmp_dent = container_of(tmp, struct mars_dent, dent_link);
+		tmp_dent = container_of(tmp, struct mars_dent, dent_hash_link);
 		CHECK_PTR(tmp_dent, done);
 
 		if (unlikely(!tmp_dent->d_path)) {
@@ -2371,23 +2372,31 @@ struct mars_dent *_mars_find_dent(struct list_head *anchor, const char *path)
 struct mars_dent *mars_find_dent(struct mars_global *global,
 				 const char *path)
 {
+	struct list_head *hash_anchor;
 	struct mars_dent *res = NULL;
+	unsigned int hash;
 
 	if (!global || !path)
 		return NULL;
 
-	if (has_subtree_prefix(path)) {
+	if (global->has_subtrees && has_subtree_prefix(path)) {
 		const char *prefix = subtree_prefix(path);
 
 		if (prefix) {
+			struct list_head *sub_hash_anchor;
 			struct mars_dent *sub;
+			unsigned int sub_hash;
 
+			sub_hash = dent_hash(prefix, strlen(prefix));
+			sub_hash_anchor = DENT_HASH_ANCHOR(global, sub_hash);
 			down_read(&global->dent_mutex);
-			sub = _mars_find_dent(&global->dent_anchor, prefix);
+			sub = _mars_find_dent(sub_hash_anchor, prefix);
 			if (sub && sub->d_subtree) {
+				hash = dent_hash(path, strlen(path));
+				hash_anchor = DENT_HASH_ANCHOR(sub->d_subtree, hash);
 				down_read(&sub->d_subtree->dent_mutex);
 				up_read(&global->dent_mutex);
-				res = _mars_find_dent(&sub->d_subtree->dent_anchor, path);
+				res = _mars_find_dent(hash_anchor, path);
 				up_read(&sub->d_subtree->dent_mutex);
 			} else {
 				up_read(&global->dent_mutex);
@@ -2398,8 +2407,11 @@ struct mars_dent *mars_find_dent(struct mars_global *global,
 		}
 	}
 
+	hash = dent_hash(path, strlen(path));
+	hash_anchor = DENT_HASH_ANCHOR(global, hash);
+
 	down_read(&global->dent_mutex);
-	res = _mars_find_dent(&global->dent_anchor, path);
+	res = _mars_find_dent(hash_anchor, path);
 	up_read(&global->dent_mutex);
 	return res;
 }
