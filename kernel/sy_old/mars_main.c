@@ -651,7 +651,7 @@ struct mars_brick *_kill_brick(struct mars_brick *brick)
 
 static struct task_struct *main_thread = NULL;
 
-typedef int (*main_worker_fn)(void *buf, struct mars_dent *dent);
+typedef int (*main_worker_fn)(struct mars_dent *dent);
 
 struct main_class {
 	char *cl_name;
@@ -786,7 +786,6 @@ void assign_dent(struct mars_dent **ptr, struct mars_dent *new_dent)
 
 struct mars_rotate {
 	struct list_head rot_head;
-	struct mars_global *global;
 	struct copy_brick *sync_brick;
 	struct mars_dent *replay_link;
 	struct mars_brick *bio_brick;
@@ -1209,14 +1208,14 @@ done:
 }
 
 static
-int _check_switch(struct mars_global *global, const char *path)
+int _check_switch(const char *path)
 {
 	int res = 0;
 	const char *val_str = NULL;
  
  	/* Upon shutdown, treat all switches as "off"
  	 */
- 	if (!global->global_power.button)
+ 	if (!mars_global->global_power.button)
  		goto done;
  
 	val_str = ordered_readlink(path, NULL);
@@ -1231,7 +1230,7 @@ int _check_switch(struct mars_global *global, const char *path)
 }
 
 static
-int _check_allow(struct mars_global *global, const char *parent_path, const char *name)
+int _check_allow(const char *parent_path, const char *name)
 {
 	int res = 0;
 	char *path = path_make("%s/todo-%s/%s", parent_path, my_id(), name);
@@ -1239,7 +1238,7 @@ int _check_allow(struct mars_global *global, const char *parent_path, const char
 	if (!path)
 		goto done;
 
-	res = _check_switch(global, path);
+	res = _check_switch(path);
 
 done:
 	brick_string_free(path);
@@ -1825,9 +1824,7 @@ void _show_rate(struct mars_rotate *rot, struct mars_limiter *limiter, const cha
 typedef int (*copy_update_fn)(struct mars_brick *copy, bool switch_on, void *private);
 
 static
-int __make_copy(
-		struct mars_global *global,
-		struct mars_dent *belongs,
+int __make_copy(struct mars_dent *belongs,
 		const char *switch_path,
 		const char *copy_path,
 		const char *parent,
@@ -1859,13 +1856,13 @@ int __make_copy(
 	bool later_off = false;
 	int status = -EINVAL;
 
-	if (!switch_path || !global) {
+	if (!switch_path) {
 		goto done;
 	}
 
 	// don't generate empty aio files if copy does not yet exist
-	switch_copy = _check_switch(global, switch_path);
-	copy = mars_find_brick(global, &copy_brick_type, copy_path);
+	switch_copy = _check_switch(switch_path);
+	copy = mars_find_brick(mars_global, &copy_brick_type, copy_path);
 	if (!copy && !switch_copy) {
 		goto done;
 	}
@@ -1893,7 +1890,7 @@ int __make_copy(
 		}
 
 		aio =
-			make_brick_all(global,
+			make_brick_all(mars_global,
 				       NULL,
 				       _set_bio_params,
 				       &clc[i],
@@ -1946,7 +1943,7 @@ int __make_copy(
 	cc.verify_mode = verify_mode;
 
 	copy =
-		make_brick_all(global,
+		make_brick_all(mars_global,
 			       belongs,
 			       _set_copy_params,
 			       &cc,
@@ -2179,7 +2176,6 @@ static
 int _update_file(struct mars_dent *parent, const char *switch_path, const char *copy_path, const char *file, const char *peer, loff_t end_pos)
 {
 	struct mars_rotate *rot = parent->d_private;
-	struct mars_global *global = rot->global;
 #ifdef CONFIG_MARS_SEPARATE_PORTS
 	const char *tmp = path_make("%s@%s:%d", file, peer, mars_net_default_port + MARS_TRAFFIC_REPLICATION);
 #else
@@ -2192,7 +2188,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	bool do_start = true;
 	int status = -ENOMEM;
 
-	if (unlikely(!tmp || !global))
+	if (unlikely(!tmp))
 		goto done;
 
 	rot->fetch_round = 0;
@@ -2207,7 +2203,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		make_msg(msg_pair, "disabling fetch from unspecified peer / no primary designated");
 		do_start = false;
 	}
-	if (do_start && !_check_allow(rot->global, rot->parent_path, "attach")) {
+	if (do_start && !_check_allow(rot->parent_path, "attach")) {
 		MARS_DBG("disabling fetch due to detach / rmmod\n");
 		make_msg(msg_pair, "disabling fetch due to detach / rmmod");
 		do_start = false;
@@ -2223,13 +2219,13 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	 * "marsadm pause-replay $res; marsadm detach $res; mount -o ro /dev/lv/$res"
 	 * as a workaround.
 	 */
-	if (do_start && !_check_allow(global, parent->d_path, "attach")) {
+	if (do_start && !_check_allow(parent->d_path, "attach")) {
 		MARS_DBG("disabling fetch due to detach\n");
 		make_msg(msg_pair, "disabling fetch due to detach");
 		do_start = false;
 	}
 #endif
-	if (do_start && !_check_allow(global, parent->d_path, "connect")) {
+	if (do_start && !_check_allow(parent->d_path, "connect")) {
 		MARS_DBG("disabling fetch due to disconnect\n");
 		make_msg(msg_pair, "disabling fetch due to disconnect");
 		do_start = false;
@@ -2246,8 +2242,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	MARS_DBG("src = '%s' dst = '%s' start_pos=%lld do_start=%d\n",
 		 tmp, file, start_pos, do_start);
 
-	status = __make_copy(global,
-			     NULL,
+	status = __make_copy(NULL,
 			     do_start ? switch_path : "",
 			     copy_path,
 			     NULL,
@@ -3330,13 +3325,12 @@ done:
 	return status;
 }
 
-static int kill_scan(void *buf, struct mars_dent *dent)
+static int kill_scan(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	struct mars_peerinfo *peer = dent->d_private;
 	int res;
 
-	if (!global || global->global_power.button || !peer) {
+	if (mars_global->global_power.button || !peer) {
 		return 0;
 	}
 	dent->d_private = NULL;
@@ -3345,7 +3339,7 @@ static int kill_scan(void *buf, struct mars_dent *dent)
 	return res;
 }
 
-static int make_scan(void *buf, struct mars_dent *dent)
+static int make_scan(struct mars_dent *dent)
 {
 	MARS_DBG("path = '%s' peer = '%s'\n", dent->d_path, dent->d_rest);
 	// don't connect to myself
@@ -3357,12 +3351,11 @@ static int make_scan(void *buf, struct mars_dent *dent)
 
 
 static
-int kill_any(void *buf, struct mars_dent *dent)
+int kill_any(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	struct list_head *tmp;
 
-	if (global->global_power.button || !is_shutdown()) {
+	if (mars_global->global_power.button || !is_shutdown()) {
 		return 0;
 	}
 
@@ -3375,7 +3368,7 @@ int kill_any(void *buf, struct mars_dent *dent)
 	}
 
 	MARS_DBG("killing dent = '%s'\n", dent->d_path);
-	mars_kill_dent(global, dent);
+	mars_kill_dent(mars_global, dent);
 	return 1;
 }
 
@@ -3450,7 +3443,7 @@ int _get_tolerance(struct mars_rotate *rot)
 	 * is unreachable (or even dead forever).
 	 */
 	if (rot->todo_primary &&
-	    !_check_allow(rot->global, rot->parent_path, "connect"))
+	    !_check_allow(rot->parent_path, "connect"))
 		return REPLAY_TOLERANCE;
 
 	return 0;
@@ -3679,9 +3672,8 @@ void rot_destruct(void *_rot)
 /* This must be called once at every round of logfile checking.
  */
 static
-int make_log_init(void *buf, struct mars_dent *dent)
+int make_log_init(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	struct mars_dent *parent = dent->d_parent;
 	struct mars_brick *bio_brick;
 	struct mars_brick *aio_brick;
@@ -3697,7 +3689,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	bool switch_on;
 	int status = 0;
 
-	if (!global->global_power.button) {
+	if (!mars_global->global_power.button) {
 		goto done;
 	}
 	status = -EINVAL;
@@ -3725,7 +3717,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			goto done;
 		}
 		rot->fetch_path = fetch_path;
-		rot->global = global;
 		parent->d_private = rot;
 		parent->d_private_destruct = rot_destruct;
 		assign_keys(rot->msgs, rot_keys);
@@ -3785,7 +3776,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	replay_link = mars_find_dent(global, replay_path);
+	replay_link = mars_find_dent(mars_global, replay_path);
 	rot->repair_log_seq = -1;
 	if (unlikely(!replay_link || !replay_link->new_link)) {
 		MARS_DBG("replay status symlink '%s' does not exist (%p)\n", replay_path, replay_link);
@@ -3822,7 +3813,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	aio_dent = mars_find_dent(global, aio_path);
+	aio_dent = mars_find_dent(mars_global, aio_path);
 	if (unlikely(!aio_dent)) {
 		MARS_DBG("logfile '%s' does not exist\n", aio_path);
 		status = -ENOENT;
@@ -3838,7 +3829,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	assign_dent(&rot->aio_dent, aio_dent);
 
 	// check whether attach is allowed
-	switch_on = _check_allow(global, parent->d_path, "attach");
+	switch_on = _check_allow(parent->d_path, "attach");
 	if (switch_on && rot->res_shutdown) {
 		MARS_ERR("cannot start transaction logger: resource shutdown mode is currently active\n");
 		switch_on = false;
@@ -3847,7 +3838,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	/* Fetch / make the AIO brick instance
 	 */
 	aio_brick =
-		make_brick_all(global,
+		make_brick_all(mars_global,
 			       aio_dent,
 			       _set_aio_params,
 			       NULL,
@@ -3890,8 +3881,10 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	    logrot_limit > 0 &&
 	    unlikely(rot->aio_info.current_size >= logrot_limit * 1024 * 1024 * 1024)) {
 		char *new_path = path_make("%s/log-%09d-%s", parent_path, aio_dent->d_serial + 1, my_id());
-		if (likely(new_path && !mars_find_dent(global, new_path))) {
-			MARS_INF("old logfile size = %lld, creating new logfile '%s'\n", rot->aio_info.current_size, new_path);
+		if (likely(new_path &&
+			   !mars_find_dent(mars_global, new_path))) {
+			MARS_INF("old logfile size = %lld, creating new logfile '%s'\n",
+				 rot->aio_info.current_size, new_path);
 			_create_new_logfile(new_path);
 		}
 		brick_string_free(new_path);
@@ -3903,7 +3896,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	 * The final switch-on will be started in make_log_finalize().
 	 */
 	trans_brick =
-		make_brick_all(global,
+		make_brick_all(mars_global,
 			       replay_link,
 			       _set_trans_params,
 			       NULL,
@@ -3970,9 +3963,8 @@ bool _next_is_acceptable(struct mars_rotate *rot, struct mars_dent *old_dent, st
  * This is important!
  */
 static
-int make_log_step(void *buf, struct mars_dent *dent)
+int make_log_step(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot;
 	struct trans_logger_brick *trans_brick;
@@ -3990,7 +3982,9 @@ int make_log_step(void *buf, struct mars_dent *dent)
 
 	status = 0;
 	trans_brick = rot->trans_brick;
-	if (!global->global_power.button || !trans_brick || rot->has_error) {
+	if (!mars_global->global_power.button ||
+	    !trans_brick ||
+	    rot->has_error) {
 		MARS_DBG("nothing to do rot_error = %d\n", rot->has_error);
 		goto done;
 	}
@@ -4106,7 +4100,6 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 {
 	struct mars_dent *dent = rot->relevant_log;
 	struct mars_dent *parent;
-	struct mars_global *global = NULL;
 	const char *vers_link = NULL;
 	int status = 0;
 
@@ -4122,8 +4115,6 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	if (!parent)
 		goto done;
 	CHECK_PTR(parent, done);
-	global = rot->global;
-	CHECK_PTR_NULL(global, done);
 	CHECK_PTR(rot->replay_link, done);
 	CHECK_PTR(rot->aio_brick, done);
 	CHECK_PTR(rot->aio_dent, done);
@@ -4191,8 +4182,8 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 		 */
 		if (rot->todo_primary && !rot->is_primary &&
 		    !rot->fetch_brick &&
-		    !_check_allow(global, parent->d_path, "connect") &&
-		    _check_allow(rot->global, rot->parent_path, "attach")) {
+		    !_check_allow(parent->d_path, "connect") &&
+		    _check_allow(rot->parent_path, "attach")) {
 			MARS_WRN("FORCING transaction log '%s' %lld < %lld as finished\n",
 				 rot->aio_dent->d_path,
 				 rot->aio_info.current_size, *oldpos_start);
@@ -4247,7 +4238,6 @@ int _make_logging_status(struct mars_rotate *rot)
 	struct mars_dent *dent = rot->relevant_log;
 	struct mars_dent *parent;
 	struct mars_dent *next_relevant_log;
-	struct mars_global *global = NULL;
 	struct trans_logger_brick *trans_brick;
 	int log_nr = 0;
 	loff_t start_pos = 0;
@@ -4264,12 +4254,12 @@ int _make_logging_status(struct mars_rotate *rot)
 	if (!parent)
 		goto done;
 	CHECK_PTR(parent, done);
-	global = rot->global;
-	CHECK_PTR_NULL(global, done);
 
 	status = 0;
 	trans_brick = rot->trans_brick;
-	if (!global->global_power.button || !trans_brick || rot->has_error) {
+	if (!mars_global->global_power.button ||
+	    !trans_brick ||
+	    rot->has_error) {
 		MARS_DBG("nothing to do rot_error = %d\n", rot->has_error);
 		goto done;
 	}
@@ -4325,8 +4315,7 @@ int _make_logging_status(struct mars_rotate *rot)
 				} else {
 					bool want_bypass =
 						(rot->todo_primary &&
-						 !_check_allow(global,
-							       parent->d_path,
+						 !_check_allow(parent->d_path,
 							       "connect"));
 					if (want_bypass) {
 						MARS_INF_TO(rot->log_say,
@@ -4480,7 +4469,7 @@ void _rotate_trans(struct mars_rotate *rot)
 	if (log_nr == trans_brick->new_input_nr &&
 	    rot->next_relevant_log &&
 	    rot->next_relevant_log->d_parent &&
-	    _check_allow(rot->global, rot->parent_path, "attach") &&
+	    _check_allow(rot->parent_path, "attach") &&
 	    (rot->next_relevant_log->d_serial == trans_brick->inputs[log_nr]->inf.inf_sequence + 1 ||
 	     trans_brick->cease_logging) &&
 	    (next_nr = _get_free_input(trans_brick)) >= 0) {
@@ -4490,7 +4479,7 @@ void _rotate_trans(struct mars_rotate *rot)
 		MARS_DBG("start switchover %d -> %d\n", old_nr, next_nr);
 		
 		rot->next_relevant_brick =
-			make_brick_all(rot->global,
+			make_brick_all(mars_global,
 				       rot->next_relevant_log,
 				       _set_aio_params,
 				       NULL,
@@ -4631,7 +4620,7 @@ int _start_trans(struct mars_rotate *rot)
 	/* Open new transaction log
 	 */
 	rot->relevant_brick =
-		make_brick_all(rot->global,
+		make_brick_all(mars_global,
 			       rot->relevant_log,
 			       _set_aio_params,
 			       NULL,
@@ -4733,7 +4722,7 @@ bool _is_secondary_fixing_safe(struct mars_rotate *rot)
 }
 
 static
-int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
+int make_log_finalize(struct mars_dent *dent)
 {
 	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot;
@@ -4774,7 +4763,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		MARS_ERR_TO(rot->log_say, "EMEGENCY MODE HYSTERESIS on %s: you need to free more space for recovery.\n", rot->parent_path);
 		make_rot_msg(rot, "err-space-low", "EMEGENCY MODE HYSTERESIS: you need to free more space for recovery.");
 	} else {
-		int limit = _check_allow(global, parent->d_path, "emergency-limit");
+		int limit = _check_allow(parent->d_path, "emergency-limit");
 		rot->has_emergency = (limit > 0 && global_remaining_space * 100 / global_total_space < limit);
 		MARS_DBG("has_emergency=%d limit=%d remaining_space=%lld total_space=%lld\n",
 			 rot->has_emergency, limit, global_remaining_space, global_total_space);
@@ -4909,7 +4898,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 				   rot->relevant_log &&
 				   !rot->next_relevant_log &&
 				   (!rot->fetch_brick ||
-				    !_check_allow(global, parent->d_path, "connect"))) {
+				    !_check_allow(parent->d_path, "connect"))) {
 				/* Give fetch a chance for getting a better logfile.
 				 */
 				if (rot->retry_recovery++ <= 10)
@@ -4950,16 +4939,16 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 				 trans_brick->replay_code == TL_REPLAY_INCOMPLETE) &&
 				trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance;
 			do_stop = trans_brick->replay_code != TL_REPLAY_RUNNING ||
-				!global->global_power.button ||
-				!_check_allow(global, parent->d_path, "allow-replay") ||
-				!_check_allow(global, parent->d_path, "attach") ;
+				!mars_global->global_power.button ||
+				!_check_allow(parent->d_path, "allow-replay") ||
+				!_check_allow(parent->d_path, "attach") ;
 
 		} else {
 			do_stop =
 				!rot->if_brick &&
 				!rot->is_primary &&
 				(!rot->todo_primary ||
-				 !_check_allow(global, parent->d_path, "attach"));
+				 !_check_allow(parent->d_path, "attach"));
 		}
 
 		MARS_DBG("replay_mode = %d replay_code = %d is_primary = %d do_stop = %d\n", trans_brick->replay_mode, trans_brick->replay_code, rot->is_primary, (int)do_stop);
@@ -4993,8 +4982,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 		do_start = (!rot->replay_mode ||
 			    (rot->start_pos != rot->end_pos &&
-			     _check_allow(global, parent->d_path, "attach") &&
-			     _check_allow(global, parent->d_path, "allow-replay")));
+			     _check_allow(parent->d_path, "attach") &&
+			     _check_allow(parent->d_path, "allow-replay")));
 
 		if (do_start && rot->forbid_replay) {
 			MARS_INF("cannot start replay because sync wants to start\n");
@@ -5024,15 +5013,19 @@ done:
 		 rot->trans_brick->inputs[TL_INPUT_LOG2]->connect);
 
 	// check whether some copy has finished
-	fetch_brick = (struct copy_brick*)mars_find_brick(global, &copy_brick_type, rot->fetch_path);
-	MARS_DBG("fetch_path = '%s' fetch_brick = %p\n", rot->fetch_path, fetch_brick);
+	fetch_brick = (struct copy_brick *)
+		mars_find_brick(mars_global,
+				&copy_brick_type,
+				rot->fetch_path);
+	MARS_DBG("fetch_path = '%s' fetch_brick = %p\n",
+		 rot->fetch_path, fetch_brick);
 	if (fetch_brick &&
 	    (fetch_brick->power.led_off ||
 	     fetch_brick->power.force_off ||
 	     fetch_brick->copy_error ||
-	     !global->global_power.button ||
-	     !_check_allow(global, parent->d_path, "connect") ||
-	     !_check_allow(global, parent->d_path, "attach") ||
+	     !mars_global->global_power.button ||
+	     !_check_allow(parent->d_path, "connect") ||
+	     !_check_allow(parent->d_path, "attach") ||
 	     (fetch_brick->copy_last == fetch_brick->copy_end &&
 	      (rot->fetch_next_is_available > 0 ||
 	       rot->fetch_round++ > 3)))) {
@@ -5055,7 +5048,7 @@ done:
 
 	// remove trans_logger (when possible) upon detach
 	if (rot->trans_brick && rot->trans_brick->power.led_off && !rot->trans_brick->outputs[0]->nr_connected) {
-		bool do_attach = _check_allow(global, parent->d_path, "attach");
+		bool do_attach = _check_allow(parent->d_path, "attach");
 		MARS_DBG("do_attach = %d\n", do_attach);
 		if (!do_attach) {
 			rot->trans_brick->killme = true;
@@ -5078,9 +5071,8 @@ err:
 // specific handlers
 
 static
-int make_primary(void *buf, struct mars_dent *dent)
+int make_primary(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	struct mars_dent *parent;
 	struct mars_rotate *rot;
 	int status = -EINVAL;
@@ -5111,8 +5103,8 @@ int make_primary(void *buf, struct mars_dent *dent)
 	}
 
 	rot->todo_primary =
-		global->global_power.button &&
-		_check_allow(rot->global, rot->parent_path, "attach") &&
+		mars_global->global_power.button &&
+		_check_allow(rot->parent_path, "attach") &&
 		dent->new_link &&
 		!strcmp(dent->new_link, my_id());
 
@@ -5138,15 +5130,14 @@ void activate_rot(struct mars_rotate *rot)
 }
 
 static
-int make_bio(void *buf, struct mars_dent *dent)
+int make_bio(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	struct mars_rotate *rot;
 	struct mars_brick *brick;
 	bool switch_on;
 	int status = 0;
 
-	if (!global || !dent->d_parent) {
+	if (!dent->d_parent) {
 		goto done;
 	}
 	rot = dent->d_parent->d_private;
@@ -5169,14 +5160,14 @@ int make_bio(void *buf, struct mars_dent *dent)
 
 	activate_rot(rot);
 
-	switch_on = _check_allow(global, rot->parent_path, "attach");
+	switch_on = _check_allow(rot->parent_path, "attach");
 	if (switch_on && rot->res_shutdown) {
 		MARS_ERR("cannot access disk: resource shutdown mode is currently active\n");
 		switch_on = false;
 	}
 
 	brick =
-		make_brick_all(global,
+		make_brick_all(mars_global,
 			       dent,
 			       _set_bio_params,
 			       NULL,
@@ -5223,12 +5214,11 @@ int make_bio(void *buf, struct mars_dent *dent)
 }
 
 static
-int make_work(void *buf, struct mars_dent *dent)
+int make_work(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	struct mars_rotate *rot;
 
-	if (!global || !dent->d_parent) {
+	if (!dent->d_parent) {
 		goto done;
 	}
 	rot = dent->d_parent->d_private;
@@ -5241,9 +5231,8 @@ int make_work(void *buf, struct mars_dent *dent)
 	return 0;
 }
 
-static int make_replay(void *buf, struct mars_dent *dent)
+static int make_replay(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	struct mars_dent *parent = dent->d_parent;
 	int status = 0;
 
@@ -5252,7 +5241,7 @@ static int make_replay(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	status = make_log_finalize(global, dent);
+	status = make_log_finalize(dent);
 	if (status < 0) {
 		MARS_DBG("logger not initialized\n");
 		goto done;
@@ -5289,9 +5278,8 @@ void _show_dev(struct mars_rotate *rot)
 }
 
 static
-int make_dev(void *buf, struct mars_dent *dent)
+int make_dev(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot = NULL;
 	struct mars_brick *dev_brick;
@@ -5334,8 +5322,8 @@ int make_dev(void *buf, struct mars_dent *dent)
 		 !rot->trans_brick->replay_mode &&
 		 (rot->trans_brick->power.led_on ||
 		  (!rot->trans_brick->power.button && !rot->trans_brick->power.led_off)) &&
-		 _check_allow(global, rot->parent_path, "attach"));
-	if (!global->global_power.button) {
+		 _check_allow(rot->parent_path, "attach"));
+	if (!mars_global->global_power.button) {
 		switch_on = false;
 	}
 	if (switch_on && rot->res_shutdown) {
@@ -5344,7 +5332,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 	}
 
 	dev_brick =
-		make_brick_all(global,
+		make_brick_all(mars_global,
 			       dent,
 			       _set_if_params,
 			       rot,
@@ -5380,10 +5368,10 @@ err:
 }
 
 static
-int kill_dev(void *buf, struct mars_dent *dent)
+int kill_dev(struct mars_dent *dent)
 {
 	struct mars_dent *parent = dent->d_parent;
-	int status = kill_any(buf, dent);
+	int status = kill_any(dent);
 
 	if (status > 0 && parent) {
 		struct mars_rotate *rot = parent->d_private;
@@ -5394,9 +5382,8 @@ int kill_dev(void *buf, struct mars_dent *dent)
 	return status;
 }
 
-static int _make_direct(void *buf, struct mars_dent *dent)
+static int _make_direct(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	struct mars_brick *brick;
 	char *src_path = NULL;
 	int status;
@@ -5422,10 +5409,10 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 		do_dealloc = true;
 	}
 
-	switch_on = _check_allow(global, dent->d_parent->d_path, "attach");
+	switch_on = _check_allow(dent->d_parent->d_path, "attach");
 
 	brick = 
-		make_brick_all(global,
+		make_brick_all(mars_global,
 			       dent,
 			       _set_bio_params,
 			       NULL,
@@ -5444,7 +5431,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	}
 
 	brick = 
-		make_brick_all(global,
+		make_brick_all(mars_global,
 			       dent,
 			       _set_if_params,
 			       NULL,
@@ -5472,9 +5459,8 @@ done:
 	return status;
 }
 
-static int _make_copy(void *buf, struct mars_dent *dent)
+static int _make_copy(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	const char *switch_path = NULL;
 	const char *copy_path = NULL;
 	int status;
@@ -5494,8 +5480,7 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 	// check whether connection is allowed
 	switch_path = path_make("%s/todo-%s/connect", dent->d_parent->d_path, my_id());
 
-	status = __make_copy(global,
-			     dent,
+	status = __make_copy(dent,
 			     switch_path,
 			     copy_path,
 			     dent->d_parent->d_path,
@@ -5612,7 +5597,6 @@ done:
 }
 
 struct syncstatus_cookie {
-	struct mars_global *global;
 	struct mars_rotate *rot;
 	char *peer;
 };
@@ -5635,9 +5619,8 @@ int update_syncstatus(struct mars_brick *_copy, bool switch_on, void *private)
 	return status;
 }
 
-static int make_sync(void *buf, struct mars_dent *dent)
+static int make_sync(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	struct mars_rotate *rot;
 	loff_t start_pos = 0;
 	loff_t end_pos = 0;
@@ -5669,7 +5652,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	do_start = _check_allow(global, dent->d_parent->d_path, "attach");
+	do_start = _check_allow(dent->d_parent->d_path, "attach");
 
 	/* Analyze replay position
 	 */
@@ -5835,12 +5818,11 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	{
 		const char *argv[2] = { src, dst };
 		struct syncstatus_cookie cc = {
-			.global = global,
 			.rot = rot,
 			.peer = peer,
 		};
 
-		status = __make_copy(global, dent,
+		status = __make_copy(dent,
 				     do_start ? switch_path : "",
 				     copy_path, dent->d_parent->d_path, argv, find_key(rot->msgs, "inf-sync"),
 				     start_pos, end_pos,
@@ -5883,7 +5865,7 @@ bool remember_peer(struct mars_rotate *rot, struct mars_peerinfo *peer)
 }
 
 static
-int make_connect(void *buf, struct mars_dent *dent)
+int make_connect(struct mars_dent *dent)
 {
 	struct mars_rotate *rot;
 	struct mars_peerinfo *peer;
@@ -5918,11 +5900,10 @@ done:
 	return 0;
 }
 
-static int prepare_delete(void *buf, struct mars_dent *dent)
+static int prepare_delete(struct mars_dent *dent)
 {
 	struct kstat stat;
 	struct kstat *to_delete = NULL;
-	struct mars_global *global = buf;
 	struct mars_dent *target;
 	struct mars_dent *response;
 	const char *response_path = NULL;
@@ -5930,11 +5911,11 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	int max_serial = 0;
 	int status;
 
-	if (!global || !dent || !dent->new_link || !dent->d_path) {
+	if (!dent || !dent->new_link || !dent->d_path) {
 		goto err;
 	}
 
-	brick = mars_find_brick(global, NULL, dent->new_link);
+	brick = mars_find_brick(mars_global, NULL, dent->new_link);
 	if (brick &&
 	    unlikely((brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected) ||
 		     (brick->type == (void*)&if_brick_type && !brick->power.led_off))) {
@@ -5943,7 +5924,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	}
 
 	status = 0;
-	target = mars_find_dent(global, dent->new_link);
+	target = mars_find_dent(mars_global, dent->new_link);
 	if (target) {
 		if (lamport_time_compare(&target->new_stat.mtime, &dent->new_stat.mtime) > 0) {
 			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
@@ -5985,7 +5966,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	if (status < 0) {
 		MARS_DBG("deletion '%s' to target '%s' is accomplished\n",
 			 dent->d_path, dent->new_link);
-		if (dent->d_serial <= global->deleted_border) {
+		if (dent->d_serial <= mars_global->deleted_border) {
 			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
 			dent->d_killme = true;
 			mars_unlink(dent->d_path);
@@ -5995,14 +5976,14 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
  done:
 	// tell the world that we have seen this deletion... (even when not yet accomplished)
 	response_path = path_make("/mars/todo-global/deleted-%s", my_id());
-	response = mars_find_dent(global, response_path);
+	response = mars_find_dent(mars_global, response_path);
 	if (response && response->new_link) {
 		sscanf(response->new_link, "%d", &max_serial);
 	}
 	if (dent->d_serial > max_serial) {
 		char response_val[16];
 		max_serial = dent->d_serial;
-		global->deleted_my_border = max_serial;
+		mars_global->deleted_my_border = max_serial;
 		snprintf(response_val, sizeof(response_val), "%09d", max_serial);
 		ordered_symlink(response_val, response_path, NULL);
 	}
@@ -6012,13 +5993,12 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	return 0;
 }
 
-static int check_deleted(void *buf, struct mars_dent *dent)
+static int check_deleted(struct mars_dent *dent)
 {
-	struct mars_global *global = buf;
 	int serial = 0;
 	int status;
 
-	if (!global || !dent || !dent->new_link) {
+	if (!dent || !dent->new_link) {
 		goto done;
 	}
 
@@ -6029,9 +6009,9 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 	}
 
 	if (!strcmp(dent->d_rest, my_id())) {
-		global->deleted_my_border = serial;
-		if (global->deleted_my_border != global->old_deleted_my_border) {
-			global->old_deleted_my_border = global->deleted_my_border;
+		mars_global->deleted_my_border = serial;
+		if (mars_global->deleted_my_border != mars_global->old_deleted_my_border) {
+			mars_global->old_deleted_my_border = mars_global->deleted_my_border;
 			mars_remote_trigger(MARS_TRIGGER_TO_REMOTE);
 		}
 	}
@@ -6039,8 +6019,8 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 	/* Compute the minimum of the deletion progress among
 	 * the resource members.
 	 */
-	if (serial < global->deleted_min || !global->deleted_min)
-		global->deleted_min = serial;
+	if (serial < mars_global->deleted_min || !mars_global->deleted_min)
+		mars_global->deleted_min = serial;
 
 	
  done:
@@ -6049,7 +6029,7 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 
 /* transient, to re-disappear */
 static
-int get_compat_deletions(void *buf, struct mars_dent *dent)
+int get_compat_deletions(struct mars_dent *dent)
 {
 	if (dent && dent->new_link)
 		sscanf(dent->new_link, "%d", &compat_deletions);
@@ -6057,7 +6037,7 @@ int get_compat_deletions(void *buf, struct mars_dent *dent)
 }
 
 static
-int make_res(void *buf, struct mars_dent *dent)
+int make_res(struct mars_dent *dent)
 {
 	MARS_DBG("init '%s'\n", dent->d_path);
 	dent->d_skip_fn = skip_scan_resource;
@@ -6067,7 +6047,7 @@ int make_res(void *buf, struct mars_dent *dent)
 }
 
 static
-int kill_res(void *buf, struct mars_dent *dent)
+int kill_res(struct mars_dent *dent)
 {
 	struct mars_rotate *rot = dent->d_private;
 
@@ -6079,10 +6059,6 @@ int kill_res(void *buf, struct mars_dent *dent)
 
 	show_vals(rot->msgs, rot->parent_path, "");
 
-	if (unlikely(!rot->global)) {
-		MARS_DBG("nothing to do\n");
-		goto done;
-	}
 	if (!dent->d_no_scan) {
 		MARS_DBG("resource '%s' is active, nothing to kill.\n",
 			 rot->parent_path);
@@ -6145,7 +6121,7 @@ int kill_res(void *buf, struct mars_dent *dent)
 }
 
 static
-int make_defaults(void *buf, struct mars_dent *dent)
+int make_defaults(struct mars_dent *dent)
 {
 	if (!dent->new_link)
 		goto done;
@@ -6846,9 +6822,15 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 	if (worker) {
 		int status;
 		if (!direction)
-			MARS_DBG("--- start working %s on '%s' rest='%s'\n", direction ? "backward" : "forward", dent->d_path, dent->d_rest);
-		status = worker(global, (void*)dent);
-		MARS_DBG("--- done, worked %s on '%s', status = %d\n", direction ? "backward" : "forward", dent->d_path, status);
+			MARS_DBG("--- start working %s on '%s' rest='%s'\n",
+				 direction ? "backward" : "forward",
+				 dent->d_path,
+				 dent->d_rest);
+		status = worker(dent);
+		MARS_DBG("--- done, worked %s on '%s', status = %d\n",
+			 direction ? "backward" : "forward",
+			 dent->d_path,
+			 status);
 		return status;
 	}
 	return 0;
