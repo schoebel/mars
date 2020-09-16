@@ -2014,14 +2014,13 @@ static
 struct list_head peer_anchor = LIST_HEAD_INIT(peer_anchor);
 
 struct mars_peerinfo {
-	struct mars_global *global;
+	struct mars_global *remote_global;
 	char *peer;
 	char *peer_dir_list;
 	struct mars_socket socket;
 	struct task_struct *peer_thread;
 	struct mutex peer_lock;
 	struct list_head peer_head;
-	struct list_head remote_dent_list;
 	struct list_head push_anchor;
 	struct lamport_time remote_start_stamp;
 	unsigned long last_remote_jiffies;
@@ -2397,9 +2396,12 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		goto done;
 	}
 
-	if (remote_dent->new_link && !strncmp(remote_dent->d_path, "/mars/todo-global/delete-", 25)) {
-		if (remote_dent->d_serial < peer->global->deleted_my_border) {
-			MARS_DBG("ignoring deletion '%s' at border %d\n", remote_dent->d_path, peer->global->deleted_my_border);
+	if (remote_dent->new_link &&
+	    !strncmp(remote_dent->d_path, "/mars/todo-global/delete-", 25)) {
+		if (remote_dent->d_serial < mars_global->deleted_my_border) {
+			MARS_DBG("ignoring deletion '%s' at border %d\n",
+				 remote_dent->d_path,
+				 mars_global->deleted_my_border);
 			goto done;
 		}
 	}
@@ -2462,11 +2464,15 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 				run_systemd_trigger = true;
 
 		}
-	} else if (S_ISREG(remote_dent->new_stat.mode) && _is_peer_logfile(remote_dent->d_name, my_id())) {
+	} else if (S_ISREG(remote_dent->new_stat.mode) &&
+		   _is_peer_logfile(remote_dent->d_name, my_id())) {
 		const char *parent_path = backskip_replace(remote_dent->d_path, '/', false, "");
+
 		if (likely(parent_path)) {
-			struct mars_dent *parent = mars_find_dent(peer->global, parent_path);
+			struct mars_dent *parent;
 			struct mars_rotate *rot;
+
+			parent = mars_find_dent(mars_global, parent_path);
 			if (unlikely(!parent)) {
 				MARS_DBG("ignoring non-existing local resource '%s'\n", parent_path);
 			// don't copy old / outdated logfiles
@@ -2474,7 +2480,9 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 				   rot->relevant_serial > remote_dent->d_serial) {
 				MARS_DBG("ignoring outdated remote logfile '%s' (behind %d)\n", remote_dent->d_path, rot->relevant_serial);
 			} else {
-				struct mars_dent *local_dent = mars_find_dent(peer->global, remote_dent->d_path);
+				struct mars_dent *local_dent;
+
+				local_dent = mars_find_dent(mars_global, remote_dent->d_path);
 				status = check_logfile(peer->peer, remote_dent, local_dent, parent, local_stat.size);
 			}
 			brick_string_free(parent_path);
@@ -2495,7 +2503,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 static
 int run_bones(struct mars_peerinfo *peer)
 {
-	LIST_HEAD(tmp_list);
+	struct mars_global *tmp_global;
 	struct lamport_time remote_start_stamp;
 	struct list_head *tmp;
 	bool run_trigger = false;
@@ -2504,18 +2512,25 @@ int run_bones(struct mars_peerinfo *peer)
 
 	mutex_lock(&peer->peer_lock);
 	remote_start_stamp = peer->remote_start_stamp;
-	list_replace_init(&peer->remote_dent_list, &tmp_list);
+	tmp_global = peer->remote_global;
+	peer->remote_global = NULL;
 	mutex_unlock(&peer->peer_lock);
 
-	MARS_DBG("remote_dent_list list_empty = %d\n", list_empty(&tmp_list));
+	MARS_DBG("tmp_global %p '%s'\n",
+		 tmp_global, peer->peer);
+
+	if (!tmp_global)
+		return 0;
 
 	if (peer->do_additional && !peer->doing_additional &&
-	    !peer->do_communicate && !list_empty(&tmp_list)) {
+	    !peer->do_communicate) {
 		peer->doing_additional = true;
 		mars_running_additional_peers++;
 	}
-	for (tmp = tmp_list.next; tmp != &tmp_list; tmp = tmp->next) {
+	for (tmp = tmp_global->dent_anchor.next;
+	     tmp != &tmp_global->dent_anchor; tmp = tmp->next) {
 		struct mars_dent *remote_dent = container_of(tmp, struct mars_dent, dent_link);
+
 		if (!remote_dent->d_path || !remote_dent->d_name) {
 			MARS_DBG("NULL\n");
 			continue;
@@ -2527,7 +2542,6 @@ int run_bones(struct mars_peerinfo *peer)
 			if (status & 2)
 				run_systemd_trigger = true;
 		}
-		//MARS_DBG("path = '%s' worker status = %d\n", remote_dent->d_path, status);
 	}
 
 	if (remote_start_stamp.tv_sec) {
@@ -2548,7 +2562,8 @@ int run_bones(struct mars_peerinfo *peer)
 		brick_string_free(dst);
 	}
 
-	mars_free_dent_all(NULL, &tmp_list);
+	mars_free_dent_all(tmp_global, &tmp_global->dent_anchor);
+	free_mars_global(tmp_global);
 
 	if (run_trigger) {
 		mars_trigger();
@@ -2605,30 +2620,31 @@ void report_peer_connection(struct mars_peerinfo *peer,
 }
 
 static
-int peer_action_dent_list(struct mars_global *tmp_global,
-			  struct mars_peerinfo *peer,
+int peer_action_dent_list(struct mars_peerinfo *peer,
 			  const char *real_peer,
 			  const char *paths,
 			  struct key_value_pair *peer_pairs,
 			  struct lamport_time *start_stamp)
 {
+	struct mars_global *new_global = alloc_mars_global();
+	struct mars_global *old_global = NULL;
 	int status;
 
 	MARS_DBG("fetching remote dentries from '%s' '%s'\n",
 		 peer->peer, paths);
 
-	status = mars_recv_dent_list(tmp_global, &peer->socket);
+	status = mars_recv_dent_list(new_global, &peer->socket);
 	if (unlikely(status < 0))
 		goto free;
 
-	if (likely(!list_empty(&tmp_global->dent_anchor))) {
+	if (likely(!list_empty(&new_global->dent_anchor))) {
 		LIST_HEAD(old_list);
 		struct mars_dent *peer_uuid;
 		const char *my_uuid;
 
-		MARS_DBG("got remote denties from %s\n", peer->peer);
+		MARS_DBG("got remote dentries from %s\n", peer->peer);
 
-		peer_uuid = mars_find_dent(tmp_global, "/mars/uuid");
+		peer_uuid = mars_find_dent(new_global, "/mars/uuid");
 		if (unlikely(!peer_uuid || !peer_uuid->new_link)) {
 			MARS_ERR("peer %s has no uuid\n", peer->peer);
 			make_peer_msg(peer, peer_pairs,
@@ -2664,31 +2680,37 @@ int peer_action_dent_list(struct mars_global *tmp_global,
 			      peer->peer, real_peer,
 			      paths);
 
+		/* All right: replace the old global ptr with the new one */
 		mutex_lock(&peer->peer_lock);
-
 		peer->remote_start_stamp = *start_stamp;
-		list_replace_init(&peer->remote_dent_list, &old_list);
-		list_replace_init(&tmp_global->dent_anchor, &peer->remote_dent_list);
-
+		old_global = peer->remote_global;
+		peer->remote_global = new_global;
+		new_global = NULL;
 		mutex_unlock(&peer->peer_lock);
 
 		peer->last_remote_jiffies = jiffies;
 
 		mars_trigger();
 
-		mars_free_dent_all(tmp_global, &old_list);
+		status = 0;
 	}
 
  free:
-	mars_free_dent_all(tmp_global, &tmp_global->dent_anchor);
+	if (old_global) {
+		mars_free_dent_all(old_global, &old_global->dent_anchor);
+		free_mars_global(old_global);
+	}
+	if (new_global) {
+		mars_free_dent_all(new_global, &new_global->dent_anchor);
+		free_mars_global(new_global);
+	}
 	return status;
 }
 
 /* React on different types of peer responses
  */
 static
-int peer_actions(struct mars_global *tmp_global,
-		 struct mars_peerinfo *peer,
+int peer_actions(struct mars_peerinfo *peer,
 		 const char *real_peer,
 		 const char *paths,
 		 struct key_value_pair *peer_pairs)
@@ -2699,8 +2721,9 @@ int peer_actions(struct mars_global *tmp_global,
 
 	/* Compatibility to old protocol: we cannot send/recv cmds */
 	if (!peer->socket.s_common_proto_level)
-		return peer_action_dent_list(tmp_global,
-					     peer, real_peer, paths,
+		return peer_action_dent_list(peer,
+					     real_peer,
+					     paths,
 					     peer_pairs,
 					     &inter_cmd.cmd_stamp);
 
@@ -2715,7 +2738,6 @@ int peer_actions(struct mars_global *tmp_global,
 	case CMD_GETENTS:
 	{
 		status = peer_action_dent_list(
-				tmp_global,
 				peer,
 				real_peer,
 				paths,
@@ -2745,7 +2767,6 @@ int peer_thread(void *data)
 		{ peer->peer },
 		{ NULL }
 	};
-	struct mars_global *tmp_global;
 	int pause_time = 0;
 	bool do_kill = false;
 	bool repeated = false;
@@ -2753,8 +2774,6 @@ int peer_thread(void *data)
 
 	if (!peer || !mars_net_is_alive)
 		return -1;
-
-	tmp_global = alloc_mars_global();
 
 	real_host = mars_translate_hostname(peer->peer);
 	real_peer = path_make("%s:%d",
@@ -2917,9 +2936,10 @@ int peer_thread(void *data)
 			goto free_and_restart;
 		}
 
-		status = peer_actions(tmp_global,
-				      peer, real_peer,
-				      cmd.cmd_str1, peer_pairs);
+		status = peer_actions(peer,
+				      real_peer,
+				      cmd.cmd_str1,
+				      peer_pairs);
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on receive, status = %d\n", status);
 			if (do_kill) {
@@ -2986,7 +3006,6 @@ int peer_thread(void *data)
 done:
 	clear_vals(peer_pairs);
 	brick_string_free(real_peer);
-	free_mars_global(tmp_global);
 	peer->has_terminated = true;
 	return 0;
 }
@@ -3099,14 +3118,13 @@ void activate_peer(struct mars_rotate *rot, const char *peer_name)
 	}
 }
 
-static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
+static int _kill_peer(struct mars_peerinfo *peer)
 {
-	LIST_HEAD(tmp_list);
+	struct mars_global *old_global;
 	LIST_HEAD(tmp_push_list);
 
-	if (!peer) {
+	if (!peer)
 		return 0;
-	}
 
 	down_write(&peer_lock);
 	if (!list_empty(&peer->peer_head))
@@ -3123,7 +3141,8 @@ static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 	}
 
 	mutex_lock(&peer->peer_lock);
-	list_replace_init(&peer->remote_dent_list, &tmp_list);
+	old_global = peer->remote_global;
+	peer->remote_global = NULL;
 	list_replace_init(&peer->push_anchor, &tmp_push_list);
 	mutex_unlock(&peer->peer_lock);
 
@@ -3136,7 +3155,10 @@ static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 		brick_string_free(push->dst);
 		brick_mem_free(push);
 	}
-	mars_free_dent_all(NULL, &tmp_list);
+	if (old_global) {
+		mars_free_dent_all(old_global, &old_global->dent_anchor);
+		free_mars_global(old_global);
+	}
 	if (peer->doing_additional) {
 		peer->doing_additional = false;
 		peer->do_communicate = false;
@@ -3151,8 +3173,9 @@ static
 void peer_destruct(void *_peer)
 {
 	struct mars_peerinfo *peer = _peer;
+
 	if (likely(peer))
-		_kill_peer(peer->global, peer);
+		_kill_peer(peer);
 }
 
 static
@@ -3170,7 +3193,7 @@ char * make_peer_dir_list(char *mypeer)
 }
 
 static
-int _make_peer(struct mars_global *global, struct mars_dent *dent)
+int _make_peer(struct mars_dent *dent)
 {
 	static int serial = 0;
 	struct mars_peerinfo *peer;
@@ -3179,10 +3202,14 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 	const char *feature_str;
 	int status = 0;
 
-	if (!global || !dent || !dent->new_link || !dent->d_parent || !(parent_path = dent->d_parent->d_path)) {
+	if (!dent ||
+	    !dent->new_link ||
+	    !dent->d_parent ||
+	    !dent->d_parent->d_path) {
 		MARS_DBG("cannot work\n");
 		return 0;
 	}
+	parent_path = dent->d_parent->d_path;
 	mypeer = dent->d_rest;
 	if (!mypeer) {
 		status = _parse_args(dent, dent->new_link, 1);
@@ -3201,7 +3228,6 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 		}
 		dent->d_private_destruct = peer_destruct;
 		peer = dent->d_private;
-		peer->global = global;
 		peer->peer = brick_strdup(mypeer);
 		peer->maxdepth = 2;
 
@@ -3213,7 +3239,6 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 
 		mutex_init(&peer->peer_lock);
 		INIT_LIST_HEAD(&peer->peer_head);
-		INIT_LIST_HEAD(&peer->remote_dent_list);
 		INIT_LIST_HEAD(&peer->push_anchor);
 
 		/* always trigger on peer startup */
@@ -3315,7 +3340,7 @@ static int kill_scan(void *buf, struct mars_dent *dent)
 		return 0;
 	}
 	dent->d_private = NULL;
-	res = _kill_peer(global, peer);
+	res = _kill_peer(peer);
 	brick_mem_free(peer);
 	return res;
 }
@@ -3327,7 +3352,7 @@ static int make_scan(void *buf, struct mars_dent *dent)
 	if (!strcmp(dent->d_rest, my_id())) {
 		return 0;
 	}
-	return _make_peer(buf, dent);
+	return _make_peer(dent);
 }
 
 
