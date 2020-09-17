@@ -1534,7 +1534,13 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 				&prefix,
 				&serial,
 				&use_channel);
-	if (class < 0)
+
+	/* For some_ordered network transfers, always
+	 * accept symlinks.
+	 */
+	if (class < 0 &&
+	    (!cookie->some_ordered ||
+	     d_type != DT_LNK))
 		return 0;
 
 	pathlen = strlen(cookie->path);
