@@ -654,16 +654,17 @@ static struct task_struct *main_thread = NULL;
 typedef int (*main_worker_fn)(struct mars_dent *dent);
 
 struct main_class {
-	char *cl_name;
-	int    cl_len;
+	main_worker_fn cl_prepare;
+	main_worker_fn cl_forward;
+	main_worker_fn cl_backward;
+	char  *cl_name;
+	short  cl_len;
 	char   cl_type;
 	bool   cl_hostcontext;
 	bool   cl_serial;
 	bool   cl_use_channel;
-	int    cl_father;
-	main_worker_fn cl_prepare;
-	main_worker_fn cl_forward;
-	main_worker_fn cl_backward;
+	short  cl_father;
+	short  cl_childs;
 };
 
 // the order is important!
@@ -676,24 +677,26 @@ enum {
 	CL_GLOBAL_USERSPACE,
 	CL_DEFAULTS0,
 	CL_DEFAULTS,
-	CL_DEFAULTS_ITEMS0,
-	CL_DEFAULTS_ITEMS,
 	// global todos
 	CL_GLOBAL_TODO,
-	CL_GLOBAL_TODO_DELETE,
-	CL_GLOBAL_TODO_DELETED,
 	// replacement for DNS in kernelspace
 	CL_IPS,
-	CL_PEERS,
 	CL_GBL_ACTUAL,
 	CL_COMPAT_DELETIONS, /* transient, to re-disappear */
 	// resource definitions
 	CL_RESOURCE,
+	/* subdir items */
+	CL_DEFAULTS_ITEMS0,
+	CL_DEFAULTS_ITEMS,
+	CL_GLOBAL_TODO_DELETE,
+	CL_GLOBAL_TODO_DELETED,
+	CL_PEERS,
+	/* Resource items */
 	CL_RESOURCE_USERSPACE,
 	CL_RES_DEFAULTS0,
 	CL_RES_DEFAULTS,
-	CL_TODO,
-	CL_ACTUAL,
+	CL_RES_TODO,
+	CL_RES_ACTUAL,
 	CL_DATA,
 	CL_WORK,
 	CL_SIZE,
@@ -6136,6 +6139,7 @@ static const struct main_class main_classes[] = {
 	/* Placeholder for root node /mars/
 	 */
 	[CL_ROOT] = {
+		.cl_childs = CL_UUID,
 	},
 
 	/* UUID, indentifying the whole cluster.
@@ -6163,6 +6167,7 @@ static const struct main_class main_classes[] = {
 		.cl_name = "defaults",
 		.cl_len = 8,
 		.cl_type = 'd',
+		.cl_childs = CL_DEFAULTS_ITEMS0,
 		.cl_hostcontext = false,
 		.cl_father = CL_ROOT,
 	},
@@ -6170,22 +6175,9 @@ static const struct main_class main_classes[] = {
 		.cl_name = "defaults-",
 		.cl_len = 9,
 		.cl_type = 'd',
+		.cl_childs = CL_DEFAULTS_ITEMS,
 		.cl_hostcontext = true,
 		.cl_father = CL_ROOT,
-	},
-	[CL_DEFAULTS_ITEMS0] = {
-		.cl_name = "",
-		.cl_len = 0, // catch any
-		.cl_type = 'l',
-		.cl_father = CL_DEFAULTS0,
-		.cl_forward = make_defaults,
-	},
-	[CL_DEFAULTS_ITEMS] = {
-		.cl_name = "",
-		.cl_len = 0, // catch any
-		.cl_type = 'l',
-		.cl_father = CL_DEFAULTS,
-		.cl_forward = make_defaults,
 	},
 
 	/* Subdirectory for global controlling items...
@@ -6194,26 +6186,9 @@ static const struct main_class main_classes[] = {
 		.cl_name = "todo-global",
 		.cl_len = 11,
 		.cl_type = 'd',
+		.cl_childs = CL_GLOBAL_TODO_DELETE,
 		.cl_hostcontext = false,
 		.cl_father = CL_ROOT,
-	},
-	/* ... and its contents
-	 */
-	[CL_GLOBAL_TODO_DELETE] = {
-		.cl_name = "delete-",
-		.cl_len = 7,
-		.cl_type = 'l',
-		.cl_serial = true,
-		.cl_hostcontext = false, // ignore context, although present
-		.cl_father = CL_GLOBAL_TODO,
-		.cl_prepare = prepare_delete,
-	},
-	[CL_GLOBAL_TODO_DELETED] = {
-		.cl_name = "deleted-",
-		.cl_len = 8,
-		.cl_type = 'l',
-		.cl_father = CL_GLOBAL_TODO,
-		.cl_prepare = check_deleted,
 	},
 
 	/* Directory containing the addresses of all peers
@@ -6222,21 +6197,8 @@ static const struct main_class main_classes[] = {
 		.cl_name = "ips",
 		.cl_len = 3,
 		.cl_type = 'd',
+		.cl_childs = CL_PEERS,
 		.cl_father = CL_ROOT,
-	},
-	/* Anyone participating in a MARS cluster must
-	 * be named here (symlink pointing to the IP address).
-	 * We have no DNS in kernel space.
-	 */
-	[CL_PEERS] = {
-		.cl_name = "ip-",
-		.cl_len = 3,
-		.cl_type = 'l',
-		.cl_father = CL_IPS,
-#ifdef RUN_PEERS
-		.cl_forward = make_scan,
-#endif
-		.cl_backward = kill_scan,
 	},
 	/* Subdirectory for actual state
 	 */
@@ -6263,10 +6225,60 @@ static const struct main_class main_classes[] = {
 		.cl_name = "resource-",
 		.cl_len = 9,
 		.cl_type = 'd',
+		.cl_childs = CL_RESOURCE_USERSPACE,
 		.cl_use_channel = true,
 		.cl_father = CL_ROOT,
 		.cl_forward = make_res,
 		.cl_backward = kill_res,
+	},
+
+	/* Subdir items
+	 */
+	[CL_DEFAULTS_ITEMS0] = {
+		.cl_name = "",
+		.cl_len = 0, // catch any
+		.cl_type = 'l',
+		.cl_father = CL_DEFAULTS0,
+		.cl_forward = make_defaults,
+	},
+	[CL_DEFAULTS_ITEMS] = {
+		.cl_name = "",
+		.cl_len = 0, // catch any
+		.cl_type = 'l',
+		.cl_father = CL_DEFAULTS,
+		.cl_forward = make_defaults,
+	},
+
+	[CL_GLOBAL_TODO_DELETE] = {
+		.cl_name = "delete-",
+		.cl_len = 7,
+		.cl_type = 'l',
+		.cl_serial = true,
+		.cl_hostcontext = false, // ignore context, although present
+		.cl_father = CL_GLOBAL_TODO,
+		.cl_prepare = prepare_delete,
+	},
+	[CL_GLOBAL_TODO_DELETED] = {
+		.cl_name = "deleted-",
+		.cl_len = 8,
+		.cl_type = 'l',
+		.cl_father = CL_GLOBAL_TODO,
+		.cl_prepare = check_deleted,
+	},
+
+	/* Anyone participating in a MARS cluster must
+	 * be named here (symlink pointing to the IP address).
+	 * We have no DNS in kernel space.
+	 */
+	[CL_PEERS] = {
+		.cl_name = "ip-",
+		.cl_len = 3,
+		.cl_type = 'l',
+		.cl_father = CL_IPS,
+#ifdef RUN_PEERS
+		.cl_forward = make_scan,
+#endif
+		.cl_backward = kill_scan,
 	},
 
 	/* Subdirectory for resource-specific userspace items...
@@ -6298,7 +6310,7 @@ static const struct main_class main_classes[] = {
 
 	/* Subdirectory for controlling items...
 	 */
-	[CL_TODO] = {
+	[CL_RES_TODO] = {
 		.cl_name = "todo-",
 		.cl_len = 5,
 		.cl_type = 'd',
@@ -6308,7 +6320,7 @@ static const struct main_class main_classes[] = {
 
 	/* Subdirectory for actual state
 	 */
-	[CL_ACTUAL] = {
+	[CL_RES_ACTUAL] = {
 		.cl_name = "actual-",
 		.cl_len = 7,
 		.cl_type = 'd',
@@ -6480,7 +6492,12 @@ static const struct main_class main_classes[] = {
  * Caution: this is called as a callback from iterate_dir() and friends.
  * Don't deadlock by producing any filesystem output within this!
  */
-int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel)
+int main_checker(struct mars_dent *parent,
+		 const char *_name, int namlen,
+		 unsigned int d_type,
+		 int *prefix,
+		 int *serial,
+		 bool *use_channel)
 {
 	int class;
 	int status = -2;
@@ -6495,6 +6512,7 @@ int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsign
 	for (class = CL_ROOT + 1; ; class++) {
 		const struct main_class *test = &main_classes[class];
 		int len = test->cl_len;
+
 		if (!test->cl_name) { // end of table
 			break;
 		}
