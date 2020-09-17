@@ -6499,6 +6499,8 @@ int main_checker(struct mars_dent *parent,
 		 int *serial,
 		 bool *use_channel)
 {
+	int parent_class;
+	int start_class;
 	int class;
 	int status = -2;
 #ifdef MARS_DEBUGGING
@@ -6509,13 +6511,20 @@ int main_checker(struct mars_dent *parent,
 	const char *name = _name;
 #endif
 
-	for (class = CL_ROOT + 1; ; class++) {
+	parent_class = CL_ROOT;
+	if (parent)
+		parent_class = parent->d_class;
+	start_class = main_classes[parent_class].cl_childs;
+	for (class = start_class; ; class++) {
 		const struct main_class *test = &main_classes[class];
 		int len = test->cl_len;
 
-		if (!test->cl_name) { // end of table
+		/* end of subdir */
+		if (test->cl_father != parent_class)
 			break;
-		}
+		/* end of table */
+		if (!test->cl_name)
+			break;
 
 #ifdef MARS_DEBUGGING
 		/* This can only happen when the table stucture is misformed.
