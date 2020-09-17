@@ -100,6 +100,7 @@ const struct meta mars_dent_meta[] = {
 	META_INI(d_corr_A,  struct mars_dent, FIELD_INT),
 	META_INI(d_corr_B,  struct mars_dent, FIELD_INT),
 	META_INI(d_proto,   struct mars_dent, FIELD_INT),
+	META_INI(d_unordered, struct mars_dent, FIELD_INT),
 	META_INI_SUB(new_stat,struct mars_dent, mars_kstat_meta),
 	META_INI_SUB(old_stat,struct mars_dent, mars_kstat_meta),
 	META_INI(new_link,    struct mars_dent, FIELD_STRING),

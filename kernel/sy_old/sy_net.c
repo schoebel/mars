@@ -99,6 +99,8 @@ int mars_recv_dent_list(struct mars_global *global, struct mars_socket *sock)
 	anchor = &global->dent_anchor;
 	for (;;) {
 		struct mars_dent *dent = brick_zmem_alloc(sizeof(struct mars_dent));
+		struct list_head *hash_anchor;
+		unsigned int hash;
 
 		if (!dent)
 			return -ENOMEM;
@@ -119,6 +121,12 @@ int mars_recv_dent_list(struct mars_global *global, struct mars_socket *sock)
 			sock->s_common_proto_level = min(dent->d_proto, MARS_PROTO_LEVEL);
 		}
 		list_add_tail(&dent->dent_link, anchor);
+		if (!dent->d_path || dent->d_unordered)
+			continue;
+		hash = dent_hash(dent->d_path, strlen(dent->d_path));
+		dent->d_hash = hash;
+		hash_anchor = DENT_HASH_ANCHOR(global, hash);
+		list_add_tail(&dent->dent_hash_link, hash_anchor);
 	}
 done:
 	up_write(&global->dent_mutex);
