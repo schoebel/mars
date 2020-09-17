@@ -77,6 +77,15 @@ extern char *my_id(void);
 struct mars_dent;
 typedef void (*dent_skip_fn)(struct mars_dent *);
 
+unsigned int dent_hash(const char *str, int len);
+
+#define DENT_HASH_ANCHOR(global,index)					\
+({									\
+	struct list_head *table = (global)->dent_hash_table[(index) / MARS_GLOBAL_HASH_TABLE];	\
+									\
+	table + ((index) % MARS_GLOBAL_HASH_TABLE);			\
+})
+
 #define MARS_DENT(TYPE)							\
 	struct list_head dent_link;					\
 	struct list_head dent_hash_link;				\
@@ -99,7 +108,7 @@ typedef void (*dent_skip_fn)(struct mars_dent *);
 	int   d_serial;   /* for pre-grouping order */			\
 	int   d_version;  /* dynamic programming per call of mars_ent_work() */ \
 	int   d_child_count;						\
-	int   d_hash;							\
+	unsigned int d_hash;						\
 	int   d_proto;							\
 	char d_once_error;						\
 	bool d_no_scan;							\

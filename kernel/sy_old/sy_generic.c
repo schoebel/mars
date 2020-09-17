@@ -37,6 +37,7 @@
 #include <linux/namei.h>
 #include <linux/mount.h>
 #include <linux/utsname.h>
+#include <linux/crc32c.h>
 
 #include "strategy.h"
 
@@ -1436,6 +1437,23 @@ int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 	return status;
 }
 
+unsigned int dent_hash(const char *str, int len)
+{
+	u32 raw_hash = crc32c(0, str, len);
+	u32 mask = (u32)-1;
+	unsigned int hash = 0;
+
+	/* catch all possible bits */
+	while (mask) {
+		hash ^= raw_hash;
+		raw_hash /= MARS_GLOBAL_HASH;
+		mask /= MARS_GLOBAL_HASH;
+	}
+	hash %= MARS_GLOBAL_HASH;
+
+	return hash;
+}
+
 static
 int dent_compare(struct mars_dent *a, struct mars_dent *b)
 {
@@ -1492,8 +1510,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 //      end_remove_this
 	struct mars_dent *dent;
 	char *newpath;
-	unsigned char digest[MARS_DIGEST_SIZE];
-	int hash;
+	unsigned int hash;
 	int prefix = 0;
 	int pathlen;
 	int class;
@@ -1526,10 +1543,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	pathlen += namlen;
 	newpath[pathlen] = '\0';
 
-	mars_digest(MREF_CHKSUM_CRC32C,
-		    NULL,
-		    digest,
-		    newpath, pathlen);
+	hash = dent_hash(newpath, pathlen);
 
 	dent = brick_zmem_alloc(cookie->allocsize);
 
@@ -1538,7 +1552,6 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	dent->d_path = newpath;
 	newpath = NULL;
 
-	hash = *(unsigned long *)&digest % MARS_GLOBAL_HASH;
 	dent->d_hash = hash;
 	dent->d_name = brick_string_alloc(namlen + 1);
 	memcpy(dent->d_name, name, namlen);
@@ -1581,13 +1594,6 @@ void _reconnect_dent(struct mars_cookie *cookie, struct mars_dent *dent)
  fatal: ;
 }
 
-#define _HASH_ANCHOR(global,index)					\
-({									\
-	struct list_head *table = (global)->dent_hash_table[(index) / MARS_GLOBAL_HASH_TABLE];	\
-									\
-	table + ((index) % MARS_GLOBAL_HASH_TABLE);			\
-})
-
 static
 void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 {
@@ -1609,7 +1615,7 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 	 */
 	sorted_anchor = &global->dent_anchor;
 	CHECK_PTR(sorted_anchor, fatal);
-	hash_anchor = _HASH_ANCHOR(global, dent->d_hash);
+	hash_anchor = DENT_HASH_ANCHOR(global, dent->d_hash);
 	CHECK_PTR(hash_anchor, fatal);
 
 	sorted_prev = sorted_anchor;
@@ -1675,7 +1681,7 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 			}
 #endif
 
-			hash_try_anchor =  _HASH_ANCHOR(global, hash_try_index);
+			hash_try_anchor =  DENT_HASH_ANCHOR(global, hash_try_index);
 			CHECK_PTR(hash_try_anchor, fatal);
 			hash_try = test->dent_hash_link.next;
 			CHECK_PTR(hash_try, fatal);
