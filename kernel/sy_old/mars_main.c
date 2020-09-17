@@ -674,60 +674,38 @@ enum {
 	CL_UUID,
 	// global userspace
 	CL_GLOBAL_USERSPACE,
-	CL_GLOBAL_USERSPACE_ITEMS,
-	// global todos
-	CL_GLOBAL_TODO,
-	CL_GLOBAL_TODO_DELETE,
-	CL_GLOBAL_TODO_DELETED,
 	CL_DEFAULTS0,
 	CL_DEFAULTS,
 	CL_DEFAULTS_ITEMS0,
 	CL_DEFAULTS_ITEMS,
+	// global todos
+	CL_GLOBAL_TODO,
+	CL_GLOBAL_TODO_DELETE,
+	CL_GLOBAL_TODO_DELETED,
 	// replacement for DNS in kernelspace
 	CL_IPS,
 	CL_PEERS,
 	CL_GBL_ACTUAL,
-	CL_GBL_ACTUAL_ITEMS,
-	CL_TREE,
-	CL_FEATURES,
-	CL_USABLE,
 	CL_COMPAT_DELETIONS, /* transient, to re-disappear */
-	CL_EMERGENCY,
-	CL_REST_SPACE,
 	// resource definitions
 	CL_RESOURCE,
 	CL_RESOURCE_USERSPACE,
-	CL_RESOURCE_USERSPACE_ITEMS,
 	CL_RES_DEFAULTS0,
 	CL_RES_DEFAULTS,
-	CL_RES_DEFAULTS_ITEMS0,
-	CL_RES_DEFAULTS_ITEMS,
 	CL_TODO,
-	CL_TODO_ITEMS,
 	CL_ACTUAL,
-	CL_ACTUAL_ITEMS,
 	CL_DATA,
 	CL_WORK,
 	CL_SIZE,
-	CL_ACTSIZE,
 	CL_PRIMARY,
-	CL_SYSTEMD_CATCHALL,
 	CL__FILE,
 	CL_CONNECT,
-	CL_TRANSFER,
 	CL_SYNC,
-	CL_VERIF,
-	CL_SYNCPOS,
 	CL__COPY,
 	CL__DIRECT,
-	CL_VERSION,
 	CL_LOG,
 	CL_REPLAYSTATUS,
 	CL_DEVICE,
-	CL_MAXNR,
-	/* these must come last for race avoidance */
-	CL_ALIVE,
-	CL_TIME,
 };
 
 /* Performance optimization:
@@ -6178,12 +6156,6 @@ static const struct main_class main_classes[] = {
 		.cl_hostcontext = false,
 		.cl_father = CL_ROOT,
 	},
-	[CL_GLOBAL_USERSPACE_ITEMS] = {
-		.cl_name = "",
-		.cl_len = 0, // catch any
-		.cl_type = 'L',
-		.cl_father = CL_GLOBAL_USERSPACE,
-	},
 
 	/* Subdirectory for defaults...
 	 */
@@ -6201,8 +6173,6 @@ static const struct main_class main_classes[] = {
 		.cl_hostcontext = true,
 		.cl_father = CL_ROOT,
 	},
-	/* ... and its contents
-	 */
 	[CL_DEFAULTS_ITEMS0] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
@@ -6277,34 +6247,6 @@ static const struct main_class main_classes[] = {
 		.cl_hostcontext = false,
 		.cl_father = CL_ROOT,
 	},
-	/* ... and its contents
-	 */
-	[CL_GBL_ACTUAL_ITEMS] = {
-		.cl_name = "",
-		.cl_len = 0, // catch any
-		.cl_type = 'l',
-		.cl_father = CL_GBL_ACTUAL,
-	},
-	/* Show version indication for symlink tree.
-	 */
-	[CL_TREE] = {
-		.cl_name = "tree-",
-		.cl_len = 5,
-		.cl_type = 'l',
-		.cl_father = CL_ROOT,
-	},
-	[CL_FEATURES] = {
-		.cl_name = "features-",
-		.cl_len = 9,
-		.cl_type = 'l',
-		.cl_father = CL_ROOT,
-	},
-	[CL_USABLE] = {
-		.cl_name = "usable-",
-		.cl_len = 7,
-		.cl_type = 'l',
-		.cl_father = CL_ROOT,
-	},
 	/* transient, to re-disappear */
 	[CL_COMPAT_DELETIONS] = {
 		.cl_name = "compat-deletions",
@@ -6313,22 +6255,6 @@ static const struct main_class main_classes[] = {
 		.cl_hostcontext = false,
 		.cl_father = CL_ROOT,
 		.cl_forward = get_compat_deletions,
-	},
-	/* Indicate whether filesystem is full
-	 */
-	[CL_EMERGENCY] = {
-		.cl_name = "emergency-",
-		.cl_len = 10,
-		.cl_type = 'l',
-		.cl_father = CL_ROOT,
-	},
-	/* dto as percentage
-	 */
-	[CL_REST_SPACE] = {
-		.cl_name = "rest-space-",
-		.cl_len = 11,
-		.cl_type = 'l',
-		.cl_father = CL_ROOT,
 	},
 
 	/* Directory containing all items of a resource
@@ -6352,12 +6278,6 @@ static const struct main_class main_classes[] = {
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
 	},
-	[CL_RESOURCE_USERSPACE_ITEMS] = {
-		.cl_name = "",
-		.cl_len = 0, // catch any
-		.cl_type = 'L',
-		.cl_father = CL_RESOURCE_USERSPACE,
-	},
 
 	/* Subdirectory for defaults...
 	 */
@@ -6375,20 +6295,6 @@ static const struct main_class main_classes[] = {
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
 	},
-	/* ... and its contents
-	 */
-	[CL_RES_DEFAULTS_ITEMS0] = {
-		.cl_name = "",
-		.cl_len = 0, // catch any
-		.cl_type = 'l',
-		.cl_father = CL_RES_DEFAULTS0,
-	},
-	[CL_RES_DEFAULTS_ITEMS] = {
-		.cl_name = "",
-		.cl_len = 0, // catch any
-		.cl_type = 'l',
-		.cl_father = CL_RES_DEFAULTS,
-	},
 
 	/* Subdirectory for controlling items...
 	 */
@@ -6398,14 +6304,6 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
-	},
-	/* ... and its contents
-	 */
-	[CL_TODO_ITEMS] = {
-		.cl_name = "",
-		.cl_len = 0, // catch any
-		.cl_type = 'l',
-		.cl_father = CL_TODO,
 	},
 
 	/* Subdirectory for actual state
@@ -6417,15 +6315,6 @@ static const struct main_class main_classes[] = {
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
 	},
-	/* ... and its contents
-	 */
-	[CL_ACTUAL_ITEMS] = {
-		.cl_name = "",
-		.cl_len = 0, // catch any
-		.cl_type = 'l',
-		.cl_father = CL_ACTUAL,
-	},
-
 
 	/* File or symlink to the real device / real (sparse) file
 	 * when hostcontext is missing, the corresponding peer will
@@ -6467,23 +6356,6 @@ static const struct main_class main_classes[] = {
 #endif
 		.cl_backward = kill_any,
 	},
-	/* Dito for each individual size
-	 */
-	[CL_ACTSIZE] = {
-		.cl_name = "actsize-",
-		.cl_len = 8,
-		.cl_type = 'l',
-		.cl_hostcontext = true,
-		.cl_father = CL_RESOURCE,
-	},
-	/* Symlinks for systemd hinting
-	 */
-	[CL_SYSTEMD_CATCHALL] = {
-		.cl_name = "systemd-",
-		.cl_len = 8,
-		.cl_type = 'l',
-		.cl_father = CL_RESOURCE,
-	},
 	/* Symlink pointing to the name of the primary node
 	 */
 	[CL_PRIMARY] = {
@@ -6519,16 +6391,6 @@ static const struct main_class main_classes[] = {
 		.cl_father = CL_RESOURCE,
 		.cl_forward = make_connect,
 	},
-	/* informational symlink indicating the current
-	 * status / start / pos / end of logfile transfers.
-	 */
-	[CL_TRANSFER] = {
-		.cl_name = "transferstatus-",
-		.cl_len = 15,
-		.cl_type = 'l',
-		.cl_hostcontext = true,
-		.cl_father = CL_RESOURCE,
-	},
 	/* symlink indicating the current status / end
 	 * of initial data sync.
 	 */
@@ -6542,28 +6404,6 @@ static const struct main_class main_classes[] = {
 		.cl_forward = make_sync,
 #endif
 		.cl_backward = kill_any,
-	},
-	/* informational symlink for verify status
-	 * of initial data sync.
-	 */
-	[CL_VERIF] = {
-		.cl_name = "verifystatus-",
-		.cl_len = 13,
-		.cl_type = 'l',
-		.cl_hostcontext = true,
-		.cl_father = CL_RESOURCE,
-	},
-	/* informational symlink: after sync has finished,
-	 * keep a copy of the replay symlink from the primary.
-	 * when comparing the own replay symlink against this,
-	 * we can determine whether we are consistent.
-	 */
-	[CL_SYNCPOS] = {
-		.cl_name = "syncpos-",
-		.cl_len = 8,
-		.cl_type = 'l',
-		.cl_hostcontext = true,
-		.cl_father = CL_RESOURCE,
 	},
 	/* Only for testing: make a copy instance
 	 */
@@ -6590,16 +6430,6 @@ static const struct main_class main_classes[] = {
 		.cl_backward = kill_any,
 	},
 
-	/* Passive symlink indicating the split-brain crypto hash
-	 */
-	[CL_VERSION] = {
-		.cl_name = "version-",
-		.cl_len = 8,
-		.cl_type = 'l',
-		.cl_serial = true,
-		.cl_hostcontext = false,
-		.cl_father = CL_RESOURCE,
-	},
 	/* Logfiles for transaction logger
 	 */
 	[CL_LOG] = {
@@ -6643,32 +6473,6 @@ static const struct main_class main_classes[] = {
 		.cl_backward = kill_dev,
 	},
 
-	/* Quirk: when dead resources are recreated during a network partition,
-	 * this is used to void version number clashes in the
-	 * partitioned cluster.
-	 */
-	[CL_MAXNR] = {
-		.cl_name = "maxnr",
-		.cl_len = 5,
-		.cl_type = 'l',
-		.cl_father = CL_RESOURCE,
-	},
-	/* Indicate aliveness of all cluster paritcipants
-	 * by the timestamp of this link.
-	 * These must come last for race avoidance.
-	 */
-	[CL_ALIVE] = {
-		.cl_name = "alive-",
-		.cl_len = 6,
-		.cl_type = 'l',
-		.cl_father = CL_ROOT,
-	},
-	[CL_TIME] = {
-		.cl_name = "time-",
-		.cl_len = 5,
-		.cl_type = 'l',
-		.cl_father = CL_ROOT,
-	},
 	{}
 };
 
