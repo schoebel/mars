@@ -1488,6 +1488,8 @@ struct mars_dir_context {
 /* Skip any names / directories used for backup purposes */
 #define MARS_BACKUP_STR "backup"
 
+static const int backup_strlen = strlen(MARS_BACKUP_STR);
+
 /* Caution: this is called as a callback from iterate_dir() and friends.
  * Don't deadlock by producing any filesystem output within this!
  */
@@ -1517,6 +1519,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	int pathlen;
 	int class;
 	int serial = 0;
+	int backup_len;
 	bool use_channel = false;
 
 	cookie->hit = true;
@@ -1525,8 +1528,6 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	if (!name || !*name || name[0] == '.') {
 		return 0;
 	}
-	if (strnstr(name, MARS_BACKUP_STR, namlen))
-		return 0;
 
 	class = cookie->checker(cookie->check_parent,
 				name, namlen,
@@ -1541,6 +1542,12 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	if (class < 0 &&
 	    (!cookie->some_ordered ||
 	     d_type != DT_LNK))
+		return 0;
+
+	backup_len = namlen;
+	if (backup_len > backup_strlen)
+		backup_len = backup_strlen;
+	if (strnstr(name, MARS_BACKUP_STR, backup_len))
 		return 0;
 
 	pathlen = strlen(cookie->path);
