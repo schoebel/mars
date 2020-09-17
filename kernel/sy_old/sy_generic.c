@@ -1773,20 +1773,9 @@ void _mars_order_all(struct mars_cookie *cookie)
 		 * The rest needs not to be sorted, saving CPU.
 		 */
 		if (cookie->some_ordered &&
+		    dent->d_class < 0 &&
 		    !S_ISDIR(dent->new_stat.mode) &&
-		    strncmp(dent->d_name, "ip-", 3) &&
-		    strncmp(dent->d_name, "resource-", 9) &&
-		    strncmp(dent->d_name, "data-", 5) &&
-		    strncmp(dent->d_name, "work-", 5) &&
-		    strncmp(dent->d_name, "size", 4) &&
-		    strncmp(dent->d_name, "primary", 7) &&
-		    strncmp(dent->d_name, "connect", 8) &&
-		    strncmp(dent->d_name, "syncstatus-", 11) &&
-		    strncmp(dent->d_name, "log-", 4) &&
-		    strncmp(dent->d_name, "replay-", 7) &&
-		    strncmp(dent->d_name, "device-", 7) &&
 		    /* further sorted items */
-		    strncmp(dent->d_name, "uuid", 4) &&
 		    strncmp(dent->d_name, "alive-", 6) &&
 		    true) {
 			get_inode(dent->d_path, dent, true);
