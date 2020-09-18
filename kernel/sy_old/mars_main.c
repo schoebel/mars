@@ -2786,13 +2786,13 @@ int peer_thread(void *data)
 				make_peer_msg(peer, peer_pairs,
 					      "unusable remote address '%s' (%s)\n",
 					      real_peer, peer->peer);
-				brick_msleep(1000);
+				brick_msleep(100);
 				continue;
 			}
 			if (do_kill) {
 				do_kill = false;
 				_peer_cleanup(peer);
-				brick_msleep(1000);
+				brick_msleep(100);
 				continue;
 			}
 			if (!peer_thead_should_run(peer))
@@ -2810,7 +2810,7 @@ int peer_thread(void *data)
 				/* additional threads should give up immediately */
 				if (peer->do_additional)
 					break;
-				brick_msleep(2000);
+				brick_msleep(200);
 				continue;
 			}
 			do_kill = true;
@@ -2957,7 +2957,7 @@ int peer_thread(void *data)
 		/* additional threads should give up immediately */
 		if (peer->do_additional && !peer->do_communicate)
 			break;
-		brick_msleep(2000);
+		brick_msleep(200);
 	}
 
 	MARS_INF("-------- peer thread terminating\n");
@@ -6815,7 +6815,7 @@ static int _main_thread(void *data)
 
 		MARS_DBG("ban_count = %d ban_renew_count = %d\n", mars_global_ban.ban_count, mars_global_ban.ban_renew_count);
 
-		brick_msleep(500);
+		brick_msleep(100);
 
 		wait_event_interruptible_timeout(mars_global->main_event,
 						 mars_global->main_trigger,

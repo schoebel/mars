@@ -488,7 +488,7 @@ int handler_thread(void *data)
 					status = -EUSERS;
 					goto clean_unlock;
 				}
-				brick_msleep(1000);
+				brick_msleep(200);
 			}
 
 			/* New protocol.
@@ -626,7 +626,7 @@ int handler_thread(void *data)
 		brick_string_free(cmd.cmd_str2);
 		if (unlikely(status < 0)) {
 			mars_shutdown_socket(sock);
-			brick_msleep(1000);
+			brick_msleep(100);
 		}
 	}
 
@@ -881,7 +881,7 @@ static int port_thread(void *data)
         while (!brick_thread_should_stop() &&
 	      (!mars_global || !mars_global->global_power.button)) {
 		MARS_DBG("system did not start up\n");
-		brick_msleep(5000);
+		brick_msleep(1000);
 	}
 
 	MARS_INF("-------- port %d thread now working on host '%s' ----------\n",
@@ -907,7 +907,7 @@ static int port_thread(void *data)
 		MARS_DBG("kill server bricks (when possible) = %d\n", status);
 
 		if (!mars_global || !mars_global->global_power.button) {
-			brick_msleep(1000);
+			brick_msleep(200);
 			continue;
 		}
 
@@ -916,11 +916,10 @@ static int port_thread(void *data)
 					    my_params);
 		if (unlikely(status < 0 ||
 			     !mars_socket_is_alive(&handler_socket))) {
-			brick_msleep(500);
+			brick_msleep(200);
 			if (status == -EAGAIN)
 				continue; // without error message
 			MARS_WRN("accept status = %d\n", status);
-			brick_msleep(100);
 			continue;
 		}
 		handler_socket.s_shutdown_on_err = true;
@@ -939,7 +938,7 @@ static int port_thread(void *data)
 			MARS_ERR("cannot create server instance\n");
 			mars_shutdown_socket(&handler_socket);
 			mars_put_socket(&handler_socket);
-			brick_msleep(500);
+			brick_msleep(200);
 			continue;
 		}
 		memcpy(&brick->handler_socket, &handler_socket, sizeof(struct mars_socket));
@@ -977,7 +976,7 @@ static int port_thread(void *data)
 			brick = NULL;
 			atomic_dec(&server_handler_count);
 		}
-		brick_msleep(2000);
+		brick_msleep(200);
 	}
 
 	MARS_INF("-------- cleaning up ----------\n");
