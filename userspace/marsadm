@@ -2300,7 +2300,10 @@ sub check_sync_finished {
     } else {
       lwarn "Changing the primary role during sync is dangerous for data consistency on host '$peer'!\n";
     }
-    ldie "First wait for sync finished before trying to switch primary!\n" unless (defined($do_force) && $do_force);
+    unless ($do_force) {
+      lprint "HINT: consider the option --ignore-sync if you are sure that you want to restart the sync\n";
+      ldie "First wait for sync finished before primary handover, or use --ignore-sync\n";
+    }
   }
   lprint "OK, it seems that sync has finished on host '$peer'.\n";
 }
