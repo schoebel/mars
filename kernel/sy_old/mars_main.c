@@ -5639,9 +5639,10 @@ static int make_sync(struct mars_dent *dent)
 	 */
 	status = sscanf(dent->new_link, "%lld", &start_pos);
 	if (status != 1) {
-		MARS_ERR("bad syncstatus symlink syntax '%s' (%s)\n", dent->new_link, dent->d_path);
-		status = -EINVAL;
-		goto done;
+		if (strcmp(dent->new_link, ".deleted"))
+			MARS_ERR("bad syncstatus symlink syntax '%s' (%s)\n",
+				 dent->new_link, dent->d_path);
+		do_start = false;
 	}
 
 	rot = dent->d_parent->d_private;
