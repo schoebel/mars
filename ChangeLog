@@ -143,6 +143,10 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable108
+	* Improved metadata scalability.
+	* Some smaller fixes and improvements.
+
 mars0.1astable107
 	* Critical regression from mars0.1astable106: use-after-free.
 	* Fix use-after-free at rmmmod.
