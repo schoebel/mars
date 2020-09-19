@@ -2343,8 +2343,12 @@ sub check_not_primary {
     lwarn "operation '$cmd' is forced on actual primary '$host', THIS IS RISKY\n";
   }
   # also check whether we intend to become primary
-  my $primary = _get_designated_primary($res);
-  ldie "operation '$cmd' cannot be executed on designated primary\n" if $primary eq $host;
+  my $primary = _get_designated_primary($res, 1);
+  if ($primary eq $host) {
+    lwarn "operation '$cmd' cannot be executed on designated primary\n";
+    ldie "first switch the designated primary, or use --force if you are sure.\n" unless $force;
+    lwarn "continuing anyway due to --force\n";
+  }
 }
 
 sub check_primary_gone {
