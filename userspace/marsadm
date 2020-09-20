@@ -4958,6 +4958,12 @@ sub primary_phase0 {
 # only for primary --force: wait until fetch has actually stopped
 sub primary_phase0a {
   my ($cmd, $res) = @_;
+  my $new = $host;
+  if (!$force && $cmd =~ m/primary/) {
+    lprint "Prepare new primary '$new' handover\n";
+    _switch($cmd, $res, "$mars/resource-$res/todo-$new/fetch", 1);
+  }
+  finish_links();
   return unless $force;
   wait_cond($cmd, $res, "is-fetch-off");
 }
