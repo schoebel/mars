@@ -6397,6 +6397,7 @@ sub primary_phase0 {
 }
 
 # only for primary --force: wait until fetch has actually stopped
+# otherwise: prepare prosumers
 sub primary_phase0a {
   my ($cmd, $res) = @_;
   my $new = $host;
@@ -6408,8 +6409,7 @@ sub primary_phase0a {
     my $prosumers = get_prosumers(@_);
     $prosumers = "(none)" if !$prosumers;
     my $lnk = "$mars/resource-$res/new-primary";
-    my $new = $host;
-    lprint "Prepare new primary '$new'\n";
+    lprint "Prepare new primary '$new' for prosumers\n";
     set_link($new, $lnk);
     $lnk = "$mars/resource-$res/todo-$new/exports";
     set_link($prosumers, $lnk);
