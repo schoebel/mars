@@ -143,6 +143,13 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable109
+	* Regression from mars0.1astable106: when the old
+	  deletions were active, logfiles could be unlinked
+	  unnecessarily (displayed as Orphan).
+	  It did not really harm due to automatic re-fetching, but
+	  caused unnecessary network traffic.
+
 mars0.1astable108
 	* Improved metadata scalability.
 	* Some smaller fixes and improvements.
