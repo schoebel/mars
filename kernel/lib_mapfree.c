@@ -217,9 +217,9 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 
 		/* allow replacement of a .deleted symlink */
 		if (flags & O_CREAT) {
-			const char *check = ordered_readlink(name, NULL);
+			const char *check = mars_readlink(name, NULL);
 
-			if (check && !*check)
+			if (check && !strcmp(check, MARS_DELETED_STR))
 				mars_unlink(name);
 
 			brick_string_free(check);
