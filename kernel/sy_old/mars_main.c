@@ -6575,11 +6575,12 @@ int make_prosumer(struct mars_rotate *rot, struct mars_dent *dent)
 				       parent->d_path,
 				       my_id(),
 				       remote_path);
+		prosumer_new = (void *)_prosumer_new;
 		if (!rot->prosumer_new) {
 			rot->prosumer_new_stamp = rot->new_primary_stamp;
 			mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
 		}
-		rot->prosumer_new = (void *)_prosumer_new;
+		rot->prosumer_new = prosumer_new;
 		rot->prosumer_old = NULL;
 	}
 
@@ -6590,6 +6591,10 @@ int make_prosumer(struct mars_rotate *rot, struct mars_dent *dent)
 		prosumer_new->power.io_timeout = 10;
 		prosumer_new->kill_ptr = (void **)&rot->prosumer_new;
 		prosumer_new->rewire = true;
+		if (rot->if_brick && rot->if_brick->open_epoch &&
+		    prosumer_new->outputs[0])
+			prosumer_new->outputs[0]->prosumer_epoch =
+				&rot->prosumer_epoch;
 		if (!rot->prosumer_server_old ||
 		    strcmp(rot->prosumer_server, rot->prosumer_server_old)) {
 			mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
@@ -6639,6 +6644,10 @@ int make_prosumer(struct mars_rotate *rot, struct mars_dent *dent)
 		MARS_DBG("setting killme on prosumer_brick\n");
 		_prosumer_brick->killme = true;
 	}
+	if (rot->if_brick && rot->if_brick->open_epoch &&
+	    prosumer_brick->outputs[0])
+		prosumer_brick->outputs[0]->prosumer_epoch =
+			&rot->prosumer_epoch;
 	prosumer_brick->kill_ptr = (void **)&rot->prosumer_brick;
 	prosumer_brick->rewire = true;
 	_show_prosumer(rot);
