@@ -116,6 +116,7 @@ struct client_output {
 	struct client_bundle bundle;
 	struct mars_info info;
 	struct lamport_time stor_epoch;
+	struct lamport_time *prosumer_epoch;
 	int  last_id;
 	bool fatal_error;
 	bool get_info;

@@ -244,7 +244,10 @@ void _maintain_bundle(struct client_bundle *bundle, bool keep_idle_sockets)
 }
 
 static
-int _request_connect(struct client_channel *ch, int code, const char *path)
+int _request_connect(struct client_channel *ch,
+		     int code,
+		     const char *path,
+		     struct lamport_time *cmd_stamp)
 {
 	struct mars_cmd cmd = {
 		.cmd_code = code,
@@ -252,6 +255,8 @@ int _request_connect(struct client_channel *ch, int code, const char *path)
 	};
 	int status;
 
+	if (cmd_stamp && cmd_stamp->tv_sec)
+		cmd.cmd_stamp = *cmd_stamp;
 	status = mars_send_cmd(&ch->socket, &cmd, false);
 	MARS_DBG("send CMD_CONNECT status = %d\n", status);
 	return status;
@@ -358,13 +363,16 @@ struct client_channel *_get_channel(struct client_bundle *bundle,
 	 */
 	if (unlikely(!res->is_connected)) {
 		struct client_output *output = res->output;
+		struct lamport_time *cmd_stamp = NULL;
 		int code = CMD_CONNECT;
 		int status;
 
-		if (strstr(bundle->path, "/logger-"))
+		if (strstr(bundle->path, "/logger-")) {
 			code = CMD_CONNECT_LOGGER;
+			cmd_stamp = output->prosumer_epoch;
+		}
 
-		status = _request_connect(res, code, bundle->path);
+		status = _request_connect(res, code, bundle->path, cmd_stamp);
 		if (unlikely(status < 0)) {
 			if (error_code)
 				*error_code = status;
