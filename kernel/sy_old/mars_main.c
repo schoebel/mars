@@ -6616,25 +6616,33 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 	switch (main_classes[class].cl_type) {
 	case 'd':
 		if (!S_ISDIR(dent->new_stat.mode) && !is_deleted) {
-			MARS_ERR_ONCE(dent, "'%s' should be a directory, but is something else\n", dent->d_path);
+			MARS_ERR_ONCE(dent,
+				      "'%s' should be a directory, but is 0x%x\n",
+				      dent->d_path, dent->new_stat.mode);
 			return -EINVAL;
 		}
 		break;
 	case 'f':
 		if (!S_ISREG(dent->new_stat.mode) && !is_deleted) {
-			MARS_ERR_ONCE(dent, "'%s' should be a regular file, but is something else\n", dent->d_path);
+			MARS_ERR_ONCE(dent,
+				      "'%s' should be a regular file, but is 0x%x\n",
+				      dent->d_path, dent->new_stat.mode);
 			return -EINVAL;
 		}
 		break;
 	case 'F':
 		if (!S_ISREG(dent->new_stat.mode) && !S_ISLNK(dent->new_stat.mode)) {
-			MARS_ERR_ONCE(dent, "'%s' should be a regular file or a symlink, but is something else\n", dent->d_path);
+			MARS_ERR_ONCE(dent,
+				      "'%s' should be a regular file or a symlink, but is 0x%x\n",
+				      dent->d_path, dent->new_stat.mode);
 			return -EINVAL;
 		}
 		break;
 	case 'l':
 		if (!S_ISLNK(dent->new_stat.mode)) {
-			MARS_ERR_ONCE(dent, "'%s' should be a symlink, but is something else\n", dent->d_path);
+			MARS_ERR_ONCE(dent,
+				      "'%s' should be a symlink, but is 0x%x\n",
+				      dent->d_path, dent->new_stat.mode);
 			return -EINVAL;
 		}
 		break;
@@ -6645,8 +6653,11 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 		}
 		break;
 	default:
-		MARS_ERR_ONCE(dent, "'%s' class %d has unimplemented type %d\n",
-			      dent->d_path, class, main_classes[class].cl_type);
+		MARS_ERR_ONCE(dent,
+			      "'%s' class %d has unimplemented type %d\n",
+			      dent->d_path,
+			      class,
+			      main_classes[class].cl_type);
 		return -EINVAL;
 	}
 	if (likely(class > CL_ROOT)) {
