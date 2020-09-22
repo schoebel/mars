@@ -1144,47 +1144,44 @@ static int _parse_args(struct mars_dent *dent, char *str, int count)
 {
 	int i;
 	int status = -EINVAL;
+
 	if (!str)
 		goto done;
-	if (!dent->d_args) {
-		dent->d_args = brick_strdup(str);
-		if (!dent->d_args) {
-			status = -ENOMEM;
-			goto done;
-		}
-	}
+
+	if (!strcmp(str, MARS_DELETED_STR))
+		str = "";
+
+	brick_string_free(dent->d_args);
+	dent->d_args = brick_strdup(str);
+
 	for (i = 0; i < count; i++) {
+		char *test = strchr(str, MARS_DELIM);
 		char *tmp;
 		int len;
-		if (!*str)
-			goto done;
-		if (i == count-1) {
+
+		if (test)
+			len = (test - str);
+		else
 			len = strlen(str);
-		} else {
-			char *tmp = strchr(str, MARS_DELIM);
-			if (!tmp)
-				goto done;
-			len = (tmp - str);
-		}
+
+		if (unlikely(len <= 0) && *dent->d_args)
+			MARS_ERR("arg %d of '%s' is empty\n",
+				 i, dent->d_args);
+		
 		tmp = brick_string_alloc(len + 1);
-		if (!tmp) {
-			status = -ENOMEM;
-			goto done;
-		}
+		strncpy(tmp, str, len);
+		tmp[len] = '\0';
 		brick_string_free(dent->d_argv[i]);
 		dent->d_argv[i] = tmp;
-		strncpy(dent->d_argv[i], str, len);
-		dent->d_argv[i][len] = '\0';
 
 		str += len;
-		if (i != count-1)
+		if (test && *str)
 			str++;
 	}
-	status = 0;
+	if (*dent->d_args)
+		status = 0;
+
 done:
-	if (status < 0) {
-		MARS_ERR("bad syntax '%s' (should have %d args), status = %d\n", dent->d_args ? dent->d_args : "", count, status);
-	}
 	return status;
 }
 
