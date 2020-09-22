@@ -1263,7 +1263,9 @@ int mars_send_cmd(struct mars_socket *msock, struct mars_cmd *cmd, bool cork)
 	int status;
 
 	cmd->cmd_proto = MARS_PROTO_LEVEL;
-	if (!cork || !msock->s_pos)
+	/* allow pre-initialized cmd_stamp */
+	if (!cmd->cmd_stamp.tv_sec &&
+	    (!cork || !msock->s_pos))
 		get_lamport(NULL, &cmd->cmd_stamp);
 
 	status = desc_send_struct(msock, cmd, mars_cmd_meta, cork);
