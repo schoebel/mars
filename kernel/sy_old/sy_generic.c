@@ -833,9 +833,7 @@ char *mars_readlink(const char *newpath, struct lamport_time *stamp)
 	if (unlikely(status < 0)) {
 		MARS_ERR("cannot read link '%s', status = %d\n", newpath, status);
 	} else if (stamp) {
-		set_get_lamport(&inode->i_mtime, NULL, stamp);
-	} else {
-		set_lamport(&inode->i_mtime);
+		*stamp = inode->i_mtime;
 	}
 
 done_put:
