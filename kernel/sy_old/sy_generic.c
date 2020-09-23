@@ -92,11 +92,6 @@ const struct meta mars_dent_meta[] = {
 	META_INI_SUB(old_stat,struct mars_dent, mars_kstat_meta),
 	META_INI(new_link,    struct mars_dent, FIELD_STRING),
 	META_INI(old_link,    struct mars_dent, FIELD_STRING),
-	META_INI(d_args,    struct mars_dent, FIELD_STRING),
-	META_INI(d_argv[0], struct mars_dent, FIELD_STRING),
-	META_INI(d_argv[1], struct mars_dent, FIELD_STRING),
-	META_INI(d_argv[2], struct mars_dent, FIELD_STRING),
-	META_INI(d_argv[3], struct mars_dent, FIELD_STRING),
 	{}
 };
 EXPORT_SYMBOL_GPL(mars_dent_meta);
