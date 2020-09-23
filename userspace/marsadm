@@ -5562,13 +5562,19 @@ sub leave_res_phase1 {
   _create_delete($skip_check) if link_exists($skip_check);
   my $vstatus = "$mars/resource-$res/verifystatus-$host";
   _create_delete($vstatus) if link_exists($vstatus);
-  _create_delete("$mars/resource-$res/device-$host");
   _create_delete("$mars/resource-$res/actsize-$host");
-  foreach my $dir (lamport_glob("$mars/resource-$res/*-$host/")) {
-    foreach my $tmp (lamport_glob("${dir}*")) {
-      _create_delete($tmp);
+  # when a prosumer is active, only the storage part is destroyed
+  my $delete_guest =
+    !is_guest($res, $host) ||
+    todo_local($cmd, $res);
+  if ($delete_guest) {
+    _create_delete("$mars/resource-$res/device-$host");
+    foreach my $dir (lamport_glob("$mars/resource-$res/*-$host/")) {
+      foreach my $tmp (lamport_glob("${dir}*")) {
+	_create_delete($tmp);
+      }
+      _create_delete($dir);
     }
-    _create_delete($dir);
   }
   finish_links();
   return 0;
