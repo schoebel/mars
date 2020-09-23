@@ -1209,6 +1209,9 @@ static int if_switch(struct if_brick *brick)
 //      end_remove_this
 		q->nr_requests = if_nr_requests;
 
+		if (brick->open_epoch)
+			get_lamport(NULL, brick->open_epoch);
+
 		/* POINT OF NO RETURN */
 
 		/* THINK: if add_disk() fails for some reason (e.g.
@@ -1335,6 +1338,8 @@ static int if_open(struct block_device *bdev, fmode_t mode)
 		return -ESHUTDOWN;
 	}
 
+	if (brick->open_epoch && !atomic_read(&brick->open_count))
+		get_lamport(NULL, brick->open_epoch);
 	atomic_inc(&brick->open_count);
 
 	MARS_INF("----------------------- OPEN %d ------------------------------\n",
@@ -1371,6 +1376,8 @@ if_release(struct gendisk *gd, fmode_t mode)
 		check_io_done(brick, true);
 
 		MARS_DBG("status button=%d led_on=%d led_off=%d\n", brick->power.button, brick->power.led_on, brick->power.led_off);
+		if (brick->open_epoch)
+			get_lamport(NULL, brick->open_epoch);
 		brick->error_code = 0;
 		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
 	}
