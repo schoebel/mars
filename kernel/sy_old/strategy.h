@@ -76,6 +76,7 @@ extern int mars_reset_emergency;
 extern int mars_keep_msg;
 
 extern int mars_fast_fullsync;
+extern int mars_localprosumer;
 
 #ifdef CONFIG_MARS_DEBUG
 extern int mars_test_additional_peers;

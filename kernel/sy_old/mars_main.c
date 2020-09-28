@@ -208,7 +208,7 @@ int mars_fast_fullsync =
 	0
 #endif
 	;
-EXPORT_SYMBOL_GPL(mars_fast_fullsync);
+int mars_localprosumer = 1; /* turn off for testing */
 
 int mars_throttle_start = 0;
 
@@ -930,6 +930,7 @@ struct mars_rotate {
 	bool has_emergency;
 	bool log_is_really_damaged;
 	bool todo_prosumer;
+	bool todo_localprosumer;
 	bool detach_device;
 	bool kill_device;
 	bool todo_gate;
@@ -4480,6 +4481,22 @@ int make_log_init(struct mars_dent *dent)
 		 !rot->detach_device &&
 		 is_host_in(my_id(), rot->prosumer_peer));
 
+	/* special case LocalProsumer */
+	if (rot->todo_prosumer &&
+	    mars_localprosumer &&
+	    (!rot->gate_brick ||
+	     rot->gate_brick->inhibit_mask <= 0) &&
+	    !rot->prosumer_new &&
+	    rot->is_primary &&
+	    rot->primary &&
+	    !strcmp(rot->primary, my_id()) &&
+	    (!rot->new_primary ||
+	     !*rot->new_primary ||
+	     !strcmp(rot->new_primary, "(none)"))) {
+		rot->todo_localprosumer = true;
+		rot->todo_prosumer = false;
+	}
+
 	rot->kill_device =
 		(rot->gate_brick &&
 		 rot->gate_brick->inhibit_mask < 0) ||
@@ -6294,7 +6311,9 @@ bool allow_localdev(struct mars_rotate *rot)
 		mars_global->global_power.button &&
 		(!rot->prosumer_peer ||
 		 !rot->prosumer_peer[0] ||
-		 !strcmp(rot->prosumer_peer, "(local)")) &&
+		 !strcmp(rot->prosumer_peer, "(local)") ||
+		 (rot->todo_localprosumer &&
+		  is_host_in(my_id(), rot->prosumer_peer))) &&
 		_check_allow(rot->parent_path, "attach");
 
 	if (switch_on && rot->res_shutdown) {
@@ -6457,6 +6476,7 @@ int make_prosumer(struct mars_rotate *rot, struct mars_dent *dent)
 		rot->prosumer_brick->outputs[0]->got_info;
 
 	prosumer_new_ready =
+		prosumer_now_ready &&
 		rot->prosumer_new &&
 		rot->prosumer_new->power.led_on &&
 		rot->prosumer_new->outputs[0] &&

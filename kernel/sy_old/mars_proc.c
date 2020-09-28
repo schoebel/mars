@@ -497,6 +497,7 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("peer_abort",           mars_peer_abort,        0600),
 	INT_ENTRY("client_abort",         mars_client_abort,      0600),
 	INT_ENTRY("do_fast_fullsync",     mars_fast_fullsync,     0600),
+	INT_ENTRY("do_localprosumer",     mars_localprosumer,     0600),
 	INT_ENTRY("logrot_auto_gb",       global_logrot_auto,     0600),
 	INT_ENTRY("remaining_space_kb",   global_remaining_space, 0400),
 	INT_ENTRY("required_total_space_0_gb", global_free_space_0, 0600),
