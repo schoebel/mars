@@ -6088,6 +6088,11 @@ sub eval_fn {
       my $result = device_name($$env{"res"}, $$env{"host"});
       return $result;
     }
+    if (/^disk[-_]?error$/) {
+      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/disk-error";
+      my $result = get_link($lnk, 2);
+      return $result;
+    }
     if (/^disk[-_]?present$/) {
       my $lnk = $$env{"resdir"} . "/data-" . $$env{"host"};
       my $result = get_link($lnk, 1);
@@ -6797,7 +6802,10 @@ my %complex_macros =
    .  "}",
 
    "diskstate"
-   => "%elsif{%not{%get-disk{}}}{"
+   => "%if{%disk-error{}}{"
+   .    "DISK_ERROR %disk-error{} %errno-text{%disk-error{}} "
+   .  "}"
+   .  "%elsif{%not{%get-disk{}}}{"
    .    "NotJoined"
    .  "}{%not{%disk-present{}}}{"
    .    "NotPresent"
@@ -7228,6 +7236,8 @@ my %trivial_globs =
    => "",
    "present-{disk,device}"
    => "(deprecated, use *-present instead)",
+   "disk-error"
+   => "",
    "{disk,device}-present"
    => "",
    "device-{opened,nrflying,error,completion-{stamp,age}}"
