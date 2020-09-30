@@ -5165,6 +5165,18 @@ int make_bio(struct mars_dent *dent)
 		goto done;
 	}
 	brick->outputs[0]->output_name = dent->d_path;
+	if (brick->type == (void *)&bio_brick_type)
+		__show_actual(rot->parent_path,
+			      "disk-error",
+			      ((struct bio_brick *)brick)->error);
+	else if (brick->type == (void *)&aio_brick_type && brick->outputs[0])
+		__show_actual(rot->parent_path,
+			      "disk-error",
+			      ((struct aio_brick *)brick)->outputs[0]->error);
+	else if (brick->type == (void *)&sio_brick_type && brick->outputs[0])
+		__show_actual(rot->parent_path,
+			      "disk-error",
+			      ((struct sio_brick *)brick)->outputs[0]->error);
 
 	/* Report the actual size of the device.
 	 * It may be larger than the global size.
