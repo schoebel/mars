@@ -40,6 +40,8 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Debugging aid for  multi-phase commands.
     Interactively step through the various phases of commands.
     Turns off --parallel.
+  --error-injection-phase=<number>
+    Only for testing. NEVER use in production.
   --delete-method=<code>
     EXPERIMENTAL! Only for testing! This option will disappear again!
     <code> == 0: Use new deletion method
@@ -70,6 +72,10 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Current default: 60
     Treat other cluster nodes as healthy when some communcation has
     occured during the given time window.
+  --keep-backups=<hours>
+    link-purge-all and cron will delete old backup files and old
+    symlinks after this number of hours.
+    Current default: 168
   --threshold=<bytes>
     Some macros like 'fetch-threshold-reached' use this for determining
     their sloppyness.
@@ -143,7 +149,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   cron
     usage: cron (no parameters)
     Do all necessary regular housekeeping tasks.
-    This is equivalent to log-rotate all; sleep 5; log-delete-all all.
+    This is equivalent to log-rotate all; sleep 7; log-delete-all all.
 
   delete-resource
     usage: delete-resource <resource_name>
@@ -301,7 +307,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     For details and best practices, please refer to the PDF manual.
 
   lowlevel-delete-host
-    usage: lowlevel-ls-host-ips <hostname>
+    usage: lowlevel-delete-host <hostname>
     Delete cluster member.
 
   lowlevel-ls-host-ips
@@ -309,7 +315,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     List cluster member names and IP addresses.
 
   lowlevel-set-host-ip
-    usage: lowlevel-ls-host-ips <hostname> <new_ip>
+    usage: lowlevel-set-host-ip <hostname> <new_ip>
     Set IP for host.
 
   merge-cluster
@@ -634,11 +640,15 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
 
 
 <primitive_macroname> =
-  count-{cluster,resource}-members
+  count-{cluster,resource,guest}-members
+    deprecated
+  count-{cluster,resource,guest}-peers
+  count-{my,all}-{resources,members,guests}
   deletable-size
-  device-{opened,nrflying,error}
+  device-{opened,nrflying,error,completion-{stamp,age}}
   device-{ops-rate,amount-rate,rate}
   disabled-{log|net}-digests
+  disk-error
   enabled-{log|net}-compressions
   errno-text
     Convert errno numbers (positive or negative) into human readable text.
@@ -646,6 +656,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   get-resource-{fat,err,wrn}{,-count}
   get-{disk,device}
   is-{alive}
+  is-{member,guest}
   is-{split-brain,consistent,emergency,orphan}
   occupied-size
   present-{disk,device}
@@ -664,14 +675,16 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   writeback-rest
   {alive,fetch,replay,work}-{timestamp,age,lag}
   {all,the}-{pretty-,}{global-,}{{err,wrn,inf}-,}msg
+  {cluster,resource,guest}-peers
   {cluster,resource}-members
+    deprecated
   {disk,device}-present
   {disk,resource,device}-size
   {fetch,replay,work}-{lognr,logcount}
   {get,actual}-primary
   {implemented,usable}-{digests,compressions}
   {is,todo,nr}-{attach,sync,fetch,replay,primary}
-  {my,all}-resources
+  {my,all}-{resources,members,guests}
   {potential,implemented,usable}-features
   {sync,fetch,replay,work,syncpos}-{size,pos}
   {sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}

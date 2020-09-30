@@ -9517,7 +9517,7 @@ marsadm
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="13" columns="3">
+<lyxtabular version="3" rows="14" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -10451,6 +10451,99 @@ The time window for checking the aliveness of other nodes in the network.
  When no symlink updates have been transferred from the other host since
  more than the window time, the host is considered dead.
  Default is 60s.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+--keep-backups=$hours
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Only relevant for cron and link-purge-all.
+ Old remains from dead / unreachable machines, and some backup data produced
+ by join-cluster and split-cluster (potentially useful for experts), will
+ be purged after this age.
+ Default is 24 * 7 hours.
 \end_layout
 
 \end_inset
@@ -31613,9 +31706,23 @@ device-nrflying
 \labelwidthstring 00.00.0000
 
 \family typewriter
+disk-error
+\family default
+ Show the negative Linux errno code of the last open() error on the underlying
+ disk.
+ It should be always zero.
+ When < 0 according to kernel return-code conventions, this typically indicates
+ a hardware or LVM problem, etc.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 device-error
 \family default
- Show the negative Linux errno code of the last IO error.
+ Show the negative Linux errno code of the last IO error, as reported upwards
+ to applications.
  It should be always zero.
  When < 0 according to kernel return-code conventions, this typically indicates
  a hardware (or network) problem.
@@ -31702,14 +31809,48 @@ In the following, shell glob notation
 \end_layout
 
 \begin_layout Paragraph
-Name Querying
+Memberships, Name Querying and their Counts
 \end_layout
 
 \begin_layout Labeling
 \labelwidthstring 00.00.0000
 
 \family typewriter
-cluster-members
+is-member
+\family default
+ Boolean, indicating whether 
+\family typewriter
+%{host}
+\family default
+ is a storage member of the resource 
+\family typewriter
+%{res}.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+is-guest
+\family default
+ Boolean, indicating whether 
+\family typewriter
+%{host}
+\family default
+ is currently a 
+\emph on
+dynamic guest
+\emph default
+ of resource 
+\family typewriter
+%{res}.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+cluster-peers
 \family default
  Show a newline-separated list of all host names participating in the cluster.
 \end_layout
@@ -31718,7 +31859,7 @@ cluster-members
 \labelwidthstring 00.00.0000
 
 \family typewriter
-resource-members
+resource-peers
 \family default
  Show a newline-separated list of all host names participating in the particular
  resource 
@@ -31726,9 +31867,9 @@ resource-members
 %{res}
 \family default
 .
- Notice that this may be a subset of 
+ Notice that this is typically a subset of 
 \family typewriter
-%cluster-members{}
+%cluster-peers{}
 \family default
 .
 \end_layout
@@ -31737,14 +31878,48 @@ resource-members
 \labelwidthstring 00.00.0000
 
 \family typewriter
+guest-peers
+\family default
+ Show a newline-separated list of all host names which are currently dynamically
+ added as 
+\emph on
+guests
+\emph default
+ to resource 
+\family typewriter
+%{res}
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+count-{cluster,resource,guest}-peers
+\family default
+ Show the corresponding 
+\emph on
+number
+\emph default
+ of hosts, accordingly.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 {my,all}-resources
 \family default
- Show a newline-separated list of either all resource names existing in
- the cluster, or only those where the current host 
+ Show a newline-separated list of either all resource names 
+\emph on
+existing
+\emph default
+ in the cluster, or only those where the current host 
 \family typewriter
 %{host}
 \family default
- is member.
+ is a storage member.
  Optionally, you may specify the hostname as a parameter, e.g.
  
 \family typewriter
@@ -31755,6 +31930,44 @@ otherhost
 }
 \family default
 .
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{my,all}-members
+\family default
+ Show a newline-separated list of storage members existing in the cluster.
+ There is a very subtle difference to 
+\family typewriter
+*-resources
+\family default
+: there may exist resources which have no storage members.
+ This may for example occur when all storage members have left via leave-resourc
+e, but delete-resource has not yet been executed.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{my,all}-guests
+\family default
+ Show a newline-separated list of currently dynamically added guests.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+count-{my,all}-{resources,members,guests}
+\family default
+ Show the corresponding 
+\emph on
+number
+\emph default
+ of resources or storage members or guests, accordingly.
 \end_layout
 
 \begin_layout Paragraph
@@ -32629,6 +32842,122 @@ different
 some
 \emph default
  progress has been made, but says nothing about the amount of the progress.
+\end_layout
+
+\begin_layout Paragraph
+Device Information
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+get-device
+\family default
+ Tell the device name, which is 
+\family typewriter
+/dev/mars/%{res}
+\family default
+ in the current MARS implementation.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+device-present
+\family default
+ Boolean, telling whether 
+\family typewriter
+/dev/mars/%{res}
+\family default
+ is currently appearing at 
+\family typewriter
+%{host}
+\family default
+ or not.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+device-opened
+\family default
+ Tell the number of times 
+\family typewriter
+/dev/mars/%{res}
+\family default
+ is currently opened (e.g.
+ mounted) at 
+\family typewriter
+%{host}
+\family default
+.
+ Upon non-exclusive access by multiple readers / writers in parallel (which
+ is potentially very dangerous), the number may grow greater than 1.
+ You may exploit this for monitoring / supervision.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+device-ops-rate
+\family default
+ Tell the current request throughput, aka IOPS.
+ This is actually changing much more frequently than can be reported by
+ the kernel, but anyway may be useful for getting some impression on what
+ is going on.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+device-error
+\family default
+ Tell the Unix error code when any IO error has occurred in the past, or
+ 0 when no error is known.
+ Useful for debugging and fault analysis.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+device-nrflying
+\family default
+ Tell the number of currently flying IO requests (i.e.
+ submitted, but not yet completed).
+ This is changing in much higher frequency that can be ever reported by
+ the kernel, but may be useful for bottleneck analysis, and when the system
+ is stuck (e.g.
+ defective RAID).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+device-completion-stamp
+\family default
+ Tell the realtime timestamp of the last completed IO request.
+ Useful for detection of a hanging system (e.g.
+ defective disks, etc).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+device-completion-age
+\family default
+ Similar to before, but report the 
+\emph on
+relative
+\emph default
+ age (compared to the current time) in seconds.
 \end_layout
 
 \begin_layout Paragraph
