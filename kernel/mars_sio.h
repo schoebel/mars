@@ -66,6 +66,7 @@ struct sio_output {
 	spinlock_t g_lock;
 	atomic_t work_count;
 	int index;
+	int error;
 };
 
 MARS_TYPES(sio);

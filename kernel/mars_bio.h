@@ -72,6 +72,7 @@ struct bio_brick {
 	atomic_t fly_count[MARS_PRIO_NR];
 	atomic_t queue_count[MARS_PRIO_NR];
 	atomic_t completed_count;
+	int error;
 #ifdef MARS_BIO_DEBUG
 	atomic_t total_completed_count[MARS_PRIO_NR];
 #endif

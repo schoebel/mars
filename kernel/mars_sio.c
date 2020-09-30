@@ -638,9 +638,12 @@ static int sio_switch(struct sio_brick *brick)
 
 		mars_power_led_off((void*)brick, false);
 
-		output->mf = mapfree_get(path, flags);
-		if (unlikely(IS_ERR(output->mf))) {
-			status = PTR_ERR(output->mf);
+		output->error = 0;
+		output->mf = mapfree_get(path, flags, &output->error);
+		if (unlikely(!output->mf || IS_ERR(output->mf))) {
+			status = output->error;
+			if (!status)
+				status = -ENOENT;
 			output->mf = NULL;
 			MARS_ERR("open '%s' flags=%d status=%d\n",
 				 path,

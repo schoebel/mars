@@ -831,10 +831,14 @@ static int bio_switch(struct bio_brick *brick)
 			struct backing_dev_info *bdi;
 #endif
 
-			brick->mf = mapfree_get(path, flags);
+			brick->error = 0;
+			brick->mf = mapfree_get(path, flags, &brick->error);
 			if (unlikely(!brick->mf)) {
-				status = -ENOENT;
-				MARS_ERR("cannot open file '%s'\n", path);
+				status = brick->error;
+				if (!status)
+					status = -ENOENT;
+				MARS_ERR("cannot open file '%s', error=%d\n",
+					 path, brick->error);
 				goto done;
 			}
 			mapfree_pages(brick->mf, -1);

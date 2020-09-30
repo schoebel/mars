@@ -78,7 +78,7 @@ struct mapfree_info {
 	struct dirty_length mf_length[DIRTY_MAX];
 };
 
-struct mapfree_info *mapfree_get(const char *filename, int flags);
+struct mapfree_info *mapfree_get(const char *filename, int flags, int *error);
 
 void mapfree_put(struct mapfree_info *mf);
 

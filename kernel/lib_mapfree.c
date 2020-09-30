@@ -155,7 +155,7 @@ void mapfree_put(struct mapfree_info *mf)
 }
 EXPORT_SYMBOL_GPL(mapfree_put);
 
-struct mapfree_info *mapfree_get(const char *name, int flags)
+struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 {
 	struct mapfree_info *mf = NULL;
 	struct list_head *tmp;
@@ -241,6 +241,9 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 
 		if (unlikely(!mf->mf_filp || IS_ERR(mf->mf_filp))) {
 			int err = PTR_ERR(mf->mf_filp);
+
+			if (error)
+				*error = err;
 			MARS_ERR("can't open file '%s' status=%d\n", name, err);
 			mf->mf_filp = NULL;
 			_mapfree_put(mf);

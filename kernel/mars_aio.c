@@ -1243,10 +1243,14 @@ static int aio_switch(struct aio_brick *brick)
 		MARS_DBG("using O_DIRECT on %s\n", path);
 	}
 
-	output->mf = mapfree_get(path, flags);
+	output->error = 0;
+	output->mf = mapfree_get(path, flags, &output->error);
 	if (unlikely(!output->mf)) {
-		MARS_ERR("could not open file = '%s' flags = %d\n", path, flags);
-		status = -ENOENT;
+		MARS_ERR("could not open file = '%s' flags = %d error = %d\n",
+			 path, flags, output->error);
+		status = output->error;
+		if (!status)
+			status = -ENOENT;
 		goto err;
 	} 
 
