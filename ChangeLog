@@ -139,9 +139,10 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
-	Based on 0.1balpha4. Merged 0.1stable.
-	Now stable.
-	Receive mainly fixes.
+mars0.1astable110
+	* Minor improvement: new disk-error for better diagnosing
+	  any problems with disk setup / LVM etc.
+	* Doc update (new macros etc).
 
 mars0.1astable109
 	* Regression from mars0.1astable106: when the old
