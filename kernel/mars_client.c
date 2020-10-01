@@ -83,8 +83,13 @@ void _kill_thread(struct client_threadinfo *ti, const char *name)
 }
 
 static
+void _do_timeout(struct client_output *output, struct list_head *anchor, int *rounds, bool force);
+
+static
 void _kill_channel(struct client_channel *ch)
 {
+	int rounds = 0;
+
 	MARS_DBG("channel = %p\n", ch);
 	if (mars_socket_is_alive(&ch->socket)) {
 		MARS_DBG("shutdown socket\n");
@@ -99,6 +104,7 @@ void _kill_channel(struct client_channel *ch)
 	ch->is_used = false;
 	ch->is_open = false;
 	ch->is_connected = false;
+	_do_timeout(ch->output, &ch->wait_list, &rounds, false);
 	/* Re-Submit any waiting requests
 	 */
 	_do_resubmit(ch);
