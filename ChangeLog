@@ -139,6 +139,11 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable111
+	* Minor fix, only relevant for new deletions:
+	  Split-brain cleanup was sometimes stumbling over
+	  deleted logfiles. Workaround by cron.
+
 mars0.1astable110
 	* Minor improvement: new disk-error for better diagnosing
 	  any problems with disk setup / LVM etc.
