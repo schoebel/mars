@@ -2827,7 +2827,7 @@ int peer_thread(void *data)
 
 			/* check whether IP assignment has changed */
 			new_peer = mars_translate_hostname(peer->peer);
-			MARS_INF("AHA %d '%s' '%s'\n", 
+			MARS_INF("IP assignment %d '%s' '%s'\n", 
 				 mars_socket_is_alive(&peer->socket),
 				 new_peer, real_peer);
 			if (new_peer && real_peer && strcmp(new_peer, real_peer))
