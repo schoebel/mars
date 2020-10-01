@@ -779,6 +779,9 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 			ch->socket.s_send_abort = mars_client_abort;
 			ch->socket.s_recv_abort = mars_client_abort;
 		}
+#ifdef MARS_CLIENT_DEBUGGING
+		atomic_inc(&brick->infinite_count);
+#endif
 		return;
 	}
 
@@ -794,8 +797,12 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 
 	/* Don't run more than once per second */
 	if (!force &&
-	    lamport_time_compare(&timeout_stamp, &brick->last_timeout_stamp) <= 0)
+	    lamport_time_compare(&timeout_stamp, &brick->last_timeout_stamp) <= 0) {
+#ifdef MARS_CLIENT_DEBUGGING
+		atomic_inc(&brick->skip_count);
+#endif
 		return;
+	}
 
 	memcpy(&brick->last_timeout_stamp, &timeout_stamp, sizeof(brick->last_timeout_stamp));
 	brick->last_timeout_stamp.tv_sec += 1;
@@ -806,6 +813,9 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
 		
+#ifdef MARS_CLIENT_DEBUGGING
+		atomic_inc(&brick->check_count);
+#endif
 		if (!force &&
 		    lamport_time_compare(&mref_a->submit_stamp, &timeout_stamp) >= 0)
 			continue;
@@ -834,7 +844,9 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 				 mref->ref_len);
 		}
 
+#ifdef MARS_CLIENT_DEBUGGING
 		atomic_inc(&brick->timeout_count);
+#endif
 
 		SIMPLE_CALLBACK(mref, -ETIME);
 
@@ -1126,14 +1138,24 @@ char *client_statistics(struct client_brick *brick, int verbose)
 		 "socket_count = %d "
 		 "max_flying = %d "
 		 "io_timeout = %d | "
+#ifdef MARS_CLIENT_DEBUGGING
+		 "infinite_count = %d "
+		 "skip_count = %d "
+		 "check_count = %d "
 		 "timeout_count = %d "
+#endif
 		 "fly_count = %d\n",
 		 output->get_info,
 		 output->got_info,
 		 socket_count,
 		 brick->max_flying,
 		 brick->power.io_timeout,
+#ifdef MARS_CLIENT_DEBUGGING
+		 atomic_read(&brick->infinite_count),
+		 atomic_read(&brick->skip_count),
+		 atomic_read(&brick->check_count),
 		 atomic_read(&brick->timeout_count),
+#endif
 		 atomic_read(&brick->fly_count));
 	
         return res;
@@ -1142,7 +1164,12 @@ char *client_statistics(struct client_brick *brick, int verbose)
 static
 void client_reset_statistics(struct client_brick *brick)
 {
+#ifdef MARS_CLIENT_DEBUGGING
+	atomic_set(&brick->infinite_count, 0);
+	atomic_set(&brick->skip_count, 0);
+	atomic_set(&brick->check_count, 0);
 	atomic_set(&brick->timeout_count, 0);
+#endif
 }
 
 //////////////// object / aspect constructors / destructors ///////////////

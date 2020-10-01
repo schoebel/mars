@@ -27,6 +27,10 @@
 #include "mars_net.h"
 #include "lib_limiter.h"
 
+#ifdef CONFIG_MARS_DEBUG
+#define MARS_CLIENT_DEBUGGING
+#endif
+
 extern struct mars_limiter client_limiter;
 extern int global_net_io_timeout;
 extern int mars_client_info_timeout;
@@ -60,7 +64,12 @@ struct client_brick {
 	atomic_t receiver_count;
 	int socket_count;
 	atomic_t fly_count;
+#ifdef MARS_CLIENT_DEBUGGING
+	atomic_t infinite_count;
+	atomic_t skip_count;
+	atomic_t check_count;
 	atomic_t timeout_count;
+#endif
 	struct lamport_time hang_stamp; /* submit stamp of eldest request */
 	struct lamport_time last_timeout_stamp;
 };
