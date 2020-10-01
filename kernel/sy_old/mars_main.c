@@ -3962,6 +3962,11 @@ int make_log_step(struct mars_dent *dent)
 	CHECK_PTR(rot, err);
 
 	status = 0;
+	if (!S_ISREG(dent->new_stat.mode)) {
+		MARS_DBG("no logfile '%s' -> '%s'\n",
+			 dent->d_path, dent->new_link);
+		goto done;
+	}
 	trans_brick = rot->trans_brick;
 	if (!mars_global->global_power.button ||
 	    !trans_brick ||
