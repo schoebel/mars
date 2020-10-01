@@ -929,8 +929,6 @@ void _do_timeout_all(struct client_output *output, bool force)
 	for (i = 0; i < MAX_CLIENT_CHANNELS; i++) {
 		struct client_channel *ch = &output->bundle.channel[i];
 
-		if (!ch->is_used)
-			continue;
 		_do_timeout(output, &ch->wait_list, &rounds, force);
 	}
 	_do_timeout(output, &output->mref_list, &rounds, force);
