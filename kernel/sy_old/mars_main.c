@@ -2035,6 +2035,37 @@ char *make_peer_dir_list(const char *mypeer)
 }
 
 static
+struct mars_peerinfo *new_peer(const char *mypeer)
+{
+	struct mars_peerinfo *peer;
+
+	peer = brick_zmem_alloc(sizeof(struct mars_peerinfo));
+	peer->peer = brick_strdup(mypeer);
+	peer->maxdepth = 2;
+
+	peer->peer_dir_list = make_peer_dir_list(mypeer);
+
+	peer->features_version = 0;
+	peer->strategy_version = 0;
+	peer->available_mask = 0;
+
+	mutex_init(&peer->peer_lock);
+	INIT_LIST_HEAD(&peer->peer_head);
+	INIT_LIST_HEAD(&peer->push_anchor);
+
+	/* always trigger on peer startup */
+	peer->from_remote_trigger = true;
+	peer->to_remote_trigger = true;
+
+	down_write(&peer_lock);
+	list_add_tail(&peer->peer_head, &peer_anchor);
+	peer_count++;
+	up_write(&peer_lock);
+
+	return peer;
+}
+
+static
 struct mars_peerinfo *find_peer(const char *peer_name)
 {
 	struct list_head *tmp;
@@ -3221,35 +3252,8 @@ int _make_peer(struct mars_dent *dent)
 
 	MARS_DBG("peer '%s'\n", mypeer);
 	if (!dent->d_private) {
-		dent->d_private = brick_zmem_alloc(sizeof(struct mars_peerinfo));
-		if (!dent->d_private) {
-			MARS_ERR("no memory for peer structure\n");
-			status = -ENOMEM;
-			goto done;
-		}
+		dent->d_private = new_peer(mypeer);
 		dent->d_private_destruct = peer_destruct;
-		peer = dent->d_private;
-		peer->peer = brick_strdup(mypeer);
-		peer->maxdepth = 2;
-
-		peer->peer_dir_list = make_peer_dir_list(mypeer);
-
-		peer->features_version = 0;
-		peer->strategy_version = 0;
-		peer->available_mask = 0;
-
-		mutex_init(&peer->peer_lock);
-		INIT_LIST_HEAD(&peer->peer_head);
-		INIT_LIST_HEAD(&peer->push_anchor);
-
-		/* always trigger on peer startup */
-		peer->from_remote_trigger = true;
-		peer->to_remote_trigger = true;
-
-		down_write(&peer_lock);
-		list_add_tail(&peer->peer_head, &peer_anchor);
-		peer_count++;
-		up_write(&peer_lock);
 	}
 
 	peer = dent->d_private;
