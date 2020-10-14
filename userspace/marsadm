@@ -3602,24 +3602,43 @@ sub join_cluster {
       mkdir("$mars/actual-$host") unless -d "$mars/actual-$host";
       set_link("(any)", "$mars/uuid") unless $old_uuid;
       set_link($ip, "$mars/ips/ip-$host");
-      set_link($peer_ip, "$mars/ips/ip-$peer");
+      my $peer_known = link_exists("$mars/ips/ip-$peer");
+      if (!$peer_known) {
+	set_link($peer_ip, "$mars/ips/ip-$peer");
+      }
       # make PRELIMINARY links, timestamp is 1 second after the Big Bang (1970)
       finish_links(1);
       _trigger();
-      lprint "Update cluster information\n";
+      lprint "Update local '$real_host' information\n";
+      update_cluster($cmd, "all", $real_host);
       _reset_resources();
-      update_cluster($cmd, "all", $peer);
+      if ($peer_known) {
+	lprint "Update peer '$peer' information\n";
+	update_cluster($cmd, "all", $peer);
+      }
+      # write again, this time with current mars_time()
+      set_link($ip, "$mars/ips/ip-$host");
+      set_link("0", "$mars/defaults-$host/sync-limit");
+      set_link("(none)", "$mars/defaults-$host/sync-pref-list");
+      my $deleted_path = "$mars/todo-global/deleted-$host";
+      set_link("1", $deleted_path) unless link_exists($deleted_path);
+      finish_links();
+      _push_link($peer, $ip, "$mars/ips/ip-$host");
       lprint "Checking uuid\n";
-      my $new_uuid = get_link("$mars/uuid");
+      my $round = 0;
+      my $new_uuid = get_link("$mars/uuid", 1);
+      while ($round++ < 5) {
+	_trigger(3);
+	sleep(3);
+	lprint "... update from $peer round $round\n";
+	_reset_resources();
+	update_cluster($cmd, "all", $peer);
+	$new_uuid = get_link("$mars/uuid");
+	last if ($new_uuid && $new_uuid ne "(any)");
+	_push_link($peer, $ip, "$mars/ips/ip-$host");
+      }
       if ($new_uuid && $new_uuid ne "(any)") {
 	lprint "Successfully joined cluster, uuid='$new_uuid'\n";
-	# write again, this time with current mars_time()
-	set_link($ip, "$mars/ips/ip-$host");
-	set_link("0", "$mars/defaults-$host/sync-limit");
-	set_link("(none)", "$mars/defaults-$host/sync-pref-list");
-	set_link("1", "$mars/todo-global/deleted-$host");
-	finish_links();
-	_push_link($peer, $ip, "$mars/ips/ip-$host");
 	return;
       } else {
 	lwarn "Unable to determine the remote cluster uuid.\n";
