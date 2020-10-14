@@ -2022,6 +2022,19 @@ struct mars_peerinfo {
 };
 
 static
+char *make_peer_dir_list(const char *mypeer)
+{
+	char *res;
+
+	res = path_make("|/mars/defaults-%s/"
+			"|/mars/actual-%s/",
+			mypeer,
+			mypeer
+			);
+	return res;
+}
+
+static
 struct mars_peerinfo *find_peer(const char *peer_name)
 {
 	struct list_head *tmp;
@@ -3178,20 +3191,6 @@ void peer_destruct(void *_peer)
 
 	if (likely(peer))
 		_kill_peer(peer);
-}
-
-static
-char * make_peer_dir_list(char *mypeer)
-{
-	char *res;
-
-	res = path_make(
-			"|/mars/defaults-%s/"
-			"|/mars/actual-%s/",
-			mypeer,
-			mypeer
-			);
-	return res;
 }
 
 static
