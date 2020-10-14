@@ -2146,6 +2146,9 @@ void show_peers(void)
 	up_read(&peer_lock);
 }
 
+static
+void peer_destruct(void *_peer);
+
 /* Please use this only for _initialization_ of new memberships etc,
  * but never for ordinary operations.
  * Normally, the PULL PRINCIPLE is the prefered one.
@@ -2155,12 +2158,29 @@ bool push_link(const char *peer_name,
 	       const char *src,
 	       const char *dst)
 {
+	struct mars_dent *peer_dent;
 	struct mars_peerinfo *peer;
 	struct push_info *push;
 
-	peer = find_peer(peer_name);
-	if (!peer)
+	if (unlikely(!peer_name ||
+		     !peer_name[0] ||
+		     !strcmp(peer_name, my_id()))) {
+		MARS_WRN("invalid peer_name '%s'\n", peer_name);
 		return false;
+	}
+
+	peer_dent = find_peer_dent(peer_name);
+	if (unlikely(!peer_dent)) {
+		MARS_WRN("peer '%s' does not exist in /mars/ips/\n",
+			 peer_name);
+		return false;
+	}
+	peer = peer_dent->d_private;
+	if (!peer) {
+		peer = new_peer(peer_name);
+		peer_dent->d_private = peer;
+		peer_dent->d_private_destruct = peer_destruct;
+	}
 	push = brick_zmem_alloc(sizeof(struct push_info));
 	INIT_LIST_HEAD(&push->push_head);
 	push->src = brick_strdup(src);
