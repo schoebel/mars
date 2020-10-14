@@ -3170,11 +3170,15 @@ bool is_shutdown(void)
 // helpers for worker functions
 
 static
-void activate_peer(struct mars_rotate *rot, const char *peer_name)
+void activate_peer(const char *peer_name)
 {
 	struct mars_peerinfo *peer;
 
-	if (unlikely(!peer_name))
+	MARS_DBG("peer_name='%s'\n", peer_name);
+
+	if (unlikely(!peer_name ||
+		     !peer_name[0] ||
+		     !strcmp(peer_name, my_id())))
 		return;
 
 	peer = find_peer(peer_name);
@@ -3781,7 +3785,7 @@ int make_log_init(struct mars_dent *dent)
 	rot->has_error = false;
 	brick_string_free(rot->preferred_peer);
 
-	activate_peer(rot, dent->d_rest);
+	activate_peer(dent->d_rest);
 
 	if (dent->new_link)
 		sscanf(dent->new_link, "%lld", &rot->dev_size);
@@ -5198,7 +5202,7 @@ int make_bio(struct mars_dent *dent)
 	_show_actual(rot->parent_path, "is-attached", rot->is_attached);
 
 	if (rot->rot_activated)
-		activate_peer(rot, dent->d_rest);
+		activate_peer(dent->d_rest);
 	if (strcmp(dent->d_rest, my_id()))
 		goto done;
 
@@ -5351,7 +5355,7 @@ int make_dev(struct mars_dent *dent)
 		MARS_DBG("nothing to do\n");
 		goto err;
 	}
-	activate_peer(rot, dent->d_rest);
+	activate_peer(dent->d_rest);
 	if (strcmp(dent->d_rest, my_id())) {
 		MARS_DBG("nothing to do\n");
 		goto err;
