@@ -2066,22 +2066,26 @@ struct mars_peerinfo *new_peer(const char *mypeer)
 }
 
 static
+struct mars_dent *find_peer_dent(const char *peer_name)
+{
+	const char *peer_path;
+	struct mars_dent *res;
+
+	peer_path = path_make("/mars/ips/ip-%s", peer_name);
+	res = mars_find_dent(mars_global, peer_path);
+	brick_string_free(peer_path);
+	return res;
+}
+
+static
 struct mars_peerinfo *find_peer(const char *peer_name)
 {
-	struct list_head *tmp;
+	struct mars_dent *peer_dent;
 	struct mars_peerinfo *res = NULL;
 
-	/* TODO: replace exhaustive search by better data structure */
-	down_read(&peer_lock);
-	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
-		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
-		if (!strcmp(peer->peer, peer_name)) {
-			res = peer;
-			break;
-		}
-	}
-	up_read(&peer_lock);
-
+	peer_dent = find_peer_dent(peer_name);
+	if (peer_dent)
+		res = peer_dent->d_private;
 	return res;
 }
 
