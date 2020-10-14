@@ -612,8 +612,12 @@ int handler_thread(void *data)
 				ordered_symlink(cmd.cmd_str1,
 						cmd.cmd_str2,
 						&cmd.cmd_stamp);
-			if (status >= 0)
-				mars_trigger();
+			if (status >= 0) {
+				wait_main_round();
+				if (!strncmp(cmd.cmd_str2,
+					     "/mars/ips/ip-", 13))
+					activate_peer(cmd.cmd_str2 + 13);
+			}
 			break;
 		}
 		default:

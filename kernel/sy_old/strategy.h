@@ -74,6 +74,9 @@ extern int mars_fast_fullsync;
 
 extern char *my_id(void);
 
+extern void wait_main_round(void);
+extern void activate_peer(const char *peer_name);
+
 struct mars_dent;
 typedef void (*dent_skip_fn)(struct mars_dent *);
 

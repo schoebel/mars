@@ -3169,7 +3169,6 @@ bool is_shutdown(void)
 
 // helpers for worker functions
 
-static
 void activate_peer(const char *peer_name)
 {
 	struct mars_peerinfo *peer;
@@ -6772,6 +6771,22 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 	return 0;
 }
 
+static unsigned int main_round = 0;
+static DECLARE_WAIT_QUEUE_HEAD(main_round_event);
+
+void wait_main_round(void)
+{
+	unsigned int old_main_round = main_round;
+	int i;
+
+	for (i = 2; i > 0; i--) {
+		mars_trigger();
+		wait_event_interruptible_timeout(main_round_event,
+						 old_main_round != main_round,
+						 60 * HZ);
+	}
+}
+
 #define SAY_TEST_STR CONFIG_MARS_LOGDIR "/5.total.log"
 
 static int _main_thread(void *data)
@@ -6921,6 +6936,10 @@ static int _main_thread(void *data)
 		show_peers();
 
 		MARS_DBG("ban_count = %d ban_renew_count = %d\n", mars_global_ban.ban_count, mars_global_ban.ban_renew_count);
+
+		/* main_round point */
+		main_round++;
+		wake_up_interruptible_all(&main_round_event);
 
 		brick_msleep(100);
 
