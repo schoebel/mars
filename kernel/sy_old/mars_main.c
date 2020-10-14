@@ -5530,6 +5530,9 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 	const char *peer_replay_link = NULL;
 	int status = -EINVAL;
 
+	if (!peer || peer[0] == '(')
+		goto done;
+
 	/* create syncpos symlink when necessary */
 	if (copy->copy_last == copy->copy_end && !rot->sync_finish_stamp.tv_sec) {
 		get_lamport(NULL, &rot->sync_finish_stamp);
