@@ -3590,6 +3590,9 @@ sub join_cluster {
     my $old_uuid = get_link("$mars/uuid", 2);
     if (!$old_uuid || $old_uuid eq "(any)") {
       mkdir("$mars/ips") unless -d "$mars/ips";
+      mkdir("$mars/todo-global") unless -d "$mars/todo-global";
+      mkdir("$mars/defaults-$host") unless -d "$mars/defaults-$host";
+      mkdir("$mars/actual-$host") unless -d "$mars/actual-$host";
       set_link("(any)", "$mars/uuid") unless $old_uuid;
       set_link($ip, "$mars/ips/ip-$host");
       set_link($peer_ip, "$mars/ips/ip-$peer");
@@ -3603,8 +3606,6 @@ sub join_cluster {
       my $new_uuid = get_link("$mars/uuid");
       if ($new_uuid && $new_uuid ne "(any)") {
 	lprint "Successfully joined cluster, uuid='$new_uuid'\n";
-	mkdir("$mars/defaults-$host") unless -d "$mars/defaults-$host";
-	mkdir("$mars/actual-$host") unless -d "$mars/actual-$host";
 	# write again, this time with current mars_time()
 	set_link($ip, "$mars/ips/ip-$host");
 	set_link("0", "$mars/defaults-$host/sync-limit");
