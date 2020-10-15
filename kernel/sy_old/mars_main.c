@@ -1991,7 +1991,7 @@ struct push_info {
 	const char *dst;
 };
 
-static DECLARE_RWSEM(peer_lock);
+static DECLARE_RWSEM(peer_list_lock);
 static int peer_count = 0;
 static
 struct list_head peer_anchor = LIST_HEAD_INIT(peer_anchor);
@@ -2057,10 +2057,10 @@ struct mars_peerinfo *new_peer(const char *mypeer)
 	peer->from_remote_trigger = true;
 	peer->to_remote_trigger = true;
 
-	down_write(&peer_lock);
+	down_write(&peer_list_lock);
 	list_add_tail(&peer->peer_head, &peer_anchor);
 	peer_count++;
-	up_write(&peer_lock);
+	up_write(&peer_list_lock);
 
 	return peer;
 }
@@ -2095,7 +2095,7 @@ void additional_peers(int add)
 	if (add <= 0)
 		return;
 
-	down_read(&peer_lock);
+	down_read(&peer_list_lock);
 	while (add > 0) {
 		/* Approximate equal distribution */
 #ifdef HAS_GET_RANDOM_INT
@@ -2120,7 +2120,7 @@ void additional_peers(int add)
 		}
 		add--;
 	}
-	up_read(&peer_lock);
+	up_read(&peer_list_lock);
 }
 
 static
@@ -2128,7 +2128,7 @@ void show_peers(void)
 {
 	struct list_head *tmp;
 
-	down_read(&peer_lock);
+	down_read(&peer_list_lock);
 	MARS_DBG("PEER_count = %d\n", peer_count); 
 	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
 		struct mars_peerinfo *peer;
@@ -2143,7 +2143,7 @@ void show_peers(void)
 			 peer->do_additional,
 			 peer->doing_additional);
 	}
-	up_read(&peer_lock);
+	up_read(&peer_list_lock);
 }
 
 static
@@ -3122,7 +3122,7 @@ void mars_remote_trigger(int code)
 	struct list_head *tmp;
 	int count = 0;
 
-	down_read(&peer_lock);
+	down_read(&peer_list_lock);
 	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
 		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
 
@@ -3139,7 +3139,7 @@ void mars_remote_trigger(int code)
 		if (code & (MARS_TRIGGER_TO_REMOTE | MARS_TRIGGER_TO_REMOTE_ALL))
 			peer->to_remote_trigger = true;
 	}
-	up_read(&peer_lock);
+	up_read(&peer_list_lock);
 
 	MARS_DBG("triggered %d peers code=0x%x\n", count, code);
 	wake_up_interruptible_all(&remote_event);
@@ -3199,11 +3199,11 @@ static int _kill_peer(struct mars_peerinfo *peer)
 	if (!peer)
 		return 0;
 
-	down_write(&peer_lock);
+	down_write(&peer_list_lock);
 	if (!list_empty(&peer->peer_head))
 		peer_count--;
 	list_del_init(&peer->peer_head);
-	up_write(&peer_lock);
+	up_write(&peer_list_lock);
 
 	MARS_INF("stopping peer thread...\n");
 	if (peer->peer_thread) {
