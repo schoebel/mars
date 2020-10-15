@@ -1804,7 +1804,10 @@ sub get_alive_links {
   $res = "*" if (!$res || $res eq "all" || $res =~ m/,/);
   my $use_remote_stamp = $alive =~ s/^\^// ? 1 : 0;
   my @peer_list;
-  if ($non_participating) {
+  if ($hosts eq $real_host) {
+    # needed at join-cluster when nothing is known about others
+    @peer_list = ($real_host);
+  } elsif ($non_participating) {
     @peer_list = get_total_peers();
   } else {
     @peer_list = get_any_peers($res ne "*" ? $res : undef);
@@ -1991,7 +1994,7 @@ sub wait_cluster {
   my $max_restarts = 3;
   my $max_resets = 1;
  restart:
-  lprint "Ping $hosts\n";
+  lprint "Ping $hosts trigger=$trigger_code\n";
   _trigger($trigger_code);
   my %old_status = get_alive_links($res, "time", $hosts, 0, $non_participating);
   my $total_count = scalar(keys(%old_status));
