@@ -3261,8 +3261,7 @@ int _make_peer(struct mars_dent *dent)
 	const char *feature_str;
 	int status = 0;
 
-	if (!dent ||
-	    !dent->new_link ||
+	if (!dent->new_link ||
 	    !dent->d_parent ||
 	    !dent->d_parent->d_path) {
 		MARS_DBG("cannot work\n");
@@ -3277,7 +3276,6 @@ int _make_peer(struct mars_dent *dent)
 		mypeer = dent->d_argv[0];
 	}
 
-	MARS_DBG("peer '%s'\n", mypeer);
 	if (!dent->d_private) {
 		dent->d_private = new_peer(mypeer);
 		dent->d_private_destruct = peer_destruct;
@@ -3378,12 +3376,39 @@ static int kill_scan(struct mars_dent *dent)
 
 static int make_scan(struct mars_dent *dent)
 {
-	MARS_DBG("path = '%s' peer = '%s'\n", dent->d_path, dent->d_rest);
-	// don't connect to myself
-	if (!strcmp(dent->d_rest, my_id())) {
+	int status;
+
+	/* don't initialize new connections with myself */
+	if (!dent->d_private && !strcmp(dent->d_rest, my_id())) {
 		return 0;
 	}
-	return _make_peer(dent);
+	status = _make_peer(dent);
+#if 1
+	/* Hack, to disappear:
+	 * Backward compatibility to old marsadm versions.
+	 * Push my IP to any _preliminary_ peer link.
+	 */
+	if (dent->new_stat.mtime.tv_sec < 100 &&
+	    dent->new_link) {
+		struct mars_peerinfo *peer = dent->d_private;
+
+		MARS_DBG("HACK status=%d peer=%p\n", status, peer);
+		if (!peer) {
+			activate_peer(dent->d_rest);
+		} else {
+			const char *dst;
+			const char *src;
+
+			dst = path_make("/mars/ips/ip-%s", my_id());
+			src = ordered_readlink(dst, NULL);
+			if (src && *src && list_empty(&peer->push_anchor))
+				push_link(dent->d_rest, src, dst);
+			brick_string_free(src);
+			brick_string_free(dst);
+		}
+	}
+#endif
+	return status;
 }
 
 
