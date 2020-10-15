@@ -393,6 +393,7 @@ const char *rot_keys[] = {
 #define IS_EMERGENCY_PRIMARY()     (mars_emergency_mode > 2)
 #define IS_JAMMED()                (mars_emergency_mode > 3)
 
+static bool write_alivelinks = false;
 static bool compat_alivelinks = false;
 static bool needed_compat_alivelinks = false;
 
@@ -478,7 +479,8 @@ void __make_alivelink_str_old(const char *name, const char *src, bool lazy)
 		}
 	}
 	MARS_DBG("'%s' -> '%s'\n", src, dst);
-	ordered_symlink(src, dst, NULL);
+	if (write_alivelinks)
+		ordered_symlink(src, dst, NULL);
 err:
 	brick_string_free(dst);
 }
@@ -505,7 +507,8 @@ void __make_alivelink_str(const char *name, const char *src, bool lazy)
 		}
 	}
 	MARS_DBG("'%s' -> '%s'\n", src, dst);
-	ordered_symlink(src, dst, NULL);
+	if (write_alivelinks)
+		ordered_symlink(src, dst, NULL);
 err:
 	brick_string_free(dst);
 }
@@ -517,6 +520,7 @@ static
 void __make_alivelink(const char *name, loff_t val, bool lazy)
 {
 	char *src = path_make("%lld", val);
+
 	__make_alivelink_str(name, src, lazy);
 	brick_string_free(src);
 }
@@ -6150,6 +6154,16 @@ int kill_res(struct mars_dent *dent)
 }
 
 static
+int make_uuid(struct mars_dent *dent)
+{
+	/* Do not write alivelinks before {create,join}-cluster
+	 * has been exectued.
+	 */
+	write_alivelinks = true;
+	return 0;
+}
+
+static
 int make_defaults(struct mars_dent *dent)
 {
 	if (!dent->new_link)
@@ -6197,6 +6211,7 @@ static const struct main_class main_classes[] = {
 		.cl_len = 4,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
+		.cl_forward = make_uuid,
 	},
 
 	/* Subdirectory for global userspace items...
