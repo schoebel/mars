@@ -2087,6 +2087,7 @@ sub update_cluster {
   my $hosts = shift || "*";
   lprint "UPDATING $res\n" if $verbose;
   wait_cluster($cmd, $res, $hosts, 0, 8);
+  _reset_resources();
 }
 
 sub is_cluster_recent {
@@ -2127,18 +2128,23 @@ sub _activate_resource {
   my ($cmd, $res, $peer) = @_;
   return unless $res;
   $peer = $host unless $peer;
+  finish_links();
   if ($res eq "*" || $res eq "all") {
     update_cluster($cmd, $res);
     return;
   }
   my $resdir = "$mars/resource-$res";
-  if (! -d $resdir) {
+  my $max_retry = 3;
+  until (-d $resdir) {
     update_cluster($cmd, $res);
+    last if -d $resdir;
+    if ($max_retry-- < 0) {
+      ldie "Resource directory '$resdir' does not exist\n";
+    }
+    lwarn "Resource directory '$resdir' does not yet exist, fetching...\n";
+    sleep(3);
   }
-  if (! -d $resdir) {
-    ldie "Resource directory '$resdir' does not exist\n";
-  }
-  finish_links();
+  lprint "OK, resource directory '$resdir' exists.\n";
   my $active_path = "$resdir/device-$peer";
   my $check = get_link($active_path, 2);
   if ($check) {
@@ -2168,7 +2174,7 @@ sub _activate_resource {
 
 sub activate_resource {
   my ($cmd, $res) = @_;
-	_activate_resource($cmd, $res);
+  _activate_resource($cmd, $res);
 }
 
 ##################################################################
@@ -3611,7 +3617,6 @@ sub join_cluster {
       _trigger();
       lprint "Update local '$real_host' information\n";
       update_cluster($cmd, "all", $real_host);
-      _reset_resources();
       if ($peer_known) {
 	lprint "Update peer '$peer' information\n";
 	update_cluster($cmd, "all", $peer);
