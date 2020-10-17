@@ -1070,7 +1070,7 @@ int compat_ordered_symlink(const char *oldpath,
 
 char *ordered_readlink(const char *path, struct lamport_time *stamp)
 {
-  char *res = mars_readlink(path, stamp);
+	char *res = mars_readlink(path, stamp);
 
 	if (!strcmp(res, MARS_DELETED_STR)) {
 		*res = '\0';
@@ -1092,12 +1092,39 @@ int ordered_symlink(const char *oldpath,
 		    const char *newpath,
 		    const struct lamport_time *stamp)
 {
+	char *dir_path = NULL;
+	int dir_len;
 	int status;
 
+ retry:
 	if (compat_deletions)
-		return compat_ordered_symlink(oldpath, newpath, stamp);
+		status = compat_ordered_symlink(oldpath, newpath, stamp);
+	else
+		status = mars_symlink(oldpath, newpath, stamp, true);
 
-	status = mars_symlink(oldpath, newpath, stamp, true);
+	/* Automatically create any missing path dirs */
+	while (unlikely(status < 0)) {
+		int old_len;
+		int check;
+
+		if (!dir_path) {
+			dir_path = brick_strdup(newpath);
+			dir_len = strlen(dir_path);
+		}
+		old_len = dir_len;
+		while (dir_len > 0 && dir_path[dir_len] != '/')
+			dir_len--;
+		dir_path[dir_len] = '\0';
+		if (dir_len <= 0 || dir_len >= old_len)
+			break;
+		check = mars_mkdir(dir_path);
+		if (check >= 0) {
+			brick_string_free(dir_path);
+			dir_path = NULL;
+			goto retry;
+		}
+	}
+	brick_string_free(dir_path);
 	return status;
 }
 
