@@ -2011,6 +2011,9 @@ done:
 
 // remote workers
 
+static bool start_full_fetch;
+static bool tmp_full_fetch;
+
 struct push_info {
 	struct list_head push_head;
 	const char *src;
@@ -3176,6 +3179,9 @@ void mars_remote_trigger(int code)
 	struct list_head *tmp;
 	int count = 0;
 
+	if (code & MARS_TRIGGER_FULL)
+		start_full_fetch = true;
+
 	down_read(&peer_list_lock);
 	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
 		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
@@ -3382,6 +3388,11 @@ int _make_peer(struct mars_dent *dent)
 			return 0;
 	} else if (oneshot_code > 0) {
 		_activate_peer(dent, mypeer, true);
+	}
+
+	if (tmp_full_fetch) {
+		peer->do_entire_once = true;
+		start_peer(peer);
 	}
 
 	/* Determine remote features and digest mask */
@@ -6983,12 +6994,20 @@ static int _main_thread(void *data)
 		tmp_resource_list = brick_strdup(GLOBAL_PATH_LIST);
 
 		mars_global->deleted_min = 0;
+		if (start_full_fetch &&
+		    mars_running_additional_peers <= mars_run_additional_peers) {
+			tmp_full_fetch = true;
+			start_full_fetch = false;
+		}
+
 		status = mars_dent_work(mars_global,
 					"/mars",
 					sizeof(struct mars_dent),
 					main_checker, main_worker,
 					mars_global,
 					3, true);
+
+		tmp_full_fetch = false;
 		mars_global->deleted_border = mars_global->deleted_min;
 		MARS_DBG("-------- worker deleted_min = %d status = %d\n",
 			 mars_global->deleted_min, status);
