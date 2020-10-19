@@ -2064,7 +2064,7 @@ sub wait_cluster {
       }
       last;
     }
-    sleep_timeout();
+    sleep_timeout(1, 1);
     last if $timeout_val <= 0 && !$unknown_count;
   }
 }
@@ -3885,7 +3885,7 @@ sub create_res {
       $primary = _get_designated_primary($res, 1);
       last if (defined($primary) && $primary);
       lprint "Trying to get primary info\n";
-      wait_cluster($cmd, $res, "*", 0, 8);
+      update_cluster($cmd, $res, "*");
     }
     my $max_retry = 5;
     for (;;) {
