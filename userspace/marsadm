@@ -2162,7 +2162,11 @@ sub _activate_resource {
   my $active_path = "$resdir/device-$peer";
   my $check = get_link($active_path, 2);
   if ($check) {
-    lprint "Resource '$res' is already activated at '$peer'\n" if $verbose;
+    if ($peer ne $real_host) {
+      _push_check($peer, "", $resdir);
+      _push_check($peer, "", $active_path);
+    }
+    lprint "Resource '$res' was already activated at '$peer'\n" if $verbose;
     return;
   }
   lprint "ENABLING resource '$res' at '$peer'\n" if $verbose;
@@ -2178,7 +2182,7 @@ sub _activate_resource {
   # Make PRELIMINARY links, timestamp is 1 second after the Big Bang (1970)
   # Thanks to Lamport, this will turn into a NOP when a link already exists.
   finish_links(1);
-  _trigger();
+  _push_check($peer, "", $active_path) if $peer ne $real_host;
   # wait for (self-)activation
   wait_cluster($cmd, $res, $peer, 0);
   # activated peers might have changed
@@ -3316,12 +3320,26 @@ sub _trigger {
 # Always prefer the PULL PRINCIPLE where possible.
 sub _push_link {
   my ($peer, $src, $dst) = @_;
+  return if $peer eq $real_host;
   if (!$peer || !$src || !$dst) {
-    lwarn "Bad push args '@_'\n";
+    lwarn "Bad push_link args '@_'\n";
     return;
   }
   my $code = "p $peer $src $dst";
   lprint "Pushing link '$dst' -> '$src' to peer '$peer'\n" if $verbose;
+  _trigger($code);
+}
+
+sub _push_check {
+  my ($peer, $peer_ip, $path) = @_;
+  return if $peer eq $real_host;
+  if (!$peer || !$path) {
+    lwarn "Bad push_check args '@_'\n";
+    return;
+  }
+  $peer_ip = _get_ip($peer) unless $peer_ip;
+  my $code = "c $peer $peer_ip $path";
+  lprint "Pushing check '$path' to peer '$peer' ip='$peer_ip'\n" if $verbose;
   _trigger($code);
 }
 
