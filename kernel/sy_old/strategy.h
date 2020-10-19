@@ -38,8 +38,9 @@
 /* 1 = traditional
  * 2 = push operation available
  * 3 = new alivelinks residing in /mars/actual-$host
+ * 4 = new join-cluster and random peer threads
  */
-#define OPTIONAL_STRATEGY_VERSION 3
+#define OPTIONAL_STRATEGY_VERSION 4
 
 /* transient, to re-disappear */
 extern int compat_deletions;
