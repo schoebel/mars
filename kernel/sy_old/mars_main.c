@@ -2798,14 +2798,6 @@ int peer_action_dent_list(struct mars_peerinfo *peer,
 	struct mars_global *old_global = NULL;
 	int status;
 
-	if (unlikely(!my_uuid)) {
-		MARS_ERR("cannot determine my own uuid for peer %s\n", peer->peer);
-		make_peer_msg(peer, peer_pairs,
-			      "cannot determine my own uuid");
-		status = -EPROTO;
-		goto free;
-	}
-
 	MARS_DBG("fetching remote dentries from '%s' '%s'\n",
 		 peer->peer, paths);
 
@@ -2828,8 +2820,10 @@ int peer_action_dent_list(struct mars_peerinfo *peer,
 			status = -EPROTO;
 			goto free;
 		}
-		if (unlikely(strcmp(peer_uuid->new_link, my_uuid) &&
-			     strcmp(my_uuid, "(any)"))) {
+		if (unlikely(my_uuid && *my_uuid &&
+			     strcmp(peer_uuid->new_link, my_uuid) &&
+			     strcmp(my_uuid, "(any)") &&
+			     strcmp(peer_uuid->new_link, "(any)"))) {
 			MARS_ERR("UUID mismatch '%s' != '%s' for peer '%s'\n",
 				 peer_uuid->new_link, my_uuid,
 				 peer->peer);
