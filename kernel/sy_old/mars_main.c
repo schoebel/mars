@@ -2018,6 +2018,7 @@ struct push_info {
 	struct list_head push_head;
 	const char *src;
 	const char *dst;
+	int cmd_code;
 };
 
 static DECLARE_RWSEM(peer_list_lock);
@@ -2028,6 +2029,7 @@ struct list_head peer_anchor = LIST_HEAD_INIT(peer_anchor);
 struct mars_peerinfo {
 	struct mars_global *remote_global;
 	char *peer;
+	char *peer_ip;
 	char *peer_dir_list;
 	struct mars_socket socket;
 	struct task_struct *peer_thread;
@@ -2067,16 +2069,19 @@ char *make_peer_dir_list(const char *mypeer)
 }
 
 static
-struct mars_peerinfo *new_peer(const char *mypeer)
+struct mars_peerinfo *new_peer(const char *peer_name, const char *peer_ip)
 {
 	struct mars_peerinfo *peer;
 
 	peer = brick_zmem_alloc(sizeof(struct mars_peerinfo));
-	peer->peer = brick_strdup(mypeer);
+	peer->peer = brick_strdup(peer_name);
+	if (peer_ip)
+		peer->peer_ip = brick_strdup(peer_ip);
+
+	peer->peer_dir_list = make_peer_dir_list(peer_name);
+
+
 	peer->maxdepth = 2;
-
-	peer->peer_dir_list = make_peer_dir_list(mypeer);
-
 	peer->features_version = 0;
 	peer->strategy_version = 0;
 	peer->available_mask = 0;
@@ -2202,14 +2207,11 @@ int start_peer(struct mars_peerinfo *peer)
 static
 void peer_destruct(void *_peer);
 
-/* Please use this only for _initialization_ of new memberships etc,
- * but never for ordinary operations.
- * Normally, the PULL PRINCIPLE is the prefered one.
- * TODO: more security considerations beyond port firewalling.
- */
-bool push_link(const char *peer_name,
-	       const char *src,
-	       const char *dst)
+bool _push_info(const char *peer_name,
+		const char *peer_ip,
+		const char *src,
+		const char *dst,
+		int cmd_code)
 {
 	struct mars_dent *peer_dent;
 	struct mars_peerinfo *peer;
@@ -2230,7 +2232,7 @@ bool push_link(const char *peer_name,
 	}
 	peer = peer_dent->d_private;
 	if (!peer) {
-		peer = new_peer(peer_name);
+		peer = new_peer(peer_name, peer_ip);
 		peer_dent->d_private = peer;
 		peer_dent->d_private_destruct = peer_destruct;
 		MARS_DBG("new peer %p\n", peer);
@@ -2240,11 +2242,33 @@ bool push_link(const char *peer_name,
 	INIT_LIST_HEAD(&push->push_head);
 	push->src = brick_strdup(src);
 	push->dst = brick_strdup(dst);
+	push->cmd_code = cmd_code;
 	mutex_lock(&peer->peer_lock);
 	list_add_tail(&push->push_head, &peer->push_anchor);
 	mutex_unlock(&peer->peer_lock);
 	mars_trigger();
 	return true;
+}
+
+/* Please use this only for _initialization_ of new memberships etc,
+ * but never for ordinary operations.
+ * Normally, the PULL PRINCIPLE is the prefered one.
+ * TODO: more security considerations beyond port firewalling.
+ */
+bool push_link(const char *peer_name,
+	       const char *src,
+	       const char *dst)
+{
+	return _push_info(peer_name, NULL,
+			  src, dst, CMD_PUSH_LINK);
+}
+
+bool push_check(const char *peer_name,
+		const char *peer_ip,
+		const char *path)
+{
+	return _push_info(peer_name, peer_ip,
+			  my_id(), path, CMD_PUSH_CHECK);
 }
 
 static
@@ -3015,7 +3039,7 @@ int peer_thread(void *data)
 			struct push_info *push;
 
 			push = container_of(tmp_push_list.next, struct push_info, push_head);
-			cmd.cmd_code = CMD_PUSH_LINK;
+			cmd.cmd_code = push->cmd_code;
 			cmd.cmd_str1 = push->src;
 			cmd.cmd_str2 = push->dst;
 			status = mars_send_cmd(&peer->socket, &cmd, false);
@@ -3231,6 +3255,7 @@ bool is_shutdown(void)
 
 void _activate_peer(struct mars_dent *peer_dent,
 		    const char *peer_name,
+		    const char *peer_ip,
 		    bool oneshot)
 {
 	struct mars_peerinfo *peer;
@@ -3240,7 +3265,7 @@ void _activate_peer(struct mars_dent *peer_dent,
 
 	peer = peer_dent->d_private;
 	if (!peer) {
-		peer = new_peer(peer_name);
+		peer = new_peer(peer_name, peer_ip);
 		if (oneshot) {
 			mars_running_additional_peers++;
 			peer->need_destruct = true;
@@ -3253,6 +3278,12 @@ void _activate_peer(struct mars_dent *peer_dent,
 		peer->oneshot = oneshot;
 		peer->do_entire_once = oneshot;
 		peer->silent = oneshot;
+	} else if (oneshot && !peer->oneshot && !peer_ip) {
+		MARS_DBG("reuse existing peer %p '%s'\n",
+			 peer, peer_name);
+		peer->do_entire_once = true;
+		peer->from_remote_trigger = true;
+		peer->to_remote_trigger = true;
 	} else if (peer->oneshot != oneshot) {
 		MARS_DBG("peer %p '%s' oneshot %d -> %d\n",
 			 peer, peer_name,
@@ -3265,7 +3296,7 @@ void _activate_peer(struct mars_dent *peer_dent,
 	start_peer(peer);
 }
 
-void activate_peer(const char *peer_name, bool oneshot)
+void activate_peer(const char *peer_name, const char *peer_ip, bool oneshot)
 {
 	struct mars_dent *peer_dent;
 
@@ -3277,12 +3308,28 @@ void activate_peer(const char *peer_name, bool oneshot)
 		return;
 
 	peer_dent = find_peer_dent(peer_name);
+	/* When the IP is given, create a floating peer.
+	 */
+	if (peer_ip && !peer_dent) {
+		struct mars_peerinfo *peer;
+
+		peer = new_peer(peer_name, peer_ip);
+		MARS_DBG("new FLOATING peer %p '%s' '%s'\n",
+			 peer, peer_name, peer_ip);
+		mars_running_additional_peers++;
+		peer->need_destruct = true;
+		peer->oneshot = true;
+		peer->do_entire_once = true;
+		peer->silent = true;
+		start_peer(peer);
+		return;
+	}
 	if (unlikely(!peer_dent)) {
 		MARS_ERR("peer '%s' does not exist in /mars/ips/\n",
 			 peer_name);
 		return;
 	}
-	_activate_peer(peer_dent, peer_name, oneshot);
+	_activate_peer(peer_dent, peer_name, peer_ip, oneshot);
 }
 
 static int _kill_peer(struct mars_peerinfo *peer)
@@ -3382,12 +3429,12 @@ int _make_peer(struct mars_dent *dent)
 		 */
 		if (oneshot_code < 0)
 			return 0;
-		_activate_peer(dent, mypeer, oneshot_code > 0);
+		_activate_peer(dent, mypeer, NULL, oneshot_code > 0);
 		peer = dent->d_private;
 		if (unlikely(!peer))
 			return 0;
 	} else if (oneshot_code > 0) {
-		_activate_peer(dent, mypeer, true);
+		_activate_peer(dent, mypeer, NULL, true);
 	}
 
 	if (tmp_full_fetch) {
@@ -3483,7 +3530,7 @@ static int make_scan(struct mars_dent *dent)
 
 		MARS_DBG("HACK status=%d peer=%p\n", status, peer);
 		if (!peer) {
-			activate_peer(dent->d_rest, false);
+			activate_peer(dent->d_rest, NULL, false);
 		} else {
 			const char *dst;
 			const char *src;
@@ -3898,7 +3945,7 @@ int make_log_init(struct mars_dent *dent)
 	rot->has_error = false;
 	brick_string_free(rot->preferred_peer);
 
-	activate_peer(dent->d_rest, false);
+	activate_peer(dent->d_rest, NULL, false);
 
 	if (dent->new_link)
 		sscanf(dent->new_link, "%lld", &rot->dev_size);
@@ -5315,7 +5362,7 @@ int make_bio(struct mars_dent *dent)
 	_show_actual(rot->parent_path, "is-attached", rot->is_attached);
 
 	if (rot->rot_activated)
-		activate_peer(dent->d_rest, false);
+		activate_peer(dent->d_rest, NULL, false);
 	if (strcmp(dent->d_rest, my_id()))
 		goto done;
 
@@ -5468,7 +5515,7 @@ int make_dev(struct mars_dent *dent)
 		MARS_DBG("no rot '%s'\n", dent->d_rest);
 		goto err;
 	}
-	activate_peer(dent->d_rest, false);
+	activate_peer(dent->d_rest, NULL, false);
 	if (strcmp(dent->d_rest, my_id())) {
 		MARS_DBG("nothing to do\n");
 		goto err;

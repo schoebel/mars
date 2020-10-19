@@ -617,8 +617,20 @@ int handler_thread(void *data)
 				if (!strncmp(cmd.cmd_str2,
 					     "/mars/ips/ip-", 13))
 					activate_peer(cmd.cmd_str2 + 13,
+						      NULL,
 						      false);
 			}
+			break;
+		}
+		case CMD_PUSH_CHECK:
+		{
+			struct kstat probe;
+
+			status = mars_stat(cmd.cmd_str2, &probe, true);
+			if (status < 0) {
+				activate_peer(cmd.cmd_str1, NULL, true);
+			}
+			status = 0;
 			break;
 		}
 		default:

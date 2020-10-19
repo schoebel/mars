@@ -76,7 +76,9 @@ extern char *my_id(void);
 extern const char *my_uuid;
 
 extern void wait_main_round(void);
-extern void activate_peer(const char *peer_name, bool oneshot);
+extern void activate_peer(const char *peer_name,
+			  const char *peer_ip,
+			  bool oneshot);
 
 struct mars_dent;
 typedef void (*dent_skip_fn)(struct mars_dent *);
@@ -280,6 +282,9 @@ bool is_deleted_link(const char *str)
 bool push_link(const char *peer_name,
 	       const char *src,
 	       const char *dst);
+bool push_check(const char *peer_name,
+		const char *peer_ip,
+		const char *path);
 
 /* General fs wrappers (for abstraction)
  */

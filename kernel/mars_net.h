@@ -119,6 +119,7 @@ enum {
 	CMD_MREF,
 	CMD_CB,
 	CMD_PUSH_LINK,
+	CMD_PUSH_CHECK,
 	/* keep last element */
 	CMD_LAST
 };
