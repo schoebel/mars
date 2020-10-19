@@ -1512,7 +1512,23 @@ struct mars_dir_context {
 #endif
 //      end_remove_this
 
-/* Skip any names / directories used for backup purposes */
+/* Skip any names / directories used for backup etc */
+#define SKIP_ENTRY(str)				\
+	{ str, strlen(str) }
+
+struct skip_info {
+	const char *name;
+	int len;
+};
+
+const struct skip_info skips[] = {
+	SKIP_ENTRY("backup"),
+	SKIP_ENTRY("cache"),
+	SKIP_ENTRY("local"),
+	SKIP_ENTRY("probe"),
+	{ NULL, 0 }
+};
+
 #define MARS_BACKUP_STR "backup"
 
 static const int backup_strlen = strlen(MARS_BACKUP_STR);
@@ -1547,6 +1563,9 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	int class;
 	int serial = 0;
 	int backup_len;
+#if 0
+	int i;
+#endif
 	bool use_channel = false;
 
 	cookie->hit = true;
@@ -1862,8 +1881,19 @@ static int _mars_readdir(struct mars_cookie *cookie)
 	struct file *f;
 	struct address_space *mapping;
         mm_segment_t oldfs;
+	int i;
 	int status = 0;
 
+	/* check for names to skip */
+	for (i = 0; ; ) {
+		const struct skip_info *check;
+
+		check = &skips[i++];
+		if (!check->name)
+			break;
+		if (!strncmp(cookie->path, check->name, check->len))
+			goto done;
+	}
 	if (unlikely(strstr(cookie->path, MARS_BACKUP_STR)))
 		goto done;
 
