@@ -2774,11 +2774,15 @@ int peer_thread(void *data)
 			      real_host,
 			      mars_net_default_port + MARS_TRAFFIC_META);
 	brick_string_free(real_host);
-	MARS_INF("-------- peer thread starting on peer '%s' (%s)\n", peer->peer, real_peer);
+	MARS_INF("-------- %s peer thread starting on peer '%s' (%s)\n",
+		 real_host,
+		 peer->peer, real_peer);
 
 	status = mars_create_sockaddr(&sockaddr, real_peer);
 	if (unlikely(status < 0)) {
-		MARS_ERR("unusable remote address '%s' (%s)\n", real_peer, peer->peer);
+		MARS_ERR("host '%s' unusable remote address '%s' (%s)\n",
+			 real_host,
+			 real_peer, peer->peer);
 		goto done;
 	}
 
