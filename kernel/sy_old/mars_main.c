@@ -2923,7 +2923,7 @@ int peer_thread(void *data)
 {
 	struct mars_peerinfo *peer = data;
 	const char *real_host;
-	const char *real_peer;
+	const char *real_peer = NULL;
 	struct sockaddr_storage sockaddr = {};
 	struct key_value_pair peer_pairs[] = {
 		{ peer->peer },
@@ -2938,6 +2938,12 @@ int peer_thread(void *data)
 		return -1;
 
 	real_host = mars_translate_hostname(peer->peer);
+	if (!real_host || !strcmp(real_host, peer->peer)) {
+		brick_string_free(real_host);
+		MARS_ERR("unknown peer '%s'\n",
+			 peer->peer);
+		goto done;
+	}
 	real_peer = path_make("%s:%d",
 			      real_host,
 			      mars_net_default_port + MARS_TRAFFIC_META);
