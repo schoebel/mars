@@ -2119,7 +2119,7 @@ sub set_systemd_unit_phase1 {
   my $want_path = "$mars/resource-$res/systemd-want";
   if ($start_name) {
     set_link($start_name, $unit_start_path);
-    my $target = _get_designated_primary($res, 1);
+    my $target = _get_designated_primary($cmd, $res, 1);
     if ($target) {
       set_link($target, $want_path);
     }
@@ -2812,10 +2812,10 @@ sub _activate_resource {
   # wait for (self-)activation
   wait_cluster($cmd, $res, $peer, 0);
   # activated peers might have changed
-  my $primary = _get_designated_primary($res, 1);
+  my $primary = _get_designated_primary($cmd, $res, 1);
   for (my $retry = 3; $retry >= 0; $retry--) {
     _trigger(3);
-    my $condition = "return _get_designated_primary(\"$res\", 1);";
+    my $condition = "return _get_designated_primary(\"$cmd\", \"$res\", 1);";
     my $from = ($primary && $primary ne "(none)") ? $primary : "*";
     my $old_primary = $primary;
     $primary = update_cluster($cmd, $res, $from, $condition);
@@ -3004,7 +3004,7 @@ sub check_primary {
     $fail++;
   }
   if ($no_designated) {
-    my $primary = _get_designated_primary($res);
+    my $primary = _get_designated_primary($cmd, $res);
     unless ($primary eq $host) {
       lwarn "For operation '$cmd', I also must be the designated primary\n";
     }
@@ -3026,7 +3026,7 @@ sub check_not_primary {
     lwarn "operation '$cmd' is forced on actual primary '$host', THIS IS RISKY\n";
   }
   # also check whether we intend to become primary
-  my $primary = _get_designated_primary($res, 1);
+  my $primary = _get_designated_primary($cmd, $res, 1);
   if ($primary eq $host) {
     lwarn "operation '$cmd' cannot be executed on designated primary\n";
     ldie "first switch the designated primary, or use --force if you are sure.\n" unless $force;
@@ -3175,7 +3175,7 @@ sub check_mars_device {
     return;
   }
   # !$inv
-  my $primary = _get_designated_primary($res);
+  my $primary = _get_designated_primary($cmd, $res);
   ldie "for operation '$cmd', I should be the designated primary\n" unless $primary eq $host;
   while (!device_exists($res)) {
     my $text = get_error_text($cmd, $res);
@@ -3203,7 +3203,7 @@ sub check_userspace {
 
 sub check_sync_startable {
   my ($cmd, $res) = @_;
-  my $primary = _get_designated_primary($res);
+  my $primary = _get_designated_primary($cmd, $res);
   ldie "Cannot execute '$cmd' because noone is designated as primary.\n" if (!$primary || $primary eq "(none)");
   # no danger when switch is turned on at the primary side.
   return if $primary eq $host;
@@ -3756,7 +3756,7 @@ sub try_to_avoid_splitbrain {
     if ($emergency) {
       ldie "emergency mode $emergency has been entered locally: handover is not possible. Either free some space in $mars/, or use --force to use a potentially outdated version.\n";
     }
-    my $primary = _get_designated_primary($res, -1);
+    my $primary = _get_designated_primary($cmd, $res, -1);
     if ($primary eq "(none)") {
       # try to determine the old primary when unique
       my $glob_logs = sprintf("$mars/resource-$res/log-%09d-*", $max);
@@ -3894,7 +3894,7 @@ sub _get_actual_primary {
 my %old_primary;
 
 sub _get_designated_primary {
-  my ($res, $unchecked) = @_;
+  my ($cmd, $res, $unchecked) = @_;
   my $fallback_to_old = 0;
   if (defined($unchecked) && $unchecked == -1) {
     $fallback_to_old = 1;
@@ -4828,16 +4828,16 @@ sub create_res {
     # For safety, try to get the very newest infos.
     # Reason: newer kernel modules will fetch non-member resource infos less frequently.
     # Therefore we shift some responsibility for non-member -> member transitions to userspace.
-    $primary = _get_designated_primary($res, 1);
+    $primary = _get_designated_primary($cmd, $res, 1);
     for (my $retry = 0; $retry < 3; $retry++) {
       last if (defined($primary) && $primary);
       lprint "Trying to get primary info\n";
-      my $condition = "return _get_designated_primary(\"$res\", 1);";
+      my $condition = "return _get_designated_primary(\"$cmd\", \"$res\", 1);";
       $primary = update_cluster($cmd, $res, "*", $condition);
     }
     my $max_retry = 5;
     for (;;) {
-      $primary = _get_designated_primary($res, 1);
+      $primary = _get_designated_primary($cmd, $res, 1);
       last if $max_retry-- < 0;
       if ($primary && $primary ne $host && $primary ne "(none)") {
 	# first check whether symlink information appears to be recent enough
@@ -4883,7 +4883,7 @@ sub create_res {
       lprint "Your physical device has size $size, which is larger than the logical resource size $res_size.\n";
       lprint "This does no harm, but you are wasting some space.\n";
     }
-    $primary = _get_designated_primary($res);
+    $primary = _get_designated_primary($cmd, $res);
     ldie "Sorry, joining is only possible if a designated primary exists.\n" if $primary eq "(none)";
     ldie "implausible state: I ($host) am already designated primary of resource '$res' which I just wanted to join\n" if $primary eq $host;
     ldie "my ip '$ip' is not registered -- please run 'join-cluster' first\n" unless link_exists("$mars/ips/ip-$host");
@@ -6032,7 +6032,7 @@ sub set_replay_res {
     lwarn "you try to skip logfile numbers from $old_nr to $new_nr, are you sure?\n";
     ldie "you would need --force if you really know what you are doing.\n" unless $force;
   }
-  my $primary = _get_designated_primary($res);
+  my $primary = _get_designated_primary($cmd, $res);
   _set_replaylink($cmd, $res, $new_nr, $primary);
 }
 
@@ -6088,7 +6088,7 @@ sub primary_phase0 {
   if ($force) {
     check_todo($cmd, $res, "fetch", 0, 0);
   }
-  my $old = _get_designated_primary($res, -1);
+  my $old = _get_designated_primary($cmd, $res, -1);
   lprint "Current designated primary: $old\n";
   if ($cmd eq "primary") {
     if ($host ne $old) {
@@ -6182,7 +6182,7 @@ sub primary_phase0b {
   my ($cmd, $res) = @_;
   return 0 unless systemd_present(@_);
   # only relevant for true handover
-  my $old = _get_designated_primary($res, -1);
+  my $old = _get_designated_primary($cmd, $res, -1);
   return 0 if ($old eq $host || $old eq "(none)");
   # ignore primary --force
   my $connect_path = "$mars/resource-$res/todo-$host/connect";
@@ -6223,7 +6223,7 @@ sub primary_phase0b {
 sub primary_phase1 {
   my ($cmd, $res) = @_;
   return 0 if ($force and $cmd eq "primary");
-  my $old = _get_designated_primary($res, -1);
+  my $old = _get_designated_primary($cmd, $res, -1);
   return 0 if ($old eq $host and $cmd eq "primary");
   my $new = "(none)";
   if (!$force and $cmd eq "primary") {
@@ -6242,7 +6242,7 @@ sub primary_phase1b {
   $phase2_waited = 0;
   finish_links();
   return 0 if $force;
-  my $old = _get_designated_primary($res, -1);
+  my $old = _get_designated_primary($cmd, $res, -1);
   my $status = check_primary_gone($cmd, $res, $old);
   return $status if $status;
   if (!$force and $cmd eq "primary") {
@@ -6258,7 +6258,7 @@ sub primary_phase2 {
   return 0 if $force;
   return 0 unless $cmd eq "primary";
   wait_cluster($cmd) if !$phase2_waited++;
-  my $old = _get_designated_primary($res, -1);
+  my $old = _get_designated_primary($cmd, $res, -1);
   return check_primary_gone($cmd, $res, $old);
 }
 
@@ -6266,7 +6266,7 @@ sub primary_phase2b {
   my ($cmd, $res) = @_;
   return 0 if $force;
   if (systemd_present(@_)) {
-    my $old = _get_designated_primary($res, -1);
+    my $old = _get_designated_primary($cmd, $res, -1);
     return try_to_avoid_splitbrain($cmd, $res, $old);
   }
   return 0;
@@ -6276,7 +6276,7 @@ sub primary_phase2b {
 sub primary_phase3 {
   my ($cmd, $res) = @_;
   return 0 unless $cmd eq "primary";
-  my $old = _get_designated_primary($res, -1);
+  my $old = _get_designated_primary($cmd, $res, -1);
   my $new = $host;
   _primary_res($res, $new, $old);
   return 0;
@@ -6336,7 +6336,7 @@ sub wait_umount_res {
 sub invalidate_res_phase0 {
   my ($cmd, $res) = @_;
   check_not_primary($cmd, $res);
-  my $primary = _get_designated_primary($res);
+  my $primary = _get_designated_primary($cmd, $res);
   ldie "for operation '$cmd', some other designated primary must exist (currently there is none)\n" if $primary eq "(none)";
   ldie "Cannot invalidate the designated primary host '$primary'\n" if $primary eq $host;
   return 0;
@@ -6365,7 +6365,7 @@ sub invalidate_res_phase2 {
 sub invalidate_res_phase3 {
   my ($cmd, $res) = @_;
   my $dst = "$mars/resource-$res/syncstatus-$host";
-  my $primary = _get_designated_primary($res);
+  my $primary = _get_designated_primary($cmd, $res);
   ldie "Cannot execute 'invalidate' because noone is designated as primary.\n" if (!$primary || $primary eq "(none)");
   ldie "Cannot invalidate the designated primary host '$primary'\n" if $primary eq $host;
   my $replay = get_link("$mars/resource-$res/replay-$primary");
@@ -6407,7 +6407,7 @@ sub invalidate_res_phase6 {
 sub invalidate_res_phase7 {
   my ($cmd, $res) = @_;
   my $dst = "$mars/resource-$res/syncstatus-$host";
-  my $primary = _get_designated_primary($res);
+  my $primary = _get_designated_primary($cmd, $res);
   ldie "Cannot execute 'invalidate' because noone is designated as primary.\n" if (!$primary || $primary eq "(none)");
   ldie "Cannot invalidate the designated primary host '$primary'\n" if $primary eq $host;
   my $replay = get_link("$mars/resource-$res/replay-$primary");
@@ -6428,7 +6428,7 @@ sub invalidate_res_phase8 {
 sub invalidate_res_phase9 {
   my ($cmd, $res) = @_;
   my $dst = "$mars/resource-$res/syncstatus-$host";
-  my $primary = _get_designated_primary($res);
+  my $primary = _get_designated_primary($cmd, $res);
   ldie "Cannot execute 'invalidate' because noone is designated as primary.\n" if (!$primary || $primary eq "(none)");
   ldie "Cannot invalidate the designated primary host '$primary'\n" if $primary eq $host;
 
@@ -6540,7 +6540,7 @@ sub role_cmd {
   my ($cmd, $res, $peer) = @_;
   $peer = $host unless (defined($peer) && $peer);
   my $is_primary = is_actual_primary($cmd, $res, $peer);
-  my $todo_primary = _get_designated_primary($res);
+  my $todo_primary = _get_designated_primary($cmd, $res);
   my $msg = "I am actually ";
   $msg .= $is_primary ? "primary" : "secondary";
   if ($todo_primary ne $peer) {
@@ -6554,7 +6554,7 @@ sub mars_state_cmd {
   my ($cmd, $res, $peer) = @_;
   $peer = $host unless (defined($peer) && $peer);
   my $is_primary = is_actual_primary($cmd, $res, $peer);
-  my $todo_primary = _get_designated_primary($res);
+  my $todo_primary = _get_designated_primary($cmd, $res);
   if ($is_primary) {
     lprint "is_primary\n";
     return;
@@ -7116,7 +7116,7 @@ sub eval_fn {
 	lwarn "DEPRECATED: you are trying to uniquely identify an actual primary hostname, but this is conceptually wrong because in split-brain situations there may exist multiple ones. Use view-is-primary instead. That would be safe.\n" unless $$env{cmd} =~ m/-1and1$/;
 	$primary = _get_actual_primary($$env{"res"});
       } else {
-	$primary = _get_designated_primary($$env{"res"});
+	$primary = _get_designated_primary($$env{"cmd"}, $$env{"res"});
       }
       $primary = "" if (!defined($primary) || $primary eq "(none)");
       $primary = ($primary eq $$env{"host"}) if $op eq "todo";
@@ -7258,14 +7258,14 @@ sub eval_fn {
     }
     if (/^is[-_]?alive$/) {
       my $peer = parse_macro($arg1, $env);
-      $peer = _get_designated_primary($$env{"res"}) unless $peer;
+      $peer = _get_designated_primary($$env{"cmd"}, $$env{"res"}) unless $peer;
       $peer = $$env{"host"} unless $peer;
       my $stamp = get_alive_link("time", $peer, 1);
       return is_recent($stamp, $$env{"window"});
     }
     if (/^alive[-_]?timestamp$/) {
       my $peer = parse_macro($arg1, $env);
-      $peer = _get_designated_primary($$env{"res"}) unless $peer;
+      $peer = _get_designated_primary($$env{"cmd"}, $$env{"res"}) unless $peer;
       return -1 if !$peer || $peer eq "(none)";
       my $result = get_alive_link("time", $peer, 2);
       return $result if $result;
@@ -7650,7 +7650,7 @@ sub eval_fn {
       my $arg2 = shift;
       my $primary = parse_macro($arg2, $env);
       if (!$primary) {
-	$primary = _get_designated_primary($$env{"res"});
+	$primary = _get_designated_primary($$env{"cmd"}, $$env{"res"});
       }
       return -1 if !$primary || $primary eq "(none)";
       my $time1 = make_numeric(eval_fn($env, "$what-timestamp", $arg1));
