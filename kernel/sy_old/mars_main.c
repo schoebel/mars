@@ -2922,7 +2922,6 @@ static
 int peer_thread(void *data)
 {
 	struct mars_peerinfo *peer = data;
-	const char *real_host;
 	const char *real_peer = NULL;
 	struct sockaddr_storage sockaddr = {};
 	struct key_value_pair peer_pairs[] = {
@@ -2937,25 +2936,34 @@ int peer_thread(void *data)
 	if (!peer || !mars_net_is_alive)
 		return -1;
 
-	real_host = mars_translate_hostname(peer->peer);
-	if (!real_host || !strcmp(real_host, peer->peer)) {
-		brick_string_free(real_host);
+	if (!peer->peer_ip)
+		peer->peer_ip = mars_translate_hostname(peer->peer);
+
+	if (!peer->peer_ip || !strcmp(peer->peer_ip, peer->peer)) {
+		static struct lamport_time full_fetch_stamp;
+		struct lamport_time now = get_real_lamport();
+
 		MARS_ERR("unknown peer '%s'\n",
 			 peer->peer);
+		/* desperate: try to fetch /mars/ips/ not too frequently */
+		if (!full_fetch_stamp.tv_sec ||
+		    now.tv_sec - full_fetch_stamp.tv_sec > 60) {
+			full_fetch_stamp = now;
+			start_full_fetch = true;
+		}
 		goto done;
 	}
 	real_peer = path_make("%s:%d",
-			      real_host,
+			      peer->peer_ip,
 			      mars_net_default_port + MARS_TRAFFIC_META);
-	brick_string_free(real_host);
 	MARS_INF("-------- %s peer thread starting on peer '%s' (%s)\n",
-		 real_host,
+		 peer->peer_ip,
 		 peer->peer, real_peer);
 
 	status = mars_create_sockaddr(&sockaddr, real_peer);
 	if (unlikely(status < 0)) {
 		MARS_ERR("host '%s' unusable remote address '%s' (%s)\n",
-			 real_host,
+			 peer->peer_ip,
 			 real_peer, peer->peer);
 		goto done;
 	}
@@ -3408,6 +3416,7 @@ static int _kill_peer(struct mars_peerinfo *peer)
 		free_mars_global(old_global);
 	}
 	brick_string_free(peer->peer);
+	brick_string_free(peer->peer_ip);
 	brick_string_free(peer->peer_dir_list);
 	return 0;
 }
