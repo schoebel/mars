@@ -1989,6 +1989,7 @@ sub wait_cluster {
   $timeout_val = undef;
   finish_links();
   my $max_restarts = 3;
+  my $max_resets = 1;
  restart:
   lprint "Ping $hosts\n";
   _trigger($trigger_code);
@@ -2053,7 +2054,7 @@ sub wait_cluster {
     if ($unknown_count) {
       _trigger($trigger_code);
       # ensure more progress will happen
-      %old_status = %status;
+      %old_status = %status if !$max_resets++;
     } else {
       if (!$dead_count) {
 	lprint "$alive_count/$total_count peer(s) seem to be alive\n";
