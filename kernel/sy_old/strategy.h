@@ -78,6 +78,7 @@ extern const char *my_uuid;
 extern void wait_main_round(void);
 extern void activate_peer(const char *peer_name,
 			  const char *peer_ip,
+			  const char *rebase_dir,
 			  bool oneshot);
 
 struct mars_dent;

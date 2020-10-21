@@ -618,6 +618,7 @@ int handler_thread(void *data)
 					     "/mars/ips/ip-", 13))
 					activate_peer(cmd.cmd_str2 + 13,
 						      NULL,
+						      NULL,
 						      false);
 			}
 			break;
@@ -628,7 +629,7 @@ int handler_thread(void *data)
 
 			status = mars_stat(cmd.cmd_str2, &probe, true);
 			if (status < 0) {
-				activate_peer(cmd.cmd_str1, NULL, true);
+				activate_peer(cmd.cmd_str1, NULL, NULL, true);
 			}
 			status = 0;
 			break;

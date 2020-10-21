@@ -2030,6 +2030,7 @@ struct mars_peerinfo {
 	struct mars_global *remote_global;
 	char *peer;
 	char *peer_ip;
+	char *rebase_dir;
 	char *peer_dir_list;
 	struct mars_socket socket;
 	struct task_struct *peer_thread;
@@ -2547,6 +2548,8 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 {
 	int status = 0;
 	struct kstat local_stat = {};
+	const char *remote_path;
+	const char *to_free = NULL;
 	bool stat_ok;
 	bool is_deleted;
 	bool update_mtime = true;
@@ -2564,17 +2567,28 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		goto done;
 	}
 
+	remote_path = remote_dent->d_path;
+	/* Allow rebasing to a different root */
+	if (peer->rebase_dir && remote_path) {
+		if (*remote_path == '/')
+			to_free = path_make("%s%s",
+				    peer->rebase_dir, remote_path);
+		else
+			to_free = path_make("%s/%s",
+				    peer->rebase_dir, remote_path);
+		remote_path = to_free;
+	}
 	if (remote_dent->new_link &&
-	    !strncmp(remote_dent->d_path, "/mars/todo-global/delete-", 25)) {
+	    !strncmp(remote_path, "/mars/todo-global/delete-", 25)) {
 		if (remote_dent->d_serial < mars_global->deleted_my_border) {
 			MARS_DBG("ignoring deletion '%s' at border %d\n",
-				 remote_dent->d_path,
+				 remote_path,
 				 mars_global->deleted_my_border);
 			goto done;
 		}
 	}
 
-	status = mars_stat(remote_dent->d_path, &local_stat, true);
+	status = mars_stat(remote_path, &local_stat, true);
 	stat_ok = (status >= 0);
 
 	is_deleted = remote_dent->new_link &&
@@ -2584,17 +2598,17 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		update_mtime = lamport_time_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) > 0;
 		update_ctime = lamport_time_compare(&remote_dent->new_stat.ctime, &local_stat.ctime) > 0;
 
-		MARS_IO("timestamps '%s' remote = %ld.%09ld local = %ld.%09ld\n", remote_dent->d_path, remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec, local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
+		MARS_IO("timestamps '%s' remote = %ld.%09ld local = %ld.%09ld\n", remote_path, remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec, local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
 
 #ifdef MARS_HAS_PREPATCH
 		if ((remote_dent->new_stat.mode & S_IRWXU) !=
 		   (local_stat.mode & S_IRWXU) &&
 		   update_ctime) {
 			mode_t newmode = local_stat.mode;
-			MARS_DBG("chmod '%s' 0x%xd -> 0x%xd\n", remote_dent->d_path, newmode & S_IRWXU, remote_dent->new_stat.mode & S_IRWXU);
+			MARS_DBG("chmod '%s' 0x%xd -> 0x%xd\n", remote_path, newmode & S_IRWXU, remote_dent->new_stat.mode & S_IRWXU);
 			newmode &= ~S_IRWXU;
 			newmode |= (remote_dent->new_stat.mode & S_IRWXU);
-			mars_chmod(remote_dent->d_path, newmode);
+			mars_chmod(remote_path, newmode);
 			run_trigger = true;
 		}
 #endif
@@ -2602,15 +2616,15 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 
 	if (S_ISDIR(remote_dent->new_stat.mode)) {
 		if (!_is_usable_dir(remote_dent->d_name)) {
-			MARS_DBG("ignoring directory '%s'\n", remote_dent->d_path);
+			MARS_DBG("ignoring directory '%s'\n", remote_path);
 			goto done;
 		}
 		if (!stat_ok) {
-			status = mars_mkdir(remote_dent->d_path);
-			MARS_DBG("create directory '%s' status = %d\n", remote_dent->d_path, status);
+			status = mars_mkdir(remote_path);
+			MARS_DBG("create directory '%s' status = %d\n", remote_path, status);
 #ifdef MARS_HAS_PREPATCH
 			if (status >= 0) {
-				mars_chmod(remote_dent->d_path, remote_dent->new_stat.mode);
+				mars_chmod(remote_path, remote_dent->new_stat.mode);
 			}
 #endif
 		}
@@ -2622,9 +2636,9 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		    (stat_ok && update_mtime) :
 		    (!stat_ok || update_mtime)) {
 			status = ordered_symlink(remote_dent->new_link,
-						 remote_dent->d_path,
+						 remote_path,
 						 &remote_dent->new_stat.mtime);
-			MARS_DBG("create symlink '%s' -> '%s' status = %d\n", remote_dent->d_path, remote_dent->new_link, status);
+			MARS_DBG("create symlink '%s' -> '%s' status = %d\n", remote_path, remote_dent->new_link, status);
 			run_trigger = true;
 			if (!status &&
 			    (!strncmp(remote_dent->d_name, "primary", 7) ||
@@ -2634,7 +2648,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		}
 	} else if (S_ISREG(remote_dent->new_stat.mode) &&
 		   _is_peer_logfile(remote_dent->d_name, my_id())) {
-		const char *parent_path = backskip_replace(remote_dent->d_path, '/', false, "");
+		const char *parent_path = backskip_replace(remote_path, '/', false, "");
 
 		if (likely(parent_path)) {
 			struct mars_dent *parent;
@@ -2646,20 +2660,21 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 			// don't copy old / outdated logfiles
 			} else if ((rot = parent->d_private) &&
 				   rot->relevant_serial > remote_dent->d_serial) {
-				MARS_DBG("ignoring outdated remote logfile '%s' (behind %d)\n", remote_dent->d_path, rot->relevant_serial);
+				MARS_DBG("ignoring outdated remote logfile '%s' (behind %d)\n", remote_path, rot->relevant_serial);
 			} else {
 				struct mars_dent *local_dent;
 
-				local_dent = mars_find_dent(mars_global, remote_dent->d_path);
+				local_dent = mars_find_dent(mars_global, remote_path);
 				status = check_logfile(peer->peer, remote_dent, local_dent, parent, local_stat.size);
 			}
 			brick_string_free(parent_path);
 		}
 	} else {
-		MARS_DBG("ignoring '%s'\n", remote_dent->d_path);
+		MARS_DBG("ignoring '%s'\n", remote_path);
 	}
 
  done:
+	brick_string_free(to_free);
 	if (status >= 0) {
 		status = run_trigger ? 1 : 0;
 		if (run_systemd_trigger)
@@ -2705,6 +2720,16 @@ int run_bones(struct mars_peerinfo *peer)
 			if (status & 2)
 				run_systemd_trigger = true;
 		}
+	}
+
+	if (peer->rebase_dir) {
+		const char *got_path;
+
+		got_path = path_make("%s/got-%s",
+				     peer->rebase_dir,
+				     peer->peer);
+		ordered_symlink("1", got_path, NULL);
+		brick_string_free(got_path);
 	}
 
 	if (remote_start_stamp.tv_sec) {
@@ -3340,11 +3365,15 @@ void _activate_peer(struct mars_dent *peer_dent,
 	start_peer(peer);
 }
 
-void activate_peer(const char *peer_name, const char *peer_ip, bool oneshot)
+void activate_peer(const char *peer_name,
+		   const char *peer_ip,
+		   const char *rebase_dir,
+		   bool oneshot)
 {
 	struct mars_dent *peer_dent;
 
-	MARS_DBG("peer_name='%s'\n", peer_name);
+	MARS_DBG("peer_name='%s' peer_name='%s' peer_name='%s' oneshot=%d\n",
+		 peer_name, peer_ip, rebase_dir, oneshot);
 
 	if (unlikely(!peer_name ||
 		     !peer_name[0] ||
@@ -3354,7 +3383,11 @@ void activate_peer(const char *peer_name, const char *peer_ip, bool oneshot)
 	peer_dent = find_peer_dent(peer_name);
 	/* When the IP is given, create a floating peer.
 	 */
-	if (peer_ip && !peer_dent) {
+	if (peer_ip &&
+	    (!peer_dent ||
+	     !peer_dent->new_link ||
+	     strcmp(peer_dent->new_link, peer_ip) != 0 ||
+	     rebase_dir)) {
 		struct mars_peerinfo *peer;
 
 		peer = new_peer(peer_name, peer_ip);
@@ -3365,6 +3398,8 @@ void activate_peer(const char *peer_name, const char *peer_ip, bool oneshot)
 		peer->oneshot = true;
 		peer->do_entire_once = true;
 		peer->silent = true;
+		if (rebase_dir)
+			peer->rebase_dir = brick_strdup(rebase_dir);
 		start_peer(peer);
 		return;
 	}
@@ -3418,6 +3453,7 @@ static int _kill_peer(struct mars_peerinfo *peer)
 	brick_string_free(peer->peer);
 	brick_string_free(peer->peer_ip);
 	brick_string_free(peer->peer_dir_list);
+	brick_string_free(peer->rebase_dir);
 	return 0;
 }
 
@@ -3575,7 +3611,7 @@ static int make_scan(struct mars_dent *dent)
 
 		MARS_DBG("HACK status=%d peer=%p\n", status, peer);
 		if (!peer) {
-			activate_peer(dent->d_rest, NULL, false);
+			activate_peer(dent->d_rest, NULL, NULL, false);
 		} else {
 			const char *dst;
 			const char *src;
@@ -3990,7 +4026,7 @@ int make_log_init(struct mars_dent *dent)
 	rot->has_error = false;
 	brick_string_free(rot->preferred_peer);
 
-	activate_peer(dent->d_rest, NULL, false);
+	activate_peer(dent->d_rest, NULL, NULL, false);
 
 	if (dent->new_link)
 		sscanf(dent->new_link, "%lld", &rot->dev_size);
@@ -5407,7 +5443,7 @@ int make_bio(struct mars_dent *dent)
 	_show_actual(rot->parent_path, "is-attached", rot->is_attached);
 
 	if (rot->rot_activated)
-		activate_peer(dent->d_rest, NULL, false);
+		activate_peer(dent->d_rest, NULL, NULL, false);
 	if (strcmp(dent->d_rest, my_id()))
 		goto done;
 
@@ -5560,7 +5596,7 @@ int make_dev(struct mars_dent *dent)
 		MARS_DBG("no rot '%s'\n", dent->d_rest);
 		goto err;
 	}
-	activate_peer(dent->d_rest, NULL, false);
+	activate_peer(dent->d_rest, NULL, NULL, false);
 	if (strcmp(dent->d_rest, my_id())) {
 		MARS_DBG("nothing to do\n");
 		goto err;

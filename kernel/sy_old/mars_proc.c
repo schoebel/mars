@@ -119,6 +119,27 @@ void interpret_user_message(char *msg)
 		break;
 	}
 
+	case 'f': /* fetch onto rebased dir */
+	{
+		char *peer_name = brick_strdup(rest);
+		char *peer_ip   = brick_strdup(rest);
+		char *rebase_dir = brick_strdup(rest);
+		int count;
+
+		count = sscanf(rest, "%s %s %s",
+			       peer_name, peer_ip, rebase_dir);
+		if (count == 3) {
+			activate_peer(peer_name, peer_ip, rebase_dir, true);
+			wait_main_round();
+		} else {
+			MARS_ERR("Bad fetch syntax '%s'\n", rest);
+		}
+		brick_string_free(peer_name);
+		brick_string_free(peer_ip);
+		brick_string_free(rebase_dir);
+		break;
+	}
+
 	case 't': /* new trigger code conventions */
 	{
 		int code = 0;
