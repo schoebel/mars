@@ -537,7 +537,85 @@ my %any_peers;
 
 my $cache_dir = "$mars/cache-$real_host";
 
+sub __read_cache {
+  my ($filename, $hash) = @_;
+  open(my $fh, "<", $filename) or return 0;
+  while (my $line = <$fh>) {
+    chomp $line;
+    my ($key1, $key2, $val) = split(" ", $line, 3);
+    $$hash{$key1}{$key2} = $val;
+  }
+  close($fh);
+  lprint "READ CACHE $filename\n" if $verbose >= 2;
+  return 1;
+}
+
+sub _read_cache {
+  return 0 if $kernel_strategy_version < 4;
+  my $inval_path = "$cache_dir/invalid";
+  if (-l $inval_path) {
+    _reset_resources();
+    return 0;
+  }
+  my $ok =
+  __read_cache("$cache_dir/total_resources.cache", \%total_resources) &&
+  __read_cache("$cache_dir/member_resources.cache", \%member_resources) &&
+  __read_cache("$cache_dir/guest_resources.cache", \%guest_resources) &&
+  __read_cache("$cache_dir/any_resources.cache", \%any_resources) &&
+  __read_cache("$cache_dir/total_peers.cache", \%total_peers) &&
+  __read_cache("$cache_dir/member_peers.cache", \%member_peers) &&
+  __read_cache("$cache_dir/guest_peers.cache", \%guest_peers) &&
+  __read_cache("$cache_dir/any_peers.cache", \%any_peers);
+  if (!$ok) {
+    _reset_resources();
+  }
+  return $ok;
+}
+
+sub __write_cache {
+  my ($filename, $hash) = @_;
+  my $tmpname = "$filename.tmp.$$";
+  local $OFS = " ";
+  local $ORS = "\n";
+  open(my $fh, ">", $tmpname) or return 0;
+  foreach my $key1 (keys(%$hash)) {
+    my $sub_hash = $$hash{$key1};
+    foreach my $key2 (keys(%$sub_hash)) {
+      my $val = $$sub_hash{$key2};
+      if (!print $fh ($key1, $key2, $val)) {
+	unlink($tmpname);
+	return 0;
+      }
+    }
+  }
+  if (!close($fh)) {
+    unlink($tmpname);
+    return 0;
+  }
+  rename($tmpname, $filename);
+  return 1;
+}
+
+sub _write_cache {
+  mkdir($cache_dir);
+  my $ok =
+  __write_cache("$cache_dir/total_resources.cache", \%total_resources) &&
+  __write_cache("$cache_dir/member_resources.cache", \%member_resources) &&
+  __write_cache("$cache_dir/guest_resources.cache", \%guest_resources) &&
+  __write_cache("$cache_dir/any_resources.cache", \%any_resources) &&
+  __write_cache("$cache_dir/total_peers.cache", \%total_peers) &&
+  __write_cache("$cache_dir/member_peers.cache", \%member_peers) &&
+  __write_cache("$cache_dir/guest_peers.cache", \%guest_peers) &&
+  __write_cache("$cache_dir/any_peers.cache", \%any_peers);
+  if (!$ok) {
+    _reset_resources();
+  }
+  return $ok;
+}
+
 sub _scan_caches {
+  return if %total_peers;
+  return if _read_cache();
   # Reset all 2-dimensional hashes
   %total_resources = ();
   %member_resources = ();
@@ -612,6 +690,9 @@ sub _scan_caches {
 	scalar(keys(%member_resources)) . " participating and " .
 	  scalar(keys(%guest_resources)) . " guest " .
 	    "resources\n";
+  }
+  if (!_write_cache()) {
+    lwarn "cannot write peer cache\n";
   }
 }
 
@@ -4354,6 +4435,7 @@ sub delete_res {
   set_link("1", "$mars/resource-$res/work-$host");
   finish_links();
   _wait_delete();
+  _reset_resources();
   _systemd_trigger($cmd);
 }
 
