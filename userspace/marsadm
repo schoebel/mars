@@ -534,6 +534,8 @@ my %member_peers;
 my %guest_peers;
 my %any_peers;
 
+my $cache_dir = "$mars/cache-$real_host";
+
 sub _scan_caches {
   # Reset all 2-dimensional hashes
   %total_resources = ();
@@ -613,6 +615,7 @@ sub _scan_caches {
 }
 
 sub _reset_resources {
+  system("rm -rf $cache_dir/*.cache");
   %total_peers = ();
 }
 
@@ -4059,6 +4062,7 @@ sub create_res {
   set_link("1", "$todo/attach");
   finish_links();
   _trigger(3);
+  _reset_resources();
   if (!$create) {
     # Check for races with logrotate
     for (my $check_redo = 3; $check_redo > 0; $check_redo--) {
@@ -4217,6 +4221,7 @@ sub leave_res_phase1 {
 sub leave_res_phase2 {
   my ($cmd, $res) = @_;
   _wait_delete();
+  _reset_resources();
   $force = 0; # this would be too dangerous
   log_purge_res($cmd, $res);
   err_purge_res($cmd, $res);
@@ -4225,6 +4230,7 @@ sub leave_res_phase2 {
 sub leave_res_phase3 {
   my ($cmd, $res) = @_;
   _wait_delete();
+  _reset_resources();
   err_purge_res($cmd, $res);
   # deprecated: hindering for new deletion method
   if ($compat_deletions && $host eq $real_host) {
