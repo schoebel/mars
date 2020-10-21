@@ -3457,6 +3457,19 @@ sub _push_check {
   _trigger($code);
 }
 
+sub _push_fetch {
+  my ($peer, $peer_ip, $dir_path) = @_;
+  if (!$peer || !$dir_path) {
+    lwarn "Bad push_fetch args '@_'\n";
+    return;
+  }
+  $peer_ip = _get_ip($peer) unless $peer_ip;
+  my $code = "f $peer $peer_ip $dir_path";
+  lprint "Trigger fetch '$dir_path' from peer '$peer' ip='$peer_ip'\n" if $verbose;
+  lprint "$code\n" if $verbose > 1;
+  _trigger($code);
+}
+
 sub _switch {
   my ($cmd, $res, $path, $on) = @_;
   my $src = $on ? "1" : "0";
@@ -3847,8 +3860,31 @@ sub join_cluster {
   rsync_cmd($peer, "--update $mars/ips/ $peer:$mars/ips/");
 }
 
+sub _get_probe {
+  my ($probe_dir, $peer, $peer_ip) = @_;
+  $peer_ip = _get_ip($peer) unless $peer_ip;
+  mkdir($probe_dir);
+  my $new_mars = "$probe_dir/$mars";
+  _push_fetch($peer, $peer_ip, $probe_dir);
+  return $new_mars;
+}
+
+# allow accumulation data from multiple peers
+sub _wait_probe {
+  my ($probe_dir, $peer, $peer_ip) = @_;
+  my $got_path = "$probe_dir/got-$peer";
+  lprint "Wait for probe data from '$peer' in '$got_path'\n";
+  while (!link_exists($got_path)) {
+    lprint "Wait for '$got_path' to appear\n";
+    sleep_timeout(5);
+    last if link_exists($got_path);
+    _push_fetch($peer, $peer_ip, $probe_dir);
+  }
+  lprint "Got probe data from '$peer' in '$got_path'\n";
+}
+
 sub merge_cluster {
-  my ($cmd, $peer) = @_;
+  my ($cmd, $peer, $peer_ip) = @_;
   my $uuid = readlink("$mars/uuid");
   my @resources = lamport_glob("$mars/resource-*");
   my @ip_links = lamport_glob("$mars/ips/*");
@@ -3868,6 +3904,101 @@ sub merge_cluster {
   ldie "Cannot merge myself (peer='$peer', host='$host')\n" if $peer eq $host;
   ldie "Directory $mars is missing\n" unless -d $mars;
   ldie "A cluster UUD '$mars/uuid' does not exist. Please use 'join-cluster instead.\n" unless link_exists("$mars/uuid");
+  # start_deprecated_CODE
+  if (!ssh_cmd($peer, $ssh_probe, 1)) {
+    lprint "Falling back to OLD ssh-based $cmd\n";
+    merge_cluster_old(@_);
+    return;
+  }
+  lprint "Using NEW $cmd without ssh\n";
+  # end_deprecated_code
+  if ($peer_ip) {
+    lprint "Given on command line: peer '$peer' has IP '$peer_ip'\n";
+  } else {
+    $peer_ip = _get_ip($peer);
+    ldie "Cannot determine IP for peer '$peer'. Please give the IP on the command lime.\n" unless $peer_ip;
+    lprint "Determined: peer '$peer' appears to have IP '$peer_ip'\n";
+  }
+  my $peer_ip_path = "$mars/ips/ip-$peer";
+  my $probe_ip = get_link($peer_ip_path, 1);
+  unless ($probe_ip) {
+    finish_links();
+    lprint "Need to set preliminary peer IP\n";
+    set_link($peer_ip, $peer_ip_path);
+    # Make PRELIMINARY links, timestamp is 1 second after the Big Bang (1970)
+    finish_links(1);
+    _trigger(3);
+  }
+  my $probe_dir = "$mars/probe-$real_host";
+  system("rm -rf $probe_dir");
+  my $new_mars = _get_probe($probe_dir, $peer, $peer_ip);
+  _wait_probe($probe_dir, $peer, $peer_ip);
+  my %ips;
+  my %old_peers;
+  my %merge_peers;
+  foreach my $old_peer (get_total_peers()) {
+    $ips{$old_peer} = _get_ip($old_peer);
+    $old_peers{$old_peer} = 1;
+    $merge_peers{$old_peer} = 1;
+    lprint "  old peer '$old_peer' ip='$ips{$old_peer}'\n";
+  }
+  foreach my $ip_path (lamport_glob("$new_mars/ips/ip-*")) {
+    my $ip = get_link($ip_path, 1);
+    next unless $ip;
+    my $new_peer = $ip_path;
+    $new_peer =~ s:^.+/ip-::;
+    next if $merge_peers{$new_peer};
+    $ips{$new_peer} = _get_ip($new_peer);
+    $merge_peers{$new_peer} = 1;
+    lprint "  new peer '$new_peer' ip='$ips{$new_peer}'\n";
+  }
+  my %new_res;
+  foreach my $ip (lamport_glob("$new_mars/resource-*")) {
+    my $new_res = $ip;
+    $new_res =~ s:^.+/resource-::;
+    $new_res{$new_res} = 1;
+  }
+  my $new_uuid = readlink("$new_mars/uuid");
+  ldie "Other cluster peer '$peer' has no UUID\n" unless $new_uuid;
+  my %old_res;
+  foreach my $str (get_total_resources()) {
+    $old_res{$str} = 1;
+  }
+  if ($new_uuid eq $uuid) {
+    lprint "Other cluster peer '$peer' has the same UUID.\n";
+    lprint "No resource name checking necessary.\n";
+    lprint "Operation '$cmd' will work logically idempotent.\n";
+  } else {
+    # Check that both sets of resources are logically disjoint
+    lprint "Other cluster peer '$peer' has a different UUID, checking for resource name conflicts.\n";
+    my %inter_res = key_intersect(\%old_res, \%new_res);
+    my $conflicts = 0;
+    foreach my $res (keys(%inter_res)) {
+      lwarn "common resource '$res'\n";
+      $conflicts++;
+    }
+    ldie "cannot merge cluster '$peer' due to $conflicts conflicts\n" if $conflicts;
+  }
+  lprint "MERGE '$peer'\n";
+  foreach my $new_peer1 (keys(%merge_peers)) {
+    lprint "fetch '$new_peer1'\n";
+    _push_fetch($new_peer1, $ips{$new_peer1}, "/");
+    foreach my $new_peer2 (keys(%merge_peers)) {
+      lprint "  push '$new_peer2'\n";
+      my $ip_path = "$mars/ips/ip-$new_peer2";
+      _push_link_foreign($new_peer1, $ips{$new_peer1}, $ips{$new_peer2}, $ip_path);
+    }
+  }
+  system("rm -rf $probe_dir");
+}
+
+# deprecated, to disappear
+sub merge_cluster_old {
+  my ($cmd, $peer) = @_;
+  ldie "ssh is disabled\n" unless $ssh_port;
+  my $uuid = readlink("$mars/uuid");
+  my @resources = lamport_glob("$mars/resource-*");
+  my @ip_links = lamport_glob("$mars/ips/*");
   # check connections
   my $check_cmd = "uname -a";
   system("$check_cmd") == 0 or ldie "oops, 'uname is not installed'\n";
@@ -7785,7 +7916,7 @@ my %cmd_table =
       ],
    "merge-cluster"
    => [
-       "usage: merge-cluster <hostname_of_other_cluster>",
+       "usage: merge-cluster <hostname_of_other_cluster> [<host_ip>]",
        "Precondition: the resource names of both clusters must be disjoint.",
        "Create the union of two clusters, consisting of the",
        "union of all machines, and the union of all resources.",
