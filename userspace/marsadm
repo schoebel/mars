@@ -4427,8 +4427,134 @@ sub create_res {
   _systemd_trigger($cmd);
 }
 
+sub _fetch_transitive_peers {
+  lprint "Computing the transitive closure of peers:\n";
+  my @peers = get_total_peers();
+  my @old_peers;
+  my $probe_dir = "$mars/probe-$real_host";
+  system("rm -rf $probe_dir");
+  while (scalar(@peers) > scalar(@old_peers)) {
+    lprint "Current #peers: " . scalar(@peers) . "\n";
+    @old_peers = @peers;
+    foreach my $peer (@peers) {
+      next if $peer eq $real_host;
+      _get_probe($probe_dir, $peer);
+    }
+    foreach my $peer (@peers) {
+      next if $peer eq $real_host;
+      _wait_probe($probe_dir, $peer);
+    }
+    _reset_resources();
+    @peers = get_total_peers();
+  }
+  lprint "Final #peers: " . scalar(@peers) . "\n";
+}
+
 sub split_cluster {
   my ($cmd) = @_;
+  # start_deprecated_CODE
+  foreach my $peer (get_total_peers()) {
+    next unless $ssh_port;
+    next if $peer eq $real_host;
+    if (!ssh_cmd($peer, $ssh_probe, 1)) {
+      lprint "Falling back to OLD ssh-based $cmd\n";
+      split_cluster_old(@_);
+      return;
+    }
+  }
+  lprint "Using NEW $cmd without ssh\n";
+  # end_deprecated_code
+  my $probe_dir = _fetch_transitive_peers();
+  system("rm -rf $probe_dir");
+  lprint "IPS:\n";
+  my @peers = get_total_peers();
+  foreach my $peer (@peers) {
+    my $ip = _get_ip($peer);
+    lprint "  Peer='$peer' IP='$ip'\n";
+  }
+  lprint "PEER GROUPS:\n";
+  my $nr = 0;
+  my %touched;
+  my %peer_groups;
+  foreach my $peer1 (@peers) {
+    next if ($touched{$peer1});
+    my %members;
+    $members{$peer1} = 1;
+    foreach my $res (get_total_resources($peer1)) {
+      lprint " peer '$peer1' res '$res'\n" if $verbose > 2;
+      my @peers2 = get_total_peers($res);
+      foreach my $peer2 (@peers2) {
+	next if $members{$peer2};
+	lprint " peer '$res' res '$res' '$peer2'\n" if $verbose > 2;
+	$touched{$peer2} = 1;
+	$members{$peer2} = 1;
+      }
+    }
+    $peer_groups{$peer1} = \%members;
+    $nr++;
+    lprint "  #$nr: $peer1 => " . join(",", sort alphanum_cmp keys(%members)) . "\n";
+  }
+  if ($nr <= 1) {
+    lprint "Nothing to do: there are only $nr group(s)\n";
+    system("rm -rf $probe_dir");
+    return;
+  }
+
+  # PHASE 0: create emergency backup
+  unless ($dry_run) {
+    my $ips_backup = "$backup_dir/ips-backup";
+    lprint "Phase 0: create backup at $ips_backup\n";
+    system("mkdir -p $ips_backup") and ldie "Cannot create '$ips_backup'\n";
+    system("cp -a $mars/ips/* $ips_backup/");
+  }
+
+  # PHASE 1: delete all
+  lprint "Phase 1: delete all IPs\n";
+  foreach my $peer (@peers) {
+    my $ip_path = "$mars/ips/ip-$peer";
+    _create_delete($ip_path);
+  }
+  finish_links();
+  _wait_delete();
+  _reset_resources();
+  foreach my $peer (@peers) {
+    my $ip_path = "$mars/ips/ip-$peer";
+    foreach my $targ (@peers) {
+      my $targ_ip = _get_ip($targ);
+      _push_link_foreign($targ, $targ_ip, ".deleted", $ip_path);
+    }
+  }
+  finish_links();
+  _reset_resources();
+  lprint "Wait for effect\n";
+  sleep(10);
+
+  # PHASE 2: regenerate all groups
+  lprint "Phase 2: re-create all groups\n";
+  foreach my $group (sort alphanum_cmp keys(%peer_groups)) {
+    my $group_ip = _get_ip($group);
+    lprint "  GROUP '$group' ip '$group_ip'\n" if $verbose;
+    my $list = $peer_groups{$group};
+    my %members = %$list;
+    foreach my $peer (sort alphanum_cmp keys(%members)) {
+      my $ip_path = "$mars/ips/ip-$peer";
+      my $ip = _get_ip($peer);
+      lprint "    PEER '$peer' '$ip'\n" if $verbose;
+      foreach my $targ (sort alphanum_cmp keys(%members)) {
+	my $targ_ip = _get_ip($targ);
+	_push_link_foreign($targ, $targ_ip, $ip, $ip_path);
+      }
+    }
+  }
+  finish_links();
+  system("rm -rf $probe_dir");
+  _reset_resources();
+}
+
+# deprecated, to disappear
+sub split_cluster_old {
+  my ($cmd) = @_;
+  ldie "ssh is disabled\n" unless $ssh_port;
   # checks
   lprint "Checking...\n";
   my $ips_backup = "$backup_dir/ips-backup";
