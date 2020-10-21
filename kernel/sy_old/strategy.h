@@ -72,6 +72,9 @@ extern int mars_keep_msg;
 
 extern int mars_fast_fullsync;
 
+#define MARS_IP_STR      "/mars/ips/ip-"
+extern void invalidate_user_cache(void);
+
 extern char *my_id(void);
 extern const char *my_uuid;
 

@@ -223,6 +223,15 @@ void _crashme(int mode, bool do_sync)
 
 #endif
 
+void invalidate_user_cache(void)
+{
+	const char *path;
+
+	path = path_make("/mars/cache-%s/invalid", my_id());
+	ordered_symlink("1", path, NULL);
+	brick_string_free(path);
+}
+
 #define GLOBAL_PATH_LIST			\
   "/mars"					\
   "|/mars/ips/"					\
@@ -2629,6 +2638,14 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 #endif
 		}
 	} else if (S_ISLNK(remote_dent->new_stat.mode) && remote_dent->new_link) {
+		/* is something in /mars/ips/ (or a guest membership) updated ? */
+		if ((!stat_ok ||
+		     lamport_time_compare(&remote_dent->new_stat.mtime,
+					  &local_stat.mtime) > 0) &&
+		    (!strncmp(remote_dent->d_name, "device-", 7) ||
+		     !strncmp(remote_path, MARS_IP_STR, strlen(MARS_IP_STR))))
+			invalidate_user_cache();
+
 		/* Important: not not create .deleted values
 		 * unless the object already exists.
 		 */
@@ -2638,7 +2655,8 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 			status = ordered_symlink(remote_dent->new_link,
 						 remote_path,
 						 &remote_dent->new_stat.mtime);
-			MARS_DBG("create symlink '%s' -> '%s' status = %d\n", remote_path, remote_dent->new_link, status);
+			MARS_DBG("create symlink '%s' -> '%s' status = %d\n",
+				 remote_path, remote_dent->new_link, status);
 			run_trigger = true;
 			if (!status &&
 			    (!strncmp(remote_dent->d_name, "primary", 7) ||

@@ -607,6 +607,7 @@ int handler_thread(void *data)
 				status = -EPERM;
 				break;
 			}
+			invalidate_user_cache();
 
 			status =
 				ordered_symlink(cmd.cmd_str1,
@@ -629,6 +630,7 @@ int handler_thread(void *data)
 
 			status = mars_stat(cmd.cmd_str2, &probe, true);
 			if (status < 0) {
+				invalidate_user_cache();
 				activate_peer(cmd.cmd_str1, NULL, NULL, true);
 			}
 			status = 0;
