@@ -89,11 +89,33 @@ void interpret_user_message(char *msg)
 
 		count = sscanf(rest, "%s %s %s", peer_name, src, dst);
 		if (count == 3) {
-			push_link(peer_name, src, dst);
+			push_link(peer_name, NULL, src, dst);
 		} else {
 			MARS_ERR("Bad push link syntax '%s'\n", rest);
 		}
 		brick_string_free(peer_name);
+		brick_string_free(src);
+		brick_string_free(dst);
+		break;
+	}
+	case 'P': /* push link with IP */
+	{
+		char *peer_name = brick_strdup(rest);
+		char *peer_ip = brick_strdup(rest);
+		char *src = brick_strdup(rest);
+		char *dst = brick_strdup(rest);
+		int count;
+
+		count = sscanf(rest, "%s %s %s %s",
+			       peer_name, peer_ip,
+			       src, dst);
+		if (count == 4) {
+			push_link(peer_name, peer_ip, src, dst);
+		} else {
+			MARS_ERR("Bad push link syntax '%s'\n", rest);
+		}
+		brick_string_free(peer_name);
+		brick_string_free(peer_ip);
 		brick_string_free(src);
 		brick_string_free(dst);
 		break;

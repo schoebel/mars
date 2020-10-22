@@ -284,6 +284,7 @@ bool is_deleted_link(const char *str)
 }
 
 bool push_link(const char *peer_name,
+	       const char *peer_ip,
 	       const char *src,
 	       const char *dst);
 bool push_check(const char *peer_name,

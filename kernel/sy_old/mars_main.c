@@ -2289,10 +2289,11 @@ bool _push_info(const char *peer_name,
  * TODO: more security considerations beyond port firewalling.
  */
 bool push_link(const char *peer_name,
+	       const char *peer_ip,
 	       const char *src,
 	       const char *dst)
 {
-	return _push_info(peer_name, NULL,
+	return _push_info(peer_name, peer_ip,
 			  src, dst, CMD_PUSH_LINK);
 }
 
@@ -3637,7 +3638,7 @@ static int make_scan(struct mars_dent *dent)
 			dst = path_make("/mars/ips/ip-%s", my_id());
 			src = ordered_readlink(dst, NULL);
 			if (src && *src && list_empty(&peer->push_anchor))
-				push_link(dent->d_rest, src, dst);
+				push_link(dent->d_rest, NULL, src, dst);
 			brick_string_free(src);
 			brick_string_free(dst);
 		}
