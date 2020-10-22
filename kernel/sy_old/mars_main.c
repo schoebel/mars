@@ -2214,7 +2214,8 @@ bool _push_info(const char *peer_name,
 		int cmd_code)
 {
 	struct mars_dent *peer_dent;
-	struct mars_peerinfo *peer;
+	struct mars_peerinfo *_peer = NULL;
+	struct mars_peerinfo *peer = NULL;
 	struct push_info *push;
 
 	if (unlikely(!peer_name ||
@@ -2225,18 +2226,34 @@ bool _push_info(const char *peer_name,
 	}
 
 	peer_dent = find_peer_dent(peer_name);
-	if (unlikely(!peer_dent)) {
-		MARS_WRN("peer '%s' does not exist in /mars/ips/\n",
-			 peer_name);
-		return false;
+
+	/* ignore any existing peers talking on a different IP */
+	if (peer_dent && peer_ip) {
+		struct mars_peerinfo *check_peer;
+
+		check_peer = peer_dent->d_private;
+		if (check_peer && check_peer->peer_ip &&
+		    strcmp(check_peer->peer_ip, peer_ip))
+			peer_dent = NULL;
+
 	}
-	peer = peer_dent->d_private;
+	if (peer_dent)
+		peer = peer_dent->d_private;
 	if (!peer) {
-		peer = new_peer(peer_name, peer_ip);
-		peer_dent->d_private = peer;
-		peer_dent->d_private_destruct = peer_destruct;
+		_peer = new_peer(peer_name, peer_ip);
+		peer = _peer;
+		if (peer_dent) {
+			peer_dent->d_private = peer;
+			peer_dent->d_private_destruct = peer_destruct;
+		} else {
+			mars_running_additional_peers++;
+			peer->need_destruct = true;
+			peer->oneshot = true;
+			peer->do_entire_once = true;
+			peer->silent = true;
+			peer->do_entire_once = true;
+		}
 		MARS_DBG("new peer %p\n", peer);
-		start_peer(peer);
 	}
 	push = brick_zmem_alloc(sizeof(struct push_info));
 	INIT_LIST_HEAD(&push->push_head);
@@ -2246,6 +2263,8 @@ bool _push_info(const char *peer_name,
 	mutex_lock(&peer->peer_lock);
 	list_add_tail(&push->push_head, &peer->push_anchor);
 	mutex_unlock(&peer->peer_lock);
+	if (_peer)
+		start_peer(_peer);
 	mars_trigger();
 	return true;
 }
