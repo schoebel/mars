@@ -302,12 +302,14 @@ sub device_exists {
 ##################################################################
 
 # ssh helpers
+# deprecated, to disappear in a future release
 
 my %ssh_ips;
 my %ssh_ports;
 
 sub make_ssh_cmd {
   my ($peer, $no_login) = @_;
+  return "" unless $ssh_port;
   my $ssh = "ssh $ssh_opts";
   if (!defined($ssh_ports{$peer})) {
     my $port;
@@ -354,6 +356,7 @@ sub make_ssh_cmd {
 
 sub ssh_cmd {
   my ($peer, $cmd, $no_fail) = @_;
+  return 1 unless $ssh_port;
   if ($peer ne $real_host) {
     $cmd =~ s/'/\'/g;
     $cmd = make_ssh_cmd($peer) . " '$cmd'";
@@ -371,6 +374,7 @@ sub ssh_cmd {
 
 sub rsync_cmd {
   my ($peer, $cmd, $no_fail) = @_;
+  return 1 unless $ssh_port;
   my ($real_peer, $port, $ssh) = make_ssh_cmd($peer, 1);
   $cmd =~ s/(?<![-a-zA-Z0-9_])$peer(?![-a-zA-Z0-9_])/$real_peer/g if (defined($real_peer) && $real_peer && $real_peer ne $peer);
   my $rsync_cmd = "rsync -e '$ssh' $rsync_opts $cmd";
@@ -388,6 +392,7 @@ sub rsync_cmd {
     $status = system($rsync_cmd);
   } while ($status != 0 && $status != 24 && $cycle++ < 3);
   ldie "Cannot get remote symlink tree via rsync, status=$status\n" if (!defined($no_fail) && $status && $status != 24);
+  return $status;
 }
 
 ##################################################################
@@ -1874,6 +1879,10 @@ sub get_global_versions {
     } else {
       $kernel_flags_version = 0x0;
     }
+  }
+  # can ssh be switched off?
+  if ($kernel_strategy_version >= 4) {
+    $ssh_port = 0;
   }
   # determine cluster-wide $compat_* values
   if ($kernel_strategy_version >= 3) {
@@ -4227,7 +4236,7 @@ sub create_res {
     set_link("0", "$resdir/syncstatus-$host");
     finish_links();
     _trigger(3);
-    if ($use_rsync) {
+    if ($use_rsync && $ssh_port) {
       rsync_cmd($primary, "--max-size=1 --update $file $primary:$mars/resource-$res/", 1);
     }
     wait_cluster($cmd, $res, $primary);
@@ -8693,6 +8702,13 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   --ssh-port=<port_nr>
     Override the default ssh port (22) for ssh and rsync.
     Useful for running {join,merge}-cluster on non-standard ssh ports.
+  --no-ssh
+    Equivalent to --ssh-port=0
+    Disable ssh and rsync completely.
+    Dead peers / interrupted networks / firewalling may lead to (temporary)
+    hangs of ssh probes, which are used by default for backwards compatibility.
+    Hint: ssh_config options like ConnectTimeout may also help.
+    Use this to disable any probes, and no time loss.
   --ssh-opts=\"<ssh_commandline_options>\"
     Override the default ssh commandline options. Also used for rsync.
   --macro=<text>
@@ -8855,6 +8871,9 @@ foreach my $arg (@ARGV) {
     $peer = $host unless $peer;
     lprint_stderr "Using IP '$ip' from command line for '$peer'.\n";
     $known_ips{$peer} = $ip;
+    next;
+  } elsif ($arg =~ m/--no-ssh/) {
+    $ssh_port = 0;
     next;
   } elsif ($arg =~ s/--ssh[-_]port\s*=\s*([0-9]+)/$1/) {
     $ssh_port = $arg;
