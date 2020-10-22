@@ -3402,6 +3402,11 @@ sub get_error_text {
 
 sub _trigger {
   my $code = shift || 1;
+  if ($dry_run) {
+    lprint "DRY_RUN: would execute trigger '$code'\n";
+    return;
+  }
+  lprint "Trigger '$code'\n" if $verbose;
   system("(echo -n $code > /proc/sys/mars/trigger) >/dev/null 2>&1");
 }
 
@@ -3410,13 +3415,32 @@ sub _trigger {
 # Always prefer the PULL PRINCIPLE where possible.
 sub _push_link {
   my ($peer, $src, $dst) = @_;
-  return if $peer eq $real_host;
   if (!$peer || !$src || !$dst) {
     lwarn "Bad push_link args '@_'\n";
     return;
   }
+  if ($peer eq $real_host) {
+    set_link($src, $dst);
+    return;
+  }
   my $code = "p $peer $src $dst";
   lprint "Pushing link '$dst' -> '$src' to peer '$peer'\n" if $verbose;
+  _trigger($code);
+}
+# DTO do not abuse
+sub _push_link_foreign {
+  my ($peer, $peer_ip, $src, $dst) = @_;
+  if (!$peer || !$src || !$dst) {
+    lwarn "Bad push_link args '@_'\n";
+    return;
+  }
+  if ($peer eq $real_host) {
+    set_link($src, $dst);
+    return;
+  }
+  $peer_ip = _get_ip($peer) unless $peer_ip;
+  my $code = "P $peer $peer_ip $src $dst";
+  lprint "Pushing link '$dst' -> '$src' to peer '$peer' '$peer_ip'\n" if $verbose;
   _trigger($code);
 }
 
