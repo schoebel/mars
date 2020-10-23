@@ -2051,6 +2051,7 @@ struct mars_peerinfo {
 	bool from_remote_trigger;
 	bool do_entire_once;
 	bool oneshot;
+	bool no_fetch;
 	bool got_info;
 	bool silent;
 };
@@ -2251,7 +2252,10 @@ bool _push_info(const char *peer_name,
 			peer->oneshot = true;
 			peer->do_entire_once = true;
 			peer->silent = true;
-			peer->do_entire_once = true;
+			/* pure push: do not fetch from remote */
+			peer->no_fetch = true;
+			peer->from_remote_trigger = false;
+			peer->to_remote_trigger = true;
 		}
 		MARS_DBG("new peer %p\n", peer);
 	}
@@ -3081,6 +3085,19 @@ int peer_thread(void *data)
 			mutex_lock(&peer->peer_lock);
 			list_replace_init(&tmp_push_list, &peer->push_anchor);
 			mutex_unlock(&peer->peer_lock);
+		} else if (peer->no_fetch) {
+			/* Needed for split-cluster: do not fetch metadata from
+			 * another cluster group.
+			 */
+			brick_msleep(200);
+			if (!mars_global->global_power.button)
+				break;
+			if (peer->oneshot &&
+			    (list_empty(&peer->push_anchor) ||
+			     jiffies - peer->create_jiffies >
+			     mars_scan_interval * 2 * HZ))
+				break;
+			continue;
 		} else {
 			peer->to_remote_trigger = false;
 			cmd.cmd_code = CMD_GETENTS;
