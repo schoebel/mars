@@ -205,7 +205,6 @@ my $ignore_sync = 0;
 my $cron_mode = 0;
 my $timeout = 600;
 my $phase_nr = 0;
-my $ip = "";
 my $ssh_port = 22;
 my $ssh_opts = "-A -o StrictHostKeyChecking=no -o ConnectTimeout=5";
 my $ssh_probe = "uname -a";
@@ -214,6 +213,8 @@ my $kernel_version = 0;
 my $kernel_features_version = -1;
 my $kernel_strategy_version = -1;
 my $kernel_flags_version = ~0x0;
+
+my %known_ips;
 
 ##################################################################
 
@@ -640,6 +641,13 @@ sub is_any {
 
 sub alphanum_cmp {
   my ($aa, $bb) = ($a, $b);
+  $aa =~ s/([0-9]+)/sprintf("%012d",$1)/eg;
+  $bb =~ s/([0-9]+)/sprintf("%012d",$1)/eg;
+  return $aa cmp $bb;
+}
+
+sub reverse_cmp {
+  my ($aa, $bb) = ($b, $a);
   $aa =~ s/([0-9]+)/sprintf("%012d",$1)/eg;
   $bb =~ s/([0-9]+)/sprintf("%012d",$1)/eg;
   return $aa cmp $bb;
@@ -3342,16 +3350,38 @@ sub _get_ip {
   my ($peer) = @_;
   $peer = $host unless $peer;
   check_id($peer);
+  # Dynamic programming: this also applies to --ip-$peer=$peer_ip
+  return $known_ips{$peer} if $known_ips{$peer};
+  # Normally, everything should be in /mars/ips/ip-*
   my $ip_path = "$mars/ips/ip-$peer";
   if (my $from_link = get_link($ip_path, 2)) {
     lprint_stderr "Using IP '$from_link' from '$ip_path'\n" if $verbose;
+    $known_ips{$peer} = $from_link;
     return $from_link;
+  }
+  # Try any probe data
+  my $probe_path = "$mars/probe-$real_host/$mars/ips/ip-$peer";
+  if (my $probe_link = get_link($probe_path, 2)) {
+    lprint_stderr "Using PROBE IP '$probe_link' from '$probe_path'\n" if $verbose;
+    $known_ips{$peer} = $probe_link;
+    return $probe_link;
+  }
+  # Try the backups in reverse order
+  my $backup_glob = "$mars/backups-*/ips-backup/ip-$peer";
+  foreach my $backup (sort reverse_cmp glob($backup_glob)) {
+    my $check = get_link($backup, 2);
+    if ($check) {
+      lprint_stderr "Using BACKUP IP '$check' from '$backup'\n" if $verbose;
+      $known_ips{$peer} = $check;
+      return $check;
+    }
   }
   # Try /usr/bin/host
   my $answer = `/usr/bin/host -t A $peer`;
   if ($answer && $answer =~ m/([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/) {
     my $addr = $1;
-    lprint "DNS query for '$peer' found IPv4 address '$addr'\n";
+    lprint_stderr "DNS query for '$peer' found IPv4 address '$addr'\n";
+    $known_ips{$peer} = $addr;
     return $addr;
   }
   ldie "Cannot determine foreign IP for peer '$peer'\n" if $peer ne $real_host;
@@ -3363,10 +3393,11 @@ sub _get_ip {
     if ($line =~ m#\sinet\s(\d+\.\d+\.\d+\.\d+)#) {
       my $from_if = $1;
       lprint_stderr "Using IP '$from_if' from interface '$interface'\n";
+      $known_ips{$peer} = $from_if;
       return $from_if;
     }
   }
-  return undef;
+  ldie "Cannot determine my own IP address ($real_host)\n";
 }
 
 sub _fake_versionlink {
@@ -3430,6 +3461,9 @@ sub lowlevel_ls_host_ips {
 sub lowlevel_set_host_ip {
   my ($cmd, $peer, $ip) = @_;
   check_id($peer);
+  if (!$ip) {
+    $ip = _get_ip($peer);
+  }
   my $path = "$mars/ips/ip-$peer";
   my $old = get_link($path, 2) || "";
   lprint "Set host '$peer' IP from '$old' to '$ip'\n";
@@ -3574,6 +3608,7 @@ sub create_uuid {
 sub _create_cluster {
   my ($cmd) = @_;
   ldie "The $mars directory does not exist.\n" unless -d $mars;
+  my $ip = _get_ip($host);
   create_uuid(@_) if $cmd eq "create-cluster";
   system("mkdir $mars/ips") unless -d "$mars/ips";
   system("mkdir $mars/userspace") unless -d "$mars/userspace";
@@ -3607,6 +3642,7 @@ sub join_cluster {
   $peer_ip = _get_ip($peer) unless $peer_ip;
   # try new join method
   if (is_module_loaded()) {
+    my $ip = _get_ip($host);
     lprint "MARS kernel module is loaded, trying the new $cmd method.\n";
     my $old_uuid = get_link("$mars/uuid", 2);
     if (!$old_uuid || $old_uuid eq "(any)") {
@@ -3662,6 +3698,7 @@ sub join_cluster {
   }
   lprint "Falling back to the old ssh/rsync based $cmd method (peer='$peer' peer_ip='$peer_ip')\n";
   ldie "OLD method: MARS module is loaded, please unload first before using ssh\n" if is_module_loaded();
+  my $ip = _get_ip($host);
   rsync_cmd($peer, "--max-size=1 --update $peer:$mars/ $mars/");
   # check uniqness of IPs
   my %ips = ();
@@ -3913,6 +3950,7 @@ sub create_res {
     ldie "could not create resource '$res'\n" unless -d $resdir;
     set_link($size, "$resdir/size");
   } else { # join
+    my $ip = _get_ip($host);
     # For safety, try to get the very newest infos.
     # Reason: newer kernel modules will fetch non-member resource infos less frequently.
     # Therefore we shift some responsibility for non-member -> member transitions to userspace.
@@ -6770,6 +6808,7 @@ sub parse_macro {
 sub make_env {
   my ($cmd, $res, $text) = (shift, shift, shift);
   $text =~ s{$match_comment}{}sg;
+  my $ip = _get_ip($host);
   my %start_env =
     (
      "cmd"       => $cmd,
@@ -8423,8 +8462,12 @@ my %cmd_table =
       ],
    "lowlevel-set-host-ip"
    => [
-       "usage: lowlevel-set-host-ip <hostname> <new_ip>",
-       "Set IP for host.",
+       "usage: lowlevel-set-host-ip <hostname> [<new_ip>]",
+       "Set IP address <new_ip> for host.",
+       "When <new_ip> is not given, try to determine the old address",
+       "from the symlink tree, or from old backups.",
+       "Often, you want to set a new IP address in place of an old one.",
+       "Hint: you may also use the --ip-<hostname>=<new_ip> option.",
        \&lowlevel_set_host_ip,
       ],
    "lowlevel-delete-host"
@@ -8532,11 +8575,21 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Only for experts.
     Used by several special commands like merge-cluster, split-cluster
     etc for creating backups of important data.
-  --ip=<ip>
-    Override the IP address stored in the symlink tree, as well as
-    the default IP determined from the list of network interfaces.
+  --ip-<peer>=<ip>
+    Override the IP address of <peer> from the symlink tree, or as determined
+    from old IP backups, or as determined from the list of network interfaces.
     Usually you will need this only at 'create-cluster' or
-    'join-cluster' for resolving ambiguities.
+    'join-cluster' / 'merge-cluster' / 'split-cluster' for resolving
+    ambiguities, or for telling the IP address of yet unknown peers.
+    It is also useful at 'lowlevel-set-host-ip' for updating an
+    already existing IP address.
+    Hint: this option may be given multiple times for different <peer>
+    parts.
+  --ip=<ip>
+    Equivalent to --peer-\$host=<ip>
+    where \$host is usually the same as \$(hostname), but you may
+    use --host=<hostname> as an _earlier_ argument for overriding
+    the default <hostname>.
   --ssh-port=<port_nr>
     Override the default ssh port (22) for ssh and rsync.
     Useful for running {join,merge}-cluster on non-standard ssh ports.
@@ -8696,9 +8749,12 @@ foreach my $arg (@ARGV) {
     $backup_dir = $1;
     system("mkdir -p $backup_dir") and ldie "Cannot create backup directory '$backup_dir'\n";
     next;
-  } elsif ($arg =~ s/--ip\s*=\s*([0-9.:\[\]]+)/$1/) {
-    $ip = $arg;
-    lprint_stderr "Using IP '$ip' from command line.\n";
+  } elsif ($arg =~ m/--ip(-(.*?))?\s*=\s*([0-9.:\[\]]+)/) {
+    my $peer = $2;
+    my $ip = $3;
+    $peer = $host unless $peer;
+    lprint_stderr "Using IP '$ip' from command line for '$peer'.\n";
+    $known_ips{$peer} = $ip;
     next;
   } elsif ($arg =~ s/--ssh[-_]port\s*=\s*([0-9]+)/$1/) {
     $ssh_port = $arg;
@@ -8969,10 +9025,6 @@ if ($cmd =~ m/^(view|pretty)/) {
   # report any dead peers
   get_alive_links("all", "alive", "*", 1, 1);
   exit($error_count);
-}
-
-if (!$ip) {
-  $ip = _get_ip() or ldie "cannot determine my IP address\n";
 }
 
 my $func = $cmd_table{$cmd};
