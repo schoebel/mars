@@ -2844,7 +2844,7 @@ int peer_thread(void *data)
 			pause_time = 0;
 			MARS_DBG("sending notify to peer...\n");
 			cmd.cmd_code = CMD_NOTIFY;
-			status = mars_send_cmd(&peer->socket, &cmd, true);
+			status = mars_send_cmd(&peer->socket, &cmd, false);
 		}
 
 		mutex_lock(&peer->peer_lock);
@@ -2858,7 +2858,7 @@ int peer_thread(void *data)
 			cmd.cmd_code = CMD_PUSH_LINK;
 			cmd.cmd_str1 = push->src;
 			cmd.cmd_str2 = push->dst;
-			status = mars_send_cmd(&peer->socket, &cmd, true);
+			status = mars_send_cmd(&peer->socket, &cmd, false);
 			MARS_INF("PUSH_LINK '%s' '%s' status=%d\n",
 				 cmd.cmd_str1,
 				 cmd.cmd_str2,
