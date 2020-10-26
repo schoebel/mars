@@ -924,7 +924,7 @@ int _desc_send_item(struct mars_socket *msock, const void *data, const struct ma
 	const void *item = data + mi->field_sender_offset;
 	int len = mi->field_size;
 	int status;
-	int res = -1;
+	int res = -ENOMSG;
 
 	MARS_IO("#%d cork=%d mc=%p field_name='%s' field_type=%d\n", msock->s_debug_nr, cork, mc, mi->field_name, mi->field_type);
 
@@ -944,13 +944,13 @@ int _desc_send_item(struct mars_socket *msock, const void *data, const struct ma
 
 		status = mars_send_raw(msock, &len, sizeof(len), cork || len > 0);
 		if (unlikely(status < 0))
-			goto done;
+			return status;
 		/* fallthrough */
 	default:
 		if (likely(len > 0)) {
 			status = mars_send_raw(msock, item, len, cork);
 			if (unlikely(status < 0))
-				goto done;
+				return status;
 		}
 		res = len;
 	}
