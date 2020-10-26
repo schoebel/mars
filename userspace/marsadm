@@ -3595,6 +3595,7 @@ sub _set_replaylink {
   my $rep_val  = sprintf("log-%09d-$primary,0,0", $log_nr);
   lprint "creating new replaylink '$rep_path' -> '$rep_val'\n";
   set_link($rep_val, $rep_path);
+  _push_link($primary, $rep_val, $rep_path) if $primary ne $host;
   my $ok = _fake_versionlink($cmd, $res, 2, $log_nr, $primary);
   set_link("$log_nr$msg", "$basedir/skip-check-$host");
   return $ok;
