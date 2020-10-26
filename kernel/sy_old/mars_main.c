@@ -2967,6 +2967,7 @@ int peer_thread(void *data)
 {
 	struct mars_peerinfo *peer = data;
 	const char *real_peer = NULL;
+	const char *old_transl = NULL;
 	struct sockaddr_storage sockaddr = {};
 	struct key_value_pair peer_pairs[] = {
 		{ peer->peer },
@@ -2980,25 +2981,25 @@ int peer_thread(void *data)
 	if (!peer || !mars_net_is_alive)
 		return -1;
 
-	if (!peer->peer_ip)
-		peer->peer_ip = mars_translate_hostname(peer->peer);
+	/* check whether name is resolvable */
+	if (!peer->peer_ip) {
+		old_transl = mars_translate_hostname(peer->peer);
+		if (!old_transl || !strcmp(old_transl, peer->peer)) {
+			static struct lamport_time full_fetch_stamp;
+			struct lamport_time now = get_real_lamport();
 
-	if (!peer->peer_ip || !strcmp(peer->peer_ip, peer->peer)) {
-		static struct lamport_time full_fetch_stamp;
-		struct lamport_time now = get_real_lamport();
-
-		MARS_ERR("unknown peer '%s'\n",
-			 peer->peer);
-		/* desperate: try to fetch /mars/ips/ not too frequently */
-		if (!full_fetch_stamp.tv_sec ||
-		    now.tv_sec - full_fetch_stamp.tv_sec > 60) {
-			full_fetch_stamp = now;
-			start_full_fetch = true;
+			MARS_ERR("unknown peer '%s'\n",
+				 peer->peer);
+			/* desperate: try to fetch /mars/ips/ not too frequently */
+			if (!full_fetch_stamp.tv_sec ||
+			    now.tv_sec - full_fetch_stamp.tv_sec > 60) {
+				full_fetch_stamp = now;
+				start_full_fetch = true;
+			}
 		}
-		goto done;
 	}
 	real_peer = path_make("%s:%d",
-			      peer->peer_ip,
+			      peer->peer_ip ? peer->peer_ip : peer->peer,
 			      mars_net_default_port + MARS_TRAFFIC_META);
 	MARS_INF("-------- %s peer thread starting on peer '%s' (%s)\n",
 		 peer->peer_ip,
@@ -3026,8 +3027,6 @@ int peer_thread(void *data)
 			make_peer_msg(peer, peer_pairs,
 				      "connection to '%s' (%s) is dead",
 				      peer->peer, real_peer);
-			brick_string_free(real_peer);
-			real_peer = mars_translate_hostname(peer->peer);
 			status = mars_create_sockaddr(&sockaddr, real_peer);
 			if (unlikely(status < 0)) {
 				MARS_ERR("unusable remote address '%s' (%s)\n", real_peer, peer->peer);
@@ -3070,25 +3069,26 @@ int peer_thread(void *data)
 			peer->to_remote_trigger = true;
 			mars_trigger();
 			continue;
-		} else if (!peer->oneshot) {
-			const char *new_peer;
+		} else if (!peer->oneshot && old_transl) {
+			const char *new_transl;
 			bool need_shutdown;
 
 			/* check whether IP assignment has changed */
-			new_peer = mars_translate_hostname(peer->peer);
-			MARS_INF("IP assignment %d '%s' '%s'\n", 
-				 mars_socket_is_alive(&peer->socket),
-				 new_peer, real_peer);
+			new_transl = mars_translate_hostname(peer->peer);
 			need_shutdown =
-				(new_peer &&
-				 real_peer &&
-				 strcmp(new_peer, real_peer));
-			brick_string_free(new_peer);
+				(new_transl &&
+				 strcmp(old_transl, new_transl));
 			if (need_shutdown) {
+				MARS_INF("IP assignment %d '%s' -> '%s'\n", 
+					 mars_socket_is_alive(&peer->socket),
+					 old_transl, new_transl);
+				brick_string_free(old_transl);
+				old_transl = new_transl;
 				mars_shutdown_socket(&peer->socket);
 				brick_msleep(100);
 				continue;
 			}
+			brick_string_free(new_transl);
 		}
 
 		if (peer->from_remote_trigger) {
@@ -3244,6 +3244,7 @@ int peer_thread(void *data)
 
 done:
 	clear_vals(peer_pairs);
+	brick_string_free(old_transl);
 	brick_string_free(real_peer);
 	peer->has_terminated = true;
 	return 0;
