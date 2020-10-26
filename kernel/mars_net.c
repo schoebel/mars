@@ -109,61 +109,79 @@ void __setsockopt(struct socket *sock, int level, int optname, char *optval, int
 int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 {
 	struct sockaddr_in *sockaddr = (void*)addr;
-	const char *new_spec;
-	const char *tmp_spec;
-	int status = 0;
+	char *new_spec = brick_strdup(spec);
+	int port_nr = mars_net_default_port + MARS_TRAFFIC_META;
+	int i;
+	int max_retry = 3;
+	int status;
 
-	memset(addr, 0, sizeof(*addr));
-	sockaddr->sin_family = AF_INET;
-	sockaddr->sin_port = htons(mars_net_default_port);
-
-	/* Try to translate hostnames to IPs if possible.
-	 */
-	if (mars_translate_hostname) {
-		new_spec = mars_translate_hostname(spec);
-	} else {
-		new_spec = brick_strdup(spec);
+	/* Parse any :port_nr part */
+	for (i = 0; new_spec[i]; i++) {
+		if (new_spec[i] != ':')
+			continue;
+		new_spec[i++] = '\0';
+		sscanf(new_spec + i, "%d", &port_nr);
+		if (port_nr < mars_net_default_port)
+			port_nr = mars_net_default_port;
+		if (port_nr >= mars_net_default_port + MARS_TRAFFIC_MAX)
+			port_nr = mars_net_default_port + MARS_TRAFFIC_MAX - 1;
+		break;
 	}
-	tmp_spec = new_spec;
 
-	/* This is PROVISIONARY!
-	 * TODO: add IPV6 syntax and many more features :)
-	 */
-	if (!*tmp_spec)
-		goto done;
-	if (*tmp_spec == '(') {
-		/* fail silently, this can happen with "(none)" */
+	/* fail silently, this can happen with "(none)" */
+	if (*new_spec == '(') {
 		status = -EINVAL;
 		goto done;
 	}
-	if (*tmp_spec != ':') {
+
+	memset(addr, 0, sizeof(*addr));
+	sockaddr->sin_family = AF_INET;
+	sockaddr->sin_port = htons(port_nr);
+
+ retry:
+	/*
+	 * TODO: add IPV6 syntax and many more features :)
+	 */
+	if (!*new_spec) {
+		MARS_DBG("Empty IP => 0.0.0.0\n");
+		status = 0;
+	} else if (*new_spec == '[') {
+		MARS_ERR("IPv6 is NYI\n");
+		status = -ENOPKG;
+		goto done;
+	} else if (*new_spec >= '0' && *new_spec <= '9' ) {
 		unsigned char u0 = 0, u1 = 0, u2 = 0, u3 = 0;
 
-		status = sscanf(tmp_spec, "%hhu.%hhu.%hhu.%hhu", &u0, &u1, &u2, &u3);
+		status = sscanf(new_spec,
+				"%hhu.%hhu.%hhu.%hhu",
+				&u0, &u1, &u2, &u3);
 		if (status != 4) {
-			MARS_ERR("invalid sockaddr IP syntax '%s', status = %d\n", tmp_spec, status);
+			MARS_ERR("invalid sockaddr IP syntax '%s', status = %d\n",
+				 new_spec, status);
 			status = -EINVAL;
 			goto done;
 		}
 		MARS_DBG("decoded IP = %u.%u.%u.%u\n", u0, u1, u2, u3);
 		sockaddr->sin_addr.s_addr = (__be32)u0 | (__be32)u1 << 8 | (__be32)u2 << 16 | (__be32)u3 << 24;
-	}
-	// deocde port number (when present)
-	tmp_spec = spec;
-	while (*tmp_spec && *tmp_spec++ != ':')
-		/*empty*/;
-	if (*tmp_spec) {
-		int port = 0;
-		status = sscanf(tmp_spec, "%d", &port);
-		if (status != 1) {
-			MARS_ERR("invalid sockaddr PORT syntax '%s', status = %d\n", tmp_spec, status);
-			status = -EINVAL;
-			goto done;
+		status = 0;
+	} else if (mars_translate_hostname) {
+		char *trans_spec = mars_translate_hostname(new_spec);
+
+		if (trans_spec &&
+		    strcmp(trans_spec, new_spec) &&
+		    max_retry-- > 0) {
+			brick_string_free(new_spec);
+			new_spec = trans_spec;
+			goto retry;
 		}
-		MARS_DBG("decoded PORT = %d\n", port);
-		sockaddr->sin_port = htons(port);
+		brick_string_free(trans_spec);
+		MARS_ERR("unknown address '%s'\n", new_spec);
+		status = -EDESTADDRREQ;
+	  } else {
+		MARS_ERR("cannot translate '%s'\n", new_spec);
+		status = -EDESTADDRREQ;
 	}
-	status = 0;
+
  done:
 	brick_string_free(new_spec);
 	return status;
