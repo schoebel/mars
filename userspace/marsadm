@@ -3884,8 +3884,8 @@ sub create_res {
     }
     my $max_retry = 5;
     for (;;) {
-      $max_retry--;
       $primary = _get_designated_primary($res, 1);
+      last if $max_retry-- < 0;
       if ($primary && $primary ne $host && $primary ne "(none)") {
 	# first check whether symlink information appears to be recent enough
 	last if recent_cluster($cmd, $res, $primary);
