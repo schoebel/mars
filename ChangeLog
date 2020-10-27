@@ -139,6 +139,23 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable112
+	* Critical fix: generic mars_readlink() did not work with an
+	  extremely low probability, so it slipped through years
+	  of testing. My reproducer indicates that it "fixed" itself
+	  after a while, just leading to some unnecessary delays.
+	  Nevertheless, I mark it "critical" under a HA viewpoint,
+	  although most people likely might have never noticed it.
+	  Recommendation: please update.
+	* Major fix, only relevant for k > 2 replica:
+	  fetch could get stuck in cyclic dependencies for some
+	  time, making only slow progress.
+	* Major fix: join-resource could loop when
+	  old method is selected and ssh was not working.
+	* Minor fix: do not produce alive-timestamp & co on a fresh
+	  /mars, before {create,join}-cluster has been executed.
+	* Several smaller fixes and improvements.
+
 mars0.1astable111
 	* Minor fix, only relevant for new deletions:
 	  Split-brain cleanup was sometimes stumbling over
