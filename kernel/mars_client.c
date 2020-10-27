@@ -414,8 +414,11 @@ timeout:
 	status = -ETIME;
 	if (output->got_info) {
 		status = 0;
-		if (info)
+		if (info) {
 			memcpy(info, &output->info, sizeof(*info));
+			output->got_info = false;
+			output->get_info = true;
+		}
 	}
 	return status;
 }
