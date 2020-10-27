@@ -785,6 +785,7 @@ struct mars_rotate {
 	struct mars_dent *syncstatus_dent;
 	struct lamport_time sync_finish_stamp;
 	struct if_brick *if_brick;
+	const char *log_from_peer;
 	const char *fetch_path;
 	const char *fetch_peer;
 	const char *avoid_peer;
@@ -804,6 +805,9 @@ struct mars_rotate {
 	loff_t dev_size;
 	loff_t start_pos;
 	loff_t end_pos;
+	int nr_members;
+	int tmp_members;
+	int retry_log_from;
 	int retry_recovery;
 	int max_sequence;
 	int fetch_round;
@@ -2233,6 +2237,8 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 			     NULL, NULL);
 	if (status >= 0 && copy) {
 		copy->copy_limiter = &rot->fetch_limiter;
+		if (do_start)
+			rot->retry_log_from = 0;
 #if 0
 		// FIXME: code is dead
 		if (copy->append_mode && copy->power.led_on &&
@@ -2286,6 +2292,21 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	if (!rot->fetch_path) {
 		MARS_WRN("parent has no fetch_path\n");
 		status = -EINVAL;
+		goto done;
+	}
+	/* Try to prefer the peer which created the logfile.
+	 * This need not coincide with the current primary.
+	 * Reason: transitive fetch may get stuck in a cycle.
+	 */
+	if (rot->log_from_peer &&
+	    strcmp(peer, rot->log_from_peer) &&
+	    (remote_dent->d_serial < rot->repair_log_seq ||
+	     remote_dent->d_serial > rot->repair_log_seq + 1 ||
+	     rot->retry_log_from++ <= rot->nr_members)) {
+		MARS_DBG("peer '%s' != '%s' not the origin of '%s'\n",
+			 peer, rot->log_from_peer,
+			 rot->replay_link ? rot->replay_link->new_link : "");
+		status = -EAGAIN;
 		goto done;
 	}
 
@@ -3636,6 +3657,7 @@ void rot_destruct(void *_rot)
 		assign_dent(&rot->prev_log, NULL);
 		assign_dent(&rot->next_log, NULL);
 		assign_dent(&rot->syncstatus_dent, NULL);
+		brick_string_free(rot->log_from_peer);
 		brick_string_free(rot->fetch_path);
 		brick_string_free(rot->fetch_peer);
 		brick_string_free(rot->avoid_peer);
@@ -3767,8 +3789,10 @@ int make_log_init(struct mars_dent *dent)
 	if (unlikely(status < 0)) {
 		goto done;
 	}
+	brick_string_free(rot->log_from_peer);
 	parse_logfile_name(replay_link->d_argv[0],
-			   &rot->repair_log_seq, NULL);
+			   &rot->repair_log_seq,
+			   &rot->log_from_peer);
 
 	assign_dent(&rot->replay_link, replay_link);
 
@@ -5126,6 +5150,8 @@ int make_bio(struct mars_dent *dent)
 	rot = dent->d_parent->d_private;
 	if (!rot)
 		goto done;
+
+	rot->tmp_members++;
 
 	/* for detach, both the logger and the bio must be gone */
 	if (rot->trans_brick)
@@ -6815,6 +6841,8 @@ static int _main_thread(void *data)
 			struct mars_rotate *rot = container_of(tmp, struct mars_rotate, rot_head);
 
 			rot->rot_activated = false;
+			rot->nr_members = rot->tmp_members;
+			rot->tmp_members = 0;
 		}
 		up_read(&rot_sem);
 
