@@ -787,7 +787,7 @@ char *mars_readlink(const char *newpath, struct lamport_time *stamp)
 	oldfs = get_fs();
 	set_fs(get_ds());
 
-	status = user_path_at(AT_FDCWD, newpath, 0, &path);
+	status = user_lpath(newpath, &path);
 	if (unlikely(status < 0)) {
 		MARS_DBG("link '%s' does not exist, status = %d\n", newpath, status);
 		goto done_fs;
