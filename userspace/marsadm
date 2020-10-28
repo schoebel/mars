@@ -4458,7 +4458,14 @@ sub _wait_delete {
   return if !$nr_deletions;
   $nr_deletions = 0;
   for (;;) {
-    my $deleted = get_link("$mars/todo-global/deleted-$real_host");
+    my $del_link = "$mars/todo-global/deleted-$real_host";
+    my $deleted = get_link($del_link, 1);
+    if (!$deleted) {
+      return if !$compat_deletions;
+      lwarn "Old deletions: '$del_link' does not exist\n";
+      sleep_timeout();
+      return;
+    }
     $deleted =~ s/^0+//;
     my ($min_nr, $delete_nr) = _get_delete_nr("$mars/todo-global");
     last if $deleted >= $delete_nr;
