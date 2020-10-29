@@ -6709,6 +6709,10 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 		MARS_ERR_ONCE(dent, "bad internal class %d of '%s'\n", class, dent->d_path);
 		return -EINVAL;
 	}
+	if (!dent->new_stat.mode) {
+		/* ignore silently */
+		return -EINVAL;
+	}
 
 	is_deleted = dent->new_link &&
 		!strcmp(dent->new_link, MARS_DELETED_STR);
