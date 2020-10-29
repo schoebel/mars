@@ -630,24 +630,35 @@ sub _scan_caches {
   %member_peers = ();
   %guest_peers = ();
   %any_peers = ();
+  my $ips_glob = "$mars/ips/ip-*";
+  my $resource_glob = "$mars/resource-*";
+  my $active_glob = "$mars/resource-*/{device,data,replay}-*";
+  my $probe_dir = "$mars/probe-$real_host";
+  if (-d $probe_dir) {
+    $ips_glob      .= " $probe_dir$ips_glob";
+    $resource_glob .= " $probe_dir$resource_glob";
+    $active_glob   .= " $probe_dir$active_glob";
+  }
   # Add all known hosts to %total_peers but _not_ to %any_peers.
   # Reason: some hosts might not be member/guest of any resource
-  foreach my $path (lamport_glob("$mars/ips/ip-*")) {
+  foreach my $path (lamport_glob($ips_glob)) {
     $path =~ m:/ip-(.*):;
     my $this_peer = $1;
     $total_peers{$this_peer} = {};
   }
   # Add all known resources to %total_resources but _not_ to %any_resources.
   # Reason: some resources might exist but have no members / guests.
-  foreach my $path (lamport_glob("$mars/resource-*")) {
+  foreach my $path (lamport_glob($resource_glob)) {
     $path =~ m:/resource-(.*):;
     my $this_res = $1;
     $total_resources{$this_res} = {};
   }
   # Now we look at all relevant combinations between resources and hosts
-  my @total_paths = lamport_glob("$mars/resource-*/{device,data,replay}-*");
+  my @total_paths = lamport_glob($active_glob);
   my %paths;
   foreach my $path (@total_paths) {
+    # %paths hash: make $probe_dir variants globally unique
+    $path =~ s/^$probe_dir//;
     $paths{$path} = 1;
   }
   foreach my $path (@total_paths) {
