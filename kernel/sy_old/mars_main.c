@@ -2126,40 +2126,6 @@ static int _kill_peer(struct mars_peerinfo *peer);
 static int run_bones(struct mars_peerinfo *peer);
 
 static
-void additional_peers(int add)
-{
-	if (add <= 0)
-		return;
-
-	down_read(&peer_list_lock);
-	while (add > 0) {
-		/* Approximate equal distribution */
-#ifdef HAS_GET_RANDOM_INT
-		int nr = peer_count > 1 ? get_random_int() % peer_count : 0;
-#else
-		struct lamport_time now = get_real_lamport();
-		int nr = peer_count > 1 ? (now.tv_sec + now.tv_nsec) % peer_count : 0;
-#endif
-		struct list_head *tmp;
-
-		for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
-			struct mars_peerinfo *peer;
-
-			peer = container_of(tmp, struct mars_peerinfo, peer_head);
-			if (peer->do_communicate | peer->do_additional)
-				continue;
-			if (!nr) {
-				peer->do_additional = true;
-				break;
-			}
-			nr--;
-		}
-		add--;
-	}
-	up_read(&peer_list_lock);
-}
-
-static
 void show_peers(void)
 {
 	struct mars_peerinfo * to_kill = NULL;
@@ -7124,7 +7090,6 @@ static int _main_thread(void *data)
 						 mars_scan_interval * HZ);
 
 		mars_global->main_trigger = false;
-		additional_peers(mars_run_additional_peers - mars_running_additional_peers);
 		trigger_mode = mars_global->trigger_mode;
 		mars_global->trigger_mode = 0;
 		/* avoid self-trigger loops */
