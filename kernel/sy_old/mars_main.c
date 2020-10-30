@@ -254,15 +254,32 @@ void clear_vals(struct key_value_pair *start)
 }
 
 static
-void show_vals(struct key_value_pair *start, const char *path, const char *add)
+void _show_vals(struct key_value_pair *start,
+	       const char *path,
+	       const char *add,
+	       bool silent)
 {
 	while (start->key) {
 		char *dst = path_make("%s/actual-%s/msg-%s%s", path, my_id(), add, start->key);
+
 		// show the old message for some keep_time if no new one is available
 		if (!start->val && start->old_val &&
 		    (long long)start->last_jiffies  + mars_keep_msg * HZ <= (long long)jiffies) {
 			start->val = start->old_val;
 			start->old_val = NULL;
+		}
+		if (silent) {
+			brick_string_free(start->val);
+			/* remove old message with minimum update frequency */
+			if (!compat_deletions) {
+				const char *check = ordered_readlink(dst, NULL);
+				bool gone = (!check || !*check);
+
+				brick_string_free(check);
+				if (gone)
+					ordered_symlink(MARS_DELETED_STR, dst, NULL);
+				goto done;
+			}
 		}
 		if (start->val) {
 			char *src = path_make("%ld.%09ld %ld.%09ld %s",
@@ -280,9 +297,16 @@ void show_vals(struct key_value_pair *start, const char *path, const char *add)
 			memset(&start->lamport_stamp, 0, sizeof(start->lamport_stamp));
 			brick_string_free(start->old_val);
 		}
+	done:
 		brick_string_free(dst);
 		start++;
 	}
+}
+
+static inline
+void show_vals(struct key_value_pair *start, const char *path, const char *add)
+{
+	_show_vals(start, path, add, false);
 }
 
 static inline
