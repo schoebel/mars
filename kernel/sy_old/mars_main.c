@@ -3332,6 +3332,15 @@ void peer_destruct(void *_peer)
 		_kill_peer(peer);
 }
 
+/*  1 = make oneshot peer
+ *  0 = ordindary long-running peer
+ * -1 = do not activate
+ */
+static
+int _need_oneshot(struct mars_dent *dent, const char *peer_name)
+{
+	return false;
+}
 
 static
 int _make_peer(struct mars_dent *dent)
@@ -3340,6 +3349,7 @@ int _make_peer(struct mars_dent *dent)
 	char *mypeer;
 	char *parent_path;
 	const char *feature_str;
+	int oneshot_code;
 	int status = 0;
 
 	if (!dent->new_link ||
@@ -3357,12 +3367,21 @@ int _make_peer(struct mars_dent *dent)
 		mypeer = dent->d_argv[0];
 	}
 
+	oneshot_code = _need_oneshot(dent, mypeer);
 	peer = dent->d_private;
 	if (!peer) {
-		_activate_peer(dent, mypeer, false);
-		peer = dent->d_private;
-		if (!peer)
+		/* Avoid oneshot storms right after masses of modprobe,
+		 * which might occur after mass reboot.
+		 * Important for clusters with thousands of peers.
+		 */
+		if (oneshot_code < 0)
 			return 0;
+		_activate_peer(dent, mypeer, oneshot_code > 0);
+		peer = dent->d_private;
+		if (unlikely(!peer))
+			return 0;
+	} else if (oneshot_code > 0) {
+		_activate_peer(dent, mypeer, true);
 	}
 
 	/* Determine remote features and digest mask */
