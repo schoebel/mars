@@ -3284,10 +3284,36 @@ bool is_shutdown(void)
 
 // helpers for worker functions
 
+void _activate_peer(struct mars_dent *peer_dent,
+		    const char *peer_name)
+{
+	struct mars_peerinfo *peer;
+
+	if (!mars_net_is_alive)
+		return;
+
+	peer = peer_dent->d_private;
+	if (!peer) {
+		peer = new_peer(peer_name);
+		peer_dent->d_private = peer;
+		peer_dent->d_private_destruct = peer_destruct;
+		MARS_DBG("new peer %p\n", peer);
+	}
+	/* idempotence: (res)tart any (terminated) peer */
+	start_peer(peer);
+	if (peer) {
+		peer->do_communicate = true;
+		peer->do_additional = false;
+		if (peer->doing_additional) {
+			peer->doing_additional = false;
+			mars_running_additional_peers--;
+		}
+	}
+}
+
 void activate_peer(const char *peer_name)
 {
 	struct mars_dent *peer_dent;
-	struct mars_peerinfo *peer;
 
 	MARS_DBG("peer_name='%s'\n", peer_name);
 
@@ -3302,22 +3328,7 @@ void activate_peer(const char *peer_name)
 			 peer_name);
 		return;
 	}
-	peer = peer_dent->d_private;
-	if (!peer) {
-		peer = new_peer(peer_name);
-		peer_dent->d_private = peer;
-		peer_dent->d_private_destruct = peer_destruct;
-		MARS_DBG("new peer %p\n", peer);
-		start_peer(peer);
-	}
-	if (peer) {
-		peer->do_communicate = true;
-		peer->do_additional = false;
-		if (peer->doing_additional) {
-			peer->doing_additional = false;
-			mars_running_additional_peers--;
-		}
-	}
+	_activate_peer(peer_dent, peer_name);
 }
 
 static int _kill_peer(struct mars_peerinfo *peer)
