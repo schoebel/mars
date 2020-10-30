@@ -2047,7 +2047,6 @@ struct mars_peerinfo {
 	bool do_communicate;
 	bool do_additional;
 	bool do_entire_once;
-	bool doing_additional;
 	bool oneshot;
 	bool got_info;
 	bool silent;
@@ -2643,11 +2642,6 @@ int run_bones(struct mars_peerinfo *peer)
 	if (!tmp_global)
 		return 0;
 
-	if (peer->do_additional && !peer->doing_additional &&
-	    !peer->do_communicate) {
-		peer->doing_additional = true;
-		mars_running_additional_peers++;
-	}
 	for (tmp = tmp_global->dent_anchor.next;
 	     tmp != &tmp_global->dent_anchor; tmp = tmp->next) {
 		struct mars_dent *remote_dent = container_of(tmp, struct mars_dent, dent_link);
@@ -3105,8 +3099,6 @@ int peer_thread(void *data)
 			bool old_communicate = peer->do_communicate;
 
 			if (old_additional && !old_communicate) {
-				if (mars_running_additional_peers > mars_run_additional_peers)
-					break;
 				pause_time += 30;
 				if (pause_time > 600)
 					pause_time = 600;
@@ -3144,11 +3136,6 @@ int peer_thread(void *data)
 	report_peer_connection(peer, peer_pairs);
 
 	peer->do_additional = false;
-	if (peer->doing_additional) {
-		peer->doing_additional = false;
-		peer->do_communicate = false;
-		mars_running_additional_peers--;
-	}
 	if (do_kill) {
 		_peer_cleanup(peer);
 	}
@@ -3287,10 +3274,6 @@ void _activate_peer(struct mars_dent *peer_dent,
 	if (peer) {
 		peer->do_communicate = true;
 		peer->do_additional = false;
-		if (peer->doing_additional) {
-			peer->doing_additional = false;
-			mars_running_additional_peers--;
-		}
 	}
 }
 
@@ -3354,11 +3337,6 @@ static int _kill_peer(struct mars_peerinfo *peer)
 	if (old_global) {
 		mars_free_dent_all(old_global);
 		free_mars_global(old_global);
-	}
-	if (peer->doing_additional) {
-		peer->doing_additional = false;
-		peer->do_communicate = false;
-		mars_running_additional_peers--;
 	}
 	brick_string_free(peer->peer);
 	brick_string_free(peer->peer_dir_list);
