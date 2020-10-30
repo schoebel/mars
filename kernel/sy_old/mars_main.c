@@ -2044,7 +2044,6 @@ struct mars_peerinfo {
 	bool has_terminated;
 	bool to_remote_trigger;
 	bool from_remote_trigger;
-	bool do_communicate;
 	bool do_additional;
 	bool do_entire_once;
 	bool oneshot;
@@ -3040,7 +3039,7 @@ int peer_thread(void *data)
 		} else {
 			peer->to_remote_trigger = false;
 			cmd.cmd_code = CMD_GETENTS;
-			if ((!peer->do_additional || peer->do_communicate) &&
+			if (!peer->do_additional &&
 			    !peer->oneshot &&
 			    !peer->do_entire_once &&
 			    mars_resource_list) {
@@ -3096,20 +3095,13 @@ int peer_thread(void *data)
 		brick_msleep(100);
 		if (!peer->to_terminate && !brick_thread_should_stop()) {
 			bool old_additional = peer->do_additional;
-			bool old_communicate = peer->do_communicate;
 
-			if (old_additional && !old_communicate) {
-				pause_time += 30;
-				if (pause_time > 600)
-					pause_time = 600;
-			}
 			if (pause_time < mars_propagate_interval)
 				pause_time++;
 			wait_event_interruptible_timeout(remote_event,
 							 (peer->to_remote_trigger | peer->from_remote_trigger) ||
 							 !peer_thead_should_run(peer) ||
 							 (old_additional != peer->do_additional) ||
-							 (old_communicate != peer->do_communicate) ||
 							 (mars_global && !mars_global->global_power.button),
 							 pause_time * HZ);
 		}
@@ -3120,7 +3112,7 @@ int peer_thread(void *data)
 		brick_string_free(cmd.cmd_str2);
 	restart:
 		/* additional threads should give up immediately */
-		if ((peer->do_additional && !peer->do_communicate) ||
+		if (peer->do_additional ||
 		    peer->oneshot)
 			break;
 		brick_msleep(200);
@@ -3129,10 +3121,9 @@ int peer_thread(void *data)
 	MARS_INF("-------- peer thread terminating\n");
 
 	clear_vals(peer_pairs);
-	if (peer->do_communicate)
-		make_peer_msg(peer, peer_pairs,
-			      "NOT connected %s(%s)",
-			      peer->peer, real_peer);
+	make_peer_msg(peer, peer_pairs,
+		      "NOT connected %s(%s)",
+		      peer->peer, real_peer);
 	report_peer_connection(peer, peer_pairs);
 
 	peer->do_additional = false;
@@ -3195,7 +3186,6 @@ void mars_remote_trigger(int code)
 
 		/* skip some peers when requested */
 		if (!(code & (MARS_TRIGGER_TO_REMOTE_ALL | MARS_TRIGGER_FULL)) &&
-		    !peer->do_communicate &&
 		    peer->oneshot)
 			continue;
 
@@ -3272,7 +3262,6 @@ void _activate_peer(struct mars_dent *peer_dent,
 	/* idempotence: (res)tart any (terminated) peer */
 	start_peer(peer);
 	if (peer) {
-		peer->do_communicate = true;
 		peer->do_additional = false;
 	}
 }
@@ -3315,7 +3304,6 @@ static int _kill_peer(struct mars_peerinfo *peer)
 	if (peer->peer_thread) {
 		brick_thread_stop(peer->peer_thread);
 		peer->peer_thread = NULL;
-		peer->do_communicate = false;
 		peer->do_additional = false;
 	}
 
@@ -3418,8 +3406,7 @@ int _make_peer(struct mars_dent *dent)
 	/* at least one digest must remain usable */
 	peer->available_mask |= MREF_CHKSUM_MD5_OLD;
 	/* only active peers shall count for usable masks */
-	if (peer->do_communicate ||
-	    (peer->got_info && !peer->oneshot)) {
+	if (peer->got_info && !peer->oneshot) {
 		_tmp_digest_mask &= peer->available_mask;
 		_tmp_compression_mask &= peer->available_mask;
 		if (peer->features_version < _tmp_features_version)
