@@ -76,7 +76,7 @@ extern char *my_id(void);
 extern const char *my_uuid;
 
 extern void wait_main_round(void);
-extern void activate_peer(const char *peer_name);
+extern void activate_peer(const char *peer_name, bool oneshot);
 
 struct mars_dent;
 typedef void (*dent_skip_fn)(struct mars_dent *);

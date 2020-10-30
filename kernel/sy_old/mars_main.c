@@ -3285,7 +3285,8 @@ bool is_shutdown(void)
 // helpers for worker functions
 
 void _activate_peer(struct mars_dent *peer_dent,
-		    const char *peer_name)
+		    const char *peer_name,
+		    bool oneshot)
 {
 	struct mars_peerinfo *peer;
 
@@ -3295,9 +3296,25 @@ void _activate_peer(struct mars_dent *peer_dent,
 	peer = peer_dent->d_private;
 	if (!peer) {
 		peer = new_peer(peer_name);
-		peer_dent->d_private = peer;
-		peer_dent->d_private_destruct = peer_destruct;
-		MARS_DBG("new peer %p\n", peer);
+		if (oneshot) {
+			mars_running_additional_peers++;
+			peer->need_destruct = true;
+		} else {
+			peer_dent->d_private = peer;
+			peer_dent->d_private_destruct = peer_destruct;
+		}
+		MARS_DBG("new peer %p '%s' %d\n",
+			 peer, peer_name, oneshot);
+		peer->oneshot = oneshot;
+		peer->do_entire_once = oneshot;
+		peer->silent = oneshot;
+	} else if (peer->oneshot != oneshot) {
+		MARS_DBG("peer %p '%s' oneshot %d -> %d\n",
+			 peer, peer_name,
+			 peer->oneshot, oneshot);
+		peer->oneshot = oneshot;
+		peer->do_entire_once = oneshot;
+		peer->silent = oneshot;
 	}
 	/* idempotence: (res)tart any (terminated) peer */
 	start_peer(peer);
@@ -3311,7 +3328,7 @@ void _activate_peer(struct mars_dent *peer_dent,
 	}
 }
 
-void activate_peer(const char *peer_name)
+void activate_peer(const char *peer_name, bool oneshot)
 {
 	struct mars_dent *peer_dent;
 
@@ -3328,7 +3345,7 @@ void activate_peer(const char *peer_name)
 			 peer_name);
 		return;
 	}
-	_activate_peer(peer_dent, peer_name);
+	_activate_peer(peer_dent, peer_name, oneshot);
 }
 
 static int _kill_peer(struct mars_peerinfo *peer)
@@ -3418,7 +3435,7 @@ int _make_peer(struct mars_dent *dent)
 
 	peer = dent->d_private;
 	if (!peer) {
-		activate_peer(mypeer);
+		_activate_peer(dent, mypeer, false);
 		peer = dent->d_private;
 		if (!peer)
 			return 0;
@@ -3515,7 +3532,7 @@ static int make_scan(struct mars_dent *dent)
 
 		MARS_DBG("HACK status=%d peer=%p\n", status, peer);
 		if (!peer) {
-			activate_peer(dent->d_rest);
+			activate_peer(dent->d_rest, false);
 		} else {
 			const char *dst;
 			const char *src;
@@ -3930,7 +3947,7 @@ int make_log_init(struct mars_dent *dent)
 	rot->has_error = false;
 	brick_string_free(rot->preferred_peer);
 
-	activate_peer(dent->d_rest);
+	activate_peer(dent->d_rest, false);
 
 	if (dent->new_link)
 		sscanf(dent->new_link, "%lld", &rot->dev_size);
@@ -5347,7 +5364,7 @@ int make_bio(struct mars_dent *dent)
 	_show_actual(rot->parent_path, "is-attached", rot->is_attached);
 
 	if (rot->rot_activated)
-		activate_peer(dent->d_rest);
+		activate_peer(dent->d_rest, false);
 	if (strcmp(dent->d_rest, my_id()))
 		goto done;
 
@@ -5500,7 +5517,7 @@ int make_dev(struct mars_dent *dent)
 		MARS_DBG("no rot '%s'\n", dent->d_rest);
 		goto err;
 	}
-	activate_peer(dent->d_rest);
+	activate_peer(dent->d_rest, false);
 	if (strcmp(dent->d_rest, my_id())) {
 		MARS_DBG("nothing to do\n");
 		goto err;

@@ -616,7 +616,8 @@ int handler_thread(void *data)
 				wait_main_round();
 				if (!strncmp(cmd.cmd_str2,
 					     "/mars/ips/ip-", 13))
-					activate_peer(cmd.cmd_str2 + 13);
+					activate_peer(cmd.cmd_str2 + 13,
+						      false);
 			}
 			break;
 		}
