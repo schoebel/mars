@@ -2044,7 +2044,6 @@ struct mars_peerinfo {
 	bool has_terminated;
 	bool to_remote_trigger;
 	bool from_remote_trigger;
-	bool do_additional;
 	bool do_entire_once;
 	bool oneshot;
 	bool got_info;
@@ -2955,7 +2954,7 @@ int peer_thread(void *data)
 					      "connection to '%s' (%s) could not be established: status = %d",
 					      peer->peer, real_peer, status);
 				/* additional threads should give up immediately */
-				if (peer->do_additional || peer->oneshot)
+				if (peer->oneshot)
 					break;
 				brick_msleep(200);
 				continue;
@@ -3039,8 +3038,7 @@ int peer_thread(void *data)
 		} else {
 			peer->to_remote_trigger = false;
 			cmd.cmd_code = CMD_GETENTS;
-			if (!peer->do_additional &&
-			    !peer->oneshot &&
+			if (!peer->oneshot &&
 			    !peer->do_entire_once &&
 			    mars_resource_list) {
 				char *dir_list;
@@ -3094,14 +3092,14 @@ int peer_thread(void *data)
 
 		brick_msleep(100);
 		if (!peer->to_terminate && !brick_thread_should_stop()) {
-			bool old_additional = peer->do_additional;
+			bool old_oneshot = peer->oneshot;
 
 			if (pause_time < mars_propagate_interval)
 				pause_time++;
 			wait_event_interruptible_timeout(remote_event,
 							 (peer->to_remote_trigger | peer->from_remote_trigger) ||
 							 !peer_thead_should_run(peer) ||
-							 (old_additional != peer->do_additional) ||
+							 (old_oneshot != peer->oneshot) ||
 							 (mars_global && !mars_global->global_power.button),
 							 pause_time * HZ);
 		}
@@ -3112,8 +3110,7 @@ int peer_thread(void *data)
 		brick_string_free(cmd.cmd_str2);
 	restart:
 		/* additional threads should give up immediately */
-		if (peer->do_additional ||
-		    peer->oneshot)
+		if (peer->oneshot)
 			break;
 		brick_msleep(200);
 	}
@@ -3126,7 +3123,6 @@ int peer_thread(void *data)
 		      peer->peer, real_peer);
 	report_peer_connection(peer, peer_pairs);
 
-	peer->do_additional = false;
 	if (do_kill) {
 		_peer_cleanup(peer);
 	}
@@ -3261,9 +3257,6 @@ void _activate_peer(struct mars_dent *peer_dent,
 	}
 	/* idempotence: (res)tart any (terminated) peer */
 	start_peer(peer);
-	if (peer) {
-		peer->do_additional = false;
-	}
 }
 
 void activate_peer(const char *peer_name, bool oneshot)
@@ -3304,7 +3297,6 @@ static int _kill_peer(struct mars_peerinfo *peer)
 	if (peer->peer_thread) {
 		brick_thread_stop(peer->peer_thread);
 		peer->peer_thread = NULL;
-		peer->do_additional = false;
 	}
 
 	mutex_lock(&peer->peer_lock);
@@ -3386,7 +3378,6 @@ int _make_peer(struct mars_dent *dent)
 		MARS_DBG("assuming default versions for '%s'\n", mypeer);
 		peer->features_version = OPTIONAL_FEATURES_VERSION;
 		peer->strategy_version = OPTIONAL_STRATEGY_VERSION;
-		peer->do_additional = true;
 		/* Safeguard: peer->available_mask is _not_ set */
 	}
 	MARS_DBG("versions '%s': %d %d 0x%x\n",
@@ -3398,7 +3389,6 @@ int _make_peer(struct mars_dent *dent)
 	if (peer->features_version < 3) {
 		peer->strategy_version = 0;
 		peer->available_mask = 0;
-		peer->do_additional = true;
 	}
 
 	brick_string_free(feature_str);
