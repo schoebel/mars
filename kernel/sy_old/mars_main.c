@@ -84,6 +84,12 @@ int usable_strategy_version = 0;
 int marsadm_version_major = 0;
 int marsadm_version_minor = 0;
 
+static int _tmp_marsadm_version_major = -1;
+static int _tmp_marsadm_version_minor = -1;
+
+int usable_marsadm_version_major;
+int usable_marsadm_version_minor;
+
 __u32 disabled_log_digests = 0;
 __u32 disabled_net_digests = 0;
 
@@ -481,17 +487,27 @@ const char *get_alivelink(const char *name, const char *peer)
 }
 
 static
-void get_marsadm_version(void)
+void get_marsadm_version(const char *peer)
 {
-	const char *str = get_alivelink("marsadm-version", my_id());
+	const char *str = get_alivelink("marsadm-version", peer);
+	int major = 0;
+	int minor = 0;
 
-	if (str) {
-		sscanf(str,
-		       "%d.%d",
-		       &marsadm_version_major,
-		       &marsadm_version_minor);
+	if (str && *str) {
+		sscanf(str, "%d.%d", &major, &minor);
 	}
 	brick_string_free(str);
+	if (!strcmp(peer, my_id())) {
+		marsadm_version_major = major;
+		marsadm_version_minor = minor;
+	}
+	if (_tmp_marsadm_version_major < 0 ||
+	    _tmp_marsadm_version_major < major ||
+	    (_tmp_marsadm_version_major == major &&
+	     _tmp_marsadm_version_minor < minor)) {
+		_tmp_marsadm_version_major = major;
+		_tmp_marsadm_version_minor = minor;
+	}
 }
 
 static
@@ -2084,6 +2100,9 @@ struct mars_peerinfo *new_peer(const char *peer_name, const char *peer_ip)
 {
 	struct mars_peerinfo *peer;
 
+	/* determine marsadm version once per peer */
+	get_marsadm_version(peer_name);
+
 	peer = brick_zmem_alloc(sizeof(struct mars_peerinfo));
 	peer->peer = brick_strdup(peer_name);
 	if (peer_ip)
@@ -3204,6 +3223,14 @@ int peer_thread(void *data)
 		     jiffies - peer->create_jiffies >
 		       mars_scan_interval * 2 * HZ))
 			break;
+
+		/* Re-determine marsadm versions once per hour.
+		 * Software installations are not too frequently ;)
+		 */
+		if (jiffies - peer->create_jiffies > 3600 * HZ) {
+			peer->create_jiffies = jiffies;
+			get_marsadm_version(peer->peer);
+		}
 
 		brick_msleep(100);
 		if (!peer->to_terminate && !brick_thread_should_stop()) {
@@ -7169,7 +7196,11 @@ static int _main_thread(void *data)
 		_tmp_digest_mask = available_digest_mask;
 		_tmp_compression_mask = available_compression_mask;
 
-		get_marsadm_version();
+		usable_marsadm_version_major = _tmp_marsadm_version_major;
+		usable_marsadm_version_minor = _tmp_marsadm_version_minor;
+		_tmp_marsadm_version_major = -1;
+		_tmp_marsadm_version_minor = -1;
+		get_marsadm_version(my_id());
 		MARS_DBG("usable_version %d %d %d.%d\n",
 			 usable_features_version,
 			 usable_strategy_version,

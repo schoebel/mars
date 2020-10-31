@@ -45,7 +45,10 @@
 /* transient, to re-disappear */
 extern int compat_deletions;
 
+extern int usable_features_version;
 extern int usable_strategy_version;
+extern int usable_marsadm_version_major;
+extern int usable_marsadm_version_minor;
 
 extern int mars_min_update;
 
