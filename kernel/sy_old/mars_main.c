@@ -2039,6 +2039,7 @@ struct mars_peerinfo {
 	int strategy_version;
 	__u32 available_mask;
 	int  nr_dents;
+	bool need_destruct;
 	bool to_terminate;
 	bool has_terminated;
 	bool to_remote_trigger;
@@ -2121,6 +2122,9 @@ struct mars_peerinfo *find_peer(const char *peer_name)
 	return res;
 }
 
+static int _kill_peer(struct mars_peerinfo *peer);
+static int run_bones(struct mars_peerinfo *peer);
+
 static
 void additional_peers(int add)
 {
@@ -2158,6 +2162,7 @@ void additional_peers(int add)
 static
 void show_peers(void)
 {
+	struct mars_peerinfo * to_kill = NULL;
 	struct list_head *tmp;
 
 	down_read(&peer_list_lock);
@@ -2172,8 +2177,22 @@ void show_peers(void)
 			 mars_socket_is_alive(&peer->socket),
 			 peer->to_remote_trigger,
 			 peer->from_remote_trigger);
+
+		if (peer->need_destruct &&
+		    (peer->has_terminated ||
+		     !mars_net_is_alive))
+			to_kill = peer;
 	}
 	up_read(&peer_list_lock);
+
+	/* As a side effect, kill any terminated floating peers.
+	 */
+	if (to_kill) {
+		run_bones(to_kill);
+		_kill_peer(to_kill);
+		brick_mem_free(to_kill);
+		mars_running_additional_peers--;
+	}
 }
 
 static
@@ -6932,6 +6951,7 @@ static int _main_thread(void *data)
 	MARS_INF("-------- starting as host '%s' ----------\n", id);
 
         while (mars_global->global_power.button ||
+	       peer_count > 0 ||
 	       !list_empty(&mars_global->brick_anchor)) {
 		static const struct mars_brick_type *type_list[] = {
 			(void *)&copy_brick_type,
