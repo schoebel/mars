@@ -488,6 +488,9 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("sync_flip_interval_sec", mars_sync_flip_interval, 0600),
 	INT_ENTRY("additional_peers_running", mars_running_additional_peers, 0400),
 	INT_ENTRY("additional_peers_to_run", mars_run_additional_peers, 0600),
+#ifdef CONFIG_MARS_DEBUG
+	INT_ENTRY("additional_peers_testing",mars_test_additional_peers, 0600),
+#endif
 	INT_ENTRY("peer_abort",           mars_peer_abort,        0600),
 	INT_ENTRY("client_abort",         mars_client_abort,      0600),
 	INT_ENTRY("do_fast_fullsync",     mars_fast_fullsync,     0600),

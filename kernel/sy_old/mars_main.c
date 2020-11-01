@@ -187,6 +187,11 @@ EXPORT_SYMBOL_GPL(mars_peer_abort);
 
 int mars_running_additional_peers = 0;
 int mars_run_additional_peers = 3;
+bool _compat_additional;
+
+#ifdef CONFIG_MARS_DEBUG
+int mars_test_additional_peers = 0;
+#endif
 
 int mars_fast_fullsync =
 #ifdef CONFIG_MARS_FAST_FULLSYNC
@@ -3520,7 +3525,36 @@ void peer_destruct(void *_peer)
 static
 int _need_oneshot(struct mars_dent *dent, const char *peer_name)
 {
-	return false;
+#ifdef CONFIG_MARS_DEBUG
+	if (mars_test_additional_peers == 1)
+		return 1;
+	else if (mars_test_additional_peers == -1)
+		return 0;
+#endif
+
+	/* Check whether enough scalability features are installed.
+	 */
+	if (unlikely(usable_strategy_version < 0)) {
+		/* We are in the very first round after modprobe.
+		 * Wait until features are determined globally.
+		 */
+		return -1;
+	}
+	/* Old behaviour, may lead to "fork bombs".
+	 * Do not use on big clusters.
+	 */
+	if (_compat_additional)
+		return 0;
+
+#ifdef CONFIG_MARS_DEBUG
+	if (mars_test_additional_peers == 2)
+		return 1;
+	else if (mars_test_additional_peers == -2)
+		return -1;
+#endif
+
+	/* PROVISIONARY TESTING */
+	return 1;
 }
 
 static
@@ -7206,6 +7240,12 @@ static int _main_thread(void *data)
 			 usable_strategy_version,
 			 marsadm_version_major,
 			 marsadm_version_minor);
+
+		_compat_additional =
+			usable_strategy_version < 4 ||
+			usable_marsadm_version_major < 2 ||
+			(usable_marsadm_version_major == 2 &&
+			 usable_marsadm_version_minor < 9);
 
 		/* determine compat_* variables */
 		compat_alivelinks =

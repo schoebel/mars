@@ -76,6 +76,10 @@ extern int mars_keep_msg;
 
 extern int mars_fast_fullsync;
 
+#ifdef CONFIG_MARS_DEBUG
+extern int mars_test_additional_peers;
+#endif
+
 #define MARS_IP_STR      "/mars/ips/ip-"
 extern void invalidate_user_cache(void);
 
