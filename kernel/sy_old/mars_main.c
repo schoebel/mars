@@ -78,8 +78,8 @@
 #include "../mars_usebuf.h"
 #endif
 
-int usable_features_version = 0;
-int usable_strategy_version = 0;
+int usable_features_version = -1;
+int usable_strategy_version = -1;
 
 int marsadm_version_major = 0;
 int marsadm_version_minor = 0;
@@ -98,6 +98,11 @@ static int _tmp_strategy_version = OPTIONAL_STRATEGY_VERSION;
 
 static __u32 _tmp_digest_mask    = MREF_CHKSUM_MD5_OLD;
 static __u32 _tmp_compression_mask = MREF_COMPRESS_ANY;
+
+static struct lamport_time oneshot_stamp;
+static struct lamport_time _tmp_oneshot_stamp;
+static char *oneshot_peer = NULL;
+static char *_tmp_oneshot_peer = NULL;
 
 /* Portability: can we use get_random_int() in a module? */
 #include <linux/string_helpers.h>
@@ -3525,6 +3530,9 @@ void peer_destruct(void *_peer)
 static
 int _need_oneshot(struct mars_dent *dent, const char *peer_name)
 {
+	struct mars_peerinfo *peer;
+	struct lamport_time *stamp;
+
 #ifdef CONFIG_MARS_DEBUG
 	if (mars_test_additional_peers == 1)
 		return 1;
@@ -3546,6 +3554,14 @@ int _need_oneshot(struct mars_dent *dent, const char *peer_name)
 	if (_compat_additional)
 		return 0;
 
+	/* From here on, the new push operations & friends are available.
+	 * We try to avoid O(n^2) peer activation storms in very big clusters,
+	 * e.g. after a mass reboot / modprobe, as may happen after a
+	 * mass power outage of thousands of servers.
+	 * The new ssh-free push method will _selectively_ activate any
+	 * necessary peer, in place of the old catch-all.
+	 */
+
 #ifdef CONFIG_MARS_DEBUG
 	if (mars_test_additional_peers == 2)
 		return 1;
@@ -3553,8 +3569,31 @@ int _need_oneshot(struct mars_dent *dent, const char *peer_name)
 		return -1;
 #endif
 
-	/* PROVISIONARY TESTING */
-	return 1;
+	/* Determine second-highest oneshot stamp during cyclic round.
+	 * Skip any ordinary working peers.
+	 */
+	peer = dent->d_private;
+	stamp = &dent->new_stat.mtime;
+	if ((!peer ||
+	     !peer->peer_thread ||
+	     peer->has_terminated) &&
+	    (!oneshot_stamp.tv_sec ||
+	     lamport_time_compare(stamp, &oneshot_stamp) < 0) &&
+	    (!_tmp_oneshot_stamp.tv_sec ||
+	     lamport_time_compare(stamp, &_tmp_oneshot_stamp) > 0)) {
+		_tmp_oneshot_stamp = *stamp;
+		brick_string_free(_tmp_oneshot_peer);
+		_tmp_oneshot_peer = brick_strdup(peer_name);
+	}
+
+	/* Are we the previously selected oneshot peer? */
+	if (oneshot_peer && !strcmp(peer_name, oneshot_peer)) {
+		brick_string_free(oneshot_peer);
+		return 1;
+	}
+
+	/* default under the new regime: do not activate */
+	return -1;
 }
 
 static
@@ -7247,6 +7286,18 @@ static int _main_thread(void *data)
 			(usable_marsadm_version_major == 2 &&
 			 usable_marsadm_version_minor < 9);
 
+		/* possibly start additional background peers */
+		if (!_tmp_oneshot_peer) {
+			/* rollover */
+			oneshot_stamp.tv_sec = 0;
+		} else if (mars_running_additional_peers < mars_run_additional_peers) {
+			brick_string_free(oneshot_peer);
+			oneshot_peer = _tmp_oneshot_peer;
+			_tmp_oneshot_peer = NULL;
+			oneshot_stamp = _tmp_oneshot_stamp;
+			_tmp_oneshot_stamp.tv_sec = 0;
+		}
+
 		/* determine compat_* variables */
 		compat_alivelinks =
 			needed_compat_alivelinks ||
@@ -7336,6 +7387,9 @@ done:
 	brick_string_free(mars_resource_list);
 	brick_string_free(tmp_resource_list);
 	brick_string_free(my_uuid);
+
+	brick_string_free(_tmp_oneshot_peer);
+	brick_string_free(oneshot_peer);
 
 	MARS_INF("-------- done status = %d ----------\n", status);
 	//cleanup_mm();
