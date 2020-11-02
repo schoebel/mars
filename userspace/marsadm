@@ -7841,6 +7841,9 @@ my %cmd_table =
        "usage: cron (no parameters)",
        "Do all necessary regular housekeeping tasks.",
        "This is equivalent to log-rotate all; sleep 7; log-delete-all all.",
+       [
+	\&link_purge_global,
+       ],
        \&cron_phase1,
        "purge links and rotate logfiles",
        "SLEEP",
