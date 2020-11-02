@@ -4619,6 +4619,13 @@ sub link_purge_global {
     lprint "  unlink '$leftlink'\n" if $verbose;
     system("rm -rf $leftlink");
   }
+  # remove any left-over probe dirs
+  my $probe_glob = "$mars/probe-*";
+  foreach my $path (glob($probe_glob)) {
+    my $age = get_link_stamp($path);
+    next unless ($age < $min_time);
+    system("rm -rf $path");
+  }
 }
 
 sub link_purge_res {
