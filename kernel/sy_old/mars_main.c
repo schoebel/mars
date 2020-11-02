@@ -2753,7 +2753,9 @@ int peer_action_dent_list(struct mars_peerinfo *peer,
 		}
 		if (unlikely(strcmp(peer_uuid->new_link, my_uuid) &&
 			     strcmp(my_uuid, "(any)"))) {
-			MARS_ERR("UUID mismatch for peer %s, you are trying to communicate with a foreign cluster!\n", peer->peer);
+			MARS_ERR("UUID mismatch '%s' != '%s' for peer '%s'\n",
+				 peer_uuid->new_link, my_uuid,
+				 peer->peer);
 			make_peer_msg(peer, peer_pairs,
 				      "UUID mismatch with '%s', own cluster '%s' is trying to communicate with a foreign cluster '%s'",
 				      peer->peer,
