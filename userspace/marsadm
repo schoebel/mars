@@ -7862,6 +7862,9 @@ my %cmd_table =
    "link-purge-all"
    => [
        "Remove any .deleted links.",
+       [
+	\&link_purge_global,
+       ],
        \&link_purge_res,
       ],
    "fake-sync"
