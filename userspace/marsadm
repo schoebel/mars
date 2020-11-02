@@ -5192,6 +5192,8 @@ sub primary_phase4 {
     return;
   }
   check_mars_device($cmd, $res, 1, 0);
+  # new switch semantics, when nothing has failed before: up
+  up_res_phase1(@_);
   _systemd_trigger($cmd);
 }
 
