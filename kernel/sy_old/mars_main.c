@@ -128,6 +128,8 @@ int mars_min_update = 10;
 
 struct lamport_time modprobe_stamp;
 
+const char *my_uuid;
+
 loff_t raw_total_space = 0;
 loff_t global_total_space = 0;
 EXPORT_SYMBOL_GPL(global_total_space);
@@ -2720,6 +2722,14 @@ int peer_action_dent_list(struct mars_peerinfo *peer,
 	struct mars_global *old_global = NULL;
 	int status;
 
+	if (unlikely(!my_uuid)) {
+		MARS_ERR("cannot determine my own uuid for peer %s\n", peer->peer);
+		make_peer_msg(peer, peer_pairs,
+			      "cannot determine my own uuid");
+		status = -EPROTO;
+		goto free;
+	}
+
 	MARS_DBG("fetching remote dentries from '%s' '%s'\n",
 		 peer->peer, paths);
 
@@ -2730,7 +2740,6 @@ int peer_action_dent_list(struct mars_peerinfo *peer,
 	if (likely(!list_empty(&new_global->dent_anchor))) {
 		LIST_HEAD(old_list);
 		struct mars_dent *peer_uuid;
-		const char *my_uuid;
 
 		MARS_DBG("got remote dentries from %s\n", peer->peer);
 
@@ -2740,14 +2749,6 @@ int peer_action_dent_list(struct mars_peerinfo *peer,
 			make_peer_msg(peer, peer_pairs,
 				      "peer '%s' has no UUID",
 				      peer->peer);
-			status = -EPROTO;
-			goto free;
-		}
-		my_uuid = ordered_readlink("/mars/uuid", NULL);
-		if (unlikely(!my_uuid)) {
-			MARS_ERR("cannot determine my own uuid for peer %s\n", peer->peer);
-			make_peer_msg(peer, peer_pairs,
-				      "cannot determine my own uuid");
 			status = -EPROTO;
 			goto free;
 		}
@@ -2761,11 +2762,9 @@ int peer_action_dent_list(struct mars_peerinfo *peer,
 				      peer->peer,
 				      my_uuid,
 				      peer_uuid->new_link);
-			brick_string_free(my_uuid);
 			status = -EPROTO;
 			goto free;
 		}
-		brick_string_free(my_uuid);
 
 		make_peer_msg(peer, peer_pairs,
 			      "CONNECTED %s(%s) fetching '%s'",
@@ -6237,6 +6236,14 @@ int kill_res(struct mars_dent *dent)
 static
 int make_uuid(struct mars_dent *dent)
 {
+	if (!dent->new_link || !*dent->new_link)
+		return -EAGAIN;
+
+	if (my_uuid && !strcmp(my_uuid, dent->new_link))
+		return 0;
+
+	brick_string_free(my_uuid);
+	my_uuid = brick_strdup(dent->new_link);
 	/* Do not write alivelinks before {create,join}-cluster
 	 * has been exectued.
 	 */
@@ -7037,6 +7044,7 @@ done:
 
 	brick_string_free(mars_resource_list);
 	brick_string_free(tmp_resource_list);
+	brick_string_free(my_uuid);
 
 	MARS_INF("-------- done status = %d ----------\n", status);
 	//cleanup_mm();

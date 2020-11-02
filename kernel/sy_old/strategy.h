@@ -73,6 +73,7 @@ extern int mars_keep_msg;
 extern int mars_fast_fullsync;
 
 extern char *my_id(void);
+extern const char *my_uuid;
 
 extern void wait_main_round(void);
 extern void activate_peer(const char *peer_name);
