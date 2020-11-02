@@ -4483,14 +4483,105 @@ sub delete_file_cmd {
   }
 }
 
-sub link_purge_res {
-  my ($cmd, $res) = @_;
+sub _purge_del_glob {
+  my ($clean_glob, $min_time) = @_;
+  foreach my $path (glob($clean_glob)) {
+    next unless -l $path;
+    my $val = readlink($path);
+    next unless $val eq ".deleted";
+    my $age = get_link_stamp($path);
+    next unless $age;
+    if ($age < $min_time) {
+      lprint "  remove deleted '$path'\n" if $verbose;
+      unlink($path);
+    }
+  }
+}
+
+sub _get_min_time {
+  my ($start_time, $res) = @_;
+  my $min_time = $start_time;
+  if (!$force) {
+    my %status = get_alive_links($res, "time", "*");
+    foreach my $peer (keys(%status)) {
+      my $stamp = $status{$peer};
+      $min_time = $stamp if $stamp < $min_time;
+    }
+    # protect against dead / decommissioned peers
+    my $back_time = $start_time - 3600 * $keep_backups;
+    $min_time = $back_time if $back_time > $min_time;
+  }
+  $min_time -= $window;
+  return $min_time;
+}
+
+# old deletion method, hopefully to disappear somewhen in future
+sub _compat_purge_deleted {
+  my ($del_glob, $msg_glob) = @_;
+  my $start_time = mars_time();
+  foreach my $leftlink (lamport_glob($del_glob)) {
+    # remove outdated .deleted-* markers
+    if ($leftlink =~ m:/.deleted-:) {
+      my $info = get_link($leftlink, 2);
+      if ($info =~ m/^[0-9]+,[0-9]+$/) {
+	my ($serial, $mode) = split(/,/, $info);
+	my $todo_glob = "$mars/todo-global/deleted-*";
+	if ($mode) {
+	  $leftlink =~ m:/resource-([^/]+)/:;
+	  my $res = $1;
+	  $todo_glob = "$mars/resource-$res/todo-$real_host/deleted-*"
+	}
+	# compute the minimum border
+	my $border = 0;
+	foreach my $deleted_link (lamport_glob($todo_glob)) {
+	  my $limit = get_link($deleted_link, 2);
+	  next if !$limit || $limit <= 1;
+	  $border = $limit if (!$border || $limit < $border);
+	}
+	if ($serial < $border && $serial > 1) {
+	  unlink($leftlink);
+	  next;
+	}
+      }
+    }
+    my $stamp = get_link_stamp($leftlink);
+    next unless $stamp + 3600 * 24 < $start_time;
+    lprint "  unlink '$leftlink'\n" if $verbose;
+    unlink($leftlink);
+  }
+  foreach my $leftlink (lamport_glob($msg_glob)) {
+    # cleanup historic msg-*
+    if ($leftlink =~ m:/msg-(conncetion-from-|additional-connection-):) {
+      lprint "  unlink deprecated '$leftlink'\n" if $verbose;
+      unlink($leftlink);
+      next;
+    }
+    my $stamp = get_link_stamp($leftlink);
+    next unless $stamp + 3600 * 4 < $start_time;
+    lprint "  unlink '$leftlink'\n" if $verbose;
+    unlink($leftlink);
+  }
+}
+
+my $purged_globally = 0;
+
+sub link_purge_global {
+  my ($cmd) = @_;
+  return if $purged_globally++;
+  my $start_time = mars_time();
+  my $min_time = _get_min_time($start_time, "*");
+  # new deletion method
+  my $clean_glob = "$mars/{,*/}{.*,*}";
+  _purge_del_glob($clean_glob, $min_time);
+  # old deletion method
+  my $del_glob = "$mars/{,*/}{.tmp,.deleted,delete,work}-*";
+  my $msg_glob = "$mars/actual-*/msg-*";
+  _compat_purge_deleted($del_glob, $msg_glob);
   # keep internal backups for at least 1 hour
   if ($keep_backups < 1) {
     $keep_backups = 1;
   }
   lprint "removing left-over symlinks...\n" if $verbose;
-  my $start_time = mars_time();
   # remove any old alivelinks
   my $kernel_compat = get_alive_link("compat-alivelinks", $host, 2);
   # only when a new kernel is running
@@ -4528,66 +4619,20 @@ sub link_purge_res {
     lprint "  unlink '$leftlink'\n" if $verbose;
     system("rm -rf $leftlink");
   }
+}
+
+sub link_purge_res {
+  my ($cmd, $res) = @_;
+  link_purge_global($cmd);
+  my $start_time = mars_time();
+  my $min_time = _get_min_time($start_time, $res);
   # new deletion method
-  my %status = get_alive_links($res, "time", "*");
-  my $min_time = $start_time;
-  foreach my $peer (keys(%status)) {
-    my $stamp = $status{$peer};
-    $min_time = $stamp if $stamp < $min_time;
-  }
-  my $clean_glob = "$mars/{,resource-$res/}{,*/}{.*,*}";
-  foreach my $path (glob($clean_glob)) {
-    next unless -l $path;
-    my $val = readlink($path);
-    next unless $val eq ".deleted";
-    my $age = get_link_stamp($path);
-    next unless $age;
-    if ($age + $window/2 < $min_time) {
-      lprint "  remove deleted '$path'\n" if $verbose;
-      unlink($path);
-    }
-  }
-  # old deletion method, hopefully to disappear somewhen in future
-  foreach my $leftlink (lamport_glob("$mars/{,resource-$res/}{,*/}{.tmp,.deleted,delete,work}-*")) {
-    # remove outdated .deleted-* markers
-    if ($leftlink =~ m:/.deleted-:) {
-      my $info = get_link($leftlink, 2);
-      if ($info =~ m/^[0-9]+,[0-9]+$/) {
-	my ($serial, $mode) = split(/,/, $info);
-	my $todo_glob = "$mars/todo-global/deleted-*";
-	if ($mode) {
-	  $todo_glob = "$mars/resource-$res/todo-$real_host/deleted-*"
-	}
-	# compute the minimum border
-	my $border = 0;
-	foreach my $deleted_link (lamport_glob($todo_glob)) {
-	  my $limit = get_link($deleted_link, 2);
-	  next if !$limit || $limit <= 1;
-	  $border = $limit if (!$border || $limit < $border);
-	}
-	if ($serial < $border && $serial > 1) {
-	  unlink($leftlink);
-	  next;
-	}
-      }
-    }
-    my $stamp = get_link_stamp($leftlink);
-    next unless $stamp + 3600 * 24 < $start_time;
-    lprint "  unlink '$leftlink'\n" if $verbose;
-    unlink($leftlink);
-  }
-  foreach my $leftlink (lamport_glob("$mars/{,resource-$res/}actual-*/msg-*")) {
-    # cleanup historic msg-*
-    if ($leftlink =~ m:/msg-(conncetion-from-|additional-connection-):) {
-      lprint "  unlink deprecated '$leftlink'\n" if $verbose;
-      unlink($leftlink);
-      next;
-    }
-    my $stamp = get_link_stamp($leftlink);
-    next unless $stamp + 3600 * 4 < $start_time;
-    lprint "  unlink '$leftlink'\n" if $verbose;
-    unlink($leftlink);
-  }
+  my $clean_glob = "$mars/resource-$res/{,*/}{.*,*}";
+  _purge_del_glob($clean_glob, $min_time);
+  # old deletion method
+  my $del_glob = "$mars/resource-$res/{,*/}{.tmp,.deleted,delete,work}-*";
+  my $msg_glob = "$mars/resource-$res/actual-*/msg-*";
+  _compat_purge_deleted($del_glob, $msg_glob);
 }
 
 sub logdelete_res {
