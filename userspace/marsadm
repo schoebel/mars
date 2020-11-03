@@ -1568,10 +1568,12 @@ sub correct_path {
   $path =~ s:(/is-)(fetch)[a-z]*$:$1copy:;
   $path =~ s:(/is-)(apply)[a-z]*$:$1replay:;
   $path =~ s:(/is-(copy|replay|sync))[a-z]*$:$1ing:;
+  $path =~ s:(/is-)(primary|secondary)[a-z]*$:$1primary:;
   # todo switches
   $path =~ s:(/fetch)[a-z]*$:/connect:;
   $path =~ s:(/apply)[a-z]*$:/allow-replay:;
   $path =~ s:(/replay)[a-z]*$:/allow-replay:;
+  $path =~ s:(/todo-.*/(primary|secondary))[a-z]*$:/primary:;
   return $path;
 }
 
@@ -1958,10 +1960,12 @@ sub wait_cond {
        "copying"  => "is-copying",
        "sync"     => "is-syncing",
        "syncing"  => "is-syncing",
-       "primary" => "is-primary",
+       "primary"  => "is-primary",
+       "secondary"=> "is-primary",
       );
     my $name = $table{$specific};
     ldie "actual indicator '$specific' does not exist\n" unless exists($table{$specific});
+    $is_on = !$is_on if $name eq "secondary";
     check_status($cmd, $res, $name, $is_on ? 1 : 0, 1, 1);
   } else {
     my %table =
@@ -1972,6 +1976,8 @@ sub wait_cond {
        "connect" => "fetch",
        "replay" => "replay",
        "sync" => "sync",
+       "primary" => "primary",
+       "secondary" => "secondary",
       );
     my $name = $table{$specific};
     ldie "button '$specific' does not exist\n" unless exists($table{$specific});
@@ -2414,6 +2420,8 @@ sub check_todo {
   for (;;) {
     $link = get_link($path, $unchecked);
     return unless defined($link);
+    $link = ($link eq $host) ? 1 : 0 if $key eq "primary";
+    $link = ($link eq "(none)") ? 1 : 0 if $key eq "secondary";
     my ($key_msg, $val_msg, $wait_msg, $action_msg) = _make_messages(@_);
     if (defined($inv) && $inv) {
       last if $link != $val;
@@ -6526,7 +6534,7 @@ sub eval_fn {
       sleep_timeout($time);
       return "";
     }
-    if (/^wait[-_]?((?:todo|is)[-_](?:attach|sync|fetch|replay|primary)[-_](?:on|off))$/) {
+    if (/^wait[-_]?((?:todo|is)[-_](?:attach|sync|fetch|replay|primary|secondary)[-_](?:on|off))$/) {
       my $specific = $1;
       $specific =~ s/_/-/g;
       wait_cond($$env{"cmd"}, $$env{"res"}, $specific);
@@ -7414,7 +7422,7 @@ my %trivial_globs =
    => "",
 
 
-   "wait-{is,todo}-{attach,sync,fetch,replay,primary}-{on,off}"
+   "wait-{is,todo}-{attach,sync,fetch,replay,primary,secondary}-{on,off}"
    => "",
   );
 
