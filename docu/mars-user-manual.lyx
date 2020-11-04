@@ -6732,7 +6732,31 @@ pause-fetch
 , in order to avoid future surprises when the new primary will somewhen
  change to secondary mode again (in the far-distant future), and you have
  forgotten to remember the fact that fetching had been switched off.
- 
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Newer marsadm versions, starting from 
+\family typewriter
+mars0.1astable113
+\family default
+, do not need this step anymore.
+ After successful activation of 
+\family typewriter
+/dev/mars/mydata
+\family default
+, the equivalent of 
+\family typewriter
+marsadm up mydata
+\family default
+ is executed automatically.
 \end_layout
 
 \end_deeper
@@ -18166,11 +18190,19 @@ marsadm wait-umount
 \begin_layout Plain Layout
 
 \size scriptsize
-Postcondition: 
+Postcondition: the current host is in primary role; 
 \family typewriter
 /dev/mars/$dev_name
 \family default
- appears locally and is usable; the current host is in primary role.
+ appears locally and is usable; the equivalent of 
+\family typewriter
+marsadm up $res
+\family default
+ has been executed as a safeguard against any forgotten previous 
+\family typewriter
+pause-*
+\family default
+ operations.
 \end_layout
 
 \begin_layout Plain Layout
