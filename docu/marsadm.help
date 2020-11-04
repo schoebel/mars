@@ -86,14 +86,31 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Only for experts.
     Used by several special commands like merge-cluster, split-cluster
     etc for creating backups of important data.
-  --ip=<ip>
-    Override the IP address stored in the symlink tree, as well as
-    the default IP determined from the list of network interfaces.
+  --ip-<peer>=<ip>
+    Override the IP address of <peer> from the symlink tree, or as determined
+    from old IP backups, or as determined from the list of network interfaces.
     Usually you will need this only at 'create-cluster' or
-    'join-cluster' for resolving ambiguities.
+    'join-cluster' / 'merge-cluster' / 'split-cluster' for resolving
+    ambiguities, or for telling the IP address of yet unknown peers.
+    It is also useful at 'lowlevel-set-host-ip' for updating an
+    already existing IP address.
+    Hint: this option may be given multiple times for different <peer>
+    parts.
+  --ip=<ip>
+    Equivalent to --peer-$host=<ip>
+    where $host is usually the same as $(hostname), but you may
+    use --host=<hostname> as an _earlier_ argument for overriding
+    the default <hostname>.
   --ssh-port=<port_nr>
     Override the default ssh port (22) for ssh and rsync.
     Useful for running {join,merge}-cluster on non-standard ssh ports.
+  --no-ssh
+    Equivalent to --ssh-port=0
+    Disable ssh and rsync completely.
+    Dead peers / interrupted networks / firewalling may lead to (temporary)
+    hangs of ssh probes, which are used by default for backwards compatibility.
+    Hint: ssh_config options like ConnectTimeout may also help.
+    Use this to disable any probes, and no time loss.
   --ssh-opts="<ssh_commandline_options>"
     Override the default ssh commandline options. Also used for rsync.
   --macro=<text>
@@ -315,11 +332,15 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     List cluster member names and IP addresses.
 
   lowlevel-set-host-ip
-    usage: lowlevel-set-host-ip <hostname> <new_ip>
-    Set IP for host.
+    usage: lowlevel-set-host-ip <hostname> [<new_ip>]
+    Set IP address <new_ip> for host.
+    When <new_ip> is not given, try to determine the old address
+    from the symlink tree, or from old backups.
+    Often, you want to set a new IP address in place of an old one.
+    Hint: you may also use the --ip-<hostname>=<new_ip> option.
 
   merge-cluster
-    usage: merge-cluster <hostname_of_other_cluster>
+    usage: merge-cluster <hostname_of_other_cluster> [<host_ip>]
     Precondition: the resource names of both clusters must be disjoint.
     Create the union of two clusters, consisting of the
     union of all machines, and the union of all resources.

@@ -9541,7 +9541,7 @@ marsadm
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="14" columns="3">
+<lyxtabular version="3" rows="16" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -9721,7 +9721,7 @@ rough estimate
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -9855,7 +9855,7 @@ for no good reason
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -9969,7 +9969,7 @@ Several cluster managers are not re-entrant and may deadlock.
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -10080,7 +10080,7 @@ Several cluster managers are not re-entrant and may deadlock.
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -10194,7 +10194,7 @@ Careful when using this on extremely huge LVs where the sync may take serveral
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -10394,7 +10394,7 @@ The default timeout is 5s.
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -10486,7 +10486,7 @@ The time window for checking the aliveness of other nodes in the network.
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -10579,7 +10579,7 @@ Only relevant for cron and link-purge-all.
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -10853,7 +10853,7 @@ status open
 
 \family typewriter
 \size scriptsize
---ip=$ip
+--ssh-port=$number
 \end_layout
 
 \end_inset
@@ -10901,38 +10901,332 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-By default, 
+(deprecated) Only useful when the old 
 \family typewriter
-marsadm
+ssh
 \family default
- always uses the IP for 
+-based or
 \family typewriter
-$host
+ rsync
 \family default
- as stored in the symlink tree (directory 
+-based 
 \family typewriter
-/mars/ips/
-\family default
-).
- When such an IP entry does not (yet) exist (e.g.
- 
-\family typewriter
-create-cluster
+{join,merge,split}-cluster
 \family default
  or 
 \family typewriter
-join-cluster
+join-resource
 \family default
-), all local network interfaces are automatically scanned for IPv4 adresses,
- and the first one is taken.
+ commands are used.
+ When newer
+\family typewriter
+ mars.ko
+\family default
+ and 
+\family typewriter
+marsadm
+\family default
+ versions are installed throughout the whole cluster, this is not needed
+ anymore.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+--no-ssh
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Avoid any potential timeouts / hangs caused by networks or firewalls, by
+ explicitly disabling the old ssh-based communication method, and relying
+ on the new MARS communication protocol (by defaut on port 7777).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+--ip=$ip
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+
+\backslash
+hfill 
+\end_layout
+
+\end_inset
+
+ or
+\begin_inset Newline newline
+\end_inset
+
+--ip-$peer=$ip
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Override the IP information for the local host or 
+\family typewriter
+$peer
+\family default
+ at the command line.
+ When this option is 
+\emph on
+not
+\emph default
+ given, the following rules apply in the following order:
+\end_layout
+
+\begin_layout Enumerate
+
+\size scriptsize
+lookup the IP for 
+\family typewriter
+$peer
+\family default
+ from the symlink tree in directory 
+\family typewriter
+/mars/ips/
+\family default
+.
+\end_layout
+
+\begin_layout Enumerate
+
+\size scriptsize
+so-called 
+\emph on
+probe data
+\emph default
+ from other hosts in the cluster.
+ This tries to retrieve preliminary information as best as possible.
+ It can however only work when the other peers are reachable, which also
+ implies that in turn 
+\emph on
+their
+\emph default
+ currently configurred local peer IP must be correct.
+\end_layout
+
+\begin_layout Enumerate
+
+\size scriptsize
+Backups in 
+\family typewriter
+/mars/backup-$timestamp/
+\family default
+ as automatically created by several commands like 
+\family typewriter
+merge-cluster
+\family default
+ and 
+\family typewriter
+split-cluster
+\family default
+.
+ When multiple historic backups are available, the 
+\emph on
+youngest
+\emph default
+ version will always win.
+\end_layout
+
+\begin_layout Enumerate
+
+\size scriptsize
+fallback to a DNS query via 
+\family typewriter
+/usr/bin/host
+\family default
+.
+\end_layout
+
+\begin_layout Enumerate
+
+\size scriptsize
+all local network interfaces are scanned by 
+\family typewriter
+/sbin/ip
+\family default
+ for IPv4 adresses, and the 
+\emph on
+first
+\emph default
+ one is taken.
  This may lead to wrong decisions if you have multiple network interfaces.
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
-In order to override the automatic IP detection and.to explicitly tell the
- IP address of your storage network, use this option.
+In order to override this type of error-prone automatic IP detection and
+ to explicitly tell the IP address of your 
+\emph on
+storage network
+\emph default
+ (which might be different from the ordinary IP address of your host), please
+ use this option for maximum safety.
 \end_layout
 
 \begin_layout Plain Layout
@@ -10947,9 +11241,14 @@ In order to override the automatic IP detection and.to explicitly tell the
 \size scriptsize
 Usually you will need this only at 
 \family typewriter
-{create,join}-cluster
+{create,join,merge}-cluster
 \family default
-.
+ to determine any not yet known addresses.
+ Typically, 
+\family typewriter
+{leave,split}-cluster
+\family default
+ are able to automatically detect historic information from the backups.
 \end_layout
 
 \end_inset
@@ -10961,7 +11260,7 @@ Usually you will need this only at
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -12011,12 +12310,21 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Precondition: the set of resources at the local cluster (transitively) and
- at the cluster of 
+Preconditions: The set of resources at the local cluster (transitively)
+ and at the other cluster as addressed by some foreign member 
 \family typewriter
 $host
 \family default
  (transitively) must be disjoint.
+ 
+\emph on
+All(!)
+\emph default
+ hosts must be mutually reachable via the MARS ports (default 7777 to 7779).
+ Since 
+\family typewriter
+mars0.1astable114,
+\family default
  
 \family typewriter
 ssh
@@ -12025,8 +12333,13 @@ ssh
 \family typewriter
 rsync
 \family default
- must be working between all members of both clusters, without password
- (e.g.
+ are no longer required, provided that 
+\emph on
+both
+\emph default
+ clusters have been fully updated.
+ Otherwise ssh must be working between all members of both clusters, without
+ password (e.g.
  via ssh-agent).
 \end_layout
 
@@ -12104,7 +12417,7 @@ split-cluster
 
 
 \size scriptsize
-Future versions of MARS should be constructed for very big clusters in the
+Future versions of MARS will be constructed for very big clusters in the
  range of thousands of nodes.
  Development has not yet stabilized there, and operational experiences are
  missing at the moment.
@@ -12326,6 +12639,29 @@ merge-cluster
 
 \size scriptsize
 Use this for avoidance of too big clusters.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Since 
+\family typewriter
+mars0.1astable114,
+\family default
+ 
+\family typewriter
+ssh
+\family default
+ and 
+\family typewriter
+rsync
+\family default
+ are no longer required, provided that 
+\emph on
+all
+\emph default
+ hosts are mutually reachable over the default metadata communication port
+ 7777.
 \end_layout
 
 \end_inset
@@ -25830,7 +26166,11 @@ status open
 
 \size scriptsize
 List all configured cluster members together with their currently configured
- IP addresses, as known 
+ IP addresses, as known in 
+\family typewriter
+/mars/ips/
+\family default
+ 
 \emph on
 locally
 \emph default
@@ -25961,25 +26301,44 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Change the assignment of IP addresses 
+Change the assignment of IP addresses in 
+\family typewriter
+/mars/ips/
+\family default
+ at least 
 \emph on
 locally
 \emph default
-.
- May be used when hosts are moved to different network locations, or when
- different network interfaces are to be used for replication (e.g.
+, and 
+\emph on
+try
+\emph default
+ to push the information also to other known peers (which is 
+\emph on
+unreliable
+\emph default
+ in general).
+ This may be used when hosts are moved to different network locations, or
+ when different network interfaces are to be used for replication (e.g.
  dedicated replication IPs).
  Notice that the names of hosts must not change at all, only their IP addresses
- may be changed.
- Check active connections with 
+ may be changed, or new peers may be manually added this way.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Tip: check active connections with 
 \family typewriter
 netstat
 \family default
  & friends.
  Updates may need some time to proceed (socket timeouts etc).
-\begin_inset Newline newline
-\end_inset
+\end_layout
 
+\begin_layout Plain Layout
+
+\size scriptsize
 Hint: for safety, call this on 
 \emph on
 all
@@ -25994,6 +26353,34 @@ new
 new
 \emph default
  information from.
+ See also the description of the 
+\family typewriter
+--ip-$peer=$peer_ip
+\family default
+ option.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\size scriptsize
+For creation of new cluster memberships, always prefer 
+\family typewriter
+join-resource
+\family default
+.
+ It checks for any uuid mismatches and for any resource name clashes / violation
+s of resource name uniqueness, which could be
+\series bold
+ extremely dangerous
+\series default
+ for your data.
 \end_layout
 
 \end_inset
@@ -26101,13 +26488,105 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Remove a host from the cluster membership 
+Useful for decommissioning of dead / physically destroyed hosts after a
+ disaster.
+ Removes a host from the cluster membership in 
+\family typewriter
+/mars/ips/
+\family default
+ at least 
 \emph on
 locally
 \emph default
 , together with its IP address assignment.
+ It also 
+\emph on
+tries
+\emph default
+ to push the deletion to other cluster members (which is 
+\emph on
+unreliable
+\emph default
+ in general).
  This does not remove any further information.
  In particular, resource memberships are untouched.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\size scriptsize
+Please use 
+\family typewriter
+leave-resource --host=$name --force
+\family default
+ first.
+ Repeat this for 
+\emph on
+all
+\emph default
+ former resource memberships.
+ Otherwise you may produce left-over 
+\begin_inset Quotes eld
+\end_inset
+
+zombie resource memberships
+\begin_inset Quotes erd
+\end_inset
+
+, which in turm may prevent 
+\family typewriter
+marsadm cron
+\family default
+ from deleting logfile data, and consequently filling up 
+\family typewriter
+/mars/
+\family default
+ forever.
+ When 
+\emph on
+all
+\emph default
+ replicas of any such resource are decommissioned eventually, also use 
+\family typewriter
+delete-resource --force
+\family default
+ and friends.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+
+\size scriptsize
+ Have a look at 
+\family typewriter
+leave-resource --host=$hostname
+\family default
+, first without 
+\family typewriter
+--force
+\family default
+, and also 
+\family typewriter
+leave-cluster --host=$hostname
+\family default
+, first without 
+\family typewriter
+--force
+\family default
+, which are checking for some common pitfalls.
 \end_layout
 
 \end_inset
