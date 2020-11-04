@@ -671,7 +671,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   tree
   used-{log,net}-{digest,compression}
   uuid
-  wait-{is,todo}-{attach,sync,fetch,replay,primary}-{on,off}
+  wait-{is,todo}-{attach,sync,fetch,replay,primary,secondary}-{on,off}
   writeback-rest
   {alive,fetch,replay,work}-{timestamp,age,lag}
   {all,the}-{pretty-,}{global-,}{{err,wrn,inf}-,}msg
@@ -683,7 +683,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   {fetch,replay,work}-{lognr,logcount}
   {get,actual}-primary
   {implemented,usable}-{digests,compressions}
-  {is,todo,nr}-{attach,sync,fetch,replay,primary}
+  {is,todo,nr}-{attach,sync,fetch,replay,primary,secondary}
   {my,all}-{resources,members,guests}
   {potential,implemented,usable}-features
   {sync,fetch,replay,work,syncpos}-{size,pos}

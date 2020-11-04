@@ -31326,7 +31326,7 @@ strerror()
 \labelwidthstring 00.00.0000
 
 \family typewriter
-todo-{attach,sync,fetch,replay,primary}
+todo-{attach,sync,fetch,replay,primary,secondary}
 \family default
  Shows a boolean value (0 or 1) indicating the current state of the correspondin
 g todo switch (whether on or off).
@@ -31337,6 +31337,30 @@ reference "sec:The-State-of"
 
 \end_inset
 
+.
+ Exceptions: 
+\family typewriter
+todo-primary
+\family default
+ is not reporting the boolean value of a switch, but means that the designated
+ primary string as reported by 
+\family typewriter
+get-primary
+\family default
+ is equal to the current host.
+ Similary, 
+\family typewriter
+todo-secondary
+\family default
+ means that no designated primary exists throughout the cluster, indicating
+ that 
+\family typewriter
+get-primary
+\family default
+ equals to the special string value 
+\family typewriter
+(none)
+\family default
 .
 \end_layout
 
@@ -31434,7 +31458,7 @@ errno
 \labelwidthstring 00.00.0000
 
 \family typewriter
-is-{attach,sync,fetch,replay,primary,module-loaded}
+is-{attach,sync,fetch,replay,primary,secondary,module-loaded}
 \family default
  Shows a boolean value (0 or 1) indicating the 
 \emph on
@@ -31455,8 +31479,12 @@ todo-*
 \family typewriter
 is-primary
 \family default
- means that the transaction logger has reached a working state, but the
- corresponding 
+ (or its negation 
+\family typewriter
+is-secondary
+\family default
+) means that the transaction logger has (resp.
+ not) reached a working state, but the corresponding 
 \family typewriter
 /dev/mars/mydata
 \family default
@@ -31593,13 +31621,13 @@ reference "subsec:Emergency-Mode"
 \labelwidthstring 00.00.0000
 
 \family typewriter
-nr-{attach,sync,fetch,replay,primary}
+nr-{attach,sync,fetch,replay,primary,secondary}
 \family default
  Show the 
 \emph on
 total number
 \emph default
- of cluster hosts which are in corresponding state 
+ of resource members which are in corresponding state 
 \family typewriter
 %is-
 \emph on
@@ -33085,11 +33113,19 @@ The following is for hackers who know what they are doing.
 \labelwidthstring 00.00.0000
 
 \family typewriter
-wait-{is,todo}-{attach,sync,fetch,replay,primary}-{on,off}
+wait-{is,todo}-{attach,sync,fetch,replay,primary,secondary}-{on,off}
 \family default
  This may be used to program some useful waiting conditions in advanced
  macro scripts.
- Use at your own risk!
+ It works via busy wait, and does not support disjoint waiting conditions.
+ Use at your own risk! Hint: for disjoint and/or more complex waiting conditions
+, and/or for programming your own finite state transition machines etc,
+ please prefer the non-blocking 
+\family typewriter
+{is,todo}-*
+\family default
+ and sisters, and program any busy wait yourself (or try to avoid busy-wait
+ at all).
 \end_layout
 
 \begin_layout Section
