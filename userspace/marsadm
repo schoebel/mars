@@ -5994,6 +5994,10 @@ sub eval_fn {
       $primary = ($primary eq $$env{"host"}) if $op eq "todo";
       return $primary;
     }
+    if (/^todo[-_]?secondary$/) {
+      my $val = eval_fn($env, "get-primary", $arg1);
+      return $val eq "(none)" ? 1 : 0;
+    }
     if (/^todo[-_]?(attach|sync|fetch|replay)?$/) {
       my $what = $1;
       $what = parse_macro($arg1, $env) unless defined($what);
@@ -6248,7 +6252,7 @@ sub eval_fn {
       my $split = detect_splitbrain($$env{"res"}, 0);
       return $split ? 0 : 1;
     }
-    if (/^is[-_]?(attach|sync|fetch|replay|primary|emergency)$/) {
+    if (/^is[-_]?(attach|sync|fetch|replay|primary|secondary|emergency)$/) {
       my $what = $1;
       my $is = "is";
       $is = "has" if $what eq "emergency";
@@ -6256,17 +6260,20 @@ sub eval_fn {
       $peer = $$env{"host"} unless $peer;
       my $lnk = $$env{"resdir"} . "/actual-$peer/$is-$what";
       $lnk = correct_path($lnk);
-      return get_link($lnk, 1);
+      my $val = get_link($lnk, 1);
+      $val = $val ? 0 : 1 if $what eq "secondary";
+      return $val;
     }
-    if (/^nr[-_]?(attach|sync|fetch|replay|primary)$/) {
+    if (/^nr[-_]?(attach|sync|fetch|replay|primary|secondary)$/) {
       my $what = $1;
       my $is = "is";
       $is = "has" if $what eq "emergency";
-      my $glob = $$env{"resdir"} . "/actual-*/$is-$what";
-      $glob = correct_path($glob);
       my $nr = 0;
-      foreach my $lnk (glob($glob)) {
+      foreach my $peer (get_member_peers($$env{"res"})) {
+	my $lnk = $$env{"resdir"} . "/actual-$peer/$is-$what";
+	$lnk = correct_path($lnk);
 	my $val = get_link($lnk, 1);
+	$val = !$val if $what eq "secondary";
 	$nr++ if $val;
       }
       return $nr;
@@ -7328,7 +7335,7 @@ my %trivial_globs =
    # intended for human use
    "{all,the}-{pretty-,}{global-,}{{err,wrn,inf}-,}msg"
    => "",
-   "{is,todo,nr}-{attach,sync,fetch,replay,primary}"
+   "{is,todo,nr}-{attach,sync,fetch,replay,primary,secondary}"
    => "",
    "is-{split-brain,consistent,emergency,orphan}"
    => "",
