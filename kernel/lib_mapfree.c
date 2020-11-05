@@ -406,6 +406,7 @@ void mf_dirty_append(struct mapfree_info *mf, enum dirty_stage stage, loff_t new
 	unsigned long flags;
 
 	traced_writelock(&dl->dl_lock, flags);
+	dl->dl_appends++;
 	if (dl->dl_length < newlen)
 		dl->dl_length = newlen;
 	traced_writeunlock(&dl->dl_lock, flags);
@@ -429,6 +430,24 @@ loff_t mf_dirty_length(struct mapfree_info *mf, enum dirty_stage stage)
 #ifdef CONFIG_64BIT
 	/* Avoid locking by assuming that 64bit reads are atomic in itself */
 	smp_read_barrier_depends();
+
+	/* Use the real length when no writes are flying.
+	 */
+	if (stage > 0) {
+		struct dirty_length *d0 = _get_dl(mf, 0);
+		u64 nr1 = ACCESS_ONCE(dl->dl_appends);
+		u64 nr0 = ACCESS_ONCE(d0->dl_appends);
+
+		if (nr0 <= nr1) {
+			loff_t real_size = mapfree_real_size(mf);
+
+			/* check for races once again */
+			nr1 = ACCESS_ONCE(dl->dl_appends);
+			nr0 = ACCESS_ONCE(d0->dl_appends);
+			if (nr0 <= nr1)
+				return real_size;
+		}
+	}
 	return ACCESS_ONCE(dl->dl_length);
 #else /* cannot rely on atomic read of two 32bit values */
 	loff_t res;

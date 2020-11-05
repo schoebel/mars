@@ -57,6 +57,7 @@ enum dirty_stage {
 
 struct dirty_length {
 	rwlock_t dl_lock;
+	u64      dl_appends;
 	loff_t   dl_length;
 };
 
