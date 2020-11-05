@@ -86,6 +86,8 @@ void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max);
 
 void mapfree_pages(struct mapfree_info *mf, int grace_keep);
 
+loff_t mapfree_real_size(struct mapfree_info *mf);
+
 ////////////////// dirty IOs in append mode  //////////////////
 
 void mf_dirty_append(struct mapfree_info *mf, enum dirty_stage stage, loff_t newlen);

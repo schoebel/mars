@@ -155,6 +155,17 @@ void mapfree_put(struct mapfree_info *mf)
 }
 EXPORT_SYMBOL_GPL(mapfree_put);
 
+loff_t mapfree_real_size(struct mapfree_info *mf)
+{
+	loff_t length = 0;
+	if (likely(mf && mf->mf_filp && mf->mf_filp->f_mapping)) {
+		struct inode *inode = mf->mf_filp->f_mapping->host;
+
+		length = i_size_read(inode);
+	}
+	return length;
+}
+
 struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 {
 	struct mapfree_info *mf = NULL;
@@ -176,14 +187,12 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 		up_read(&mf_table[hash].hash_mutex);
 	
 		if (mf) {
-			struct inode *inode = mf->mf_filp->f_mapping->host;
-			loff_t length;
+			loff_t length = mapfree_real_size(mf);
 			int i;
 
 			/* In some cases like truncated logfiles,
 			 * account for any shortenings.
 			 */
-			length = i_size_read(inode);
 			mf->mf_max = length;
 			for (i = 0; i < DIRTY_MAX; i++)
 				mf_dirty_reduce(mf, i, length);
