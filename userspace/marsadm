@@ -4789,6 +4789,19 @@ sub _get_deletable_logfiles {
   my ($cmd, $res) = @_;
   my $min = -1;
   my $max = -1;
+  my %replay_links;
+  my $max_restarts = 3;
+  # Race prevention: get the replay links first, afterwards the logfiles
+ restart:
+  my @replay_paths = lamport_glob("$mars/resource-$res/replay-*") or ldie "cannot find any replay symlinks\n";
+  foreach my $path (@replay_paths) {
+    my $target = get_link($path, 1);
+    if (!$target) {
+      ldie "cannot get link '$path'\n" if $max_restarts-- < 0;
+      goto restart;
+    }
+    $replay_links{$path} = $target;
+  }
   my @log_paths = lamport_glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
   foreach my $path (@log_paths) {
     $path =~ m/\/log-([0-9]+)-/;
@@ -4796,9 +4809,8 @@ sub _get_deletable_logfiles {
     $min = $nr if ($nr < $min || $min < 0);
     $max = $nr if ($nr > $max || $max < 0);
   }
-  my @paths = lamport_glob("$mars/resource-$res/replay-*") or ldie "cannot find any replay symlinks\n";
-  foreach my $path (@paths) {
-    my $target = get_link($path);
+  foreach my $path (@replay_paths) {
+    my $target = $replay_links{$path};
     $target =~ m/^log-([0-9]+)/;
     my $nr = $1;
     $max = $nr if ($nr < $max || $max < 0);
