@@ -5131,6 +5131,8 @@ sub logdelete_res {
     my $next = shift(@paths);
     # never delete the very last logfile
     last unless $next;
+    # safeguard: only delete logfiles having a minium age
+    last if !$force && is_link_recent($first);
     $nr = $first;
     $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
     next unless $nr < $max_deletable;
