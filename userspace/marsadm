@@ -3048,15 +3048,20 @@ sub log_purge_res {
   my ($cmd, $res) = @_;
   lwarn "DANGEROUS OPERATION: $cmd --force on resource '$res'\n" if $force;
   %visited_pos = ();
+  my %logs;
   my %start_logs;
-  my $start_count = 0;
   my $basedir = "$mars/resource-$res";
+  my $max_retry = 3;
+ retry:
+  my $start_count = 0;
+  my %situation = ();
   foreach my $data (lamport_glob("$basedir/{data,replay}-*")) {
     $data =~ m:/(data|replay)-(.+):;
     my $peer = $2;
     my $replay = "$basedir/replay-$peer";
     my $target = get_link($replay, 1);
     next unless $target;
+    $situation{$replay} = $target;
     lprint "found replay link '$replay' -> '$target'\n";
     $target =~ s/,.*//;
     $start_logs{$target}++;
@@ -3064,10 +3069,10 @@ sub log_purge_res {
     _mark_path_transitive($basedir, $target, $peer);
   }
   if (!$start_count) {
-    lprint "Resource contains no valid information - there is nothing to purge\n";
+    lprint "Resource '$res' contains no valid information - there is nothing to purge\n";
     return;
   }
-  my %logs;
+  my %to_delete = ();
   foreach my $file (lamport_glob("$basedir/version-*")) {
     $file =~ m:/(version-([0-9]+)-([^,]+)): or ldie "bad path '$file'\n";
     my $cand = $1;
@@ -3089,7 +3094,7 @@ sub log_purge_res {
       next;
     }
     lwarn "deleting foreign object from peer '$from' because you said --force\n" if $from ne $host;
-    _create_delete($file);
+    $to_delete{$file}++;
   }
   foreach my $file (lamport_glob("$basedir/log-*")) {
     $file =~ m:/(log-[0-9]+-(.*)): or ldie "bad path '$file'\n";
@@ -3115,6 +3120,27 @@ sub log_purge_res {
       next;
     }
     lwarn "deleting foreign object from peer '$from' because you said --force\n" if $from ne $host;
+    $to_delete{$file}++;
+  }
+  # check for any races in the initial situation
+  my $nr_races = 0;
+  foreach my $replay (sort keys(%situation)) {
+    my $old_situation = $situation{$replay};
+    my $target = get_link($replay, 1);
+    if (!$target || $target ne $old_situation) {
+      lwarn "Race on '$replay' -> '$target' instead of '$old_situation'\n";
+      $nr_races++;
+    }
+  }
+  if ($nr_races) {
+    if ($max_retry-- > 0) {
+      lwarn "Restarting due to $nr_races races\n";
+      goto restart;
+    }
+    ldie "Detected $nr_races, the situation is not stable\n";
+  }
+  # POINT OF NO RETURN
+  foreach my $file (sort keys(%to_delete)) {
     _create_delete($file);
   }
   my $count = 0;
