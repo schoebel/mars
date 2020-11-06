@@ -3106,6 +3106,10 @@ sub log_purge_res {
       $logs{$log} = -1;
       next;
     }
+    if (!$force && is_link_recent($log)) {
+      lprint "  skipping recent object '$log'\n";
+      next;
+    }
     if (!$force && $from ne $host) {
       lprint "  skipping foreign object '$log'\n";
       next;
