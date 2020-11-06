@@ -487,8 +487,8 @@ same
 \end_layout
 
 \begin_layout Standard
-In addition, MARS' replicated block devices may be exported via iSCSI or
- other protocols.
+In addition to the new MARS prosumer device, MARS' replicated block devices
+ may be exported via iSCSI or other protocols.
  Filesystems residing on top of MARS may be exported via NFS or glusterfs,
  etc.
  For more details, please consult 
@@ -1773,7 +1773,7 @@ no security
 trusted network
 \series default
 .
- Anyone who can connect to the MARS ports (default 7777 to 7779) can potentially
+ Anyone who can connect to the MARS ports (default 7776 to 7779) can potentially
  breach in and become root.
  Therefore, you 
 \series bold
@@ -3026,7 +3026,7 @@ marsadm view all
 Ignore any warnings that no resources are yet defined.
  But you should check that no warnings about network connections are appearing.
  Both cluster nodes should be able to communicate with each other over the
- MARS ports (default 7777 to 7779).
+ MARS ports (default 7776 to 7779).
 \end_layout
 
 \begin_layout Enumerate
@@ -11018,7 +11018,7 @@ status open
 \size scriptsize
 Avoid any potential timeouts / hangs caused by networks or firewalls, by
  explicitly disabling the old ssh-based communication method, and relying
- on the new MARS communication protocol (by defaut on port 7777).
+ on the new MARS metadata communication protocol (by defaut on port 7777).
 \end_layout
 
 \end_inset
@@ -12318,7 +12318,7 @@ $host
 \emph on
 All(!)
 \emph default
- hosts must be mutually reachable via the MARS ports (default 7777 to 7779).
+ hosts must be mutually reachable via the MARS ports (default 7776 to 7779).
  Since 
 \family typewriter
 mars0.1astable114,
@@ -29943,6 +29943,22 @@ CONFIG_MARS_IPv4_TOS
 \begin_layout Description
 
 \family typewriter
+MARS_TRAFFIC_PROSUMER
+\family default
+ (by default on port 7776 with 
+\family typewriter
+IPTOS_LOWDELAY
+\family default
+) This can be tuned in directory 
+\family typewriter
+/proc/sys/mars/tcp_tuning_0_prosumer_traffic/
+\family default
+.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
 MARS_TRAFFIC_META
 \family default
  (by default on port 7777 with 
@@ -29951,7 +29967,7 @@ IPTOS_LOWDELAY
 \family default
 ) This can be tuned in directory 
 \family typewriter
-/proc/sys/mars/tcp_tuning_0_meta_traffic/
+/proc/sys/mars/tcp_tuning_1_meta_traffic/
 \family default
 .
 \end_layout
@@ -29967,7 +29983,7 @@ IPTOS_RELIABILITY
 \family default
 ) This can be tuned in directory 
 \family typewriter
-/proc/sys/mars/tcp_tuning_1_replication_traffic/
+/proc/sys/mars/tcp_tuning_2_replication_traffic/
 \family default
 .
 \end_layout
@@ -29983,7 +29999,7 @@ IPTOS_MINCOST
 \family default
 ) This can be tuned in directory 
 \family typewriter
-/proc/sys/mars/tcp_tuning_2_sync_traffic/
+/proc/sys/mars/tcp_tuning_3_sync_traffic/
 \family default
 .
  Attention: since the advent of 
@@ -38767,6 +38783,10 @@ Meaning of the port numbers (as currently configured into the kernel module,
 \end_layout
 
 \begin_layout Itemize
+7776 = prosumer device traffic
+\end_layout
+
+\begin_layout Itemize
 7777 = metadata / symlink propagation
 \end_layout
 
@@ -38779,8 +38799,9 @@ Meaning of the port numbers (as currently configured into the kernel module,
 \end_layout
 
 \begin_layout Standard
-7777 must be always active on a healthy cluster.
- 7778 and 7779 will appear only on demand, when some data is transferred.
+Port 7777 must be always active on a healthy cluster.
+ Ports 7776 and 7778 to 7779 will appear only on demand, when some data
+ is transferred.
 \end_layout
 
 \begin_layout Standard
@@ -38857,7 +38878,7 @@ up
 \begin_layout Itemize
 
 \family typewriter
-netstat --tcp | grep 7777
+netstat --tcp | grep 777
 \family default
  does not show anything.
  Please check the following:
@@ -39222,7 +39243,7 @@ status open
 
 \begin_layout Plain Layout
 
-primary:~# netstat --tcp | grep 7777
+primary:~# netstat --tcp | grep 777
 \end_layout
 
 \end_inset
@@ -39382,7 +39403,7 @@ status open
 
 \begin_layout Plain Layout
 
-primary:~# netstat --tcp | grep 7777
+primary:~# netstat --tcp | grep 777
 \end_layout
 
 \end_inset
