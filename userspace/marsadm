@@ -5125,9 +5125,12 @@ sub logdelete_res {
   }
 
   my $nr = 0;
+  my $first = shift(@paths);
   for (;;) {
-    my $first = shift(@paths);
     last unless $first;
+    my $next = shift(@paths);
+    # never delete the very last logfile
+    last unless $next;
     $nr = $first;
     $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
     next unless $nr < $max_deletable;
@@ -5135,6 +5138,7 @@ sub logdelete_res {
     lprint "chosen '$first' for deletion\n" if $verbose;
 
     _create_delete($first);
+    $first = $next;
   }
   # Determine whether a parallel join-resource is ongoing
   my $transient_join = 0;
