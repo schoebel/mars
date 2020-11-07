@@ -4745,19 +4745,24 @@ sub logrotate_res {
   my ($cmd, $res) = @_;
   # report any upgrades / downgrades
   set_link($marsadm_version, "$mars/actual-$host/marsadm-version");
-  unless ($force) {
+  if ($force) {
+    lwarn "operation $cmd --force is DANGEROUS\n";
+  } else {
     return if check_primary($cmd, $res, 0, 1);
   }
-  my @paths = lamport_glob("$mars/resource-$res/log-*-$host");
+  my $log_glob = "$mars/resource-$res/log-*-$host";
+  lprint "get logfiles '$log_glob'\n";
+  my @paths = lamport_glob($log_glob);
   my $last;
   if (@paths) {
     @paths = sort alphanum_cmp @paths;
+    lprint "found " . scalar(@paths) . " logfiles.\n";
     $last = pop(@paths);
   } else {
-    lwarn "no logfile exists on '$host' for resource '$res'\n";
-    my $replay = get_link("$mars/resource-$res/replay-$host");
-    $replay =~ m:^(log-[0-9]+-[^,]+),: or ldie "badly formed replaylink '$replay'\n";
-    $last = $1;
+    # By definition, logrotate an old logfile must have been produced
+    # by the _same_ host. Only relevant for dangerous cron --force.
+    lprint "nothing to $cmd: no old logfiles for '$host' exist.\n";
+    return;
   }
   if (-z $last) {
     lprint "an empty logfile '$last' already exists, nothing to do.\n" if $verbose;
