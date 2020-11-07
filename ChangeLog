@@ -139,6 +139,15 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable114
+	* Major usability: ssh-less {merge,split}-cluster.
+	  Now all cluster operations should work without ssh and
+	  its agent forwarding.
+	  Of course, you will need to update mars.ko and marsadm
+	  on all of your machines first.
+	* Doc update: describe new options and behaviour.
+	* Some smaller fixes / safeguards / improvements.
+
 mars0.1astable113
 	* Critical fix: deadlock was possible after receiving _corrupted_
 	  data over the network. Very unlikely to trigger, since there
