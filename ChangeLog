@@ -139,6 +139,31 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable113
+	* Critical fix: deadlock was possible after receiving _corrupted_
+	  data over the network. Very unlikely to trigger, since there
+	  is a lot of other magic checking, but anyway.
+	  Now treated like any other communication error.
+	* Major improvement: "marsadm primary" (also with --force) now does
+	  the equivalent of "up", after the operation has succeeded.
+	  This should be useful for people who forget to do the "up" manually
+	  after a manual unplanned failover.
+	* Minor fix: race at {wait,update}-cluster leading to unnecessary
+	  abort.
+	* Minor fix: update-cluster did not always transfer directories.
+	* Minor fix: new join-cluster method could sometimes fail
+	  at the first try. Workaround by repetition.
+	* Minor fix: primitive macros wait-todo-primary-{on,off} were
+	  documented, but not implemented.
+	* Minor improvement: by the way, all missing combinations from
+	  {is,nr,todo}-secondary and
+	  wait-{is,todo}-{primary,secondary}-{on,off} are also implemented.
+	* Minor improvement: try to automatically fetch any unknown
+	  peer info. May help after failed join-cluster & co.
+	* Minor improvement: speedup new join-cluster method.
+	* Minor doc update: describe new primitives.
+	* Some smaller fixes and improvements.
+
 mars0.1astable112
 	* Critical fix: generic mars_readlink() did not work with an
 	  extremely low probability, so it slipped through years
