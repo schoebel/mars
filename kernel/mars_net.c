@@ -984,11 +984,20 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 		status = mars_recv_raw(msock, &len, sizeof(len), sizeof(len));
 		if (unlikely(status < 0))
 			goto done;
+		if (unlikely(len < 0 || len > KMALLOC_MAX_SIZE)) {
+			MARS_ERR("#%d bad string alloc size %d\n",
+				 msock->s_debug_nr, len);
+			status = -EOVERFLOW;
+			goto done;
+		}
 
 		if (len > 0 && item) {
 			char *str = _brick_string_alloc(len, line);
+
 			if (unlikely(!str)) {
-				MARS_ERR("#%d string alloc error\n", msock->s_debug_nr);
+				MARS_ERR("#%d string alloc error\n",
+					 msock->s_debug_nr);
+				status = -ENOMEM;
 				goto done;
 			}
 			*(void**)item = str;
