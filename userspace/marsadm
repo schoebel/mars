@@ -5701,6 +5701,7 @@ sub primary_phase2 {
 
 sub primary_phase2b {
   my ($cmd, $res) = @_;
+  return 0 if $force;
   if (systemd_present(@_)) {
     my $old = _get_designated_primary($res, -1);
     return try_to_avoid_splitbrain($cmd, $res, $old);
