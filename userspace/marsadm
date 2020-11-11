@@ -225,6 +225,7 @@ my $ssh_port = 22;
 my $ssh_opts = "-A -o StrictHostKeyChecking=no -o ConnectTimeout=5";
 my $ssh_probe = "uname -a";
 my $rsync_opts = "-av --exclude='.deleted-*'";
+my $systemd_enabled = 1;
 my $kernel_version = 0;
 my $kernel_features_version = -1;
 my $kernel_strategy_version = -1;
@@ -869,6 +870,10 @@ sub key_intersect {
 
 # dynamic systemd control
 
+sub _systemd_enabled {
+  return $systemd_enabled;
+}
+
 my $systemd_subdir = defined($ENV{SYSTEMD_SUBDIR}) ? $ENV{SYSTEMD_SUBDIR} : "systemd-templates";
 my $systemd_system_dirs = defined($ENV{SYSTEMD_SYSTEM_DIRS}) ?
   $ENV{SYSTEMD_SYSTEM_DIRS} :
@@ -1249,6 +1254,7 @@ sub set_systemd_want {
 
 sub systemd_present {
   my ($cmd, $res) = @_;
+  return "" unless _systemd_enabled();
   my $unit_glob = "$mars/resource-$res/systemd-*-unit";
   return "" unless lamport_glob($unit_glob);
   my $want_path = "$mars/resource-$res/systemd-want";
@@ -1263,6 +1269,7 @@ sub get_systemd_want {
 
 sub systemd_exists {
   my ($unit_list) = @_;
+  return 0 unless _systemd_enabled();
   foreach my $unit (split(/ +/, $unit_list)) {
     my $check_cmd = "list-unit-files \"$unit\" | wc -l";
     my $count = `$systemctl $check_cmd`;
@@ -1276,6 +1283,7 @@ sub systemd_exists {
 
 sub systemd_enabled {
   my ($unit_list) = @_;
+  return 1 unless _systemd_enabled();
   foreach my $unit (split(/ +/, $unit_list)) {
     my $check_cmd = "is-enabled '$unit' > /dev/null 2>&1";
     my $status = systemctl($check_cmd);
@@ -1289,6 +1297,7 @@ sub systemd_enabled {
 
 sub _systemd_op {
   my ($op, $unit) = @_;
+  return 0 unless _systemd_enabled();
   if (systemctl("cat '$unit' > /dev/null 2>&1")) {
     lwarn "systemd unit $unit does not exist.\n";
     return 0;
@@ -1329,6 +1338,7 @@ sub report_systemd_status {
 
 sub systemd_activate {
   my ($cmd, $res, $override, $fail_abort) = @_;
+  return 0 unless _systemd_enabled();
   my $want_path = "$mars/resource-$res/systemd-want";
   my $want = get_link($want_path, 2);
   my $want_host_path = "$mars/resource-$res/userspace/systemd-want-$host";
@@ -1593,6 +1603,7 @@ sub is_systemd_generate_necessary {
 
 sub __systemd_trigger {
   my $cmd = shift;
+  return unless _systemd_enabled();
   # ensure that trigger file exists
   mkdir("$mars/userspace") unless -d "$mars/userspace";
   my $trigger = "$mars/userspace/systemd-trigger";
@@ -9167,6 +9178,9 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   --threshold=<bytes>
     Some macros like 'fetch-threshold-reached' use this for determining
     their sloppyness.
+  --systemd-enable=<0|1>
+    Enable / disable any systemd actions.
+    On by default.
   --host=<hostname>
     Act as if the command was running on cluster node <hostname>.
     Warning! This is dangerous! First try --dry-run
@@ -9341,6 +9355,9 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg =~ s/--threshold\s*=\s*([0-9]+)/$1/) {
     $threshold = get_size($arg);
+    next;
+  } elsif ($arg =~ s/--systemd-enable\s*=\s*([0-9]+)?/$1/) {
+    $systemd_enabled = $1;
     next;
   } elsif ($arg =~ s/--host\s*=\s*([-_A-Za-z0-9]+)/$1/) {
     check_id($arg, 1);
