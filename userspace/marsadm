@@ -868,11 +868,38 @@ sub key_intersect {
 
 ##################################################################
 
-# dynamic systemd control
+# HACK for 1&1 specific cm3 detection, to disappear (hopefully)
+
+my $systemd_recursive_call = defined($ENV{SYSTEMD_RECURSIVE_CALL}) ?
+  $ENV{SYSTEMD_RECURSIVE_CALL} :
+  "clustermanagerd|nodeagent\\.real";
+my $cm3_checked = 0;
+my $cm3_recursive = 0;
+
+sub is_called_recursive {
+  if (!$cm3_checked) {
+    $cm3_checked = 1;
+    my $ppid = getppid();
+    if ($ppid == 1) {
+      return 1;
+    }
+    my $tree = `/usr/bin/pstree $ppid`;
+    my $recursive_call = ($tree && $tree =~ m{$systemd_recursive_call});
+    $cm3_recursive = $recursive_call;
+  }
+  return $cm3_recursive;
+}
 
 sub _systemd_enabled {
+  if (!$cm3_checked && is_called_recursive()) {
+    $systemd_enabled = 0;
+  }
   return $systemd_enabled;
 }
+
+##################################################################
+
+# dynamic systemd control
 
 my $systemd_subdir = defined($ENV{SYSTEMD_SUBDIR}) ? $ENV{SYSTEMD_SUBDIR} : "systemd-templates";
 my $systemd_system_dirs = defined($ENV{SYSTEMD_SYSTEM_DIRS}) ?
@@ -1705,10 +1732,22 @@ sub _systemd_trigger {
   systemd_unlock();
 }
 
-sub systemd_trigger {
+sub systemd_trigger_extern {
   my ($cmd) = @_;
   return unless -d $systemd_target_dir;
   systemd_lock();
+  my $called_external = ($cmd =~ m/extern/);
+  my $failed_lock = systemd_lock(undef, $called_external);
+  if ($failed_lock) {
+    lwarn "another action is currently running, and $cmd was called externally\n";
+    return;
+  }
+  if ($called_external) {
+    $cm3_checked = 1;
+    $systemd_enabled = 1;
+  } elsif (is_called_recursive()) {
+    return 0;
+  }
   if (is_systemd_generate_necessary($cmd)) {
     my %changes;
     # Continue with unlock in case of any deaths inbetween
@@ -1779,7 +1818,7 @@ sub set_systemd_unit {
     _create_delete($want_path);
   }
   finish_links();
-  systemd_trigger($cmd);
+  systemd_trigger_extern($cmd);
 }
 
 ##################################################################
@@ -9160,7 +9199,11 @@ my %cmd_table =
    # systemd interface
    "systemd-trigger"
    => [
-       \&systemd_trigger,
+       \&systemd_trigger_extern,
+      ],
+   "systemd-trigger-extern"
+   => [
+       \&systemd_trigger_extern,
       ],
   );
 
@@ -9428,6 +9471,7 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg =~ s/--systemd-enable\s*=\s*([0-9]+)?/$1/) {
     $systemd_enabled = $1;
+    $cm3_checked = 1;
     next;
   } elsif ($arg =~ s/--host\s*=\s*([-_A-Za-z0-9]+)/$1/) {
     check_id($arg, 1);
