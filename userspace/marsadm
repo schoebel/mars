@@ -1649,15 +1649,13 @@ sub set_systemd_unit {
   my $unit_start_path = "$mars/resource-$res/systemd-start-unit";
   my $unit_stop_path  = "$mars/resource-$res/systemd-stop-unit";
   # Convenience: try to fix any non-escaped resource names
-  $start_name =~ m/($res)/p;
-  if ($1) {
+  if ($start_name =~ m/($res)/p) {
     my $pre = $PREMATCH;
     my $post = $POSTMATCH;
     my $replac = _systemd_escape($res);
     $start_name = $pre . $replac . $post;
   }
-  $stop_name =~ m/($res)/p;
-  if ($1) {
+  if ($stop_name =~ m/($res)/p) {
     my $pre = $PREMATCH;
     my $post = $POSTMATCH;
     my $replac = _systemd_escape($res);
@@ -1666,9 +1664,9 @@ sub set_systemd_unit {
   my $want_path = "$mars/resource-$res/systemd-want";
   if ($start_name) {
     set_link($start_name, $unit_start_path);
-    my $primary = _get_designated_primary($res, 1);
-    if ($primary) {
-      set_link($primary, $want_path);
+    my $target = _get_designated_primary($res, 1);
+    if ($target) {
+      set_link($target, $want_path);
     }
   } else {
     _create_delete($unit_start_path);
