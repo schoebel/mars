@@ -3135,7 +3135,7 @@ sub log_purge_res {
   if ($nr_races) {
     if ($max_retry-- > 0) {
       lwarn "Restarting due to $nr_races races\n";
-      goto restart;
+      goto retry;
     }
     ldie "Detected $nr_races, the situation is not stable\n";
   }
