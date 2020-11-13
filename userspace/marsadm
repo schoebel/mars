@@ -1192,10 +1192,19 @@ sub _instantiate_systemd_unit {
   return (1, $outfile, $replac);
 }
 
+my %generated_units;
+
 sub make_systemd_unit {
   my ($cmd, $res, $target) = @_;
+  # dynamic programming
+  $res = "" unless defined($res);
+  my $gen_key = "$cmd.$res.$target";
+  if (defined($generated_units{$gen_key})) {
+    lprint "systemd unit '$gen_key' already generated\n" if $verbose;
+    return $generated_units{$gen_key};
+  }
   my @res_list;
-  if (defined($res)) {
+  if ($res) {
     @res_list = ($res);
   } else {
     @res_list = get_member_resources($host);
@@ -1229,16 +1238,19 @@ sub make_systemd_unit {
 	  get_systemd_files() unless %systemd_files;
 	  if (defined($systemd_files{$subst})) {
 	    lprint "systemd unit '$subst' is already present at '$systemd_files{$subst}'\n" if $verbose;
+	    $generated_units{$gen_key} = 0;
 	    return 0;
 	  }
 	}
       }
     }
     lwarn "cannot find any systemd template for target unit '$target'\n";
+    $generated_units{$gen_key} = 0;
     return 0;
   }
   lprint "==== instantiating template '$found_template_file'\n" if $verbose;
   my ($nr, $file, $name) = _instantiate_systemd_unit($found_env, $found_template_file, $found_subst);
+  $generated_units{$gen_key} = $nr;
   return $nr;
 }
 
@@ -1493,6 +1505,7 @@ sub __systemd_commit {
     }
   }
   # Commit
+  %generated_units = ();
   system("rm -rf \"$systemd_target_dir.old\"");
   system("rm -rf \"$systemd_target_dir.new\"");
   my $status = system("mv \"$systemd_target_dir\" \"$systemd_target_dir.old\"");
