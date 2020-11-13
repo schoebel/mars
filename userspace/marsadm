@@ -1355,10 +1355,8 @@ sub systemd_activate {
   return 0 unless _systemd_enabled();
   my $want_path = "$mars/resource-$res/systemd-want";
   my $want = get_link($want_path, 2);
-  my $want_host_path = "$mars/resource-$res/userspace/systemd-want-$host";
   if (!$want) {
     lprint "Nothing to (de)activate: $want_path does not exist\n" if $verbose;
-    unlink($want_host_path);
     return 0;
   }
   my $do_activate = $want eq $host;
@@ -1392,13 +1390,11 @@ sub systemd_activate {
   my $unit = get_link($unit_path, 2);
   if (!$unit) {
     lprint "Nothing to (de)activate: $unit_path does not exist\n" if $verbose;
-    unlink($want_host_path);
     return 0;
   }
   my $ctl_cmd = "show \"$unit\"";
   my $op = "show";
   if ($do_activate) {
-    safe_touch($want_host_path) || safe_creat($want_host_path);
     $unit =~ s/ .*//;
     if (systemd_enabled($unit)) {
       return 0;
@@ -1406,7 +1402,6 @@ sub systemd_activate {
     lprint "==== Activate resource '$res' unit '$unit'\n"if $verbose;
     $op = "start";
   } else {
-    unlink($want_host_path);
     $unit =~ s/.* //;
     lprint "==== Deactivate resource '$res' unit '$unit'\n"if $verbose;
     $op = "stop";
