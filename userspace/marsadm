@@ -1547,6 +1547,7 @@ sub is_systemd_generate_necessary {
 sub __systemd_trigger {
   my $cmd = shift;
   # ensure that trigger file exists
+  mkdir("$mars/userspace") unless -d "$mars/userspace";
   my $trigger = "$mars/userspace/systemd-trigger";
   lprint "Triggering '$trigger' for '$cmd'\n" if $verbose;
   safe_touch($trigger) || safe_creat($trigger);
@@ -4441,6 +4442,7 @@ sub create_res {
     _push_link($primary, $appear, $device_path) if $primary;
   }
 
+  mkdir("$mars/userspace") unless -d "$mars/userspace";
   mkdir("$resdir/userspace") unless -d "$resdir/userspace";
   mkdir("$resdir/defaults") unless -d "$resdir/defaults";
   mkdir("$resdir/defaults-$host");
