@@ -1316,6 +1316,17 @@ sub _systemd_op {
   return $status;
 }
 
+sub report_systemd_status {
+  my ($cmd, $res, $status, $oper, $peer) = @_;
+  $peer = $host unless $peer;
+  my $response_path = "$mars/resource-$res/userspace/systemd-status-$oper-$peer";
+  # avoid useless path-triggers when nothing has changed
+  my $old_val = get_link($response_path, 1);
+  if ($old_val eq "" || $old_val != $status) {
+    set_link($status, $response_path);
+  }
+}
+
 sub systemd_activate {
   my ($cmd, $res, $override, $fail_abort) = @_;
   my $want_path = "$mars/resource-$res/systemd-want";
@@ -1377,8 +1388,7 @@ sub systemd_activate {
     $op = "stop";
   }
   my $status = _systemd_op($op, $unit);
-  my $response_path = "$mars/resource-$res/userspace/systemd-status-$oper-$host";
-  set_link($status, $response_path);
+  report_systemd_status($cmd, $res, $status, $oper);
   finish_links();
   if ($status && defined($fail_abort) && $fail_abort) {
     lwarn "systemd unit '$unit' operation $op failed, status=$status\n";
@@ -5625,8 +5635,7 @@ sub primary_phase0 {
     my $unit = get_link($unit_path, 2);
     if ($unit) {
       if ($old ne "(none)") {
-	my $response_path = "$mars/resource-$res/userspace/systemd-status-stop-$old";
-	set_link(0, $response_path);
+	report_systemd_status($cmd, $res, 0, "stop", $old);
       }
       lprint "IMPORTANT: Relying on systemd for $oper of unit '$unit'\n";
       lprint "IMPORTANT: unit '$unit' wanted at '$new'\n";
