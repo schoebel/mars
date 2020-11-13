@@ -152,7 +152,7 @@ sub safe_creat {
 }
 
 sub safe_touch {
-  my ($path, $stamp) = shift;
+  my ($path, $stamp) = @_;
   use IO::Handle;
   if (-l $path) {
     my $val = readlink($path);
