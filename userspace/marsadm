@@ -907,6 +907,7 @@ my @systemctl_enable =
   );
 
 my %recursive_locks;
+my $lock_fh;
 
 sub systemd_lock {
   my ($suffix, $try_lock) = @_;
@@ -921,15 +922,35 @@ sub systemd_lock {
   use Fcntl;
   my $max_time = $timeout > 0 ? $timeout : 30;
   my $count = 0;
-  my $retry = 0;
-  my $fh;
+ retry:
   for (;;) {
-    my $test_pid;
+    my $test_pid = 1;
     if (open(my $IN, "<", $lock_file)) {
-      $test_pid = <$IN>;
-      chomp $test_pid;
-      my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
-	  $atime,$mtime,$ctime,$blksize,$blocks) = stat($IN);
+      my $pid_exists = 0;
+      my @pid_list = ();
+      while ($test_pid = <$IN>) {
+	chomp $test_pid;
+	next unless $test_pid;
+	if (-d "/proc/$test_pid") {
+	  $pid_exists++;
+	} else {
+	  push @pid_list, $test_pid;
+	}
+      }
+      if (!$pid_exists) {
+	# race prevention: wait until situation is stable
+	if ($count-- >= -3) {
+	  sleep(1);
+	  goto retry;
+	}
+	unlink($lock_file);
+	lwarn "breaking lock $lock_file, pids {" .
+	  join(",", @pid_list) .
+	  "} are no longer alive.\n";
+	$count = 0;
+	goto retry;
+      }
+      my $mtime = get_stamp($IN);
       close($IN);
       # Check for timeout
       if ($count > $max_time ||
@@ -939,18 +960,9 @@ sub systemd_lock {
 	$count = 0;
       }
     }
-    $fh = undef;
-    my $status = sysopen($fh, $lock_file, O_CREAT|O_EXCL|O_TRUNC|O_WRONLY);
+    $lock_fh = undef;
+    my $status = sysopen($lock_fh, $lock_file, O_CREAT|O_EXCL|O_TRUNC|O_WRONLY);
     last if defined($status) && $status;
-    # Check whether pid exists
-    if (defined($test_pid) && $test_pid && ! -d "/proc/$test_pid") {
-      next if !$retry++;
-      lwarn "breaking lock $lock_file, pid $test_pid is no longer alive.\n";
-      unlink($lock_file);
-      $count = 0;
-      $retry = 0;
-      next;
-    }
     if (defined($try_lock) && $try_lock && !$force) {
       lprint "FAILED '$lock_file'\n" if $verbose > 1;
       return 1;
@@ -958,14 +970,16 @@ sub systemd_lock {
     $count++;
     sleep(1);
   }
-  print $fh "$$\n";
-  close($fh);
+  print $lock_fh "$$\n";
+  $lock_fh->flush();
   lprint "LOCK   '$lock_file'\n" if $verbose > 1;
   return 0;
 }
 
 sub systemd_unlock {
   my ($suffix) = @_;
+  close($lock_fh) if defined($lock_fh);
+  $lock_fh = undef;
   my $lock_file = $systemd_lock_file;
   $lock_file .= "." . $suffix if defined($suffix) && $suffix;
   if (--$recursive_locks{$lock_file} > 0) {
@@ -1761,6 +1775,13 @@ sub get_link {
 sub get_link_stamp {
   my ($path) = @_;
   my @stat = lstat($path);
+  return 0 if (!@stat);
+  return $stat[9];
+}
+
+sub get_stamp {
+  my ($path_or_handle) = @_;
+  my @stat = stat($path_or_handle);
   return 0 if (!@stat);
   return $stat[9];
 }
