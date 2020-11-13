@@ -722,6 +722,7 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		 * corrected the system clock, fortunately.
 		 */
 		real_now = get_real_lamport();
+		status = 1;
 		if (likely(stat.mtime.tv_sec <
 			   real_now.tv_sec + max_lamport_future))
 			goto done_fs;
