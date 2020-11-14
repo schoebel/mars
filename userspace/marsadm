@@ -1643,62 +1643,11 @@ sub __systemd_activate_ops {
   }
 }
 
-sub __systemd_fingerprint {
-  my $text = "";
-  # Fingerprint all source templates
-  get_template_files();
-  foreach my $template_file (sort alphanum_cmp keys(%template_names)) {
-    my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
-	$atime,$mtime,$ctime,$blksize,$blocks) = stat($template_file);
-    $text .= "$size,$mtime,$template_file\n";
-  }
-  # Fingerprint all resources
-  $text .= "#\n";
-  my @res_list = get_member_resources($host);
-  foreach my $res (@res_list) {
-    $text .= "$res\n";
-    my $unit_glob = "$mars/resource-$res/systemd-*-unit";
-    foreach my $unit_link (lamport_glob($unit_glob)) {
-      $text .= get_link($unit_link, 1) . "\n";
-    }
-  }
-  # Fingerprint resulting templates (protect against external modifications)
-  $text .= "#\n";
-  foreach my $unit_file (lamport_glob($systemd_target_dir)) {
-    next unless -r $unit_file;
-    my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
-	$atime,$mtime,$ctime,$blksize,$blocks) = stat($unit_file);
-    $text .= "$size,$mtime,$unit_file\n";
-  }
-  return $text;
-}
-
 sub is_systemd_generate_necessary {
   my $cmd = shift;
   # do not generate after forking
   return 0 if $child_prefix;
-  my $text = __systemd_fingerprint();
   system("mkdir -p $marsadm_var_dir");
-  my $varfile = "$marsadm_var_dir/systemd.status";
-  my $old_text = "";
-  local $/;  # slurp
-  if (open(IN, "< $varfile")) {
-    $old_text = <IN>;
-    close(IN);
-  } else {
-    lwarn "file '$varfile' does not yet exist\n";
-  }
-  if ($text eq $old_text) {
-    lprint "systemd template generation not necessary.\n" if $verbose;
-    return 0 unless ($force && $cmd ne "primary");
-    lprint "Forcing template generation...\n";
-  }
-  if (!open(OUT, "> $varfile.tmp")) {
-    lwarn "cannot open '$varfile.tmp'\n";
-    return 1;
-  }
-  print OUT $text;
-  close(OUT);
   return 1;
 }
 
