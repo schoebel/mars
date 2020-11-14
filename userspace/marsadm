@@ -978,6 +978,8 @@ sub systemd_unlock {
 
 my %template_names;
 my %template_files;
+my $nr_templates = 0;
+my $template_max_stamp = 0;
 
 sub get_template_files {
   if (!%template_files) {
@@ -985,7 +987,7 @@ sub get_template_files {
       my $subdir = "$dir/$systemd_subdir";
       $subdir = $dir unless -d $subdir;
       next unless -d $subdir;
-      lprint "==== scanning directory '$subdir'\n" if $verbose;
+      lprint "==== scanning template directory '$subdir'\n" if $verbose;
       foreach my $template_file (lamport_glob("$subdir/*.{$systemd_suffixes}")) {
 	my $template_name = $template_file;
 	$template_name =~ s:^.*/::;
@@ -994,11 +996,14 @@ sub get_template_files {
 	next if defined($template_files{$template_name});
 	$template_names{$template_file} = $template_name;
 	$template_files{$template_name} = $template_file;
-	lprint "== found template '$template_name' at '$template_file'\n" if $verbose;
+	lprint "== found template '$template_name' at '$template_file'\n" if $verbose > 1;
+	my $mtime = get_stamp($template_file);
+	$template_max_stamp = $mtime if $mtime > $template_max_stamp;
+	$nr_templates++;
       }
     }
   }
-  lprint "==== found " . scalar(keys(%template_names)) . " templates\n" if $verbose;
+  lprint "==== found $nr_templates templates\n" if $verbose;
   return sort alphanum_cmp keys(%template_names);
 }
 
@@ -1146,15 +1151,23 @@ sub _instantiate_systemd_unit {
   my $outfile = "$systemd_var_dir/$out_name";
   chomp $outfile;
   lprint "==== Translate systemd template '$template_file' => '$outfile'\n" if $verbose;
+  my $header = "";
   my $text = "";
+  my $mtime;
   {
+    my $IN;
     local $/;  # slurp
-    if (!open(IN, "< $template_file")) {
+    if (!open($IN, "<", $template_file)) {
       lwarn "cannot open system template file '$template_file'\n";
       return (0, $outfile);
     }
-    $text = <IN>;
-    close(IN);
+    $mtime = get_stamp($IN);
+    $text = <$IN>;
+    close($IN);
+    $header  = "### GENERATED FROM: $template_file\n";
+    $header .= "### GENERATED   TO: $out_name\n";
+    $header .= "### TEMPLATE MTIME: $mtime\n";
+    $header .= "###\n";
   }
   ($env, $text) = subst_systemd_vars($env, $text, 0);
   my $scan = $text;
@@ -1169,8 +1182,10 @@ sub _instantiate_systemd_unit {
       lprint "-- '$template_file' found reference to '$next_unit'\n" if $verbose > 2;
       # Remember the encountered name
       $referenced_units{$next_unit} = 1;
+      $header .= "###   REF: $next_unit\n";
     }
   }
+  $header .= "###\n";
   if (open(IN, "< $outfile")) {
     # Check whether something has changed
     local $/;  # slurp
@@ -1185,8 +1200,15 @@ sub _instantiate_systemd_unit {
     lwarn "cannot create '$outfile'\n";
     return (0, $outfile);
   }
+  if ($text =~ m/^([#][!].+)/p) {
+    my $hash_bang = $1;
+    print OUT "$hash_bang\n";
+    $text = $POSTMATCH;
+  }
+  print OUT $header;
   print OUT $text;
   close(OUT);
+  utime($mtime, $mtime, "$outfile.tmp");
   rename("$outfile.tmp", $outfile);
   return (1, $outfile, $out_name);
 }
