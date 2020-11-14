@@ -1296,8 +1296,44 @@ sub _instantiate_systemd_unit {
 
 my %generated_units;
 
+sub _check_timestamps {
+  my ($gen_key, $found_template_file, $tmp_name, $target_name) = @_;
+  my $fh;
+  if (open($fh, "<", $target_name)) {
+    my $stored_mtime;
+    while (my $line = <$fh>) {
+      last unless $line =~ m/^\#\#\#/;
+      if ($line =~ m/MTIME:\s*([0-9]+)/) {
+	$stored_mtime = $1;
+      } elsif ($line =~ m/REF:\s*(.+)/) {
+	my $ref_unit = $1;
+	lprint "-- '$target_name' contains reference to '$ref_unit'\n" if $verbose > 2;
+	$referenced_units{$ref_unit} = 1;
+      }
+    }
+    if ($stored_mtime) {
+      # check whether stored mtime and the file mtime coincide
+      my $mtime = get_stamp($fh);
+      $stored_mtime = undef unless ($mtime && $mtime == $stored_mtime);
+    }
+    close($fh);
+    if ($stored_mtime) {
+      my $mtime = get_stamp($found_template_file);
+      if ($mtime && $mtime == $stored_mtime) {
+	lprint "==== unchanged template '$found_template_file' mtime=$mtime <- '$target_name'\n" if $verbose;
+	# shortcut
+	if (!system("cp -a \"$target_name\" \"$tmp_name\"")) {
+	  $generated_units{$gen_key} = 1;
+	  return 1;
+	}
+      }
+    }
+  }
+  return 0;
+}
+
 sub make_systemd_unit {
-  my ($cmd, $res, $target) = @_;
+  my ($cmd, $res, $target, $force_generate) = @_;
   # dynamic programming
   $res = "" unless defined($res);
   my $gen_key = "$cmd.$res.$target";
@@ -1351,6 +1387,23 @@ sub make_systemd_unit {
     return 0;
   }
   my ($out_env, $out_name) = subst_systemd_vars($found_env, $found_subst, 1);
+  # check whether mtimes exist and are equal
+  my $tmp_name = "$marsadm_var_dir/$generated_units_subdir";;
+  my $target_name = "$systemd_target_dir/$out_name";
+  if (!$force_generate) {
+    if (_check_timestamps($gen_key, $found_template_file,
+			  $tmp_name, $target_name)) {
+      return 1;
+    }
+  }
+  $tmp_name = "$marsadm_var_dir/$generated_scripts_subdir";
+  $target_name = "$etc_marsadm/$generated_scripts_subdir";
+  if (!$force_generate) {
+    if (_check_timestamps($gen_key, $found_template_file,
+			  $tmp_name, $target_name)) {
+      return 1;
+    }
+  }
   lprint "==== instantiating template '$found_template_file'\n" if $verbose;
   my ($nr, $file, $name) = _instantiate_systemd_unit($out_env, $found_template_file, $out_name);
   $generated_units{$gen_key} = $nr;
@@ -1698,7 +1751,7 @@ sub systemd_commit {
 # to be correct".
 
 sub __systemd_generate_all {
-  my ($cmd) = @_;
+  my ($cmd, $res, $force_generate) = @_;
   return unless -d $mars;
   return unless -d $etc_marsadm;
   system("rm -rf \"$marsadm_var_dir/$generated_units_subdir\" \"$marsadm_var_dir/$generated_scripts_subdir\"");
@@ -1786,7 +1839,7 @@ sub _systemd_trigger {
 }
 
 sub systemd_trigger_extern {
-  my ($cmd) = @_;
+  my ($cmd, $res) = @_;
   return unless -d $systemd_target_dir;
   systemd_lock();
   my $called_external = ($cmd =~ m/extern/);
@@ -1801,10 +1854,11 @@ sub systemd_trigger_extern {
   } elsif (is_called_recursive()) {
     return 0;
   }
-  if (is_systemd_generate_necessary($cmd)) {
+  my $force_generate = !$called_external;
+  if ($force_generate || is_systemd_generate_necessary($cmd)) {
     # Continue with unlock in case of any deaths inbetween
     eval {
-      __systemd_generate_all($cmd);
+      __systemd_generate_all($cmd, $res, $force_generate);
     };
   }
   __systemd_activate_ops($cmd);
