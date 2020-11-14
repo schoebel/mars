@@ -1366,6 +1366,8 @@ sub systemd_enabled {
   my ($unit_list) = @_;
   return 1 unless _systemd_enabled();
   foreach my $unit (split(/ +/, $unit_list)) {
+    # .script is assumed as always enabled
+    next if $unit =~ m/\.script$/;
     my $check_cmd = "is-enabled '$unit' > /dev/null 2>&1";
     my $status = systemctl($check_cmd);
     if ($status) {
@@ -1526,7 +1528,7 @@ sub __systemd_commit {
   my %new_files = get_instance_files($systemd_var_dir);
   foreach my $old_target (sort alphanum_cmp keys(%old_files)) {
     if (!defined($new_files{$old_target})) {
-      if (_check_unit_marker($old_files{$old_target}, "KEEP_RUNNING")) {
+      if (_check_unit_marker($old_files{$old_target}, "ALWAYS_DISABLED")) {
 	lprint "-- deleted '$old_target' is KEEP_RUNNING\n" if $verbose > 2;
 	$changes{$old_target} = -1;
 	next;
@@ -1781,10 +1783,49 @@ sub get_systemd_unit {
   lprint "$unit\n" if $unit;
 }
 
+sub _get_default_unit {
+  my ($cmd, $res, $marker) = @_;
+  my $found = "";
+  foreach my $template_file (get_template_files()) {
+    my $template_name = $template_names{$template_file};
+    next unless $template_name;
+    if (!_check_unit_marker($template_file, $marker)) {
+      next;
+    }
+    $found = $template_name;
+    my ($dummy, $start_env) = make_env($cmd, $res, $template_name);
+    my ($env, $subst) = subst_systemd_vars($start_env, $template_name, 1);
+    $found = $subst if $subst;
+    last;
+  }
+  return $found;
+}
+
 sub set_systemd_unit {
   my ($cmd, $res, $start_name, $stop_name) = @_;
   ldie "Start unit name is undefined\n" unless defined($start_name);
-  $stop_name = $start_name unless defined($stop_name);
+  # typically, this matches to capital DEFAULT
+  my $default_regex = qr{^[A-Z][A-Z_0-9]*$};
+  my $use_default = "";
+  if ($start_name =~ m{$default_regex}) {
+    $use_default = $start_name;
+    my $marker = "${start_name}_START";
+    $start_name = _get_default_unit($cmd, $res, $marker);
+    lprint "Marker '$marker' leads to start template '$start_name'\n";
+  }
+  if ($use_default && !$stop_name) {
+    my $marker = "${use_default}_STOP";
+    $stop_name = _get_default_unit($cmd, $res, $marker);
+    lprint "Marker '$marker' (derived from start marker) leads to stop template '$stop_name'\n";
+  } elsif ($stop_name && $stop_name =~ m{$default_regex}) {
+    my $marker = "${stop_name}_STOP";
+    $stop_name = _get_default_unit($cmd, $res, $marker);
+    lprint "Marker '$marker' leads to stop template '$stop_name'\n";
+  }
+  unless ($stop_name) {
+    lprint "Unspecified stop unit: ALSO use start unit/template '$start_name' for stopping.\n";
+    $stop_name = $start_name;
+  }
   my $unit_start_path = "$mars/resource-$res/systemd-start-unit";
   my $unit_stop_path  = "$mars/resource-$res/systemd-stop-unit";
   # Convenience: try to fix any non-escaped resource names
