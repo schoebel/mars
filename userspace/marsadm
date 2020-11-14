@@ -1142,9 +1142,8 @@ sub match_systemd_vars {
 my %referenced_units;
 
 sub _instantiate_systemd_unit {
-  my ($env, $template_file, $subst) = @_;
-  ($env, my $replac) = subst_systemd_vars($env, $subst, 1);
-  my $outfile = "$systemd_var_dir/$replac";
+  my ($env, $template_file, $out_name) = @_;
+  my $outfile = "$systemd_var_dir/$out_name";
   chomp $outfile;
   lprint "==== Translate systemd template '$template_file' => '$outfile'\n" if $verbose;
   my $text = "";
@@ -1189,7 +1188,7 @@ sub _instantiate_systemd_unit {
   print OUT $text;
   close(OUT);
   rename("$outfile.tmp", $outfile);
-  return (1, $outfile, $replac);
+  return (1, $outfile, $out_name);
 }
 
 my %generated_units;
@@ -1248,8 +1247,9 @@ sub make_systemd_unit {
     $generated_units{$gen_key} = 0;
     return 0;
   }
+  my ($out_env, $out_name) = subst_systemd_vars($found_env, $found_subst, 1);
   lprint "==== instantiating template '$found_template_file'\n" if $verbose;
-  my ($nr, $file, $name) = _instantiate_systemd_unit($found_env, $found_template_file, $found_subst);
+  my ($nr, $file, $name) = _instantiate_systemd_unit($out_env, $found_template_file, $out_name);
   $generated_units{$gen_key} = $nr;
   return $nr;
 }
