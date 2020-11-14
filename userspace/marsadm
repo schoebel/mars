@@ -884,7 +884,7 @@ my $systemd_var_dir = defined($ENV{SYSTEMD_VAR_DIR}) ?
   "$marsadm_var_dir/systemd";
 my $systemd_suffixes = defined($ENV{SYSTEMD_SUFFIXES}) ?
   $ENV{SYSTEMD_SUFFIXES} :
-  "service,socket,device,mount,automount,swap,target,path,timer,slice,scope";
+  "service,socket,device,mount,automount,swap,target,path,timer,slice,scope,script";
 my $systemctl = defined($ENV{SYSTEMCTL}) ? $ENV{SYSTEMCTL} : "systemctl";
 my $systemd_escape = defined($ENV{SYSTEMD_ESCAPE}) ? $ENV{SYSTEMD_ESCAPE} : "@";
 my $systemd_incape = defined($ENV{SYSTEMD_INCAPE}) ? $ENV{SYSTEMD_INCAPE} : "\\^";
@@ -1209,6 +1209,15 @@ sub _instantiate_systemd_unit {
   print OUT $text;
   close(OUT);
   utime($mtime, $mtime, "$outfile.tmp");
+  # I would like to use 0400 instead, but this leads to masses of warnings like
+  # Configuration file /run/systemd/system/daemon-reload.service is marked world-inaccessible.
+  # This has no effect as configuration data is accessible via APIs without restrictions.
+  # Proceeding anyway.
+  my $perm = 0444;
+  if ($outfile =~ m/\.script$/) {
+    $perm = 0544;
+  }
+  chmod($perm, "$outfile.tmp");
   rename("$outfile.tmp", $outfile);
   return (1, $outfile, $out_name);
 }
@@ -1355,6 +1364,26 @@ sub _check_unit_marker {
 sub _systemd_op {
   my ($op, $unit) = @_;
   return 0 unless _systemd_enabled();
+  # special case: .script templates are to be executed directly
+  if ($unit =~ m/\.script$/) {
+    my $dir = "";
+    foreach my $test_dir ($systemd_target_dir,
+			  split(",", $systemd_system_dirs)) {
+      next unless -x "$test_dir/$unit";
+      $dir = $test_dir;
+      last;
+    }
+    $dir .= "/" if $dir;
+    my $cmd = "'$dir$unit' $op";
+    lprint "--- running script: '$cmd'\n";
+    my $status = system($cmd);
+    if ($status) {
+      lwarn "script '$cmd' failed, status=$status\n";
+    } else {
+      lprint "--- script status=$status\n";
+    }
+    return $status;
+  }
   if (systemctl("cat '$unit' > /dev/null 2>&1")) {
     lwarn "systemd unit $unit does not exist.\n";
     return 0;
