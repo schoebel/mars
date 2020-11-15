@@ -44,12 +44,18 @@ my $max_deletions = 512;
 my $thresh_logfiles = 10;
 my $thresh_logsize = 5; # GB
 my $dry_run = 0;
+
+# All paths should be overridable from outside
+my $etc_marsadm = $ENV{ETC_MARSADM} ?
+  $ENV{ETC_MARSADM} :
+  "/etc/marsadm";
+
 my @MARS_PATH = $ENV{MARS_PATH} ?
   split(/:/, $ENV{MARS_PATH}) :
   (
    ".",
    defined($ENV{HOME}) ? "$ENV{HOME}/.marsadm" : "",
-   "/etc/marsadm",
+   $etc_marsadm,
    "/usr/lib/marsadm",
    "/usr/local/lib/marsadm",
   );
@@ -902,16 +908,38 @@ sub _systemd_enabled {
 # dynamic systemd control
 
 my $systemd_subdir = defined($ENV{SYSTEMD_SUBDIR}) ? $ENV{SYSTEMD_SUBDIR} : "systemd-templates";
-my $systemd_system_dirs = defined($ENV{SYSTEMD_SYSTEM_DIRS}) ?
+
+my $generated_units_subdir = defined($ENV{SYSTEMD_UNITS_SUBDIR}) ?
+  $ENV{SYSTEMD_UNITS_SUBDIR} :
+  "systemd-generated-units";
+
+my $generated_scripts_subdir = defined($ENV{SYSTEMD_SCRIPTS_SUBDIR}) ?
+  $ENV{SYSTEMD_SCRIPTS_SUBDIR} :
+  "systemd-generated-scripts";
+
+my $predefined_unit_path = "/etc/systemd/system,/run/systemd/system,/usr/lib/systemd/system";
+
+my $systemd_system_dirs =
+  # prefer the "offical" systemd path as documented in "man systemd.unit"
+  defined($ENV{SYSTEMD_UNIT_PATH}) ?
+  join(",", split(":", $ENV{SYSTEMD_UNIT_PATH})) .
+  (
+   # ending in ":" means to append the predefined path (as documented)
+   $ENV{SYSTEMD_UNIT_PATH} =~ m/:$/ ?
+   $predefined_unit_path :
+   ""
+  ) :
+  # allow mars-specific overrides
+  defined($ENV{SYSTEMD_SYSTEM_DIRS}) ?
   $ENV{SYSTEMD_SYSTEM_DIRS} :
-  "/etc/systemd/system,/run/systemd/system,/usr/lib/systemd/system";
+  $predefined_unit_path;
+
 my $systemd_target_dir = defined($ENV{SYSTEMD_TARGET_DIR}) ? $ENV{SYSTEMD_TARGET_DIR} : "/run/systemd/system";
-my $systemd_var_dir = defined($ENV{SYSTEMD_VAR_DIR}) ?
-  $ENV{SYSTEMD_VAR_DIR} :
-  "$marsadm_var_dir/systemd";
+
 my $systemd_suffixes = defined($ENV{SYSTEMD_SUFFIXES}) ?
   $ENV{SYSTEMD_SUFFIXES} :
   "service,socket,device,mount,automount,swap,target,path,timer,slice,scope,script";
+
 my $systemctl = defined($ENV{SYSTEMCTL}) ? $ENV{SYSTEMCTL} : "systemctl";
 my $systemd_escape = defined($ENV{SYSTEMD_ESCAPE}) ? $ENV{SYSTEMD_ESCAPE} : "@";
 my $systemd_incape = defined($ENV{SYSTEMD_INCAPE}) ? $ENV{SYSTEMD_INCAPE} : "\\^";
@@ -1053,6 +1081,7 @@ sub get_systemd_files {
   if (!%systemd_names) {
     foreach my $systemd_file (lamport_glob("{$systemd_system_dirs}/*.{$systemd_suffixes}")) {
       next if $systemd_file =~ m:$systemd_target_dir:;
+      next if $systemd_file =~ m:$etc_marsadm/$generated_scripts_subdir:;
       my $systemd_name = $systemd_file;
       $systemd_name =~ s:^.*/::;
       $systemd_names{$systemd_file} = $systemd_name;
@@ -1171,12 +1200,24 @@ sub match_systemd_vars {
   return (undef, $text);
 }
 
+sub _make_var_name {
+  my ($file_name) = @_;
+  chomp $file_name;
+  mkdir $marsadm_var_dir;
+  my $abs_dir = "$marsadm_var_dir/$generated_units_subdir";
+  if ($file_name =~ m/\.script$/) {
+    $abs_dir = "$marsadm_var_dir/$generated_scripts_subdir";
+  }
+  mkdir $abs_dir;
+  my $abs_file = "$abs_dir/$file_name";
+  return $abs_file;
+}
+
 my %referenced_units;
 
 sub _instantiate_systemd_unit {
   my ($env, $template_file, $out_name) = @_;
-  my $outfile = "$systemd_var_dir/$out_name";
-  chomp $outfile;
+  my $outfile = _make_var_name($out_name);
   lprint "==== Translate systemd template '$template_file' => '$outfile'\n" if $verbose;
   my $header = "";
   my $text = "";
@@ -1396,7 +1437,7 @@ sub _systemd_op {
   # special case: .script templates are to be executed directly
   if ($unit =~ m/\.script$/) {
     my $dir = "";
-    foreach my $test_dir ($systemd_target_dir,
+    foreach my $test_dir ("$etc_marsadm/$generated_scripts_subdir",
 			  split(",", $systemd_system_dirs)) {
       next unless -x "$test_dir/$unit";
       $dir = $test_dir;
@@ -1516,6 +1557,7 @@ sub systemd_activate {
 }
 
 sub __systemd_commit {
+  my ($src_dir, $dst_dir) = @_;
   # Internal destination code:
   # -2 = needs stop + disable (e.g. deleted)
   # -1 = needs disable, but no status change
@@ -1524,8 +1566,8 @@ sub __systemd_commit {
   #  2 = new, needs enable + start
   # absent = no modification
   my %changes;
-  my %old_files = get_instance_files($systemd_target_dir);
-  my %new_files = get_instance_files($systemd_var_dir);
+  my %old_files = get_instance_files($dst_dir);
+  my %new_files = get_instance_files($src_dir);
   foreach my $old_target (sort alphanum_cmp keys(%old_files)) {
     if (!defined($new_files{$old_target})) {
       if (_check_unit_marker($old_files{$old_target}, "ALWAYS_DISABLED")) {
@@ -1555,7 +1597,7 @@ sub __systemd_commit {
       lprint "-- '$new_target' is not new\n" if $verbose > 3;
       next;
     }
-    my $file = "$systemd_var_dir/$new_target";
+    my $file = _make_var_name($new_target);
     if (_check_unit_marker($file, "DEFAULT_DISABLED")) {
       lprint "-- '$new_target' is new, but must remain disabled\n" if $verbose > 2;
       $changes{$new_target} = -1;
@@ -1586,25 +1628,25 @@ sub __systemd_commit {
   }
   # Commit
   %generated_units = ();
-  system("rm -rf \"$systemd_target_dir.old\"");
-  system("rm -rf \"$systemd_target_dir.new\"");
-  my $status = system("mv \"$systemd_target_dir\" \"$systemd_target_dir.old\"");
+  system("rm -rf \"$dst_dir.old\"");
+  system("rm -rf \"$dst_dir.new\"");
+  my $status = system("mv \"$dst_dir\" \"$dst_dir.old\"");
   if ($status) {
-    lwarn "Cannot rename '$systemd_target_dir' to '$systemd_target_dir.old'\n";
+    lwarn "Cannot rename '$dst_dir' to '$dst_dir.old'\n";
     return ();
   }
-  $status = system("mv \"$systemd_var_dir\" \"$systemd_target_dir.new\"");
+  $status = system("mv \"$src_dir\" \"$dst_dir.new\"");
   if ($status) {
     # retry with cp in place of mv
-    mkdir("$systemd_target_dir.new");
-    if (system("cp -a $systemd_var_dir/* \"$systemd_target_dir.new\"")) {
-      lwarn "Cannot copy new unit instances from '$systemd_var_dir' to '$systemd_target_dir.new'\n";
+    mkdir("$dst_dir.new");
+    if (system("cp -a $src_dir/* \"$dst_dir.new\"")) {
+      lwarn "Cannot copy new unit instances from '$src_dir' to '$dst_dir.new'\n";
       return ();
     }
   }
-  $status = system("mv \"$systemd_target_dir.new\" \"$systemd_target_dir\"");
+  $status = system("mv \"$dst_dir.new\" \"$dst_dir\"");
   if ($status) {
-    lwarn "Cannot rename '$systemd_target_dir.new' to '$systemd_target_dir'\n";
+    lwarn "Cannot rename '$dst_dir.new' to '$dst_dir'\n";
     return ();
   }
   # Tell the new situation to systemd.
@@ -1626,7 +1668,15 @@ sub __systemd_commit {
       _systemd_op("start", $unit);
     }
   }
-  return %changes;
+}
+
+sub systemd_commit {
+  # We need separate target directories for templates and for scripts.
+  # Reason: /run does not allow script execution on many systems.
+  __systemd_commit("$marsadm_var_dir/$generated_units_subdir",
+		   $systemd_target_dir);
+  __systemd_commit("$marsadm_var_dir/$generated_scripts_subdir",
+		   "$etc_marsadm/$generated_scripts_subdir");
 }
 
 # THINK:
@@ -1651,10 +1701,14 @@ sub __systemd_commit {
 sub __systemd_generate_all {
   my ($cmd) = @_;
   return unless -d $mars;
-  return unless -d $systemd_target_dir;
-  system("rm -rf \"$systemd_var_dir\"");
-  system("mkdir -p \"$systemd_var_dir\"");
-  return unless -d $systemd_var_dir;
+  return unless -d $etc_marsadm;
+  system("rm -rf \"$marsadm_var_dir/$generated_units_subdir\" \"$marsadm_var_dir/$generated_scripts_subdir\"");
+  mkdir($systemd_target_dir);
+  mkdir("$etc_marsadm/$generated_units_subdir");
+  mkdir("$etc_marsadm/$generated_scripts_subdir");
+  mkdir($marsadm_var_dir);
+  mkdir("$marsadm_var_dir/$generated_units_subdir");
+  mkdir("$marsadm_var_dir/$generated_scripts_subdir");
   lprint "Generate all templates.\n";
   # Determine all template files.
   get_template_files();
@@ -1688,8 +1742,7 @@ sub __systemd_generate_all {
   }
   lprint "== $count units generated.\n" if $verbose;
   # Check and commit the new situation
-  my %changes = __systemd_commit();
-  return %changes;
+  systemd_commit();
 }
 
 sub __systemd_activate_ops {
@@ -1724,10 +1777,9 @@ sub _systemd_trigger {
   systemd_lock();
   if (is_systemd_generate_necessary($cmd)) {
     lprint "Direct template generation\n" if $verbose;
-    my %changes;
     # Continue with unlock in case of any deaths inbetween
     eval {
-      %changes = __systemd_generate_all($cmd);
+      __systemd_generate_all($cmd);
     };
   }
   __systemd_activate_ops($cmd);
@@ -1751,10 +1803,9 @@ sub systemd_trigger_extern {
     return 0;
   }
   if (is_systemd_generate_necessary($cmd)) {
-    my %changes;
     # Continue with unlock in case of any deaths inbetween
     eval {
-      %changes = __systemd_generate_all($cmd);
+      __systemd_generate_all($cmd);
     };
   }
   __systemd_activate_ops($cmd);
