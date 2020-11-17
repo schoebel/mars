@@ -1483,9 +1483,45 @@ sub _check_unit_marker {
   return $found;
 }
 
+my %systemctl_pid = ();
+
+sub _systemd_op_wait {
+  return unless %systemctl_pid;
+  my @wait_list = sort alphanum_cmp keys(%systemctl_pid);
+  foreach my $pid (@wait_list) {
+    my $check_pid = waitpid($pid, 0);
+    my $status = $?;
+    if ($status > 0) {
+      lwarn "UNIT CHILD $pid terminated with status=$status\n";
+    } elsif ($check_pid == $pid) {
+      lprint_stderr "UNIT CHILD $pid terminated successfully\n";
+    } else {
+      lwarn "UNIT CHILD $pid terminated with unknown state\n";
+    }
+  }
+  %systemctl_pid = ();
+}
+
 sub _systemd_op {
-  my ($op, $unit) = @_;
+  my ($op, $unit, $do_fork) = @_;
   return 0 unless _systemd_enabled();
+  my $has_forked = 0;
+  if ($do_fork && !$child_prefix && $op =~ m/start|stop/) {
+    my $pid = fork();
+    if (defined($pid)) {
+      if ($pid) {
+	# parent
+	lprint_stderr "UNIT CHILD $pid: $op '$unit'\n";
+	$systemctl_pid{$pid} = "$op $unit";
+	return 0;
+      } else {
+	# child: simply continue
+	$child_prefix = "UNIT $op: ";
+	$has_forked = 1;
+      }
+    }
+  }
+  my $status = 0;
   # special case: .script templates are to be executed directly
   if ($unit =~ m/\.script$/) {
     my $dir = "";
@@ -1498,38 +1534,45 @@ sub _systemd_op {
     $dir .= "/" if $dir;
     my $cmd = "'$dir$unit' $op";
     lprint "--- running script: '$cmd'\n";
-    my $status = system($cmd);
+    $status = system($cmd);
     if ($status) {
       lwarn "script '$cmd' failed, status=$status\n";
     } else {
       lprint "--- script status=$status\n";
     }
-    return $status;
+    goto done;
   }
   if (systemctl("cat '$unit' > /dev/null 2>&1")) {
     lwarn "systemd unit $unit does not exist.\n";
-    return 0;
+    goto done;
   }
   my $ctl_cmd = "is-failed --quiet '$unit'";
   my $ok = systemctl($ctl_cmd);
   if (!$ok) {
     my $ctl_cmd = "reset-failed '$unit'";
-    my $status = systemctl($ctl_cmd);
+    $status = systemctl($ctl_cmd);
     lprint "--- resetting failed unit '$unit': status=$status\n";
   }
   if ($op eq "start" || $op eq "restart") {
     if (systemd_enabled($unit)) {
-      return 0;
+      goto done;
     }
   }
   $ctl_cmd = "$op '$unit'";
-  lprint "--- running systemd command: $ctl_cmd\n";
-  my $status = systemctl($ctl_cmd);
+  lprint "--- running systemctl command: $ctl_cmd\n";
+  $status = systemctl($ctl_cmd);
   if ($status) {
     lwarn "command '$systemctl $ctl_cmd' failed, status=$status\n";
   } else {
     lprint "--- systemctl status=$status\n";
   }
+ done:
+  # confine to 8bit
+  if ($status < 0 || $status > 255) {
+    $status = 255;
+    lprint "--- correcting status=$status\n";
+  }
+  exit($status) if $has_forked;
   return $status;
 }
 
@@ -1598,7 +1641,7 @@ sub systemd_activate {
     lprint "==== Deactivate resource '$res' unit '$unit'\n"if $verbose;
     $op = "stop";
   }
-  my $status = _systemd_op($op, $unit);
+  my $status = _systemd_op($op, $unit, !$fail_abort);
   report_systemd_status($cmd, $res, $status, $oper);
   finish_links();
   if ($status && defined($fail_abort) && $fail_abort) {
@@ -1717,7 +1760,7 @@ sub __systemd_commit {
   foreach my $unit (sort alphanum_cmp keys(%changes)) {
     my $op = $changes{$unit};
     if ($op > 1) {
-      _systemd_op("start", $unit);
+      _systemd_op("start", $unit, 1);
     }
   }
 }
@@ -1727,8 +1770,10 @@ sub systemd_commit {
   # Reason: /run does not allow script execution on many systems.
   __systemd_commit("$marsadm_var_dir/$generated_units_subdir",
 		   $systemd_target_dir);
+  _systemd_op_wait();
   __systemd_commit("$marsadm_var_dir/$generated_scripts_subdir",
 		   "$etc_marsadm/$generated_scripts_subdir");
+  _systemd_op_wait();
 }
 
 # THINK:
@@ -1799,11 +1844,14 @@ sub __systemd_generate_all {
 
 sub __systemd_activate_ops {
   my $cmd = shift;
+  # Barrier, for safety
+  _systemd_op_wait();
   # Activate the listed units.
   my @res_list = get_member_resources($host);
   foreach my $res (@res_list) {
     systemd_activate($cmd, $res);
   }
+  _systemd_op_wait();
 }
 
 sub __systemd_trigger {
