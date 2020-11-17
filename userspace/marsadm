@@ -1971,7 +1971,7 @@ sub _get_default_unit {
   return $found;
 }
 
-sub set_systemd_unit {
+sub set_systemd_unit_phase1 {
   my ($cmd, $res, $start_name, $stop_name) = @_;
   ldie "Start unit name is undefined\n" unless defined($start_name);
   # typically, this matches to capital DEFAULT
@@ -2028,8 +2028,14 @@ sub set_systemd_unit {
     _create_delete($unit_stop_path);
     _create_delete($want_path);
   }
+  return 0;
+}
+
+sub set_systemd_unit_phase2 {
+  my ($cmd, $res) = @_;
   finish_links();
   _systemd_trigger($cmd, 1);
+  return 0;
 }
 
 ##################################################################
@@ -8679,7 +8685,13 @@ my %cmd_table =
        "Please read mars-user-manual.pdf on this.",
        "When <stop_unit_name> is omitted, it will be treated equal to",
        "<start_unit_name>.",
-       \&set_systemd_unit,
+       "You may also use special keywords like DEFAULT, please read the manuals.",
+       "PARALLEL",
+       "FORK",
+       \&set_systemd_unit_phase1,
+       "set links",
+       \&set_systemd_unit_phase2,
+       "trigger systemd",
       ],
    "get-systemd-unit"
    => [
@@ -10086,6 +10098,13 @@ if (ref($func) eq "ARRAY") {
     my $memb_func = shift @list;
     # check whether fork() is possible
     if ($memb_func) {
+      if ($memb_func eq "PARALLEL") {
+	if ($parallel < -99) {
+	  lprint "Treating as --parallel=0\n" if $verbose;
+	  $parallel = 0;
+	}
+	next;
+      }
       if ($memb_func eq "FORK") {
 	$memb_func = shift @list;
 	# check whether fork() is requested
