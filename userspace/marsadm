@@ -1454,6 +1454,8 @@ sub set_systemd_want {
     ldie "Refusing to set systemd-want.\n" unless $force;
   }
   my $want_path = "$mars/resource-$res/systemd-want";
+  my $old = get_link($want_path, 1);
+  return if ($old && $old eq $new);
   set_link($new, $want_path);
   finish_links();
   _systemd_trigger();
