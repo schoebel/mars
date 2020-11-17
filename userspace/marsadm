@@ -1778,7 +1778,7 @@ sub _get_systemd_unit {
 
 sub get_systemd_unit {
   my $unit = _get_systemd_unit(@_);
-  lprint "$unit\n";
+  lprint "$unit\n" if $unit;
 }
 
 sub set_systemd_unit {
