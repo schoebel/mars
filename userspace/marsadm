@@ -31,7 +31,7 @@ umask 0077;
 
 # global defaults
 
-my $parallel = -1;
+my $parallel = -999;
 my $single_step = 0;
 my $inject_phase = 0;
 my $compat_deletions = 1;
@@ -9854,6 +9854,24 @@ sub expand_res_list {
     @res_list = get_any_resources($host);
   } elsif ($res =~ m/,/) {
     @res_list = split(",", $res);
+  }
+  # check for any systemd activations once
+  if ($parallel <= -999) {
+    $parallel = -998;
+    my $count = scalar(@res_list);
+    if ($count > 1) {
+      my $systemd_activated = 0;
+      foreach my $this_res (@res_list) {
+	if (systemd_present($cmd, $this_res)) {
+	  $systemd_activated++;
+	  last;
+	}
+      }
+      if ($systemd_activated) {
+	lprint "Systemd is activated, acting like --parallel=0\n" if $verbose;
+	$parallel = 0;
+      }
+    }
   }
   return sort alphanum_cmp @res_list;
 }
