@@ -1915,11 +1915,13 @@ sub __systemd_generate_all {
   # Determine all template files.
   get_template_files();
   # Always add all plain templates
+  my %done_units;
   %referenced_units = ();
   my $count = 0;
   foreach my $template_name (sort alphanum_cmp keys(%template_files)) {
     next if $template_name =~ m/($systemd_incape|$systemd_escape)/;
     $count += make_systemd_unit($cmd, "UNDEFINED_RESOURCE", $template_name);
+    $done_units{$template_name} = 1;
   }
   # Determine all participating resource names.
   my @res_list = get_member_resources($host);
@@ -1927,12 +1929,13 @@ sub __systemd_generate_all {
   foreach my $res (@res_list) {
     foreach my $unit_link (lamport_glob("$mars/resource-$res/systemd-*-unit")) {
       my $target = get_link($unit_link);
+      next unless $target;
       $count += make_systemd_unit($cmd, $res, $target);
+      $done_units{$target} = 1;
     }
   }
   # Compute the transitive closure of referenced units
   lprint "== adding transitive units for $count start units.\n" if $verbose;
-  my %done_units;
   for (;;) {
     my $old_count = $count;
     foreach my $target (sort alphanum_cmp keys(%referenced_units)) {
@@ -6242,9 +6245,8 @@ sub primary_phase4 {
 }
 
 sub primary_phase5 {
-  my ($cmd, $res) = @_;
-  _systemd_trigger($cmd);
-  return 0;
+  return 0 unless systemd_present(@_);
+  return set_systemd_want_phase3(@_);
 }
 
 sub wait_umount_res {
