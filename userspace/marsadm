@@ -5207,6 +5207,7 @@ sub leave_res_phase0 {
     check_status($cmd, $res, "is-attached", 0, 0, 1);
     ldie "there were $errors errors.\n" if $errors;
   }
+  return 0;
 }
 
 sub leave_res_phase1 {
@@ -5241,6 +5242,7 @@ sub leave_res_phase2 {
   $force = 0; # this would be too dangerous
   log_purge_res($cmd, $res);
   err_purge_res($cmd, $res);
+  return 0;
 }
 
 sub leave_res_phase3 {
@@ -5252,6 +5254,11 @@ sub leave_res_phase3 {
   if ($compat_deletions && $host eq $real_host) {
     system("rm -f $mars/resource-$res/log-*");
   }
+  return 0;
+}
+
+sub leave_res_phase4 {
+  my ($cmd, $res) = @_;
   _systemd_trigger($cmd, 1);
   return 0;
 }
@@ -8737,6 +8744,8 @@ my %cmd_table =
        "purge logfiles",
        \&leave_res_phase3,
        "wait for deletions",
+       \&leave_res_phase4,
+       "trigger systemd",
       ],
    "delete-resource"
    => [
