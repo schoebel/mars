@@ -1173,7 +1173,7 @@ sub subst_systemd_vars {
 	  $failed{$varname} = 1;
 	  $replac = "UNDEFINED($varname)";
 	}
-	lprint "    subst '$systemd_escape\{$varname\}' => '$replac'\n" if $verbose > 2;
+	lprint "    subst '$systemd_escape\{$varname\}' => '$replac'\n" if $verbose > 9;
 	last SWITCH;
       }
       if (/^verbatim$/) {
@@ -1186,7 +1186,7 @@ sub subst_systemd_vars {
     if ($do_extra_escape || $this_escape) {
       my $orig = $replac;
       $replac = _systemd_escape($replac);
-      lprint "    escape '$orig' => '$replac'\n" if $verbose > 2;
+      lprint "    escape '$orig' => '$replac'\n" if $verbose > 9;
     }
     $parsed .= $replac;
     $text = $rest;
