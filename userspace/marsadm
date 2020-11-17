@@ -1375,6 +1375,11 @@ sub make_systemd_unit {
   foreach my $template_file (get_template_files()) {
     my $template_name = $template_names{$template_file};
     next unless $template_name;
+    # avoid exhaustive search
+    if ($template_name =~ m/^([A-Za-z0-9_.]+)/) {
+      my $prefix = $1;
+      next unless $target =~ m/^$prefix/;
+    }
     foreach my $res (@res_list) {
       ($template_name, my $env) = make_env($cmd, $res, $template_name);
       my $subst = $template_name;
