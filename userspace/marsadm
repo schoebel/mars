@@ -2920,13 +2920,14 @@ sub check_status {
       ldie "Cannot execute $cmd on resource $res: actual '$key_msg' must be $val_msg. $action_msg Also ensure that your command _can_ succeed.\n" if !$wait;
     }
     if (defined($action) && $action && $rounds > 1) {
-      lprint "action: $action\n" if $verbose;
+      lprint "Action: $action\n" if $verbose > 2;
       my $action_status = 0;
       my $old_error_count = $error_count;
       eval "$action";
       $error_count = $old_error_count;
       # Tolerate intermediate failures for some time
       if ($action_status && $rounds > $fail_round) {
+	lwarn "failed action $action_status: $action\n";
 	_run_compensation($compensation);
 	ldie "Action failure, status=$action_status\n";
       }
