@@ -6065,7 +6065,6 @@ sub primary_phase0 {
       lprint "IMPORTANT: Relying on systemd for $oper of unit '$unit'\n";
       lprint "IMPORTANT: unit '$unit' wanted at '$new'\n";
       finish_links();
-      _systemd_trigger($cmd);
       _trigger(3);
       return 0;
     }
@@ -6239,6 +6238,11 @@ sub primary_phase4 {
   check_mars_device($cmd, $res, 1, 0);
   # new switch semantics, when nothing has failed before: up
   up_res_phase1(@_);
+  return 0;
+}
+
+sub primary_phase5 {
+  my ($cmd, $res) = @_;
   _systemd_trigger($cmd);
   return 0;
 }
@@ -9340,6 +9344,9 @@ my %cmd_table =
        "trigger remote",
        \&primary_phase4,
        "wait for device",
+       "LOOP",
+       \&primary_phase5,
+       "trigger systemd",
       ],
    "secondary"
    => [
@@ -9364,6 +9371,9 @@ my %cmd_table =
        "trigger remote",
        \&primary_phase4,
        "wait for effect",
+       "LOOP",
+       \&primary_phase5,
+       "trigger systemd",
       ],
    "invalidate"
    => [
