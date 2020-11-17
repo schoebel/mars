@@ -1438,7 +1438,7 @@ sub make_systemd_unit {
   return $nr;
 }
 
-sub set_systemd_want {
+sub set_systemd_want_phase1 {
   my ($cmd, $res, $new) = @_;
   if ($new ne "(none)") {
     my $host_path = "$mars/ips/ip-$new";
@@ -1455,10 +1455,85 @@ sub set_systemd_want {
   }
   my $want_path = "$mars/resource-$res/systemd-want";
   my $old = get_link($want_path, 1);
-  return if ($old && $old eq $new);
+  return 0 if ($old && $old eq $new);
   set_link($new, $want_path);
   finish_links();
-  _systemd_trigger();
+  return 0;
+}
+
+sub set_systemd_want_phase2 {
+  my ($cmd, $res) = @_;
+  _systemd_trigger($cmd);
+  return 0;
+}
+
+sub set_systemd_want_phase3 {
+  my ($cmd, $res) = @_;
+  _trigger(3);
+  my $want_path = "$mars/resource-$res/systemd-want";
+  my $new = get_link($want_path, 1);
+  if ($force) {
+    lprint "De/activation of '$want_path' -> '$new' is not checked due to --force\n";
+    return 0;
+  }
+  if ($new eq "(none)") {
+    my $fail = 0;
+    my $touch = 0;
+    foreach my $peer (get_any_peers($res)) {
+      my $open_count_path = "$mars/resource-$res/actual-$peer/open-count";
+      my $device_in_use = get_link($open_count_path, 1);
+      if ($device_in_use) {
+	my $name = _device_name($res, $peer);
+	lprint "Device '$name' is in use at '$peer'\n";
+	if ($peer eq $real_host) {
+	  $fail = 1;
+	} else {
+	  # mistrust unreachable peers
+	  my ($dead_count, $alive_count, $unknown_count) = is_cluster_recent($cmd, $res, $peer);
+	  if ($alive_count) {
+	    $fail = 1;
+	  } else {
+	    lwarn "however peer '$peer' is not reachable, continuing for livelock avoidance.\n";
+	    $touch++;
+	  }
+	}
+      }
+    }
+    if ($fail || $touch) {
+      lprint "Re-trigger $want_path\n";
+      safe_touch($want_path);
+    } else {
+      lprint "All peer devices are closed.\n";
+    }
+    return $fail;
+  }
+  my $name = _device_name($res, $new);
+  my $dev_present = device_exists($res, $new);
+  if (!$dev_present) {
+    lwarn "device '$name' is not present at '$new'\n";
+    return 0;
+  }
+  my $fail = 0;
+  my $open_count_path = "$mars/resource-$res/actual-$new/open-count";
+  my $device_in_use = get_link($open_count_path, 1);
+  if (!$device_in_use) {
+    lprint "Device '$name' not yet opened at '$new'\n";
+    safe_touch($want_path);
+    # mistrust unreachable peer
+    if ($new eq $real_host) {
+      $fail = 1;
+    } else {
+      my ($dead_count, $alive_count, $unknown_count) = is_cluster_recent($cmd, $res, $new);
+      if ($alive_count) {
+	$fail = 1;
+      } else {
+	lwarn "however peer '$new' is not reachable, continuing for livelock avoidance.\n";
+      }
+    }
+  } else {
+    lprint "Device '$name' is open at '$new'.\n";
+  }
+  return $fail;
 }
 
 sub systemd_present {
@@ -6049,7 +6124,7 @@ sub primary_phase0b {
   if ($old ne "(none)") {
     $compensation = "lprint \"Restarting '$res' on '$old'\n\"; ";
     $compensation .= "_primary_res(\"$res\", \"$old\", \"(none)\"); ";
-    $compensation .= "set_systemd_want(\"$cmd\", \"$res\", \"$old\"); ";
+    $compensation .= "set_systemd_want_phase1(\"$cmd\", \"$res\", \"$old\"); ";
     $compensation .= "finish_links(); ";
     $compensation .= "_trigger(3); ";
     $compensation .= "lprint \"Triggered systemd at '$old'.\n\";";
@@ -8708,7 +8783,15 @@ my %cmd_table =
        "the special hostname \"(none)\".",
        "For a _permanent_ stop, use \"marsadm set-systemd-unit <resource>\"",
        "instead.",
-       \&set_systemd_want,
+       "PARALLEL",
+       "FORK",
+       \&set_systemd_want_phase1,
+       "set links",
+       \&set_systemd_want_phase2,
+       "trigger systemd",
+       "LOOP",
+       \&set_systemd_want_phase3,
+       "wait for effect",
       ],
    "get-systemd-want"
    => [
