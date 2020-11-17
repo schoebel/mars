@@ -5263,13 +5263,13 @@ sub leave_res_phase4 {
   return 0;
 }
 
-sub delete_res {
+sub delete_res_phase1 {
   my ($cmd, $res) = @_;
   my $basedir = "$mars/resource-$res";
   # preconditions
   if (! -d $basedir) {
     lprint "resource directory '$basedir' does no longer exist.\n";
-    return;
+    return 0;
   }
   my @host_list = get_total_peers($res);
   my $cnt = scalar(@host_list);
@@ -5287,6 +5287,11 @@ sub delete_res {
   finish_links();
   _wait_delete();
   _reset_resources();
+  return 0;
+}
+
+sub delete_res_phase2 {
+  my ($cmd, $res) = @_;
   _systemd_trigger($cmd, 1);
   return 0;
 }
@@ -8760,7 +8765,10 @@ my %cmd_table =
        "HINT: best practice is to not use this, but just create a _new_",
        "resource with a new <resource_name> out of your local disks.",
        "Please read the PDF manual on potential consequences.",
-       \&delete_res,
+       \&delete_res_phase1,
+       "set links",
+       \&delete_res_phase2,
+       "trigger systemd",
       ],
    "set-systemd-unit"
    => [
