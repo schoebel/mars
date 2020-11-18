@@ -8455,7 +8455,6 @@ my %cmd_table =
        "verbose 1",
        "usage: set-link <path> <value>",
        "Only for experts.",
-       "Will disappear in a future MARS release.",
        \&set_link_cmd,
       ],
    "get-link"
@@ -8463,7 +8462,6 @@ my %cmd_table =
        "verbose 1",
        "usage: get-link <path>",
        "Only for experts.",
-       "Will disappear in a future MARS release.",
        \&set_link_cmd,
       ],
    "set-sync-limit-value"
