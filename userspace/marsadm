@@ -2250,17 +2250,17 @@ sub recent_cluster {
 # Activate such a resource as a guest.
 sub _activate_resource {
   my ($cmd, $res, $peer) = @_;
-  return unless $res;
   $peer = $host unless $peer;
   finish_links();
-  if ($res eq "*" || $res eq "all") {
-    update_cluster($cmd, $res);
+  if (!$res || $res eq "*" || $res eq "all") {
+    lwarn "no usable resource to activate ($res).\n";
     return;
   }
   my $resdir = "$mars/resource-$res";
   my $max_retry = 3;
   until (-d $resdir) {
-    update_cluster($cmd, $res);
+    my $condition = "return -d \"$resdir\";";
+    update_cluster($cmd, $res, "*", $condition);
     last if -d $resdir;
     if ($max_retry-- < 0) {
       ldie "Resource directory '$resdir' does not exist\n";
@@ -2269,6 +2269,18 @@ sub _activate_resource {
     sleep(3);
   }
   lprint "OK, resource directory '$resdir' exists.\n";
+  my $check_link = "$resdir/size";
+  $max_retry = 3;
+  until (get_link($check_link, 1)) {
+    my $condition = "return get_link(\"$check_link\", 1);";
+    update_cluster($cmd, $res, "*", $condition);
+    if ($max_retry-- < 0) {
+      ldie "link '$check_link' does not exist.\n";
+    }
+    lwarn "link '$check_link' does not yet exist, fetching...\n";
+    sleep(3);
+  }
+  lprint "OK, link '$check_link' exists.\n";
   my $active_path = "$resdir/device-$peer";
   my $check = get_link($active_path, 2);
   if ($check) {
@@ -2276,33 +2288,52 @@ sub _activate_resource {
       _push_check($peer, "", $resdir);
       _push_check($peer, "", $active_path);
     }
-    lprint "Resource '$res' was already activated at '$peer'\n" if $verbose;
+    lprint "Resource '$res' was already activated at '$peer'\n";
     return;
   }
-  lprint "ENABLING resource '$res' at '$peer'\n" if $verbose;
+  lprint "ENABLING resource '$res' at '$peer'\n";
   # Ensure guest communication: a faked device-$peer must exist
   # for activation.
-  # Notice: this will be later overwritten with the final value.
-  set_link("(none)", $active_path);
+  # Notice: this may be later overwritten with another value.
+  set_link($res, $active_path);
   # prevent fallback to old device detection
   my $actual_dir = "$resdir/actual-$peer";
   mkdir($actual_dir);
   my $if_path = "$actual_dir/if-on";
   set_link("0", $if_path);
-  # Make PRELIMINARY links, timestamp is 1 second after the Big Bang (1970)
-  # Thanks to Lamport, this will turn into a NOP when a link already exists.
-  finish_links(1);
+  finish_links();
   _push_check($peer, "", $active_path) if $peer ne $real_host;
   # wait for (self-)activation
   wait_cluster($cmd, $res, $peer, 0);
   # activated peers might have changed
-  _trigger(3);
-  update_cluster($cmd, $res, "*", 0);
+  my $primary = _get_designated_primary($res, 1);
+  for (my $retry = 3; $retry >= 0; $retry--) {
+    _trigger(3);
+    my $condition = "return _get_designated_primary(\"$res\", 1);";
+    my $from = ($primary && $primary ne "(none)") ? $primary : "*";
+    my $old_primary = $primary;
+    $primary = update_cluster($cmd, $res, $from, $condition);
+    last if ($primary && $primary eq $old_primary);
+    sleep(3);
+  }
 }
 
-sub activate_resource {
-  my ($cmd, $res) = @_;
+sub activate_guest {
+  my ($cmd, $res, $peer) = @_;
+  $peer = $host unless $peer;
+  my $resdir = "$mars/resource-$res";
+  if ($cmd =~ m/deactivate/) {
+    ldie "resource directory '$resdir' does not exist.\n" unless -d $resdir;
+    my $check_glob = "$resdir/*{data,replay}-$peer";
+    if (lamport_glob($check_glob)) {
+      ldie "peer '$peer' ist a storage member of resource '$res'\n";
+    }
+    my $guest_path = "$resdir/device-$peer";
+    _create_delete($guest_path);
+    return;
+  }
   _activate_resource($cmd, $res);
+  ldie "Could not get resource name '$res'\n" unless -d $resdir;
 }
 
 ##################################################################
@@ -8197,9 +8228,6 @@ my %cmd_table =
        "After the initial full sync has finished, the current host will",
        "act in secondary role.",
        "For details on size constraints etc, refer to the PDF manual.",
-       [
-	\&activate_resource,
-       ],
        \&create_res,
       ],
    "leave-resource"
@@ -8590,6 +8618,23 @@ my %cmd_table =
        "NOTICE: this is extremely useful for avoiding races when scripting",
        "in a cluster.",
        \&update_cluster,
+      ],
+   "activate-guest"
+   => [
+       "usage: activate-guest <resource_name>",
+       "Conditional update-cluster, so that <resource_name> will be locally",
+       "known at the local machine, and mark the resource as a guest.",
+       "Useful inbetween create-resource and join-resource.",
+       "A guest will receive any symlink updates much more frequently.",
+       "Prefer this over update-cluster when interested in a resource.",
+       \&activate_guest,
+      ],
+   "deactivate-guest"
+   => [
+       "usage: deactivate-guest <resource_name>",
+       "Precondition: the resource must not have local storage assigned.",
+       "Useful for cleaning up a pure guest relastionship.",
+       \&activate_guest,
       ],
 
    # compatible keywords (or their derivatives)
@@ -9371,7 +9416,7 @@ sub do_one_res {
   if ($cmd =~ m/^cat|^set-global-|-file$|-list$|-link$|-value$/) { # no resource argument
   } elsif (!$checked_res{"$cmd$res"}) {
     $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|merge|leave|wait)-cluster|(create|join)-resource|show/);
-    check_res_member($cmd, $res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(merge|leave|wait)-cluster|-purge-|^show|^view/);
+    check_res_member($cmd, $res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(merge|leave|wait)-cluster|activate-guest|-purge-|^show|^view/);
     detect_splitbrain($res, 1);
     $checked_res{"$cmd$res"} = 1;
   }
