@@ -2096,13 +2096,11 @@ sub wait_cond {
 
 # wait until everything is recent
 sub wait_cluster {
-  my $cmd = shift;
-  my $res = shift;
+  my ($cmd, $res, $hosts, $abort, $trigger_code, $condition) = @_;
   $res = "all" if (!$res || $res =~ m/,/);
-  my $hosts = shift || "*";
-  my $abort = shift;
+  $hosts = "*" unless $hosts;
   $abort = $force unless defined($abort);
-  my $trigger_code = shift || ($hosts =~ m/\*/ ? 3 : 2);
+  $trigger_code = ($hosts =~ m/\*/ ? 3 : 2) unless $trigger_code;
   my $non_participating = ($trigger_code >= 8);
   $timeout_val = undef;
   get_global_versions();
@@ -2130,6 +2128,12 @@ sub wait_cluster {
   }
   my $delta = $window > 0 ? $window / 2 : 30;
   while (1) {
+    # Early abort when condition is met
+    if ($condition) {
+      my $status = eval($condition);
+      lprint "Condition '$condition' status=$status\n" if $verbose;
+      return $status if $status;
+    }
     my $dead_count = 0;
     my $alive_count = 0;
     my $unknown_count = 0;
@@ -2189,6 +2193,7 @@ sub wait_cluster {
     sleep_timeout(1, 1);
     last if $timeout_val <= 0 && !$unknown_count;
   }
+  return 0;
 }
 
 sub wait_cluster_noforce {
@@ -2200,13 +2205,13 @@ sub wait_cluster_noforce {
 }
 
 sub update_cluster {
-  my $cmd = shift;
-  my $res = shift;
+  my ($cmd, $res, $hosts, $condition) = @_;
   $res = "all" if (!$res || $res =~ m/,/);
-  my $hosts = shift || "*";
+  $hosts = "*" unless $hosts;
   lprint "UPDATING $res\n" if $verbose;
-  wait_cluster($cmd, $res, $hosts, 0, 8);
+  my $status = wait_cluster($cmd, $res, $hosts, 0, 8, $condition);
   _reset_resources();
+  return $status;
 }
 
 sub is_cluster_recent {
@@ -4272,11 +4277,12 @@ sub create_res {
     # For safety, try to get the very newest infos.
     # Reason: newer kernel modules will fetch non-member resource infos less frequently.
     # Therefore we shift some responsibility for non-member -> member transitions to userspace.
+    $primary = _get_designated_primary($res, 1);
     for (my $retry = 0; $retry < 3; $retry++) {
-      $primary = _get_designated_primary($res, 1);
       last if (defined($primary) && $primary);
       lprint "Trying to get primary info\n";
-      update_cluster($cmd, $res, "*");
+      my $condition = "return _get_designated_primary(\"$res\", 1);";
+      $primary = update_cluster($cmd, $res, "*", $condition);
     }
     my $max_retry = 5;
     for (;;) {
