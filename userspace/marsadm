@@ -1591,20 +1591,51 @@ sub _check_unit_marker {
 my %systemctl_pid = ();
 
 sub _systemd_op_wait {
-  return unless %systemctl_pid;
-  my @wait_list = sort alphanum_cmp keys(%systemctl_pid);
-  foreach my $pid (@wait_list) {
-    my $check_pid = waitpid($pid, 0);
-    my $status = $?;
-    if ($status > 0) {
-      lwarn "UNIT CHILD $pid terminated with status=$status\n";
-    } elsif ($check_pid == $pid) {
-      lprint_stderr "UNIT CHILD $pid terminated successfully\n";
-    } else {
-      lwarn "UNIT CHILD $pid terminated with unknown state\n";
+  my ($kill_after_timeout) = @_;
+  return 0 unless %systemctl_pid;
+  my $errors = 0;
+  my $success = 0;
+  my $old_timeout = $timeout;
+  my $signal = "SIGTERM";
+  my $backoff = 1;
+  for (;;) {
+    my @wait_list = keys(%systemctl_pid);
+    last unless @wait_list;
+    foreach my $pid (@wait_list) {
+      use POSIX ":sys_wait_h";
+      my $check_pid = waitpid($pid, WNOHANG);
+      my $status = $?;
+      if ($status > 0) {
+	lwarn "UNIT CHILD $pid terminated with status=$status\n";
+	delete $systemctl_pid{$pid};
+	$backoff = 1;
+	$errors++;
+      } elsif ($check_pid == $pid) {
+	lprint_stderr "UNIT CHILD $pid terminated successfully\n";
+	delete $systemctl_pid{$pid};
+	$backoff = 1;
+	$success++;
+      }
     }
+    last unless %systemctl_pid;
+    my $reached = sleep_timeout($backoff++, 1);
+    if ($reached && $kill_after_timeout) {
+      kill($signal, keys(%systemctl_pid));
+      $errors++;
+    }
+    last if $signal eq "SIGKILL"; # give up
+    $signal = "SIGKILL";
+    $backoff = 1;
+    $timeout = $old_timeout;
   }
   %systemctl_pid = ();
+  $timeout = $old_timeout;
+  if ($errors) {
+    lwarn "systemctl: there were were $success successes and $errors errors.\n";
+  } else {
+    lprint "There were $success successful systemctl operations.\n";
+  }
+  return $errors;
 }
 
 sub _systemd_op {
