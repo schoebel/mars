@@ -1892,7 +1892,7 @@ sub get_global_versions {
     }
   }
   # can ssh be switched off?
-  if ($kernel_strategy_version >= 4) {
+  if ($kernel_strategy_version >= 5) {
     $ssh_port = 0;
   }
   # determine cluster-wide $compat_* values
@@ -2105,7 +2105,11 @@ sub wait_cluster {
   my $trigger_code = shift || ($hosts =~ m/\*/ ? 3 : 2);
   my $non_participating = ($trigger_code >= 8);
   $timeout_val = undef;
+  get_global_versions();
   finish_links();
+  if ($hosts eq $real_host && $kernel_strategy_version >= 5) {
+    return 0;
+  }
   my $max_restarts = 3;
   my $max_resets = 1;
  restart:
@@ -5087,6 +5091,7 @@ sub link_purge_global {
   }
   lprint "removing left-over symlinks...\n" if $verbose;
   # remove any old alivelinks
+  get_global_versions();
   my $kernel_compat = get_alive_link("compat-alivelinks", $host, 2);
   # only when a new kernel is running
   if (defined($kernel_compat) && $kernel_compat ne "") {
