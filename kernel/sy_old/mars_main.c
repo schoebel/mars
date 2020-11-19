@@ -7260,7 +7260,12 @@ static int _main_thread(void *data)
 		if (!say_status)
 			init_say();
 
-		MARS_DBG("-------- NEW ROUND %d ---------\n", atomic_read(&server_handler_count));
+		MARS_DBG("-------- %d/%d NEW ROUND %d %d %d ---------\n",
+			 mars_global->global_power.button,
+			 mars_net_is_alive,
+			 atomic_read(&server_handler_count),
+			 peer_count,
+			 !list_empty(&mars_global->brick_anchor));
 
 		/* Static memlimit */
 		if (mars_mem_percent < 0)
