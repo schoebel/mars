@@ -1,0 +1,5 @@
+mars (0.1astable114-1) unstable; urgency=medium
+
+  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- Gabriel Francisco <frc.gabriel@gmail.com>  Thu, 19 Nov 2020 01:02:34 +0000
