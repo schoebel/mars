@@ -1,0 +1,138 @@
+Building the dkms package:
+
+```
+user@plug:/home/user/$ git clone https://github.com/fgbreel/mars.git && cd mars
+
+user@plug:/home/user/mars$ git checkout debian/sid
+
+user@plug:/home/user/mars$ gbp buildpackage --git-pristine-tar --git-pristine-tar-commit --git-upstream-tag='mars%(version)s' --git-debian-branch=debian/sid -us -uc
+gbp:info: Creating /home/user/mars_0.1astable114.orig.tar.gz
+gbp:info: Creating mars_0.1astable114.orig.tar.gz from 'mars0.1astable114'
+gbp:info: Performing the build
+ dpkg-buildpackage -us -uc -ui -i -I
+dpkg-buildpackage: info: source package mars
+dpkg-buildpackage: info: source version 0.1astable114-1
+dpkg-buildpackage: info: source distribution unstable
+dpkg-buildpackage: info: source changed by Gabriel Francisco <frc.gabriel@gmail.com>
+ dpkg-source -i -I --before-build .
+dpkg-buildpackage: info: host architecture amd64
+ fakeroot debian/rules clean
+dh clean --with dkms
+   debian/rules override_dh_auto_clean
+make[1]: Entering directory '/home/user/mars'
+make[1]: Leaving directory '/home/user/mars'
+   dh_clean
+ dpkg-source -i -I -b .
+dpkg-source: info: using source format '3.0 (quilt)'
+dpkg-source: info: building mars using existing ./mars_0.1astable114.orig.tar.gz
+dpkg-source: info: building mars in mars_0.1astable114-1.debian.tar.xz
+dpkg-source: info: building mars in mars_0.1astable114-1.dsc
+ debian/rules build
+dh build --with dkms
+   dh_update_autotools_config
+   dh_autoreconf
+   create-stamp debian/debhelper-build-stamp
+ fakeroot debian/rules binary
+dh binary --with dkms
+   dh_testroot
+   dh_prep
+   debian/rules override_dh_install
+make[1]: Entering directory '/home/user/mars'
+cp debian/mars-Makefile kernel/Makefile
+cp debian/mars-Kbuild kernel/Kbuild
+dh_install scripts/gen_config.pl usr/src/mars-0.1astable114/
+dh_install kernel/* usr/src/mars-0.1astable114/
+make[1]: Leaving directory '/home/user/mars'
+   dh_installdocs
+   dh_installchangelogs
+   debian/rules override_dh_dkms
+make[1]: Entering directory '/home/user/mars'
+dh_dkms -V 0.1astable114
+make[1]: Leaving directory '/home/user/mars'
+   dh_perl
+   dh_link
+   dh_strip_nondeterminism
+   dh_compress
+   dh_fixperms
+   dh_missing
+   dh_strip
+   dh_makeshlibs
+   dh_shlibdeps
+   dh_installdeb
+   dh_gencontrol
+dpkg-gencontrol: warning: Depends field of package mars-dkms: substitution variable ${shlibs:Depends} used, but is not defined
+dpkg-gencontrol: warning: package mars-dkms: substitution variable ${perl:Depends} unused, but is defined
+   dh_md5sums
+   dh_builddeb
+dpkg-deb: building package 'mars-dkms' in '../mars-dkms_0.1astable114-1_amd64.deb'.
+ dpkg-genbuildinfo
+ dpkg-genchanges  >../mars_0.1astable114-1_amd64.changes
+dpkg-genchanges: info: including full source code in upload
+ dpkg-source -i -I --after-build .
+dpkg-buildpackage: info: full upload (original source is included)
+```
+
+Installing on target computer:
+
+```
+root@plug:/home/user# apt install ./mars-dkms_0.1astable114-1_amd64.deb
+Reading package lists... Done
+Building dependency tree
+Reading state information... Done
+Note, selecting 'mars-dkms' instead of './mars-dkms_0.1astable114-1_amd64.deb'
+The following NEW packages will be installed:
+  mars-dkms
+0 upgraded, 1 newly installed, 0 to remove and 100 not upgraded.
+Need to get 0 B/223 kB of archives.
+After this operation, 1144 kB of additional disk space will be used.
+Get:1 /home/user/mars-dkms_0.1astable114-1_amd64.deb mars-dkms amd64 0.1astable114-1 [223 kB]
+Selecting previously unselected package mars-dkms.
+(Reading database ... 222033 files and directories currently installed.)
+Preparing to unpack .../mars-dkms_0.1astable114-1_amd64.deb ...
+Unpacking mars-dkms (0.1astable114-1) ...
+Setting up mars-dkms (0.1astable114-1) ...
+Loading new mars-0.1astable114 DKMS files...
+Building for 4.9.0-13-amd64
+Building initial module for 4.9.0-13-amd64
+Done.
+
+mars.ko:
+Running module version sanity check.
+ - Original module
+   - No original module exists within this kernel
+ - Installation
+   - Installing to /lib/modules/4.9.0-13-amd64/updates/dkms/
+
+depmod...
+
+DKMS: install completed.
+
+root@plug:/home/user# stat /lib/modules/4.9.0-13-amd64/updates/dkms/mars.ko
+  File: /lib/modules/4.9.0-13-amd64/updates/dkms/mars.ko
+  Size: 861440    	Blocks: 1688       IO Block: 4096   regular file
+Device: fe01h/65025d	Inode: 525826      Links: 1
+Access: (0644/-rw-r--r--)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2020-11-19 18:20:55.082662798 +0100
+Modify: 2020-11-19 18:20:54.862664958 +0100
+Change: 2020-11-19 18:20:54.862664958 +0100
+ Birth: -
+```
+
+Return from `dmesg` from target computer:
+
+```
+root@plug:/home/user# modprobe mars
+modprobe: ERROR: could not insert 'mars': Invalid argument
+
+root@plug:/home/user# dmesg  | tail
+[ 9256.797067] acpi device:40: Cannot transition to power state D3hot for parent in (unknown)
+[ 9256.798120] acpi PNP0401:00: Already enumerated
+[ 9256.798850] acpi PNP0501:00: Still not present
+[ 9257.006838] e1000e: eno1 NIC Link is Down
+[ 9257.009900] IPv6: ADDRCONF(NETDEV_UP): eno1: link is not ready
+[ 9257.214510] IPv6: ADDRCONF(NETDEV_UP): eno1: link is not ready
+[ 9260.184738] e1000e: eno1 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: None
+[ 9260.184797] IPv6: ADDRCONF(NETDEV_CHANGE): eno1: link becomes ready
+[ 9433.930119] Cluster UUID is missing. Mount /mars/, and/or say {create,join}-cluster afterwwards.
+[ 9433.930123] /mars is no mountpoint
+```

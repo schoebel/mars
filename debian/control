@@ -12,7 +12,6 @@ Package: mars-dkms
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: mars kernel module.
- It generates and compare two builds using diffoscope.
  MARS Light is a block-level storage replication solution implemented
  in the form of a Linux kernel module.
  .
