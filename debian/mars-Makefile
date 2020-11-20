@@ -1,0 +1,97 @@
+#
+# Makefile for out-of-tree build of MARS module
+#
+#
+# By Benjamin Kübler <benjamin.kuebler@1und1.de>
+#
+# usage make [ KDIR =/path/to/kernel/source ]
+#
+obj-$(CONFIG_MARS)	+= mars.o
+
+mars-objs :=				\
+	lamport.o			\
+	brick_say.o			\
+	brick_mem.o			\
+	brick.o				\
+	mars_generic.o			\
+	lib_log.o			\
+	lib_rank.o			\
+	lib_limiter.o			\
+	lib_timing.o			\
+	lib_mapfree.o			\
+	mars_net.o			\
+	mars_server.o			\
+	mars_client.o			\
+	mars_aio.o			\
+	mars_sio.o			\
+	mars_bio.o			\
+	mars_if.o			\
+	mars_copy.o			\
+	mars_trans_logger.o		\
+	sy_old/sy_generic.o		\
+	sy_old/sy_net.o			\
+	sy_old/mars_proc.o		\
+	sy_old/mars_main.o
+
+ifneq ($(KERNELRELEASE),)
+
+# in-tree-build process
+include Kbuild
+
+else
+# out-of-tree-build process
+
+MARSSRC := $(shell pwd)
+DESTDIR ?= /
+KDIR ?= /lib/modules/$(shell uname -r)/build
+
+.PHONY: greeting install default clean config
+
+default: mars_config.h
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+greeting:
+	@echo "Building MARS Module again: KDIR=$(KDIR)" ;
+	@if ! test -e $(KDIR)/Makefile ; then \
+		echo -e "Sorry, kernel makefile not found. You need to tell me a correct KDIR!\n" ; \
+		false; \
+	fi
+
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
+
+config:
+	$(MAKE) -C $(KDIR) M=$(PWD) config
+
+install:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules_install
+
+extra-y	:= buildtag.h
+buildtag.h:
+	exec > $@;\
+	/bin/echo -e "/* Automatically generated -- DO NOT EDIT! */";\
+	if [ "$$MARSVERSION" != "" ]; then \
+		BUILDTAG="$$MARSVERSION"; \
+	elif git describe --tags >/dev/null 2>&1; then \
+		BUILDTAG="$$(git describe --tags)"; \
+	elif [ -e DISTVERSION ]; then \
+		BUILDTAG=$$(cat DISTVERSION); \
+	else \
+		BUILDTAG="no-buildtag-available"; \
+	fi; \
+	/bin/echo -e "#define BUILDTAG  \"$$BUILDTAG\"";\
+	/bin/echo -e "#define BUILDHOST \"$$USER@`hostname`\"";\
+	/bin/echo -e "#define BUILDDATE \"$$(date '+%F %T')\""
+	cat $@;
+
+extra-y	+= mars_config.h
+GEN_CONFIG_SCRIPT := $(MARSSRC)/gen_config.pl
+mars_config.h: buildtag.h
+	if [ ! -x $(GEN_CONFIG_SCRIPT) ]; then \
+	    $(kecho) "MARS: cannot execute script $(GEN_CONFIG_SCRIPT)"; \
+	    /bin/false; \
+	fi; \
+	cat $(MARSSRC)/Kconfig | $(GEN_CONFIG_SCRIPT) 2>/dev/null > $@;
+	cat $@;
+
+endif

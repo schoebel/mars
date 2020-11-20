@@ -1,0 +1,77 @@
+#
+# Makefile for MARS
+#
+
+KBUILD_CFLAGS += -fdelete-null-pointer-checks
+
+obj-$(if $(KBUILD_EXTMOD),m,$(CONFIG_MARS)) := mars.o
+
+mars-y :=				\
+	lamport.o			\
+	brick_say.o			\
+	brick_mem.o			\
+	brick.o				\
+	mars_generic.o			\
+	lib_log.o			\
+	lib_rank.o			\
+	lib_limiter.o			\
+	lib_timing.o			\
+	lib_mapfree.o			\
+	mars_net.o			\
+	mars_server.o			\
+	mars_client.o			\
+	mars_aio.o			\
+	mars_sio.o			\
+	mars_bio.o			\
+	mars_if.o			\
+	mars_copy.o			\
+	mars_trans_logger.o		\
+	sy_old/sy_generic.o		\
+	sy_old/sy_net.o			\
+	sy_old/mars_proc.o		\
+	sy_old/mars_main.o
+
+ifdef CONFIG_DEBUG_KERNEL
+
+KBUILD_CFLAGS += -fno-inline-functions -fno-inline-small-functions -fno-inline-functions-called-once
+
+# This is currently not really used.
+# We urge people to maintain it by including it in debug versions
+# (so the compiler may throw any complaints)
+
+mars-y += 				\
+	mars_dummy.o			\
+	mars_check.o			\
+	mars_buf.o			\
+	mars_usebuf.o			\
+
+endif
+
+extra-y := mars_config.h buildtag.h
+
+$(obj)/buildtag.h:
+	exec > $@;\
+	/bin/echo -e "/* Automatically generated -- DO NOT EDIT! */";\
+	if [ "$$MARSVERSION" != "" ]; then \
+		BUILDTAG="$$MARSVERSION"; \
+	elif git describe --tags >/dev/null 2>&1; then \
+		BUILDTAG="$$(git describe --tags)"; \
+	elif [ -e DISTVERSION ]; then \
+		BUILDTAG=$$(cat DISTVERSION); \
+	else \
+		BUILDTAG="no-buildtag-available"; \
+	fi; \
+	/bin/echo -e "#define BUILDTAG  \"$$BUILDTAG\"";\
+	/bin/echo -e "#define BUILDHOST \"$$USER@`hostname`\"";\
+	/bin/echo -e "#define BUILDDATE \"$$(date '+%F %T')\""
+	cat $@;
+
+GEN_CONFIG_SCRIPT := $(obj)/gen_config.pl
+$(obj)/mars_config.h:
+	$(kecho) "building $@ ..."
+	if [ ! -x $(GEN_CONFIG_SCRIPT) ]; then \
+	    $(kecho) "MARS: cannot execute script $(GEN_CONFIG_SCRIPT)"; \
+	    /bin/false; \
+	fi; \
+	cat $(src)/Kconfig | $(GEN_CONFIG_SCRIPT) 2>/dev/null > $@;
+	cat $@
