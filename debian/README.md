@@ -7,7 +7,6 @@ user@plug:/home/user/mars$ git checkout debian/sid
 
 user@plug:/home/user/mars$ gbp buildpackage --git-pristine-tar --git-pristine-tar-commit --git-upstream-tag='mars%(version)s' --git-debian-branch=debian/sid -us -uc
 gbp:info: Creating /home/user/mars_0.1astable114.orig.tar.gz
-gbp:info: Creating mars_0.1astable114.orig.tar.gz from 'mars0.1astable114'
 gbp:info: Performing the build
  dpkg-buildpackage -us -uc -ui -i -I
 dpkg-buildpackage: info: source package mars
@@ -45,6 +44,8 @@ dh_install kernel/* usr/src/mars-0.1astable114/
 make[1]: Leaving directory '/home/user/mars'
    dh_installdocs
    dh_installchangelogs
+   dh_installman
+   dh_installcron
    debian/rules override_dh_dkms
 make[1]: Entering directory '/home/user/mars'
 dh_dkms -V 0.1astable114
@@ -60,11 +61,10 @@ make[1]: Leaving directory '/home/user/mars'
    dh_shlibdeps
    dh_installdeb
    dh_gencontrol
-dpkg-gencontrol: warning: Depends field of package mars-dkms: substitution variable ${shlibs:Depends} used, but is not defined
-dpkg-gencontrol: warning: package mars-dkms: substitution variable ${perl:Depends} unused, but is defined
    dh_md5sums
    dh_builddeb
 dpkg-deb: building package 'mars-dkms' in '../mars-dkms_0.1astable114-1_amd64.deb'.
+dpkg-deb: building package 'mars-tools' in '../mars-tools_0.1astable114-1_amd64.deb'.
  dpkg-genbuildinfo
  dpkg-genchanges  >../mars_0.1astable114-1_amd64.changes
 dpkg-genchanges: info: including full source code in upload
@@ -121,18 +121,23 @@ Change: 2020-11-19 18:20:54.862664958 +0100
 Return from `dmesg` from target computer:
 
 ```
+root@plug:/home/user# fallocate -l 10G foo
+root@plug:/home/user# losetup -f foo
+root@plug:/home/user# vgcreate mars /dev/loop0
+root@plug:/home/user# lvcreate -n mars -L 9G mars
+root@plug:/home/user# mkfs -t ext4 /dev/mapper/mars-mars
+root@plug:/home/user# mount /dev/mapper/mars-mars /mars/
 root@plug:/home/user# modprobe mars
-modprobe: ERROR: could not insert 'mars': Invalid argument
 
 root@plug:/home/user# dmesg  | tail
-[ 9256.797067] acpi device:40: Cannot transition to power state D3hot for parent in (unknown)
-[ 9256.798120] acpi PNP0401:00: Already enumerated
-[ 9256.798850] acpi PNP0501:00: Still not present
-[ 9257.006838] e1000e: eno1 NIC Link is Down
-[ 9257.009900] IPv6: ADDRCONF(NETDEV_UP): eno1: link is not ready
-[ 9257.214510] IPv6: ADDRCONF(NETDEV_UP): eno1: link is not ready
-[ 9260.184738] e1000e: eno1 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: None
-[ 9260.184797] IPv6: ADDRCONF(NETDEV_CHANGE): eno1: link becomes ready
-[ 9433.930119] Cluster UUID is missing. Mount /mars/, and/or say {create,join}-cluster afterwwards.
-[ 9433.930123] /mars is no mountpoint
+[44413.535164] Cluster UUID is missing. Mount /mars/, and/or say {create,join}-cluster afterwwards.
+[44413.535172] loading MARS, BUILDTAG=no-buildtag-available BUILDHOST=user@plug BUILDDATE=2020-11-20 03:31:33
+[44413.590445] crc32c     digest duration =     56001256 ns
+[44413.633954] crc32      digest duration =     44000989 ns
+[44413.929130] sha1       digest duration =    296006661 ns
+[44414.185517] md5old     digest duration =    256005761 ns
+[44414.449394] md5        digest duration =    264005939 ns
+[44414.484375] lzo      compress duration =     36000810 ns
+[44414.526621] lz4      compress duration =     40000900 ns
+[44415.499954] zlib     compress duration =    976021964 ns
 ```
