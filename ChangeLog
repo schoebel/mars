@@ -139,6 +139,13 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable115
+	* Critical regression from mars0.1astable113 / 114, only relevant
+	  when the new ssh-less peer operations are actually used:
+	  Race on peer thread creation could lead to kernel memory corruption.
+	  For maximum safety, please avoid the affected kernel module versions.
+	* dkms improvements from Gabriel Francisco.
+
 mars0.1astable114
 	* Major usability: ssh-less {merge,split}-cluster.
 	  Now all cluster operations should work without ssh and
