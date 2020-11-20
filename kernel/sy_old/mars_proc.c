@@ -151,7 +151,7 @@ void interpret_user_message(char *msg)
 		count = sscanf(rest, "%s %s %s",
 			       peer_name, peer_ip, rebase_dir);
 		if (count == 3) {
-			activate_peer(peer_name, peer_ip, rebase_dir, true);
+			launch_peer(peer_name, peer_ip, rebase_dir, true);
 			wait_main_round();
 		} else {
 			MARS_ERR("Bad fetch syntax '%s'\n", rest);

@@ -614,13 +614,12 @@ int handler_thread(void *data)
 						cmd.cmd_str2,
 						&cmd.cmd_stamp);
 			if (status >= 0) {
-				wait_main_round();
 				if (!strncmp(cmd.cmd_str2,
 					     "/mars/ips/ip-", 13))
-					activate_peer(cmd.cmd_str2 + 13,
-						      NULL,
-						      NULL,
-						      false);
+					launch_peer(cmd.cmd_str2 + 13,
+						    NULL,
+						    NULL,
+						    false);
 			}
 			break;
 		}
@@ -631,7 +630,7 @@ int handler_thread(void *data)
 			status = mars_stat(cmd.cmd_str2, &probe, true);
 			if (status < 0) {
 				invalidate_user_cache();
-				activate_peer(cmd.cmd_str1, NULL, NULL, true);
+				launch_peer(cmd.cmd_str1, NULL, NULL, true);
 			}
 			status = 0;
 			break;
