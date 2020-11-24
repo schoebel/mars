@@ -5013,6 +5013,7 @@ sub _get_min_time {
     my %status = get_alive_links($res, "time", "*");
     foreach my $peer (keys(%status)) {
       my $stamp = $status{$peer};
+      $stamp = 0 if (!defined($stamp) || $stamp eq "");
       $min_time = $stamp if $stamp < $min_time;
     }
     # protect against dead / decommissioned peers
