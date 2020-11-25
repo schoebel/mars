@@ -875,6 +875,7 @@ struct mars_rotate {
 	int retry_log_from;
 	int retry_recovery;
 	int max_sequence;
+	int flip_round;
 	int fetch_round;
 	int fetch_serial;
 	int fetch_next_serial;
@@ -6258,17 +6259,31 @@ static int make_sync(struct mars_dent *dent)
 	if (do_start && rot->replay_mode && rot->end_pos > rot->start_pos &&
 	    mars_sync_flip_interval >= 8) {
 		if (!rot->flip_start) {
-			rot->flip_start = jiffies;
-			rot->flip_pos = rot->start_pos;
+			/* Give replay a fair chance to jump in, even when
+			 * multiple logrotates are necessary, or when
+			 * logfiles are damaged, etc.
+			 * Exception: the current logfile cannot be freed
+			 * anyway.
+			 */
+			if (!rot->next_relevant_log ||
+			    rot->flip_round++ > 3) {
+				rot->flip_start = jiffies;
+				rot->flip_pos = rot->start_pos;
+				rot->flip_round = 0;
+			}
+			do_start = false;
+			mars_trigger();
 		} else if ((long long)jiffies - rot->flip_start > mars_sync_flip_interval * HZ &&
 			   rot->sync_brick &&
 			   rot->sync_brick->copy_last > rot->flip_pos) {
 			do_start = false;
-			rot->flip_start = jiffies + mars_sync_flip_interval * HZ;
+			rot->flip_start = 0;
+			rot->flip_round = 0;
 			mars_trigger();
 		}
 	} else {
 		rot->flip_start = 0;
+		rot->flip_round = 0;
 	}
 
  shortcut:
