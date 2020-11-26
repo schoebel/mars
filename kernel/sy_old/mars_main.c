@@ -7101,7 +7101,8 @@ int main_checker(struct mars_dent *parent,
 		if (prefix)
 			*prefix = len;
 		if (test->cl_hostcontext) {
-			if (memcmp(name+len, my_id(), namlen-len)) {
+			if (namlen-len != my_id_len() ||
+			    memcmp(name+len, my_id(), namlen-len)) {
 				continue;
 			}
 		}

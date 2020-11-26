@@ -85,6 +85,7 @@ extern int mars_test_additional_peers;
 extern void invalidate_user_cache(void);
 
 extern char *my_id(void);
+extern int   my_id_len(void);
 extern const char *my_uuid;
 
 extern void wait_main_round(void);

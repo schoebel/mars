@@ -46,6 +46,7 @@ atomic_t mars_global_io_flying = ATOMIC_INIT(0);
 EXPORT_SYMBOL_GPL(mars_global_io_flying);
 
 static char id[__NEW_UTS_LEN + 2] = {};
+static int id_len = 0;
 
 /* TODO: use MAC addresses (or motherboard IDs etc) for _validation_
  * of nodenames.
@@ -62,12 +63,17 @@ char *my_id(void)
 		u = utsname();
 		if (u) {
 			strncpy(id, u->nodename, sizeof(id));
+			id_len = strlen(id);
 		}
 		//up_read(&uts_sem);
 	}
 	return id;
 }
-EXPORT_SYMBOL_GPL(my_id);
+
+int my_id_len(void)
+{
+	return id_len;
+}
 
 //////////////////////////////////////////////////////////////
 
