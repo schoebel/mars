@@ -10,7 +10,8 @@ Homepage: http://schoebel.github.io/mars/
 
 Package: mars-dkms
 Architecture: any
-Depends: ${misc:Depends}, ${perl:Depends}
+Depends: ${misc:Depends}, ${perl:Depends}, procps
+Recommends: mars-tools
 Description: mars kernel module.
  MARS Light is a block-level storage replication solution implemented
  in the form of a Linux kernel module.

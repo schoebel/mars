@@ -8,6 +8,8 @@ case "$1" in
     ;;
 
     configure|reconfigure)
+        # Restart procps to reload sysctl.d files
+        invoke-rc.d procps restart
         # Get the version of the current loaded module:
         old_version="$(cat /sys/module/mars/version 2>/dev/null)" || exit 0
         # Get the version of the latest available module:
