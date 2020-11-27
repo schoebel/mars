@@ -3796,20 +3796,25 @@ sub create_uuid {
   lprint "New cluster UUID is '$uuid'\n";
 }
 
-sub _create_cluster {
+sub _create_dirs {
   my ($cmd) = @_;
-  ldie "The $mars directory does not exist.\n" unless -d $mars;
-  my $ip = _get_ip($host);
-  create_uuid(@_) if $cmd eq "create-cluster";
   system("mkdir $mars/ips") unless -d "$mars/ips";
   system("mkdir $mars/userspace") unless -d "$mars/userspace";
   system("mkdir $mars/defaults") unless -d "$mars/defaults";
   system("mkdir $mars/defaults-$host") unless -d "$mars/defaults-$host";
-  set_link("0", "$mars/defaults-$host/sync-limit");
-  set_link("(none)", "$mars/defaults-$host/sync-pref-list");
   system("mkdir $mars/todo-global") unless -d "$mars/todo-global";
   mkdir("$mars/actual-$host") unless -d "$mars/actual-$host";
   set_link($marsadm_version, "$mars/actual-$host/marsadm-version");
+}
+
+sub _create_cluster {
+  my ($cmd) = @_;
+  ldie "The $mars directory does not exist.\n" unless -d $mars;
+  my $ip = _get_ip($host);
+  _create_dirs($cmd);
+  create_uuid(@_) if $cmd eq "create-cluster";
+  set_link("0", "$mars/defaults-$host/sync-limit");
+  set_link("(none)", "$mars/defaults-$host/sync-pref-list");
   set_link($ip, "$mars/ips/ip-$host");
   set_link("1", "$mars/todo-global/deleted-$host");
 }
@@ -3829,7 +3834,7 @@ sub join_cluster {
     lwarn "DANGER: some resources already exist!\n";
     ldie  "DANGER: If you are sure that no resource clash is possible, re-invoke $cmd with '--force' option\n" unless $force;
   }
-  set_link($marsadm_version, "$mars/actual-$host/marsadm-version");
+  _create_dirs($cmd);
   $peer_ip = _get_ip($peer) unless $peer_ip;
   # try new join method
   if (is_module_loaded()) {
