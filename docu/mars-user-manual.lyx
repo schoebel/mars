@@ -11065,8 +11065,6 @@ status open
 
 \begin_layout Plain Layout
 
-\family typewriter
-\size scriptsize
 
 \backslash
 hfill 
@@ -13111,7 +13109,7 @@ name "subsec:Resource-Creation"
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="6" columns="3">
+<lyxtabular version="3" rows="8" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -14204,6 +14202,300 @@ Whenever possible, prefer
 leave-resource
 \family default
  over this kind of sledgehammer!
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+activate-guest
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Precondition: the current host must be a cluster member (see commands 
+\family typewriter
+join-cluster
+\family default
+ and 
+\family typewriter
+merge-cluster
+\family default
+), but need not (yet) be a resource member.
+ The resource must exist somewhere else in the cluster.
+ No additional storage is needed, except a few kilo or megabytes (typically)
+ for the symlink tree.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Postcondition: symlink updates with other resource members and/or guests
+ are more frequently.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Consequently, marsadm commands and macros with the 
+\family typewriter
+--host=
+\family default
+ option may be used for remote state inspection, etc.
+\end_layout
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+marsadm view all
+\family default
+ will display the guest and its status.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+deactivate-guest
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Precondition: the resource must exist.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Postcondition: any previous pure 
+\family typewriter
+activate-guest
+\family default
+ is rolled back.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+
+\size scriptsize
+After about a month,, 
+\family typewriter
+marsadm cron
+\family default
+ will also remove the guest relationship.
+ This is to protect you from long-term accumulation of unnecessary guest
+ relationships, which are intended only for 
+\emph on
+temporary
+\emph default
+ purposes (in constrast to 
+\emph on
+full
+\emph default
+ resource memberships requiring storage space for keeping 
+\emph on
+persistent
+\emph default
+ replicas).
 \end_layout
 
 \end_inset

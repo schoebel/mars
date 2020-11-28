@@ -117,6 +117,14 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Handy for testing short macro evaluations at the command line.
 
 <command> =
+  activate-guest
+    usage: activate-guest <resource_name>
+    Conditional update-cluster, so that <resource_name> will be locally
+    known at the local machine, and mark the resource as a guest.
+    Useful inbetween create-resource and join-resource.
+    A guest will receive any symlink updates much more frequently.
+    Prefer this over update-cluster when interested in a resource.
+
   attach
     usage: attach <resource_name>
     Attaches the local disk (backing block device) to the resource.
@@ -167,6 +175,11 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     usage: cron (no parameters)
     Do all necessary regular housekeeping tasks.
     This is equivalent to log-rotate all; sleep 7; log-delete-all all.
+
+  deactivate-guest
+    usage: deactivate-guest <resource_name>
+    Precondition: the resource must not have local storage assigned.
+    Useful for cleaning up a pure guest relastionship.
 
   delete-resource
     usage: delete-resource <resource_name>
