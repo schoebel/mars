@@ -139,6 +139,17 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable117
+	* Minor fix, only relevant for k > 2 replicas:
+	  invalidate and log-purge-all could abort unnecessarily due to races.
+	  Workaround was possible by retrying the command.
+	* Minor usability: new commands {de,}activate-guest for
+	  enabling or getting rid of temporary guests. Only relevant for
+	  clusters with > 2 members.
+	* Some minor fixes and improvements.
+	* Minor doc update (new commands).
+	* Further dkms improvements / tuning from Gabriel Francisco.
+
 mars0.1astable116
 	* Critical fix, only relevant for cluster naming schemes where hostname A
 	  may be a _prefix_ of hostname B: such naming schemes could have led to
@@ -146,8 +157,8 @@ mars0.1astable116
 	  Example: hostnames icpu-bs6 and icpu-bs60 .
 	  Please UPDATE when such hostnames may occur in the _same_ cluster.
 	  I was unable to find the bug via the test suite because such hostnames
-	  were not deployed at the test machines. Thanks to Stephan Chistiany who
-	  pointed me at the problem.
+	  were not deployed at the test machines. Thanks to Stephan Christiany
+	  who pointed me at the problem.
 	* Fix annoying bug: during long-lasting sync (several TB), the automatic
 	  flipping between replay and sync could sometimes get stuck in sync mode,
 	  and then /mars could fill up because replay was starving unnecessarily
