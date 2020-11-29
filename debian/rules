@@ -20,6 +20,7 @@ include /usr/share/dpkg/default.mk
 override_dh_install:
 	cp debian/mars-Makefile kernel/Makefile
 	cp debian/mars-Kbuild kernel/Kbuild
+	install -m 644 -D debian/mars-dkms.sysctl debian/mars-dkms/etc/sysctl.d/30-mars-dkms.conf
 	dh_install scripts/gen_config.pl usr/src/mars-$(DEB_VERSION_UPSTREAM)/
 	dh_install kernel/* usr/src/mars-$(DEB_VERSION_UPSTREAM)/
 
