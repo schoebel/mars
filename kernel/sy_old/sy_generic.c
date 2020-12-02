@@ -458,7 +458,7 @@ retry:
 		goto exit1;
 #endif
 #ifdef HAS_INODE_LOCK_WRAPPERS
-	inode_lock_nested(dentry->d_inode, I_MUTEX_PARENT);
+	inode_lock_nested(parent->d_inode, I_MUTEX_PARENT);
 #else
 	mutex_lock_nested(&parent->d_inode->i_mutex, I_MUTEX_PARENT);
 #endif
@@ -493,7 +493,7 @@ exit3:
 	dput(dentry);
 exit2:
 #ifdef HAS_INODE_LOCK_WRAPPERS
-	inode_unlock(dentry->d_inode);
+	inode_unlock(parent->d_inode);
 #else
 	mutex_unlock(&parent->d_inode->i_mutex);
 #endif
