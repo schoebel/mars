@@ -1460,7 +1460,7 @@ sub set_systemd_want_phase1 {
 
 sub set_systemd_want_phase2 {
   my ($cmd, $res) = @_;
-  _systemd_trigger($cmd);
+  _systemd_trigger($cmd, $res);
   return 0;
 }
 
@@ -1498,7 +1498,7 @@ sub set_systemd_want_phase3 {
     }
     if ($fail || $touch) {
       lprint "Re-trigger $want_path\n";
-      safe_touch($want_path);
+      systemd_any_trigger($cmd, $res);
     } else {
       lprint "All peer devices are closed.\n";
     }
@@ -1515,7 +1515,7 @@ sub set_systemd_want_phase3 {
   my $device_in_use = get_link($open_count_path, 1);
   if (!$device_in_use) {
     lprint "Device '$name' not yet opened at '$new'\n";
-    safe_touch($want_path);
+    systemd_any_trigger($cmd, $res);
     # mistrust unreachable peer
     if ($new eq $real_host) {
       $fail = 1;
@@ -1720,8 +1720,8 @@ sub report_systemd_status {
   }
 }
 
-sub systemd_activate {
-  my ($cmd, $res, $override, $fail_abort) = @_;
+sub __systemd_activate_want {
+  my ($cmd, $res, $allow_fork, $override) = @_;
   return 0 unless _systemd_enabled();
   my $want_path = "$mars/resource-$res/systemd-want";
   my $want = get_link($want_path, 2);
@@ -1774,14 +1774,10 @@ sub systemd_activate {
     lprint "==== Deactivate resource '$res' unit '$unit'\n" if $verbose;
     $op = "stop";
   }
-  my $status = _systemd_op($op, $unit, !$fail_abort);
+  my $status = _systemd_op($op, $unit, $allow_fork);
   report_systemd_status($cmd, $res, $status, $oper);
   finish_links();
-  if ($status && defined($fail_abort) && $fail_abort) {
-    lwarn "systemd unit '$unit' operation $op failed, status=$status\n";
-    return 0;
-  }
-  return 1;
+  return $status;
 }
 
 sub __systemd_commit {
@@ -1971,13 +1967,20 @@ sub __systemd_generate_all {
     $done_units{$template_name} = 1;
   }
   # Determine all participating resource names.
-  my @res_list = get_any_resources($host);
+  my @res_list;
+  my $do_delete = 0;
+  if ($res) {
+    @res_list = ($res);
+  } else {
+    @res_list = get_any_resources($host);
+    $do_delete = 1;
+  }
   # Create initial systemd units
-  foreach my $res (@res_list) {
-    foreach my $unit_link (lamport_glob("$mars/resource-$res/systemd-*-unit")) {
+  foreach my $this_res (@res_list) {
+    foreach my $unit_link (lamport_glob("$mars/resource-$this_res/systemd-*-unit")) {
       my $target = get_link($unit_link);
       next unless $target;
-      $count += make_systemd_unit($cmd, $res, $target);
+      $count += make_systemd_unit($cmd, $this_res, $target, $force_generate);
       $done_units{$target} = 1;
     }
   }
@@ -1994,40 +1997,78 @@ sub __systemd_generate_all {
   }
   lprint "== $count units generated.\n" if $verbose;
   # Check and commit the new situation
-  systemd_commit();
+  systemd_commit($do_delete);
 }
 
 sub __systemd_activate_ops {
-  my $cmd = shift;
+  my ($cmd, $res) = @_;
   # Barrier, for safety
   _systemd_op_wait();
   # Activate the listed units.
-  my @res_list = get_any_resources($host);
+  my @res_list;
+  if ($res && $res ne "all" && $res ne "*") {
+    @res_list = ($res);
+  } else {
+    @res_list = get_any_resources($host);
+  }
+  my $allow_fork = scalar(@res_list) > 1;
   foreach my $res (@res_list) {
-    systemd_activate($cmd, $res);
+    __systemd_activate_want($cmd, $res, $allow_fork);
   }
   _systemd_op_wait();
 }
 
-sub __systemd_trigger {
-  my $cmd = shift;
+sub __systemd_touch_trigger {
+  my ($cmd, $res) = @_;
+  return if $cmd =~ m/extern/;
   return unless _systemd_enabled();
-  # ensure that trigger file exists
-  mkdir("$mars/userspace") unless -d "$mars/userspace";
-  my $trigger = "$mars/userspace/systemd-trigger";
+  my $todo_global = "$mars/todo-global";
+  my $base_dir = "$mars/userspace";
+  my $want_path = "$todo_global/systemd-global-trigger";
+  my $trigger = "$base_dir/systemd-trigger";
+  if ($res && $res ne "all" && $res ne "*") {
+    $base_dir = "$mars/resource-$res";
+    $want_path = "$base_dir/systemd-want";
+    $trigger = $want_path;
+  } elsif (!-d $todo_global) {
+    lwarn "fixing non-existing $todo_global\n";
+    mkdir($todo_global);
+    set_link($host, $want_path);
+    finish_links();
+  }
+  mkdir($base_dir) unless -d $base_dir;
   lprint "Triggering '$trigger' for '$cmd'\n" if $verbose;
+  safe_touch($want_path);
+  # ensure that trigger file exists
   safe_touch($trigger) || safe_creat($trigger);
 }
 
+my %any_triggered;
+
+sub systemd_any_trigger {
+  my ($cmd, $res) = @_;
+  return unless _systemd_enabled();
+  $res = "" unless defined($res);
+  # This triggers _only_ the other peers
+  __systemd_touch_trigger($cmd, $res);
+  # Also do it locally
+  unless ($any_triggered{$res}) {
+    _systemd_trigger(@_);
+    $any_triggered{$res}++;
+  }
+}
+
 sub _systemd_trigger {
-  my ($cmd, $force_generate) = @_;
+  my ($cmd, $res, $force_generate) = @_;
   systemd_lock();
-  lprint "Direct template generation\n" if $verbose;
+  $res = "" unless $res;
+  $force_generate = 0 unless $force_generate;
+  lprint "Direct template generation for '$res' force=$force_generate\n" if $verbose;
   # Continue with unlock in case of any deaths inbetween
   eval {
-    __systemd_generate_all($cmd, "", $force_generate);
+    __systemd_generate_all($cmd, $res, $force_generate);
   };
-  __systemd_activate_ops($cmd);
+  __systemd_activate_ops($cmd, $res);
   systemd_unlock();
 }
 
@@ -2041,7 +2082,7 @@ sub systemd_trigger_extern {
     lwarn "another action is currently running, and $cmd was called externally\n";
     return;
   }
-  if ($called_external) {
+  if ($called_external && !$res) {
     $cm3_checked = 1;
     $systemd_enabled = 1;
   } elsif (is_called_recursive()) {
@@ -2052,8 +2093,12 @@ sub systemd_trigger_extern {
   eval {
     __systemd_generate_all($cmd, $res, $force_generate);
   };
-  __systemd_activate_ops($cmd);
+  # Only generate when called via systemd trigger
+  if ($res || !$called_external) {
+    __systemd_activate_ops($cmd, $res);
+  }
   systemd_unlock();
+  return 0;
 }
 
 sub _get_systemd_unit {
@@ -2159,7 +2204,7 @@ sub set_systemd_unit_phase1 {
 sub set_systemd_unit_phase2 {
   my ($cmd, $res) = @_;
   finish_links();
-  _systemd_trigger($cmd, 1);
+  _systemd_trigger($cmd, $res, 1);
   return 0;
 }
 
@@ -2764,6 +2809,7 @@ sub _activate_resource {
     lwarn "no usable resource to activate ($res).\n";
     return;
   }
+  my $need_trigger = 0;
   my $resdir = "$mars/resource-$res";
   my $max_retry = 3;
   until (-d $resdir) {
@@ -2774,6 +2820,7 @@ sub _activate_resource {
       ldie "Resource directory '$resdir' does not exist\n";
     }
     lwarn "Resource directory '$resdir' does not yet exist, fetching...\n";
+    $need_trigger++;
     sleep(3);
   }
   lprint "OK, resource directory '$resdir' exists.\n";
@@ -2786,6 +2833,7 @@ sub _activate_resource {
       ldie "link '$check_link' does not exist.\n";
     }
     lwarn "link '$check_link' does not yet exist, fetching...\n";
+    $need_trigger++;
     sleep(3);
   }
   lprint "OK, link '$check_link' exists.\n";
@@ -2824,6 +2872,11 @@ sub _activate_resource {
     last if ($primary && $primary eq $old_primary);
     sleep(3);
   }
+  if (!$need_trigger && systemd_present($cmd, $res)) {
+    lprint "using global trigger\n";
+    $need_trigger++;
+  }
+  systemd_any_trigger($cmd) if $need_trigger;
 }
 
 sub activate_guest {
@@ -3166,7 +3219,7 @@ sub check_mars_device {
 	$round = 0;
 	$backoff++;
       }
-      systemd_activate($cmd, $res, 0, 1);
+      systemd_any_trigger($cmd, $res);
     }
     lprint "device '$dev' is no longer present\n" unless device_exists($res);
     return;
@@ -5026,7 +5079,7 @@ sub create_res {
     }
     lprint "Successfully joined resource '$res' to primary '$primary'\n";
   }
-  _systemd_trigger($cmd, 1);
+  _systemd_trigger($cmd, $res, 1);
 }
 
 sub _fetch_transitive_peers {
@@ -5309,7 +5362,8 @@ sub leave_res_phase3 {
 
 sub leave_res_phase4 {
   my ($cmd, $res) = @_;
-  _systemd_trigger($cmd, 1);
+  # no longer generate this resource
+  _systemd_trigger($cmd, "", 1);
   return 0;
 }
 
@@ -5342,7 +5396,7 @@ sub delete_res_phase1 {
 
 sub delete_res_phase2 {
   my ($cmd, $res) = @_;
-  _systemd_trigger($cmd, 1);
+  _systemd_trigger($cmd, $res, 1);
   return 0;
 }
 
@@ -5852,7 +5906,7 @@ sub attach_res_phase0 {
 	my $path = "$mars/resource-$res/todo-$host/attach";
 	_switch($cmd, $res, $path, 0);
 	finish_links();
-	systemd_activate($cmd, $res, 0, 1);
+	systemd_any_trigger($cmd, $res);
 	return 0;
       }
       my $dev = device_name($res);
@@ -9582,6 +9636,7 @@ my %cmd_table =
    # systemd interface
    "systemd-trigger"
    => [
+       "usage: systemd-trigger [<resource>]",
        \&systemd_trigger_extern,
       ],
    "systemd-trigger-extern"
@@ -9975,7 +10030,7 @@ if ($cmd !~ m/(create|join)-cluster|create-uuid|systemd|cat|view|pretty/) {
 my $res = "";
 if ($cmd =~ "show|cron") {
   $res = shift @args || "all";
-} elsif ($cmd =~ m/^(view|pretty)/) {
+} elsif ($cmd =~ m/^(view|pretty)|trigger/) {
   $res = shift @args || "";
 } elsif ($cmd =~ m/^set-.*-list$/) {
   $res = shift @args || helplist "comma-separated list argument is missing\n";
@@ -9989,7 +10044,7 @@ if ($cmd =~ "show|cron") {
   check_id_list($res);
 } elsif ($cmd =~ m/^(join|merge)-cluster$/) {
   $res = shift @args || helplist "peer argument is missing\n";
-} elsif (!($cmd =~ m/^(create|split|leave|wait|update)-cluster|merge-cluster-list|create-uuid|cat|[a-z]+-file|trigger/)) {
+} elsif (!($cmd =~ m/^(create|split|leave|wait|update)-cluster|merge-cluster-list|create-uuid|cat|[a-z]+-file/)) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id_list($res);
 }
