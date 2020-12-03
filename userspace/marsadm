@@ -60,10 +60,6 @@ my @MARS_PATH = $ENV{MARS_PATH} ?
    "/usr/local/lib/marsadm",
   );
 
-my $marsadm_var_dir = defined($ENV{MARSADM_VRA_DIR}) ?
-  $ENV{MARSADM_VAR_DIR} :
-  "/var/marsadm";
-
 ##################################################################
 
 # messaging
@@ -909,10 +905,6 @@ sub _systemd_enabled {
 
 my $systemd_subdir = defined($ENV{SYSTEMD_SUBDIR}) ? $ENV{SYSTEMD_SUBDIR} : "systemd-templates";
 
-my $generated_units_subdir = defined($ENV{SYSTEMD_UNITS_SUBDIR}) ?
-  $ENV{SYSTEMD_UNITS_SUBDIR} :
-  "systemd-generated-units";
-
 my $generated_scripts_subdir = defined($ENV{SYSTEMD_SCRIPTS_SUBDIR}) ?
   $ENV{SYSTEMD_SCRIPTS_SUBDIR} :
   "systemd-generated-scripts";
@@ -1084,15 +1076,20 @@ sub get_template_files {
   return sort alphanum_cmp keys(%template_names);
 }
 
+my $stable_pid;
+
 sub get_instance_files {
   my ($dir) = @_;
-  my $glob = "$dir/*.{$systemd_suffixes}";
+  $stable_pid = $$ unless $stable_pid;
+  my $glob = "$dir/{*.{$systemd_suffixes},.pre.$stable_pid.*.{$systemd_suffixes}.tmp}";
   my %instance_files;
   foreach my $instance_file (lamport_glob($glob)) {
-
+    my ($mtime, $text) = _get_file($instance_file);
+    next unless $text =~ m/^\#\#\# GENERATED FROM: (.+)$/m;
+    my $template_file = $1;
     my $instance_name = $instance_file;
     $instance_name =~ s:^.*/::;
-    $instance_files{$instance_name} = $instance_file;
+    $instance_files{$instance_name} = [$instance_file, $mtime, $template_file];
   }
   return %instance_files;
 }
@@ -1115,10 +1112,11 @@ sub get_systemd_files {
 }
 
 sub systemctl {
-  my ($args) = @_;
+  my ($args, $verb) = @_;
+  $verb = $verbose unless defined($verb);
   my $cmd = "$systemctl $args";
   systemd_lock();
-  lprint "executing: '$cmd'\n" if $verbose > 1;
+  lprint "executing: '$cmd'\n" if $verb > 1;
   my $status;
   eval {
     $status = system($cmd);
@@ -1137,7 +1135,7 @@ sub _systemd_escape {
 }
 
 sub subst_systemd_vars {
-  my ($env, $text, $do_extra_escape) = @_;
+  my ($env, $text) = @_;
   my $parsed = "";
   while ($text =~ m/[$systemd_escape]([A-Za-z_][-A-Za-z0-9_]*)?[{]($match_inner)[}]/ps) {
     my $name = $1 || "";
@@ -1183,7 +1181,7 @@ sub subst_systemd_vars {
       lwarn "systemd function '$name' is undefined\n";
       $replac = $body;
     }
-    if ($do_extra_escape || $this_escape) {
+    if ($this_escape) {
       my $orig = $replac;
       $replac = _systemd_escape($replac);
       lprint "    escape '$orig' => '$replac'\n" if $verbose > 9;
@@ -1196,8 +1194,8 @@ sub subst_systemd_vars {
 
 sub match_systemd_vars {
   my ($env, $pattern, $text) = @_;
-  ($env, $pattern) = subst_systemd_vars($env, $pattern, 1);
-  ($env, $text)    = subst_systemd_vars($env, $text, 1);
+  ($env, $pattern) = subst_systemd_vars($env, $pattern);
+  ($env, $text)    = subst_systemd_vars($env, $text);
   my @names;
   my $regex = "";
   while ($pattern =~ m/[$systemd_incape][{]([A-Za-z_][A-Za-z0-9_]*)[}]/ps) {
@@ -1226,14 +1224,17 @@ sub match_systemd_vars {
 sub _make_var_name {
   my ($file_name) = @_;
   chomp $file_name;
-  mkdir $marsadm_var_dir;
-  my $abs_dir = "$marsadm_var_dir/$generated_units_subdir";
+  $file_name =~ s:^.*/::;
+  my $abs_dir = $systemd_target_dir;
   if ($file_name =~ m/\.script$/) {
-    $abs_dir = "$marsadm_var_dir/$generated_scripts_subdir";
+    $abs_dir = "$etc_marsadm/$generated_scripts_subdir";
   }
   mkdir $abs_dir;
-  my $abs_file = "$abs_dir/$file_name";
-  return $abs_file;
+  $stable_pid = $$ unless $stable_pid;
+  my $res_file = "$abs_dir/$file_name";
+  my $pre_file   = "$abs_dir/.pre.$stable_pid.$file_name.tmp";
+  my $tmp_file   = "$abs_dir/.tmp.$stable_pid.$file_name.tmp";
+  return ($res_file, $pre_file, $tmp_file);
 }
 
 sub _get_file {
@@ -1251,19 +1252,25 @@ sub _get_file {
 }
 
 my %referenced_units;
+my %shortcut_units;
 
 sub _instantiate_systemd_unit {
   my ($env, $template_file, $out_name) = @_;
-  my $outfile = _make_var_name($out_name);
-  lprint "==== Translate systemd template '$template_file' => '$outfile'\n" if $verbose;
+  my ($res_file, $pre_file, $tmp_file) = _make_var_name($out_name);
+  lprint "==== Translate systemd template '$template_file' => '$res_file'\n" if $verbose;
   my ($mtime, $text) = _get_file($template_file);
-  return (0, $outfile) if !$text;
+  if (!$text) {
+    lwarn "cannot get template '$template_file'\n";
+    return (0, "");
+  }
+  my %this_references;
   my $header;
   $header  = "### GENERATED FROM: $template_file\n";
-  $header .= "### GENERATED   TO: $out_name\n";
+  $header .= "### GENERATED NAME: $out_name\n";
+  $header .= "### GENERATED   TO: $res_file\n";
   $header .= "### TEMPLATE MTIME: $mtime\n";
   $header .= "###\n";
-  ($env, $text) = subst_systemd_vars($env, $text, 0);
+  ($env, $text) = subst_systemd_vars($env, $text);
   my $scan = $text;
   while ($scan =~ m/^\s*($systemd_dependencies)\s*=\s*(.*?)$/mp) {
     my $next_unit_list = $2;
@@ -1273,6 +1280,8 @@ sub _instantiate_systemd_unit {
       $next_unit_list = $POSTMATCH;
       # some units like mount units may be specified as paths.
       $next_unit = _systemd_escape($next_unit) if $next_unit =~ m:/:;
+      next if $this_references{$next_unit};
+      $this_references{$next_unit} = 1;
       lprint "-- '$template_file' found reference to '$next_unit'\n" if $verbose > 2;
       # Remember the encountered name
       $referenced_units{$next_unit} = 1;
@@ -1280,79 +1289,59 @@ sub _instantiate_systemd_unit {
     }
   }
   $header .= "###\n";
-  if (open(IN, "< $outfile")) {
+  if ($text =~ m/^([#][!].+)/p) {
+    my $hash_bang = $1;
+    $text = $hash_bang . "\n" . $header . $POSTMATCH;
+  } else {
+    $text = $header . $text;
+  }
+  # new $text is finished, write when necessary.
+  if (open(IN, "<", $res_file)) {
     # Check whether something has changed
     local $/;  # slurp
     my $old = <IN>;
     close(IN);
     if (defined($old) && $old eq $text) {
-      lprint "== systemd unit '$outfile' has not changed\n" if $verbose;
-      return (0, $outfile);
+      lprint "== systemd unit '$res_file' has not changed\n" if $verbose;
+      $shortcut_units{$res_file} = 1;
+      return (0, $res_file);
     }
   }
-  if (!open(OUT, "> $outfile.tmp")) {
-    lwarn "cannot create '$outfile'\n";
-    return (0, $outfile);
+  if (!open(OUT, ">", $tmp_file)) {
+    lwarn "cannot create '$tmp_file'\n";
+    unlink($tmp_file);
+    return (0, "");
   }
-  if ($text =~ m/^([#][!].+)/p) {
-    my $hash_bang = $1;
-    print OUT "$hash_bang\n";
-    $text = $POSTMATCH;
+  unless (print OUT $text) {
+    lwarn "cannot write '$tmp_file'\n";
+    close(OUT);
+    unlink($tmp_file);
+    return (0, "");
   }
-  print OUT $header;
-  print OUT $text;
-  close(OUT);
-  utime($mtime, $mtime, "$outfile.tmp");
+  unless (close(OUT)) {
+    lwarn "cannot close '$tmp_file'\n";
+    unlink($tmp_file);
+    return (0, "");
+  }
   # I would like to use 0400 instead, but this leads to masses of warnings like
   # Configuration file /run/systemd/system/daemon-reload.service is marked world-inaccessible.
   # This has no effect as configuration data is accessible via APIs without restrictions.
   # Proceeding anyway.
   my $perm = 0444;
-  if ($outfile =~ m/\.script$/) {
+  if ($res_file =~ m/\.script$/) {
     $perm = 0544;
   }
-  chmod($perm, "$outfile.tmp");
-  rename("$outfile.tmp", $outfile);
-  return (1, $outfile, $out_name);
+  chmod($perm, $tmp_file);
+  utime($mtime, $mtime, $tmp_file);
+  unless (rename($tmp_file, $pre_file)) {
+    lwarn "cannot rename '$tmp_file' to '$pre_file'\n";
+    unlink($tmp_file);
+    return (0, "");
+  }
+  return (1, $res_file, $pre_file);
 }
 
 my %generated_units;
-
-sub _check_timestamps {
-  my ($gen_key, $found_template_file, $tmp_name, $target_name) = @_;
-  my $fh;
-  if (open($fh, "<", $target_name)) {
-    my $stored_mtime;
-    while (my $line = <$fh>) {
-      last unless $line =~ m/^\#\#\#/;
-      if ($line =~ m/MTIME:\s*([0-9]+)/) {
-	$stored_mtime = $1;
-      } elsif ($line =~ m/REF:\s*(.+)/) {
-	my $ref_unit = $1;
-	lprint "-- '$target_name' contains reference to '$ref_unit'\n" if $verbose > 2;
-	$referenced_units{$ref_unit} = 1;
-      }
-    }
-    if ($stored_mtime) {
-      # check whether stored mtime and the file mtime coincide
-      my $mtime = get_stamp($fh);
-      $stored_mtime = undef unless ($mtime && $mtime == $stored_mtime);
-    }
-    close($fh);
-    if ($stored_mtime) {
-      my $mtime = get_stamp($found_template_file);
-      if ($mtime && $mtime == $stored_mtime) {
-	lprint "==== unchanged template '$found_template_file' mtime=$mtime <- '$target_name'\n" if $verbose;
-	# shortcut
-	if (!system("cp -a \"$target_name\" \"$tmp_name\"")) {
-	  $generated_units{$gen_key} = 1;
-	  return 1;
-	}
-      }
-    }
-  }
-  return 0;
-}
 
 sub make_systemd_unit {
   my ($cmd, $res, $target, $force_generate) = @_;
@@ -1368,7 +1357,7 @@ sub make_systemd_unit {
   if ($res) {
     @res_list = ($res);
   } else {
-    @res_list = get_member_resources($host);
+    @res_list = get_any_resources($host);
   }
   my ($found_env, $found_template_file, $found_subst);
   lprint "==== searching templates for '$target'\n" if $verbose;
@@ -1414,25 +1403,8 @@ sub make_systemd_unit {
     $generated_units{$gen_key} = 0;
     return 0;
   }
-  my ($out_env, $out_name) = subst_systemd_vars($found_env, $found_subst, 1);
-  # check whether mtimes exist and are equal
-  my $tmp_name = "$marsadm_var_dir/$generated_units_subdir";;
-  my $target_name = "$systemd_target_dir/$out_name";
-  if (!$force_generate) {
-    if (_check_timestamps($gen_key, $found_template_file,
-			  $tmp_name, $target_name)) {
-      return 1;
-    }
-  }
-  $tmp_name = "$marsadm_var_dir/$generated_scripts_subdir";
-  $target_name = "$etc_marsadm/$generated_scripts_subdir";
-  if (!$force_generate) {
-    if (_check_timestamps($gen_key, $found_template_file,
-			  $tmp_name, $target_name)) {
-      return 1;
-    }
-  }
-  lprint "==== instantiating template '$found_template_file'\n" if $verbose;
+  my ($out_env, $out_name) = subst_systemd_vars($found_env, $found_subst);
+  lprint "==== instantiating template '$found_template_file' as '$out_name'\n" if $verbose;
   my ($nr, $file, $name) = _instantiate_systemd_unit($out_env, $found_template_file, $out_name);
   $generated_units{$gen_key} = $nr;
   return $nr;
@@ -1572,7 +1544,7 @@ sub systemd_enabled {
     # .script is assumed as always enabled
     next if $unit =~ m/\.script$/;
     my $check_cmd = "is-enabled '$unit' > /dev/null 2>&1";
-    my $status = systemctl($check_cmd);
+    my $status = systemctl($check_cmd, 0);
     if ($status) {
       lprint "systemd unit '$unit' is not existing or not enabled.\n";
       return $status;
@@ -1678,13 +1650,13 @@ sub _systemd_op {
     }
     goto done;
   }
-  if (systemctl("cat '$unit' > /dev/null 2>&1")) {
+  if (systemctl("cat '$unit' > /dev/null 2>&1", 0)) {
     lwarn "systemd unit $unit does not exist.\n";
     goto done;
   }
   my $ctl_cmd = "is-failed --quiet '$unit'";
-  my $ok = systemctl($ctl_cmd);
-  if (!$ok) {
+  my $fail_status = systemctl($ctl_cmd, 0);
+  if (!$fail_status) {
     my $ctl_cmd = "reset-failed '$unit'";
     $status = systemctl($ctl_cmd);
     lprint "--- resetting failed unit '$unit': status=$status\n";
@@ -1770,11 +1742,11 @@ sub systemd_activate {
     if (systemd_enabled($unit)) {
       return 0;
     }
-    lprint "==== Activate resource '$res' unit '$unit'\n"if $verbose;
+    lprint "==== Activate resource '$res' unit '$unit'\n" if $verbose;
     $op = "start";
   } else {
     $unit =~ s/.* //;
-    lprint "==== Deactivate resource '$res' unit '$unit'\n"if $verbose;
+    lprint "==== Deactivate resource '$res' unit '$unit'\n" if $verbose;
     $op = "stop";
   }
   my $status = _systemd_op($op, $unit, !$fail_abort);
@@ -1788,7 +1760,8 @@ sub systemd_activate {
 }
 
 sub __systemd_commit {
-  my ($src_dir, $dst_dir) = @_;
+  my ($work_dir, $do_delete) = @_;
+  lprint "==== Commit '$work_dir'\n" if $verbose;
   # Internal destination code:
   # -2 = needs stop + disable (e.g. deleted)
   # -1 = needs disable, but no status change
@@ -1797,60 +1770,89 @@ sub __systemd_commit {
   #  2 = new, needs enable + start
   # absent = no modification
   my %changes;
-  my %old_files = get_instance_files($dst_dir);
-  my %new_files = get_instance_files($src_dir);
-  foreach my $old_target (sort alphanum_cmp keys(%old_files)) {
-    if (!defined($new_files{$old_target})) {
-      if (_check_unit_marker($old_files{$old_target}, "ALWAYS_DISABLED")) {
+  my %files = get_instance_files($work_dir);
+  my %renames;
+  my %deletes;
+  my $need_reload = 0;
+  foreach my $target (sort alphanum_cmp keys(%files)) {
+    next if $shortcut_units{"$work_dir/$target"};
+    if ($target =~ m/^\.pre\.[0-9]+\.(.+?)\.tmp$/) {
+      my $old_target = $1;
+      my $new_target = $target;
+      my ($new_instance, $new_mtime, $new_template) = @{$files{$new_target}};
+      if (defined($files{$old_target})) {
+	lprint "-- '$old_target' is not new\n" if $verbose > 3;
+	my ($old_instance, $old_mtime, $old_template) = @{$files{$old_target}};
+	if ($old_mtime == $new_mtime) {
+	  lprint "-- '$old_target' equal mtime=$new_mtime\n" if $verbose > 2;
+	  $deletes{new_target} = 1;
+	  next;
+	}
+	lprint "-- '$old_target' changed mtime from $old_mtime to $new_mtime\n" if $verbose;
+      }
+      $renames{$new_target} = $old_target;
+      if (_check_unit_marker($new_instance, "ALWAYS_DISABLED")) {
+	lprint "-- '$old_target' must remain disabled\n" if $verbose > 2;
+	$changes{$old_target} = -1;
+	next;
+      } elsif (_check_unit_marker($new_instance, "ALWAYS_START")) {
+	lprint "-- '$old_target' must be started\n" if $verbose > 2;
+	$changes{$old_target} = 2;
+	$need_reload++;
+	next;
+      } else {
+	lprint "-- '$old_target' will be enabled, but not started\n" if $verbose > 2;
+	$changes{$old_target} = 1;
+	$need_reload++;
+      }
+      next;
+    }
+    $stable_pid = $$ unless $stable_pid;
+    my $old_target = $target;
+    my $new_target = ".pre.$stable_pid.$old_target.tmp";
+    my ($old_instance, $old_mtime, $old_template) = @{$files{$old_target}};
+    if (!defined($files{$new_target})) {
+      if (!$do_delete) {
+	lprint "-- ignoring '$old_target'\n" if $verbose > 2;
+	next;
+      }
+      $deletes{$old_target} = 1;
+      if (_check_unit_marker($old_instance, "KEEP_RUNNING")) {
 	lprint "-- deleted '$old_target' is KEEP_RUNNING\n" if $verbose > 2;
 	$changes{$old_target} = -1;
 	next;
       }
       lprint "-- marking deleted '$old_target' for removal\n" if $verbose > 2;
       $changes{$old_target} = -2;
+      $need_reload++;
       next;
     }
-    if (_check_unit_marker($new_files{$old_target}, "ALWAYS_DISABLED")) {
+    if (_check_unit_marker($old_instance, "ALWAYS_DISABLED")) {
       lprint "-- '$old_target' is ALWAYS_DISABLED\n" if $verbose > 2;
       $changes{$old_target} = -1;
       next;
     }
-    my $status = system("cmp \"$old_files{$old_target}\" \"$new_files{$old_target}\"");
-    if (!$status) {
+    my ($new_instance, $new_mtime, $new_template) = @{$files{$new_target}};
+    my $ok = ($old_mtime == $new_mtime);
+    if ($ok) {
       lprint "-- '$old_target' was not modified\n" if $verbose > 2;
       next;
     }
     lprint "-- '$old_target' was modified\n" if $verbose > 2;
     $changes{$old_target} = 0;
-  }
-  foreach my $new_target (sort alphanum_cmp keys(%new_files)) {
-    if (defined($old_files{$new_target})) {
-      lprint "-- '$new_target' is not new\n" if $verbose > 3;
-      next;
-    }
-    my $file = _make_var_name($new_target);
-    if (_check_unit_marker($file, "DEFAULT_DISABLED")) {
-      lprint "-- '$new_target' is new, but must remain disabled\n" if $verbose > 2;
-      $changes{$new_target} = -1;
-    } elsif (_check_unit_marker($file, "ALWAYS_START")) {
-      lprint "-- '$new_target' is new and must be started\n" if $verbose > 2;
-      $changes{$new_target} = 2;
-    } else {
-      lprint "-- '$new_target' is new, will be enabled, but no start\n" if $verbose > 2;
-      $changes{$new_target} = 1;
-    }
+    $need_reload++;
   }
   # Cleanup the old situation.
   # This needs to be done in per-operation cycles,
   # because there may be inter-unit dependencies.
-  lprint "==== Stopping old / deleted units\n"if $verbose;
+  lprint "==== Stopping old / deleted units\n" if $verbose;
   foreach my $unit (sort alphanum_cmp keys(%changes)) {
     my $op = $changes{$unit};
     if ($op < -1) {
       _systemd_op("stop", $unit);
     }
   }
-  lprint "==== Disabling old / deleted units\n"if $verbose;
+  lprint "==== Disabling old / deleted units\n" if $verbose;
   foreach my $unit (sort alphanum_cmp keys(%changes)) {
     my $op = $changes{$unit};
     if ($op < 0) {
@@ -1858,57 +1860,51 @@ sub __systemd_commit {
     }
   }
   # Commit
+  foreach my $file (keys(%deletes)) {
+    my $path = "$work_dir/$file";
+    lprint "--- unlink '$path'\n" if $verbose > 2;
+    unlink($path);
+  }
+  foreach my $src (keys(%renames)) {
+    my $dst = $renames{$src};
+    my $src_path = "$work_dir/$src";
+    my $dst_path = "$work_dir/$dst";
+    lprint "--- rename '$src_path' '$dst_path'\n" if $verbose > 2;
+    rename($src_path, $dst_path);
+  }
   %generated_units = ();
-  system("rm -rf \"$dst_dir.old\"");
-  system("rm -rf \"$dst_dir.new\"");
-  my $status = system("mv \"$dst_dir\" \"$dst_dir.old\"");
-  if ($status) {
-    lwarn "Cannot rename '$dst_dir' to '$dst_dir.old'\n";
-    return ();
-  }
-  $status = system("mv \"$src_dir\" \"$dst_dir.new\"");
-  if ($status) {
-    # retry with cp in place of mv
-    mkdir("$dst_dir.new");
-    if (system("cp -a $src_dir/* \"$dst_dir.new\"")) {
-      lwarn "Cannot copy new unit instances from '$src_dir' to '$dst_dir.new'\n";
-      return ();
-    }
-  }
-  $status = system("mv \"$dst_dir.new\" \"$dst_dir\"");
-  if ($status) {
-    lwarn "Cannot rename '$dst_dir.new' to '$dst_dir'\n";
-    return ();
-  }
   # Tell the new situation to systemd.
   # This needs to be done in per-operation cycles,
   # because there may be inter-unit dependencies.
-  lprint "==== Restart systemd\n"if $verbose;
-  systemctl("daemon-reload");
-  lprint "==== Enabling new units\n"if $verbose;
+  if ($need_reload) {
+    lprint "==== Restart systemd\n" if $verbose;
+    systemctl("daemon-reload");
+  }
+  lprint "==== Enabling new units\n" if $verbose;
   foreach my $unit (sort alphanum_cmp keys(%changes)) {
     my $op = $changes{$unit};
     if ($op > 0) {
       _systemd_op("enable", $unit);
     }
   }
-  lprint "==== Starting new units\n"if $verbose;
+  lprint "==== Starting new units\n" if $verbose;
   foreach my $unit (sort alphanum_cmp keys(%changes)) {
     my $op = $changes{$unit};
     if ($op > 1) {
       _systemd_op("start", $unit, 1);
     }
   }
+  lprint "==== Done commit '$work_dir'\n" if $verbose;
 }
 
 sub systemd_commit {
+  my ($do_delete) = @_;
   # We need separate target directories for templates and for scripts.
   # Reason: /run does not allow script execution on many systems.
-  __systemd_commit("$marsadm_var_dir/$generated_units_subdir",
-		   $systemd_target_dir);
+  __systemd_commit($systemd_target_dir, $do_delete);
   _systemd_op_wait();
-  __systemd_commit("$marsadm_var_dir/$generated_scripts_subdir",
-		   "$etc_marsadm/$generated_scripts_subdir");
+  my $script_dir = "$etc_marsadm/$generated_scripts_subdir";
+  __systemd_commit($script_dir, $do_delete);
   _systemd_op_wait();
 }
 
@@ -1935,14 +1931,9 @@ sub __systemd_generate_all {
   my ($cmd, $res, $force_generate) = @_;
   return unless -d $mars;
   return unless -d $etc_marsadm;
-  system("rm -rf \"$marsadm_var_dir/$generated_units_subdir\" \"$marsadm_var_dir/$generated_scripts_subdir\"");
   mkdir($systemd_target_dir);
-  mkdir("$etc_marsadm/$generated_units_subdir");
   mkdir("$etc_marsadm/$generated_scripts_subdir");
-  mkdir($marsadm_var_dir);
-  mkdir("$marsadm_var_dir/$generated_units_subdir");
-  mkdir("$marsadm_var_dir/$generated_scripts_subdir");
-  lprint "Generate all templates.\n";
+  lprint "Generate all templates for '$res'.\n";
   # Determine all template files.
   get_template_files();
   # Always add all plain templates
@@ -1955,7 +1946,7 @@ sub __systemd_generate_all {
     $done_units{$template_name} = 1;
   }
   # Determine all participating resource names.
-  my @res_list = get_member_resources($host);
+  my @res_list = get_any_resources($host);
   # Create initial systemd units
   foreach my $res (@res_list) {
     foreach my $unit_link (lamport_glob("$mars/resource-$res/systemd-*-unit")) {
@@ -1986,7 +1977,7 @@ sub __systemd_activate_ops {
   # Barrier, for safety
   _systemd_op_wait();
   # Activate the listed units.
-  my @res_list = get_member_resources($host);
+  my @res_list = get_any_resources($host);
   foreach my $res (@res_list) {
     systemd_activate($cmd, $res);
   }
@@ -2004,12 +1995,12 @@ sub __systemd_trigger {
 }
 
 sub _systemd_trigger {
-  my ($cmd, $force_necessary) = @_;
+  my ($cmd, $force_generate) = @_;
   systemd_lock();
   lprint "Direct template generation\n" if $verbose;
   # Continue with unlock in case of any deaths inbetween
   eval {
-    __systemd_generate_all($cmd, "", $force_necessary);
+    __systemd_generate_all($cmd, "", $force_generate);
   };
   __systemd_activate_ops($cmd);
   systemd_unlock();
@@ -2073,7 +2064,7 @@ sub _get_default_unit {
     }
     $found = $template_name;
     my ($dummy, $start_env) = make_env($cmd, $res, $template_name);
-    my ($env, $subst) = subst_systemd_vars($start_env, $template_name, 1);
+    my ($env, $subst) = subst_systemd_vars($start_env, $template_name);
     $found = $subst if $subst;
     last;
   }
