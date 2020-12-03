@@ -1254,6 +1254,16 @@ sub _get_file {
 my %referenced_units;
 my %shortcut_units;
 
+sub _scan_refs {
+  my ($text) = @_;
+  while ($text =~ s/^[#][#][#]\s*REF:\s*(.*)//m) {
+    my $next_unit = $1;
+    # Remember the encountered name
+    $referenced_units{$next_unit} = 1;
+    $text = $POSTMATCH;
+  }
+}
+
 sub _instantiate_systemd_unit {
   my ($env, $template_file, $out_name) = @_;
   my ($res_file, $pre_file, $tmp_file) = _make_var_name($out_name);
@@ -1262,6 +1272,23 @@ sub _instantiate_systemd_unit {
   if (!$text) {
     lwarn "cannot get template '$template_file'\n";
     return (0, "");
+  }
+  # Check timestamps
+  my $old_text;
+  my $old_mtime;
+  my $IN;
+  if (open($IN, "<", $res_file)) {
+    $old_mtime = get_stamp($IN);
+    local $/;  # slurp
+    my $old_text = <$IN>;
+    close($IN);
+    if ($old_mtime && $old_mtime == $mtime) {
+      lprint "== systemd unit '$res_file' has unchanged mtime=$mtime\n" if $verbose;
+      $shortcut_units{$res_file} = 1;
+      _scan_refs($old_text);
+      return (1, $res_file);
+    }
+    lprint "== systemd unit '$res_file' mtime $old_mtime => $mtime\n" if $verbose;
   }
   my %this_references;
   my $header;
@@ -1296,16 +1323,11 @@ sub _instantiate_systemd_unit {
     $text = $header . $text;
   }
   # new $text is finished, write when necessary.
-  if (open(IN, "<", $res_file)) {
-    # Check whether something has changed
-    local $/;  # slurp
-    my $old = <IN>;
-    close(IN);
-    if (defined($old) && $old eq $text) {
-      lprint "== systemd unit '$res_file' has not changed\n" if $verbose;
-      $shortcut_units{$res_file} = 1;
-      return (0, $res_file);
-    }
+  if ($old_text && $old_text eq $text) {
+    lprint "== systemd unit '$res_file' has not changed\n" if $verbose;
+    $shortcut_units{$res_file} = 1;
+    _scan_refs($text);
+    return (1, $res_file);
   }
   if (!open(OUT, ">", $tmp_file)) {
     lwarn "cannot create '$tmp_file'\n";
@@ -1338,7 +1360,7 @@ sub _instantiate_systemd_unit {
     unlink($tmp_file);
     return (0, "");
   }
-  return (1, $res_file, $pre_file);
+  return (1, $res_file);
 }
 
 my %generated_units;
