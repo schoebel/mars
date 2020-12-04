@@ -869,7 +869,7 @@ my $systemd_escape = defined($ENV{SYSTEMD_ESCAPE}) ? $ENV{SYSTEMD_ESCAPE} : "@";
 my $systemd_incape = defined($ENV{SYSTEMD_INCAPE}) ? $ENV{SYSTEMD_INCAPE} : "\\^";
 my $systemd_dependencies = defined($ENV{SYSTEMD_DEPENDENCIES}) ?
   $ENV{SYSTEMD_DEPENDENCIES} :
-  "Requires|Requisite|Wants|BindsTo|PartOf|Conflicts|Before|After|OnFailure|PropagatesReloadTo|ReloadPropagatedFrom|JoinsNamespaceOf|RequiresMountsFor|Alias|WantedBy|RequiredBy|Also|DefaultInstance";
+  "Unit|Service|Slice|Sockets|Requires|Requisite|Wants|BindsTo|PartOf|Conflicts|Before|After|OnFailure|PropagatesReloadTo|ReloadPropagatedFrom|JoinsNamespaceOf|RequiresMountsFor|Alias|WantedBy|RequiredBy|Also|DefaultInstance|# ALSO";
 my $systemd_lock_file = defined($ENV{SYSTEMD_LOCK_FILE}) ? $ENV{SYSTEMD_LOCK_FILE} : "/tmp/systemd.lock";
 
 my @systemctl_start =
