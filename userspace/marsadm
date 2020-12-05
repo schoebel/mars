@@ -1082,6 +1082,7 @@ sub get_instance_files {
   my ($dir) = @_;
   $stable_pid = $$ unless $stable_pid;
   my $glob = "$dir/{*.{$systemd_suffixes},.pre.$stable_pid.*.{$systemd_suffixes}.tmp}";
+  lprint "GLOB '$glob'\n" if $verbose > 2;
   my %instance_files;
   foreach my $instance_file (lamport_glob($glob)) {
     my ($mtime, $text) = _get_file($instance_file);
@@ -1089,6 +1090,7 @@ sub get_instance_files {
     my $template_file = $1;
     my $instance_name = $instance_file;
     $instance_name =~ s:^.*/::;
+    lprint "  INSTANCE '$instance_name'\n" if $verbose > 2;
     $instance_files{$instance_name} = [$instance_file, $mtime, $template_file];
   }
   return %instance_files;
@@ -1267,7 +1269,7 @@ sub _scan_refs {
 sub _instantiate_systemd_unit {
   my ($env, $template_file, $out_name) = @_;
   my ($res_file, $pre_file, $tmp_file) = _make_var_name($out_name);
-  lprint "==== Translate systemd template '$template_file' => '$res_file'\n" if $verbose;
+  lprint "==== Translate  systemd template '$template_file' => '$res_file'\n" if $verbose;
   my ($mtime, $text) = _get_file($template_file);
   if (!$text) {
     lwarn "cannot get template '$template_file'\n";
@@ -1360,6 +1362,7 @@ sub _instantiate_systemd_unit {
     unlink($tmp_file);
     return (0, "");
   }
+  lprint "==== Translated systemd template '$template_file' => '$res_file'\n" if $verbose;
   return (1, $res_file);
 }
 
