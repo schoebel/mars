@@ -1559,7 +1559,7 @@ sub systemd_exists {
   return 1;
 }
 
-sub systemd_enabled {
+sub systemd_unit_enabled {
   my ($unit_list) = @_;
   return 1 unless _systemd_enabled();
   foreach my $unit (split(/ +/, $unit_list)) {
@@ -1684,7 +1684,7 @@ sub _systemd_op {
     lprint "--- resetting failed unit '$unit': status=$status\n";
   }
   if ($op eq "start" || $op eq "restart") {
-    if (systemd_enabled($unit)) {
+    if (systemd_unit_enabled($unit)) {
       goto done;
     }
   }
@@ -1761,7 +1761,7 @@ sub systemd_activate {
   my $op = "show";
   if ($do_activate) {
     $unit =~ s/ .*//;
-    if (systemd_enabled($unit)) {
+    if (systemd_unit_enabled($unit)) {
       return 0;
     }
     lprint "==== Activate resource '$res' unit '$unit'\n" if $verbose;
