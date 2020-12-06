@@ -153,12 +153,28 @@ sub safe_creat {
 
 sub safe_touch {
   my ($path, $stamp) = @_;
+  # Workaround for non-implemented undef parameter at utime()
+  # [should be implemented beyond perl 5.8.0 according to "man perlfunc",
+  #  but seems to not work as documented.]
+  $stamp = time() unless defined($stamp);
   use IO::Handle;
   if (-l $path) {
     my $val = readlink($path);
     return 0 if $val eq ".deleted";
+    # Perl doesn't seem to support AT_SYMLINK_NOFOLLOW
+    my $opt = $stamp ? "-d \"\@$stamp\"" : "";
+    my $status = system("touch -h $opt \"$path\"");
+    # additional systemd-trigger when relevant
+    if ($path =~ m:/(primary|systemd):p) {
+      my $trig_path = "$PREMATCH/systemd-trigger";
+      unless ($trig_path =~ m:/userspace/:) {
+	utime($stamp, $stamp, $trig_path) || safe_creat($trig_path);
+      }
+    }
+    return $status;
   }
-  return utime($stamp, $stamp, $path);
+  my $status = utime($stamp, $stamp, $path);
+  return $status;
 }
 
 sub link_exists {
