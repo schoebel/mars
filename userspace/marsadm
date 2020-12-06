@@ -960,91 +960,6 @@ my $systemd_incape = defined($ENV{SYSTEMD_INCAPE}) ? $ENV{SYSTEMD_INCAPE} : "\\^
 my $systemd_dependencies = defined($ENV{SYSTEMD_DEPENDENCIES}) ?
   $ENV{SYSTEMD_DEPENDENCIES} :
   "Unit|Service|Slice|Sockets|Requires|Requisite|Wants|BindsTo|PartOf|Conflicts|Before|After|OnFailure|PropagatesReloadTo|ReloadPropagatedFrom|JoinsNamespaceOf|RequiresMountsFor|Alias|WantedBy|RequiredBy|Also|DefaultInstance|# ALSO";
-my $systemd_lock_file = defined($ENV{SYSTEMD_LOCK_FILE}) ? $ENV{SYSTEMD_LOCK_FILE} : "/tmp/systemd.lock";
-
-my %recursive_locks;
-my $lock_fh;
-
-sub systemd_lock {
-  my ($suffix, $try_lock) = @_;
-  my $lock_file = $systemd_lock_file;
-  $lock_file .= "." . $suffix if defined($suffix) && $suffix;
-  my $lock_status = $recursive_locks{$lock_file}++;
-  if ($lock_status) {
-    return 0;
-  }
-  lprint "TRYING '$lock_file'\n" if $verbose > 1;
-  use IO::Handle;
-  use Fcntl;
-  my $max_time = $timeout > 0 ? $timeout : 30;
-  my $count = 0;
- retry:
-  for (;;) {
-    my $test_pid = 1;
-    if (open(my $IN, "<", $lock_file)) {
-      my $pid_exists = 0;
-      my @pid_list = ();
-      while ($test_pid = <$IN>) {
-	chomp $test_pid;
-	next unless $test_pid;
-	if (-d "/proc/$test_pid") {
-	  $pid_exists++;
-	} else {
-	  push @pid_list, $test_pid;
-	}
-      }
-      if (!$pid_exists) {
-	# race prevention: wait until situation is stable
-	if ($count-- >= -3) {
-	  sleep(1);
-	  goto retry;
-	}
-	unlink($lock_file);
-	lwarn "breaking lock $lock_file, pids {" .
-	  join(",", @pid_list) .
-	  "} are no longer alive.\n";
-	$count = 0;
-	goto retry;
-      }
-      my $mtime = get_stamp($IN);
-      close($IN);
-      # Check for timeout
-      if ($count > $max_time ||
-	  (defined($mtime) && $mtime && $mtime + $max_time < time())) {
-	lwarn "breaking lock $lock_file after $max_time seconds\n";
-	unlink($lock_file);
-	$count = 0;
-      }
-    }
-    $lock_fh = undef;
-    my $status = sysopen($lock_fh, $lock_file, O_CREAT|O_EXCL|O_TRUNC|O_WRONLY);
-    last if defined($status) && $status;
-    if (defined($try_lock) && $try_lock && !$force) {
-      lprint "FAILED '$lock_file'\n" if $verbose > 1;
-      return 1;
-    }
-    $count++;
-    sleep(1);
-  }
-  print $lock_fh "$$\n";
-  $lock_fh->flush();
-  lprint "LOCK   '$lock_file'\n" if $verbose > 1;
-  return 0;
-}
-
-sub systemd_unlock {
-  my ($suffix) = @_;
-  close($lock_fh) if defined($lock_fh);
-  $lock_fh = undef;
-  my $lock_file = $systemd_lock_file;
-  $lock_file .= "." . $suffix if defined($suffix) && $suffix;
-  if (--$recursive_locks{$lock_file} > 0) {
-    return;
-  }
-  unlink($lock_file);
-  lprint "UNLOCK '$lock_file'\n" if $verbose > 1;
-}
-
 my %template_names;
 my %template_files;
 my $nr_templates = 0;
@@ -1117,13 +1032,11 @@ sub systemctl {
   my ($args, $verb) = @_;
   $verb = $verbose unless defined($verb);
   my $cmd = "$systemctl $args";
-  systemd_lock();
   lprint "executing: '$cmd'\n" if $verb > 1;
   my $status;
   eval {
     $status = system($cmd);
   };
-  systemd_unlock();
   return $status;
 }
 
@@ -2060,36 +1973,26 @@ sub systemd_any_trigger {
 
 sub _systemd_trigger {
   my ($cmd, $res, $force_generate) = @_;
-  systemd_lock();
   $res = "" unless $res;
   $force_generate = 0 unless $force_generate;
   lprint "Direct template generation for '$res' force=$force_generate\n" if $verbose;
-  # Continue with unlock in case of any deaths inbetween
   eval {
     __systemd_generate_all($cmd, $res, $force_generate);
   };
   __systemd_activate_ops($cmd, $res);
-  systemd_unlock();
 }
 
 sub systemd_trigger_extern {
   my ($cmd, $res) = @_;
   return unless -d $systemd_target_dir;
-  systemd_lock();
   my $called_external = ($cmd =~ m/extern/);
-  my $failed_lock = systemd_lock(undef, $called_external);
-  if ($failed_lock) {
-    lwarn "another action is currently running, and $cmd was called externally\n";
-    return;
-  }
-  if ($called_external && !$res) {
+  if ($called_external) {
     $cm3_checked = 1;
     $systemd_enabled = 1;
   } elsif (is_called_recursive()) {
     return 0;
   }
   my $force_generate = !$called_external;
-  # Continue with unlock in case of any deaths inbetween
   eval {
     __systemd_generate_all($cmd, $res, $force_generate);
   };
@@ -2097,7 +2000,6 @@ sub systemd_trigger_extern {
   if ($res || !$called_external) {
     __systemd_activate_ops($cmd, $res);
   }
-  systemd_unlock();
   return 0;
 }
 
