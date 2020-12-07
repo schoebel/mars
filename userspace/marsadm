@@ -1806,14 +1806,6 @@ sub __systemd_activate_ops {
   }
 }
 
-sub is_systemd_generate_necessary {
-  my $cmd = shift;
-  # do not generate after forking
-  return 0 if $child_prefix;
-  system("mkdir -p $marsadm_var_dir");
-  return 1;
-}
-
 sub __systemd_trigger {
   my $cmd = shift;
   return unless _systemd_enabled();
@@ -1827,13 +1819,11 @@ sub __systemd_trigger {
 sub _systemd_trigger {
   my ($cmd) = @_;
   systemd_lock();
-  if (is_systemd_generate_necessary($cmd)) {
-    lprint "Direct template generation\n" if $verbose;
-    # Continue with unlock in case of any deaths inbetween
-    eval {
-      __systemd_generate_all($cmd);
-    };
-  }
+  lprint "Direct template generation\n" if $verbose;
+  # Continue with unlock in case of any deaths inbetween
+  eval {
+    __systemd_generate_all($cmd);
+  };
   __systemd_activate_ops($cmd);
   systemd_unlock();
 }
@@ -1855,12 +1845,10 @@ sub systemd_trigger_extern {
     return 0;
   }
   my $force_generate = !$called_external;
-  if ($force_generate || is_systemd_generate_necessary($cmd)) {
-    # Continue with unlock in case of any deaths inbetween
-    eval {
-      __systemd_generate_all($cmd, $res, $force_generate);
-    };
-  }
+  # Continue with unlock in case of any deaths inbetween
+  eval {
+    __systemd_generate_all($cmd, $res, $force_generate);
+  };
   __systemd_activate_ops($cmd);
   systemd_unlock();
 }
