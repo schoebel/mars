@@ -1,0 +1,17 @@
+[Unit]
+Description=MARS per-resource watcher for /mars/resource-@{res}/systemd-trigger
+Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+Requires=mars-trigger.path
+After=mars-trigger.path
+
+## Markers for the template processor
+# ALWAYS_START
+
+[Path]
+PathExists=/mars/resource-@{res}/systemd-trigger
+PathChanged=/mars/resource-@{res}/systemd-trigger
+PathModified=/mars/resource-@{res}/systemd-trigger
+Unit=mars-@escvar{res}-trigger.service
+
+[Install]
+WantedBy=mars.service

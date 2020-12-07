@@ -1,0 +1,114 @@
+#!/bin/bash
+# TST Nov 2020
+# Tried to make any operations as idempotent as possible.
+#
+# At the moment, idempotent startup fails with a message like
+# "Failed to start transient scope unit: Unit infongws-test06.scope already exists."
+# Theoretically, I could treat the existence and/or the runtime status of said intermediate scope unit
+# as an indicator for directly reporting success.
+# However, I am unsure what could be the consequences when the main LXC container fails but the
+# scope unit persists for whatever reason. Possibly, it could remain in a state where it could be
+# neither startable nor stoppable.
+# Leaving this kind of behaviour untouched for now.
+# Currently, it doesn't seem to produce harm, but rather looks like a false-positive error message.
+# In case somebody would be confused by this error message, some other parts of nodeagent
+# (which is outside of my scope) should be fixed, in preference to trying to workaround it here.
+
+# Markers for the template processor
+# DEFAULT_START
+# DEFAULT_STOP
+# KEEP_RUNNING
+# ALSO=mars-@escvar{res}-trigger.path
+# ALSO=mars-@escvar{res}-trigger.service
+
+op="$1"
+
+# Ensure that pure trigger does not change anything.
+
+systemd_want_path="/mars/resource-@{res}/systemd-want"
+systemd_copy_path="/mars/resource-@{res}/userspace/systemd-want"
+
+systemd_want="$(stat --printf="%Y\n" $systemd_want_path)"
+systemd_copy="$(stat --printf="%Y\n" $systemd_copy_path)"
+
+echo "Old timestamp: '$systemd_copy'"
+echo "New timestamp: '$systemd_want'"
+
+if (( systemd_copy && systemd_want == systemd_copy )); then
+    echo "Unmodified timestamp $systemd_want_path $systemd_want"
+    exit 0
+fi
+
+function report_success
+{
+    rsync -av $systemd_want_path $systemd_copy_path
+}
+
+mars_dev=/dev/mars/@{res}
+
+case "$op" in
+status)
+    /usr/sbin/nodeagent status @{res}
+    ;;
+
+start)
+    # Assumption: start and vmstart seem to be idempotent already
+    if ! [[ -b $mars_dev ]]; then
+	echo "ignoring, $mars_dev is not present" 
+	exit 0
+    fi
+    if mountpoint /vol/@{res}; then
+	/usr/sbin/nodeagent vmstart @{res}
+    else
+	/usr/sbin/nodeagent start @{res}
+    fi
+    rc=$?
+    if (( !rc )); then
+	report_success
+    fi
+    exit $rc
+    ;;
+
+stop)
+    # The following does not work: if ! mountpoint /vol/@{res}; then ...; fi
+    # In the presence of bind mounts, the main mountpoint may vanish,
+    # but sub-bindmounts may persist, leaving /dev/mars/@{res} opened,
+    # and consequently hindering a planned handover.
+    # This is a Linux kernel feature, not a bug.
+    # Thus we need to mistrust the main mountpoint /vol/@{res} .
+    # For safety, check the presence of /dev/mars/@{res} instead.
+    if ! [[ -b "/dev/mars/@{res}" ]]; then
+	# Idempotence
+	exit 0
+    fi
+    if ! [[ -b $mars_dev ]]; then
+	echo "ignoring, $mars_dev is not present" 
+	exit 0
+    fi
+    # Additionally, check whether the mars device is opened.
+    if (( !$(marsadm view-device-opened @{res}) )); then
+	# Idempotence
+	exit 0
+    fi
+
+    /usr/sbin/nodeagent stop @{res}
+    rc=$?
+
+    # for safety
+    if (( !rc )); then
+	sleep 1
+	if mountpoint /vol/@{res}; then
+	    umount /vol/@{res}
+	fi
+	report_success
+    fi
+    exit $rc
+    ;;
+
+*)
+    # Ignore all other ops, like enable / disable / etc
+    echo "Ignore '$op'"
+    exit 0
+esac
+
+exit 0

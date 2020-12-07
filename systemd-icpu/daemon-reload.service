@@ -1,0 +1,24 @@
+[Unit]
+Description=MARS global single-threaded daemon-reloead
+Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+
+## The trick is to "misuse" this service (which exists only once)
+## for inhibiting startup of "systemctl daemon-real" in parallel to
+## itself.
+## In addition, Before= and After= depencencies may be used for
+## runtime exclusion of parallelism from/with other services.
+## This appears to necessary in some places, where races have
+## between daemon-reload and startup of other service have been observed.
+Before=mars-trigger.service
+
+[Service]
+# Important for blocking parallelism with itself
+Type=oneshot
+RemainAfterExit=no
+# Important for avoiding failures: do not send any signals
+KillMode=none
+
+ExecStart=/usr/bin/systemctl daemon-reload
+
+[Install]
+WantedBy=mars.service

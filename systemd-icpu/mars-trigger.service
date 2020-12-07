@@ -1,0 +1,26 @@
+[Unit]
+Description=MARS global trigger from /mars/userspace/systemd-trigger
+Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+
+## Prohibit parallelism with any daemon-reload
+After=daemon-reload.service
+
+## The global trigger calls "marsadm systemd-trigger-extern" _without_
+## resource argument.
+## The global variant will only generate any new templates, but will not
+## activate/deactivate them (except when they are new).
+## This is necessary for race avoidance with per-resource triggers.
+## Only the per-resource triggers (see mars-@{res}-trigger.service)
+## are allowed to actually start/stop any units dealing with resources.
+
+[Service]
+# Important for blocking parallelism with itself
+Type=oneshot
+RemainAfterExit=no
+# Important for avoiding failures: do not send any signals
+KillMode=none
+# Important: no resource argument must be given here
+ExecStart=/usr/bin/marsadm systemd-trigger-extern
+
+[Install]
+WantedBy=mars.service

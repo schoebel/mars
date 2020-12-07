@@ -1,0 +1,26 @@
+[Unit]
+Description=MARS block layer HA (kernel module)
+Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
+
+## Markers for the template processor
+# ALWAYS_START
+
+BindsTo=mars.mount
+After=mars.mount
+RequiresMountsFor=/mars/uuid
+
+Wants=network-online.target
+
+StopWhenUnneeded=false
+IgnoreOnIsolate=true
+
+[Service]
+Type=oneshot
+# Important for avoiding failures: do not send any signals
+KillMode=none
+RemainAfterExit=yes
+ExecStart=/sbin/modprobe mars
+ExecStop=/sbin/rmmod mars
+
+[Install]
+WantedBy=mars.mount
