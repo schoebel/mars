@@ -5811,6 +5811,7 @@ sub invalidate_res_phase0 {
   my $primary = _get_designated_primary($res);
   ldie "for operation '$cmd', some other designated primary must exist (currently there is none)\n" if $primary eq "(none)";
   ldie "Cannot invalidate the designated primary host '$primary'\n" if $primary eq $host;
+  return 0;
 }
 
 sub invalidate_res_phase1 {
@@ -5819,6 +5820,7 @@ sub invalidate_res_phase1 {
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 0);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/fetch", 0);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/replay", 0);
+  return 0;
 }
 
 sub invalidate_res_phase2 {
@@ -5829,6 +5831,7 @@ sub invalidate_res_phase2 {
     check_status($cmd, $res, "is-replaying", 0, 1);
     check_status($cmd, $res, "is-attached", 0, 1);
   }
+  return 0;
 }
 
 sub invalidate_res_phase3 {
@@ -5850,11 +5853,13 @@ sub invalidate_res_phase3 {
   }
   _create_delete("$mars/resource-$res/replay-$host");
   finish_links();
+  return 0;
 }
 
 sub invalidate_res_phase4 {
   my ($cmd, $res) = @_;
   _wait_delete();
+  return 0;
 }
 
 sub invalidate_res_phase5 {
@@ -5862,11 +5867,13 @@ sub invalidate_res_phase5 {
   $force = 0; # this would be too dangerous
   log_purge_res(@_);
   err_purge_res(@_);
+  return 0;
 }
 
 sub invalidate_res_phase6 {
   my ($cmd, $res) = @_;
   _wait_delete();
+  return 0;
 }
 
 sub invalidate_res_phase7 {
@@ -5881,11 +5888,13 @@ sub invalidate_res_phase7 {
 
   _set_replaylink($cmd, $res, $replay_nr, $primary, "");
   finish_links();
+  return 0;
 }
 
 sub invalidate_res_phase8 {
   my ($cmd, $res) = @_;
   _wait_delete();
+  return 0;
 }
 
 sub invalidate_res_phase9 {
@@ -5906,6 +5915,7 @@ sub invalidate_res_phase9 {
   } else {
     _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 1);
   }
+  return 0;
 }
 
 my %resize_device_size;
