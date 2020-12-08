@@ -5617,11 +5617,11 @@ sub primary_phase0 {
       finish_links();
       _systemd_trigger($cmd);
       _trigger(3);
-      return;
+      return 0;
     }
   }
-  return if ($old eq $host and $cmd eq "primary");
-  return if $old eq "(none)";
+  return 0 if ($old eq $host and $cmd eq "primary");
+  return 0 if $old eq "(none)";
   my $open_count_path = "$mars/resource-$res/actual-$old/open-count";
   my $device_in_use = get_link($open_count_path, 1);
   if ($device_in_use) {
@@ -5636,6 +5636,7 @@ sub primary_phase0 {
     }
   }
   lprint "all preconditions OK for resource '$res'\n";
+  return 0;
 }
 
 # only for primary --force: wait until fetch has actually stopped
@@ -5647,21 +5648,22 @@ sub primary_phase0a {
     _switch($cmd, $res, "$mars/resource-$res/todo-$new/fetch", 1);
   }
   finish_links();
-  return unless $force;
+  return 0 unless $force;
   wait_cond($cmd, $res, "is-fetch-off");
+  return 0;
 }
 
 # only for systemd: wait that primary device is no longer open
 sub primary_phase0b {
   my ($cmd, $res) = @_;
-  return unless systemd_present(@_);
+  return 0 unless systemd_present(@_);
   # only relevant for true handover
   my $old = _get_designated_primary($res, -1);
-  return if ($old eq $host || $old eq "(none)");
+  return 0 if ($old eq $host || $old eq "(none)");
   # ignore primary --force
   my $connect_path = "$mars/resource-$res/todo-$host/connect";
   my $connect = get_link($connect_path, 1);
-  return if (!defined($connect) || !$connect);
+  return 0 if (!defined($connect) || !$connect);
   # Notice: this is a workaround for a problem which is
   # outside of our scope. For example, a remote umount will
   # fail when any (delayed) process has any filehandle open.
@@ -5690,6 +5692,7 @@ sub primary_phase0b {
     $compensation .= "lprint \"Triggered systemd at '$old'.\n\";";
   }
   check_status($cmd, $res, "open-count", 0, 1, undef, undef, $old, $action, $compensation);
+  return 0;
 }
 
 # when necessary, switch to secondary (intermediately)
@@ -5748,14 +5751,16 @@ sub primary_phase2b {
 # when necessary, switch to primary
 sub primary_phase3 {
   my ($cmd, $res) = @_;
-  return unless $cmd eq "primary";
+  return 0 unless $cmd eq "primary";
   my $old = _get_designated_primary($res, -1);
   my $new = $host;
   _primary_res($res, $new, $old);
+  return 0;
 }
 
 sub primary_phase3b {
   finish_links();
+  return 0;
 }
 
 # wait for device to appear / disappear
@@ -5763,7 +5768,7 @@ sub primary_phase4 {
   my ($cmd, $res) = @_;
   if($cmd eq "secondary") {
     check_mars_device($cmd, $res, 1, 1);
-    return;
+    return 0;
   }
   my $ok = detect_splitbrain($res, 1);
   if (!$ok) {
@@ -5779,12 +5784,13 @@ sub primary_phase4 {
     lwarn "hindering left-overs/remains from the former split brain.\n";
     lwarn "ONLY in such a case, try log-purge-all --force.\n";
     lwarn "\n";
-    return;
+    return 0;
   }
   check_mars_device($cmd, $res, 1, 0);
   # new switch semantics, when nothing has failed before: up
   up_res_phase1(@_);
   _systemd_trigger($cmd);
+  return 0;
 }
 
 sub wait_umount_res {
