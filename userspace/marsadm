@@ -5514,11 +5514,13 @@ sub fake_sync_phase1 {
   my ($cmd, $res) = @_;
   my $path = "$mars/resource-$res/todo-$host/sync";
   _switch($cmd, $res, $path, 0);
+  return 0;
 }
 
 sub fake_sync_phase2 {
   my ($cmd, $res) = @_;
   check_status($cmd, $res, "is-syncing", 0, 1);
+  return 0;
 }
 
 sub fake_sync_phase3 {
@@ -5526,6 +5528,7 @@ sub fake_sync_phase3 {
   my $size = get_link("$mars/resource-$res/size");
   my $target = "$mars/resource-$res/syncstatus-$host";
   set_link($size, $target);
+  return 0;
 }
 
 sub _primary_res {
