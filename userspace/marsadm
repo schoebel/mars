@@ -5327,12 +5327,14 @@ sub cron_phase1 {
   logrotate_res(@_);
   finish_links();
   _trigger(3);
+  return 0;
 }
 
 sub cron_phase2 {
   my ($cmd, $res) = @_;
   $cron_mode = 1;
   logdelete_res(@_);
+  return 0;
 }
 
 sub attach_res_phase0 {
