@@ -5456,6 +5456,7 @@ sub up_res_phase0 {
   } else {
     attach_res_phase0("attach", $res);
   }
+  return 0;
 }
 
 sub up_res_phase1 {
@@ -5475,6 +5476,7 @@ sub up_res_phase1 {
     };
     pause_replay_local_res("resume-replay-local", $res);
   }
+  return 0;
 }
 
 sub up_res_phase2 {
@@ -5485,6 +5487,7 @@ sub up_res_phase2 {
   } else {
     attach_res_phase2("attach", $res);
   }
+  return 0;
 }
 
 sub set_replay_res {
