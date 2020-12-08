@@ -5339,7 +5339,7 @@ sub cron_phase2 {
 
 sub attach_res_phase0 {
   my ($cmd, $res) = @_;
-  return if $force;
+  return 0 if $force;
   my $detach = ($cmd eq "detach");
   if ($detach) {
     my $device_in_use = get_link("$mars/resource-$res/actual-$host/open-count", 1);
@@ -5352,21 +5352,23 @@ sub attach_res_phase0 {
 	_switch($cmd, $res, $path, 0);
 	finish_links();
 	systemd_activate($cmd, $res, 0, 1);
-	return;
+	return 0;
       }
       my $dev = device_name($res);
       ldie "device '$dev' is in use\n";
     }
   }
+  return 0;
 }
 
 # only for systemd: wait that primary device is no longer open
 sub attach_res_phase0b {
   my ($cmd, $res) = @_;
-  return unless $cmd eq "detach";
-  return unless systemd_present(@_);
+  return 0 unless $cmd eq "detach";
+  return 0 unless systemd_present(@_);
   check_status($cmd, $res, "open-count", 0, 1);
   wait_cluster($cmd);
+  return 0;
 }
 
 sub attach_res_phase1 {
@@ -5374,15 +5376,16 @@ sub attach_res_phase1 {
   my $detach = ($cmd eq "detach");
   my $path = "$mars/resource-$res/todo-$host/attach";
   _switch($cmd, $res, $path, !$detach);
+  return 0;
 }
 
 sub attach_res_phase2 {
   my ($cmd, $res) = @_;
   my $detach = ($cmd eq "detach");
-  return if $force;
+  return 0 if $force;
   if (!is_module_loaded()) {
     lwarn "Kernel module not loaded: $cmd will become effective after modprobe\n";
-    return;
+    return 0;
   }
   check_status($cmd, $res, "is-attached", $detach ? 0 : 1, 1);
   if ($detach) {
@@ -5392,6 +5395,7 @@ sub attach_res_phase2 {
     check_status($cmd, $res, "is-syncing", 0, 1);
     system("sync");
   }
+  return 0;
 }
 
 sub fetch_global_res {
