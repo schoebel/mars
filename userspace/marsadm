@@ -5982,6 +5982,7 @@ sub resize_phase1 {
   my $lnk = "$mars/resource-$res/size";
   set_link($new_size, $lnk);
   finish_links();
+  return 0;
 }
 
 sub resize_phase2 {
@@ -6002,6 +6003,7 @@ sub resize_phase2 {
     }
     sleep_timeout();
   }
+  return 0;
 }
 
 # Remark: this is historic, and should not be used anymore.
