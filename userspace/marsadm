@@ -4791,6 +4791,7 @@ sub leave_res_phase1 {
     _create_delete($dir);
   }
   finish_links();
+  return 0;
 }
 
 # wait for deletions (avoid races with following commands)
@@ -4813,6 +4814,7 @@ sub leave_res_phase3 {
     system("rm -f $mars/resource-$res/log-*");
   }
   _systemd_trigger($cmd);
+  return 0;
 }
 
 sub delete_res {
@@ -4840,6 +4842,7 @@ sub delete_res {
   _wait_delete();
   _reset_resources();
   _systemd_trigger($cmd);
+  return 0;
 }
 
 sub logrotate_res {
