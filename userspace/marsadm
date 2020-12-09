@@ -1766,10 +1766,17 @@ sub __systemd_activate_want {
       $do_activate = $override;
     }
   } elsif ($do_activate) {
-    my $primary = _get_designated_primary($res);
-    if ($primary ne $host) {
+    if (todo_local($cmd, $res)) {
+      my $primary = _get_designated_primary($cmd, $res);
+      if ($primary ne $host) {
+	# Do not activate for now
+	lprint "Overriding systemd-want: '$host' is not designated primary.\n";
+	lprint "==== Do not modify resource '$res'\n" if $verbose;
+	return 0;
+      }
+    } elsif (!todo_prosumer($cmd, $res, $want)) {
       # Do not activate for now
-      lprint "Overriding systemd-want: '$host' is not designated primary,\n";
+      lprint "Overriding systemd-want: '$want' is no designated prosumer.\n";
       lprint "==== Do not modify resource '$res'\n" if $verbose;
       return 0;
     }
