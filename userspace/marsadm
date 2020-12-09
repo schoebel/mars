@@ -2200,7 +2200,12 @@ sub set_systemd_unit_phase1 {
   my $want_path = "$mars/resource-$res/systemd-want";
   if ($start_name) {
     set_link($start_name, $unit_start_path);
-    my $target = _get_designated_primary($cmd, $res, 1);
+    my $target;
+    if (has_prosumer($cmd, $res)) {
+      $target = _get_prosumer($cmd, $res);
+    } else {
+      $target = _get_designated_primary($cmd, $res, 1);
+    }
     if ($target) {
       set_link($target, $want_path);
     }
