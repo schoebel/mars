@@ -2264,6 +2264,8 @@ sub set_link {
   push @link_list, $dst;
 }
 
+my %systemd_triggers = ();
+
 sub finish_links {
   my ($timestamp) = @_;
   return unless @link_list;
@@ -2290,11 +2292,24 @@ sub finish_links {
       lwarn "cannot finalize symlink '$link'\n";
     } elsif ($verbose) {
       lprint "created symlink '$link' -> '$target'\n";
+      # When necessary, trigger the local systemd path watchers
+      if ($link =~ m:/(primary,systemd):) {
+	my $trigger = "$mars/userspace/systemd-trigger";
+	if ($link =~ m:^($mars/resource-[^/]+)/:) {
+	  $trigger = "$1/systemd-trigger";
+	}
+	$systemd_triggers{$trigger}++;
+      }
     }
     $count++;
     $trigger_code = 2 if $link =~ m:/(primary|todo-global|ip):;
   }
   _trigger($trigger_code) if $count > 0;
+  foreach my $trigger (sort alphanum_cmp (keys(%systemd_triggers))) {
+    lprint "Triggering '$trigger'\n" if $verbose;
+    safe_touch($trigger) || safe_creat($trigger);
+  }
+  %systemd_triggers = ();
 }
 
 ##################################################################
