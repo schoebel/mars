@@ -2584,6 +2584,69 @@ done:
 }
 
 static
+void touch_systemd_trigger(const char *filename)
+{
+	struct file *f;
+	const int flags = O_CREAT | O_NOFOLLOW | O_RDWR;
+	const int prot = 0600;
+	struct timespec now = get_real_lamport();
+	int len;
+	loff_t dummy_pos = 0;
+	mm_segment_t oldfs;
+	char str[32];
+
+	len = snprintf(str, sizeof(str),
+		       "%ld.%09ld\n",
+		       now.tv_sec, now.tv_nsec);
+	oldfs = get_fs();
+	set_fs(get_ds());
+	f = filp_open(filename, flags, prot);
+	if (!f || IS_ERR(f)) {
+		/* remove any .deleted symlink and try again */
+		mars_unlink(filename);
+		f = filp_open(filename, flags, prot);
+	}
+	if (f && !IS_ERR(f)) {
+#ifdef MARS_HAS_KERNEL_READ
+		(void)kernel_write(f, str, len, dummy_pos);
+#else
+		(void)vfs_write(f, str, len, &dummy_pos);
+#endif
+		filp_close(f, NULL);
+	}
+	set_fs(oldfs);
+}
+
+static
+bool systemd_per_resource_trigger(const char *remote_path)
+{
+	const char *trig_path;
+
+	/* Ignore any userspace activities */
+	if (strstr(remote_path, "/userspace/"))
+		return false;
+
+	/* Fallback to global trigger upon global activities */
+	if (strstr(remote_path, "/todo-global/"))
+		return true;
+
+	trig_path = backskip_replace(remote_path, '/',
+				     false,
+				     "/systemd-trigger");
+	/* error fallback to global trigger */
+	if (unlikely(!trig_path))
+		return true;
+	if (unlikely(!trig_path[0])) {
+		brick_string_free(trig_path);
+		return true;
+	}
+
+	touch_systemd_trigger(trig_path);
+	brick_string_free(trig_path);
+	return false;
+}
+
+static
 int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 {
 	int status = 0;
@@ -2689,11 +2752,12 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 			MARS_DBG("create symlink '%s' -> '%s' status = %d\n",
 				 remote_path, remote_dent->new_link, status);
 			run_trigger = true;
-			if (!status &&
+			if (status >= 0 &&
+			    !peer->rebase_dir &&
 			    (!strncmp(remote_dent->d_name, "primary", 7) ||
 			     !strncmp(remote_dent->d_name, "systemd", 7)))
-				run_systemd_trigger = true;
-
+				run_systemd_trigger |=
+					systemd_per_resource_trigger(remote_path);
 		}
 	} else if (S_ISREG(remote_dent->new_stat.mode) &&
 		   _is_peer_logfile(remote_dent->d_name, my_id())) {
@@ -2806,17 +2870,7 @@ int run_bones(struct mars_peerinfo *peer)
 		mars_trigger();
 	}
 	if (run_systemd_trigger) {
-		struct file *f;
-		const int flags = O_RDWR | O_CREAT;
-		const int prot = 0600;
-		mm_segment_t oldfs;
-
-		oldfs = get_fs();
-		set_fs(get_ds());
-		f = filp_open("/mars/userspace/systemd-trigger", flags, prot);
-		set_fs(oldfs);
-		if (f && !IS_ERR(f))
-			filp_close(f, NULL);
+		touch_systemd_trigger("/mars/userspace/systemd-trigger");
 	}
 	return status;
 }
