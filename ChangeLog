@@ -129,7 +129,8 @@ Release Conventions / Branches / Tagnames
 	introduced in mars0.1astable88. It is off by default.
 	If you never activate it, you can downgrade inside of mars0.1astable*
 	as you like.
-	Only if you actually activate it, you have to obey the
+	Only if you actually activate it, and if you really need to
+	downgrade beyond that old version, you have to obey the
 	downgrade instructions documented below.
 
 -----------------------------------
@@ -138,6 +139,12 @@ Changelog for series 0.1a:
 	This is the new master branch, starting January 2019.
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
+
+mars0.1astable118
+	* Critical fix, only relevant for trial builds without
+	  pre-patch: kernel NULL deref, fixed by Gabriel Francisco.
+	  I am releasing this alone because the next release will
+	  take some more time.
 
 mars0.1astable117
 	* Minor fix, only relevant for k > 2 replicas:
