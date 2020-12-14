@@ -1,5 +1,5 @@
 [Unit]
-Description=MARS systemd trigger from /mars/userspace/emergency-trigger
+Description=MARS trigger from /mars/userspace/emergency-trigger
 Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
 Requires=mars.service
 After=mars.service

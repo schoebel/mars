@@ -2,6 +2,9 @@
 Description=MARS block layer HA (activation by appearance of /mars/uuid)
 Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
 
+## Markers for the template processor
+# ALWAYS_START
+
 [Path]
 PathExists=/mars/uuid
 Unit=mars.service

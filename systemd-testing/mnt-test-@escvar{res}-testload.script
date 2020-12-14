@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# Markers for the template processor
+# DEFAULT_START
+# DEFAULT_STOP
+#
+# ALSO=mars-@escvar{res}-trigger.path
+# ALSO=mars-@escvar{res}-trigger.service
+
+op="$1"
+
+# Ensure that pure trigger does not change anything.
+
+mars_dev=/dev/mars/@{res}
+mnt=/mnt/test/@{res}
+
+case "$op" in
+start)
+    # Assumption: start and vmstart seem to be idempotent already
+    if ! [[ -b $mars_dev ]]; then
+	echo "ignoring, $mars_dev is not present" 
+	exit 0
+    fi
+    if mountpoint $mnt; then
+	echo "ignoring, $mnt is already mounted" 
+	exit 0
+    fi
+    mkdir -p $mnt
+    mount $mars_dev $mnt
+    mountpoint $mnt
+    rc=$?
+    # cleanup any old flags
+    rm -f $mnt/*.flag
+    # start load
+    if (( !rc )); then
+	/etc/marsadm/systemd-templates/SYSTEMD-load-occupy.sh $mnt
+    fi
+    exit $rc
+    ;;
+
+stop)
+    if ! mountpoint $mnt; then
+	# Idempotence
+	exit 0
+    fi
+
+    /etc/marsadm/systemd-templates/SYSTEMD-load-stop.sh $mnt
+
+    # for additional safety
+    sleep 1
+
+    # umount, idempotent for increased robustness
+    if mountpoint $mnt; then
+	umount $mnt
+    fi
+
+    # status
+    if mountpoint $mnt; then
+	exit 1
+    fi
+    exit 0
+    ;;
+
+*)
+    # Ignore all other ops, like enable / disable / etc
+    echo "Ignore '$op'"
+    exit 0
+esac
+
+exit 0

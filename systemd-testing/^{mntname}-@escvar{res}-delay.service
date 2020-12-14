@@ -1,0 +1,34 @@
+@eval{%let{mntpath}{%subst{%{mntname}}{-}{/}}}
+[Unit]
+Description=MARS TESTING (u)mount delay for /@{mntpath}/@{res}
+Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
+
+## No markers for the template processor are necessary here, because
+## this unit is indirectly referenced from other units.
+## The template engine will follow all known dependencies and instantiate
+## this one when necessary.
+
+## HINT: in addition to the combination of BindsTo= with After= as
+## documented in "man systemd.unit" to get an _ordering_ dependency for
+## startup, it looks like we also need PartOf= to get _another_ ordering
+## dependency for _stopping_ in the right order.
+## The docs were not particularly clear about this, I found this by testing.
+##
+BindsTo=@{mntname}-@escvar{res}.mount
+After=@{mntname}-@escvar{res}.mount
+PartOf=@{mntname}-@escvar{res}.mount
+
+ConditionPathIsMountPoint=/@{mntpath}/@{res}
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Important for avoiding failures: do not send any signals
+KillMode=none
+
+## Simulate typical runtime behaviour by random delays
+ExecStart=/bin/bash -c 'sleep $(( RANDOM * 3 / 32767 ))'
+ExecStop=/bin/bash  -c 'sleep $(( RANDOM * 4 / 32767 ))'
+
+[Install]
+WantedBy=mars.service

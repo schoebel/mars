@@ -1,0 +1,44 @@
+[Unit]
+Description=MARS TESTING local mount on /mnt/test/@{res}
+Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
+
+## Markers for the template processor
+## Examples:
+
+## marsdm set-systemd-unit all TESTIN ==> mount + may produce some data
+## (depending on another unit containing marker "TESTING_START")
+# TESTING_STOP
+
+## marsadm set-systemd-unit all MOUNTED ==> only mount, nothing else
+## This may be necessary for reaching UpToDate without inherent races
+## on data production.
+# MOUNTED_START
+# MOUNTED_STOP
+
+## The following could be used for transitively stopping everything
+## upon "systemctl stop mars.service".
+## Not recommended, since it may cause unnecessary customer downtime
+## when executed "by accident".
+#BindsTo=mars.service
+
+Requires=mars.service
+After=mars.service
+
+## Prohibit parallelism with any daemon-reload
+After=daemon-reload.service
+
+# Only start when marsadm is controlling the target prosumer
+ConditionPathIsSymbolicLink=/mars/resource-@{res}/systemd-want
+
+# Try to achieve idempotence for starting
+ConditionPathIsMountPoint=!/mnt/test/@{res}
+
+[Mount]
+What=/dev/mars/@{res}
+Where=/mnt/test/@{res}
+Options=noauto
+# Important for avoiding failures: do not send any signals
+KillMode=none
+
+[Install]
+WantedBy=mars.service

@@ -1,11 +1,17 @@
 [Unit]
-Description=MARS systemd trigger from /mars/userspace/systemd-trigger
+Description=MARS global watcher /mars/userspace/systemd-trigger
 Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
-Requires=mars.service
+
+## Global path watcher for calling mars-trigger.service
+
+## Markers for the template processor
+# ALWAYS_START
+
+BindsTo=mars.service
 After=mars.service
 
 [Path]
-#PathExists=/mars/userspace/systemd-trigger
+PathExists=/mars/userspace/systemd-trigger
 PathChanged=/mars/userspace/systemd-trigger
 PathModified=/mars/userspace/systemd-trigger
 Unit=mars-trigger.service

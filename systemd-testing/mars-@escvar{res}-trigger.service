@@ -1,0 +1,36 @@
+[Unit]
+Description=MARS per-resource trigger from /mars/resource-@{res}/systemd-trigger
+Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+
+## Prohibit parallelism with any daemon-reload
+After=daemon-reload.service
+
+## The per-resource trigger is the _only_ one which is allowed
+## to remotely start / stop any units dealing with resources.
+## Otherwise, races or conflicting start / stop operations might
+## occur, leading to deadlocks / failures / etc.
+##
+## General rule: each *.path watcher can only start its corresponding
+## *-trigger.service at most _once_ in parallel (provided that the actions
+## caused by "marsadm systemd-trigger-extern" are not forking into background).
+## So there is never any parallelism of _any_ unit with exactly _itself_
+## (although _different_ units are allowed to run in parallel to each other,
+## of course).
+
+## Do not start both the global and any of the per-resource triggers
+## in parallel.
+## It could lead to various races between global and per-resource units.
+## In contrast, different per-resource triggers are not mutually exclusive.
+After=mars-trigger.service
+
+[Service]
+# Important for blocking parallelism with itself
+Type=oneshot
+RemainAfterExit=no
+# Important for avoiding failures: do not send any signals
+KillMode=none
+# Important: the resource argument will keep remote triggers disjoint
+ExecStart=/usr/bin/marsadm systemd-trigger-extern @{res}
+
+[Install]
+WantedBy=mars.service

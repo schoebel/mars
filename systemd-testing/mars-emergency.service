@@ -5,6 +5,7 @@ Documentation=https://github.com/schoebel/mars/docu/mars-user-manual.pdf
 [Service]
 Type=oneshot
 RemainAfterExit=no
+# Important for avoiding failures: do not send any signals
 KillMode=none
 ExecStart=/usr/bin/marsadm cron
 
