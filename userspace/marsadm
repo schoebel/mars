@@ -9700,6 +9700,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     while (my $txt = shift @copy) {
       last if ref($txt) eq "CODE";
       next if ref($txt) eq "ARRAY";
+      next if $txt =~ m/^[A-Z]+$/;
       my $skip_this = 0;
       if ($txt =~ m/^verbose *([0-9]+)/) {
 	$verb_level = $1;
