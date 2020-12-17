@@ -2816,7 +2816,7 @@ sub activate_guest {
     ldie "resource directory '$resdir' does not exist.\n" unless -d $resdir;
     my $check_glob = "$resdir/*{data,replay}-$peer";
     if (lamport_glob($check_glob)) {
-      ldie "peer '$peer' ist a storage member of resource '$res'\n";
+      ldie "peer '$peer' is a storage member of resource '$res'\n";
     }
     my $guest_path = "$resdir/device-$peer";
     _create_delete($guest_path);
