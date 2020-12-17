@@ -559,6 +559,8 @@ my %member_peers;
 my %guest_peers;
 my %any_peers;
 
+my %file_info;
+
 my $cache_dir = "$mars/cache-$real_host";
 
 sub __read_cache {
@@ -734,6 +736,7 @@ sub _scan_caches {
 sub _reset_resources {
   system("rm -rf $cache_dir/*.cache");
   %total_peers = ();
+  %file_info = ();
 }
 
 sub is_member {
@@ -1158,6 +1161,10 @@ sub _make_var_name {
 
 sub _get_file {
   my ($filename) = @_;
+  my $cached = $file_info{$filename};
+  if ($cached) {
+    return @$cached;
+  }
   my $IN;
   local $/;  # slurp
   if (!open($IN, "<", $filename)) {
@@ -1167,6 +1174,7 @@ sub _get_file {
   my $mtime = get_stamp($IN);
   my $text = <$IN>;
   close($IN);
+  $file_info{$filename} = [$mtime, $text];
   return ($mtime, $text);
 }
 
