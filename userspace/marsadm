@@ -5681,6 +5681,19 @@ sub link_purge_global {
     next unless ($age < $min_time);
     system("rm -rf $path");
   }
+  # remove any left-over systemd generator temporaries
+  my $script_dir = "$etc_marsadm/$generated_scripts_subdir";
+  foreach my $dir ($systemd_target_dir, $script_dir) {
+    my $glob = "$dir/.{pre,tmp}.*.tmp";
+    foreach my $leftlink (glob($glob)) {
+      my $mtime = get_link_stamp($leftlink);
+      if ($mtime) {
+	system("touch -h -d \@0 \"$leftlink\"");
+	next;
+      }
+      unlink($leftlink);
+    }
+  }
 }
 
 sub link_purge_res {
