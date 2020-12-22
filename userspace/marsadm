@@ -949,6 +949,10 @@ my $systemd_predefined = defined($ENV{SYSTEMD_PREDEFINED}) ?
   "system.slice,user.slice,machine.slice," .
   "dbus.service,dbus.socket,display-manager.service,system-update-cleanup.service";
 
+my $systemd_watcher_units = defined($ENV{SYSTEMD_WATCHER_UNITS}) ?
+  $ENV{SYSTEMD_WATCHER_UNITS} :
+  "mars-\@escvar\{res}-trigger.path";
+
 my %predefined_unit;
 foreach my $name (split(",", $systemd_predefined)) {
   $predefined_unit{$name} = 1;
@@ -1373,7 +1377,7 @@ sub set_systemd_want_phase1 {
 
 sub set_systemd_want_phase2 {
   my ($cmd, $res) = @_;
-  _systemd_trigger($cmd, $res);
+  systemd_trigger_extern($cmd, $res);
   return 0;
 }
 
@@ -1825,7 +1829,7 @@ sub __systemd_commit {
   foreach my $unit (sort alphanum_cmp keys(%changes)) {
     my $op = $changes{$unit};
     if ($op > 1) {
-      _systemd_op("start", $unit, 1);
+      _systemd_op("start", $unit);
     }
   }
   lprint "==== Done commit '$work_dir'\n" if $verbose;
@@ -1836,10 +1840,8 @@ sub systemd_commit {
   # We need separate target directories for templates and for scripts.
   # Reason: /run does not allow script execution on many systems.
   __systemd_commit($systemd_target_dir, $do_delete);
-  _systemd_op_wait();
   my $script_dir = "$etc_marsadm/$generated_scripts_subdir";
   __systemd_commit($script_dir, $do_delete);
-  _systemd_op_wait();
 }
 
 # THINK:
@@ -1861,13 +1863,14 @@ sub systemd_commit {
 # Knuth is cited: "I can do it in half the time if it doesn't have
 # to be correct".
 
-sub __systemd_generate_all {
-  my ($cmd, $res, $force_generate) = @_;
+sub __systemd_generate {
+  my ($cmd, $res, $make_want, $make_watcher, $force_generate) = @_;
   return unless -d $mars;
   return unless -d $etc_marsadm;
   mkdir($systemd_target_dir);
   mkdir("$etc_marsadm/$generated_scripts_subdir");
-  lprint "Generate all templates for '$res'.\n";
+  $force_generate = 0 unless defined($force_generate);
+  lprint "Generate all templates for '$res' force='$force_generate'.\n";
   # Determine all template files.
   get_template_files();
   # Always add all plain templates
@@ -1886,15 +1889,26 @@ sub __systemd_generate_all {
     @res_list = ($res);
   } else {
     @res_list = get_any_resources($host);
-    $do_delete = 1;
+    # We can only delete when the full set of transitive dependecies is known.
+    $do_delete = ($make_want && $make_watcher);
   }
   # Create initial systemd units
   foreach my $this_res (@res_list) {
-    foreach my $unit_link (lamport_glob("$mars/resource-$this_res/systemd-*-unit")) {
-      my $target = get_link($unit_link);
-      next unless $target;
-      $count += make_systemd_unit($cmd, $this_res, $target, $force_generate);
-      $done_units{$target} = 1;
+    if ($make_want) {
+      foreach my $unit_link (lamport_glob("$mars/resource-$this_res/systemd-*-unit")) {
+	my $target = get_link($unit_link);
+	next unless $target;
+	$count += make_systemd_unit($cmd, $this_res, $target, $force_generate);
+	$done_units{$target} = 1;
+      }
+    }
+    if ($make_watcher) {
+      foreach my $target_pattern (split(",", $systemd_watcher_units)) {
+	my ($dummy, $start_env) = make_env($cmd, $this_res, $target_pattern);
+	my ($env, $target) = subst_systemd_vars($start_env, $target_pattern);
+	$count += make_systemd_unit($cmd, $this_res, $target, $force_generate);
+	$done_units{$target} = 1;
+      }
     }
   }
   # Compute the transitive closure of referenced units
@@ -1913,7 +1927,7 @@ sub __systemd_generate_all {
   systemd_commit($do_delete);
 }
 
-sub __systemd_activate_ops {
+sub __systemd_want_ops {
   my ($cmd, $res) = @_;
   # Barrier, for safety
   _systemd_op_wait();
@@ -1962,28 +1976,18 @@ sub systemd_any_trigger {
   my ($cmd, $res) = @_;
   return unless _systemd_enabled();
   $res = "" unless defined($res);
-  # This triggers _only_ the other peers
   __systemd_touch_trigger($cmd, $res);
-  # Also do it locally
-  unless ($any_triggered{$res}) {
-    _systemd_trigger(@_);
-    $any_triggered{$res}++;
+  if (!$res) {
+    my @res_list = get_any_resources($host);
+    foreach my $this_res (@res_list) {
+      __systemd_touch_trigger($cmd, $this_res);
+    }
   }
-}
-
-sub _systemd_trigger {
-  my ($cmd, $res, $force_generate) = @_;
-  $res = "" unless $res;
-  $force_generate = 0 unless $force_generate;
-  lprint "Direct template generation for '$res' force=$force_generate\n" if $verbose;
-  eval {
-    __systemd_generate_all($cmd, $res, $force_generate);
-  };
-  __systemd_activate_ops($cmd, $res);
 }
 
 sub systemd_trigger_extern {
   my ($cmd, $res) = @_;
+  $res = "" unless defined($res);
   return unless -d $systemd_target_dir;
   my $called_external = ($cmd =~ m/extern/);
   if ($called_external) {
@@ -1992,13 +1996,19 @@ sub systemd_trigger_extern {
   } elsif (is_called_recursive()) {
     return 0;
   }
+  # Ensure disjointness of path watchers
+  my $make_want = ($called_external && $res);
+  my $make_watcher = (!$make_want || !$res);
   my $force_generate = !$called_external;
   eval {
-    __systemd_generate_all($cmd, $res, $force_generate);
+    __systemd_generate($cmd, $res, $make_want, $make_watcher, $force_generate);
   };
-  # Only generate when called via systemd trigger
-  if ($res || !$called_external) {
-    __systemd_activate_ops($cmd, $res);
+  if ($make_want) {
+    lprint "Want '$res'\n";
+    __systemd_want_ops($cmd, $res);
+  } else {
+    lprint "Trigger '$res'\n";
+    systemd_any_trigger($cmd, $res);
   }
   return 0;
 }
@@ -2106,7 +2116,7 @@ sub set_systemd_unit_phase1 {
 sub set_systemd_unit_phase2 {
   my ($cmd, $res) = @_;
   finish_links();
-  _systemd_trigger($cmd, $res, 1);
+  systemd_trigger_extern($cmd, $res);
   return 0;
 }
 
@@ -4981,7 +4991,7 @@ sub create_res {
     }
     lprint "Successfully joined resource '$res' to primary '$primary'\n";
   }
-  _systemd_trigger($cmd, $res, 1);
+  systemd_trigger_extern($cmd, $res);
 }
 
 sub _fetch_transitive_peers {
@@ -5265,7 +5275,7 @@ sub leave_res_phase3 {
 sub leave_res_phase4 {
   my ($cmd, $res) = @_;
   # no longer generate this resource
-  _systemd_trigger($cmd, "", 1);
+  systemd_trigger_extern($cmd);
   return 0;
 }
 
@@ -5298,7 +5308,7 @@ sub delete_res_phase1 {
 
 sub delete_res_phase2 {
   my ($cmd, $res) = @_;
-  _systemd_trigger($cmd, $res, 1);
+  systemd_trigger_extern($cmd, $res);
   return 0;
 }
 
