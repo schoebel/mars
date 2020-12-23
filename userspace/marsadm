@@ -9410,6 +9410,7 @@ my %cmd_table =
        "FORK",
        \&primary_phase1,
        "leave primary state",
+       "LOOP",
        \&primary_phase1b,
        "trigger remote",
        \&primary_phase4,
