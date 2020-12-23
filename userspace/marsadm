@@ -1458,7 +1458,7 @@ sub systemd_present {
   my $unit_glob = "$mars/resource-$res/systemd-*-unit";
   return "" unless lamport_glob($unit_glob);
   my $want_path = "$mars/resource-$res/systemd-want";
-  my $want = get_link($want_path, 2);
+  my $want = get_link($want_path, 1);
   return $want;
 }
 
