@@ -1833,7 +1833,7 @@ sub __systemd_commit {
   # because there may be inter-unit dependencies.
   if ($need_reload) {
     lprint "==== Restart systemd\n" if $verbose;
-    systemctl("daemon-reload");
+    _systemd_op("start", "daemon-reload.service");
   }
   lprint "==== Enabling new units\n" if $verbose;
   foreach my $unit (sort alphanum_cmp keys(%changes)) {
