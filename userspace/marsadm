@@ -1040,10 +1040,25 @@ sub systemctl {
   $verb = $verbose unless defined($verb);
   my $cmd = "$systemctl $args";
   lprint "executing: '$cmd'\n" if $verb > 1;
+  my $nr_retry = 0;
   my $status;
+ retry:
   eval {
     $status = system($cmd);
   };
+  if ($status && $args =~ m/^start (.*)/) {
+    my $rest = $1;
+    lwarn "command '$cmd' failed with status=$status\n";
+    # linear backoff
+    $nr_retry++;
+    sleep($nr_retry);
+    if ($nr_retry <= 5) {
+      eval {
+	system("systemctl reset-failed $rest");
+      };
+      goto retry;
+    }
+  }
   return $status;
 }
 
