@@ -1377,12 +1377,6 @@ sub set_systemd_want_phase1 {
 
 sub set_systemd_want_phase2 {
   my ($cmd, $res) = @_;
-  systemd_trigger_extern($cmd, $res);
-  return 0;
-}
-
-sub set_systemd_want_phase3 {
-  my ($cmd, $res) = @_;
   _trigger(3);
   my $want_path = "$mars/resource-$res/systemd-want";
   my $new = get_link($want_path, 1);
@@ -6259,7 +6253,7 @@ sub primary_phase4 {
 
 sub primary_phase5 {
   return 0 unless systemd_present(@_);
-  return set_systemd_want_phase3(@_);
+  return set_systemd_want_phase2(@_);
 }
 
 sub wait_umount_res {
@@ -8823,10 +8817,8 @@ my %cmd_table =
        "FORK",
        \&set_systemd_want_phase1,
        "set links",
-       \&set_systemd_want_phase2,
-       "trigger systemd",
        "LOOP",
-       \&set_systemd_want_phase3,
+       \&set_systemd_want_phase2,
        "wait for effect",
       ],
    "get-systemd-want"
