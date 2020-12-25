@@ -1038,7 +1038,14 @@ sub get_systemd_files {
 sub systemctl {
   my ($args, $verb) = @_;
   $verb = $verbose unless defined($verb);
-  my $cmd = "$systemctl $args";
+  $args =~ m/^\w+\s*(.*)/;
+  my $rest = $1;
+  my $ord_cmd = "$systemctl $args";
+  my $cmd = $ord_cmd;
+  my $busy_cmd = ($args =~ m/^(start|stop)/);
+  if ($busy_cmd) {
+    $cmd = "$systemctl --job-mode=fail $args";
+  }
   lprint "executing: '$cmd'\n" if $verb > 1;
   my $nr_retry = 0;
   my $status;
@@ -1046,16 +1053,15 @@ sub systemctl {
   eval {
     $status = system($cmd);
   };
-  if ($status && $args =~ m/^start (.*)/) {
-    my $rest = $1;
+  if ($status && $busy_cmd) {
     lwarn "command '$cmd' failed with status=$status\n";
     # linear backoff
     $nr_retry++;
     sleep($nr_retry);
     if ($nr_retry <= 5) {
-      eval {
-	system("systemctl reset-failed $rest");
-      };
+      goto retry;
+    } elsif ($cmd ne $ord_cmd) {
+      $cmd = $ord_cmd;
       goto retry;
     }
   }
