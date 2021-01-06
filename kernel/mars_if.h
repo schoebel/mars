@@ -112,6 +112,7 @@ struct if_brick {
 	int readahead;
 	bool skip_sync;
 	bool shutdown;
+	bool busy_open;
 	// inspectable
 	struct lamport_time *open_epoch;
 	atomic_t open_count;
