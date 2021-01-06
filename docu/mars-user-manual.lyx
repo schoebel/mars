@@ -30214,7 +30214,7 @@ The
 \family typewriter
 systemd
 \family default
- Template Interface
+ Template Generator
 \begin_inset CommandInset label
 LatexCommand label
 name "sec:systemd-Templates"
@@ -30229,7 +30229,11 @@ Starting with
 \family typewriter
 mars0.1astable
 \family default
-79, you may use 
+79 (much better with 
+\family typewriter
+mars0.1astable119
+\family default
+), you may use 
 \family typewriter
 systemd
 \family default
@@ -30240,12 +30244,16 @@ systemd
 \family default
 -relevant state information across the (big) cluster, achieving some remote
  control.
- In particular, automated handover via 
+ In particular, 
+\series bold
+automated handover
+\series default
+ triggered by 
 \family typewriter
 marsadm primary $resource
 \family default
  is supported.
- More features will likely be added to future releases.
+ More features are likely to be added to future releases.
 \end_layout
 
 \begin_layout Subsection
@@ -30263,9 +30271,9 @@ systemd
 \family default
  based.
  It is the new quasi standard.
- Although there have been some discussions in the community about its merits
- and its shortcomings, now it appears to be accepted in large parts of the
- Linux world.
+ Although there have been some discussions in the OpenSource community about
+ its merits and its shortcomings, now it appears to be accepted in large
+ parts of the Linux world.
 \end_layout
 
 \begin_layout Standard
@@ -30283,8 +30291,15 @@ pid=1
 \family default
 .
  If it ever would die, then your system as a whole would die.
- There is no need for adding a new MARS clustermanager daemon or similar,
- which could fail independently from other parts of the system.
+ There is no need for adding yet another MARS clustermanager daemon 
+\family typewriter
+marsd
+\family default
+ or similar, which could fail 
+\emph on
+independently
+\emph default
+ from other parts of the system.
 \end_layout
 
 \begin_layout Enumerate
@@ -30306,8 +30321,10 @@ usage
 \emph default
  by sysadmins is easily decomposable into many plugins called 
 \series bold
+\emph on
 units
 \series default
+\emph default
 .
 \end_layout
 
@@ -30340,12 +30357,69 @@ component
  stack.
 \end_layout
 
+\begin_layout Enumerate
+Personal experience: the 
+\series bold
+unit dependency engine
+\series default
+ of systemd is extremely elaborated
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The author misses only one feature: a new dependency type, or an object
+ type like a 
+\begin_inset Quotes eld
+\end_inset
+
+semaphore
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+mutex
+\begin_inset Quotes erd
+\end_inset
+
+ for expressing 
+\begin_inset Quotes eld
+\end_inset
+
+mutual exclusion
+\begin_inset Quotes erd
+\end_inset
+
+, without any other side effects as for example caused by 
+\family typewriter
+Conflicts=
+\family default
+ .
+\end_layout
+
+\end_inset
+
+ and useful.
+ Management of complex transitive dependencies is relatively easy (though
+ not always fully intuitive).
+ Writing your own dependency engine would be a huge effort, which can be
+ saved by just using standard systemd and learning how to configure it properly
+ for your applications.
+\end_layout
+
 \begin_layout Standard
-Systemd has also a few disadvantages:
+In the opinion of of author, systemd also has a few disadvantages, such
+ as:
 \end_layout
 
 \begin_layout Enumerate
-It is not accepted everywhere.
+It is not 
+\series bold
+accepted
+\series default
+ everywhere.
  Therefore the 
 \family typewriter
 systemd
@@ -30354,37 +30428,420 @@ systemd
 \family typewriter
 marsadm
 \family default
- are not mandatory for MARS operations.
- You can implement your own alternatives when necessary.
+ are 
+\emph on
+not mandatory
+\emph default
+ for MARS operations.
+ You can use or implement your own alternatives when necessary.
 \end_layout
 
 \begin_layout Enumerate
-It can be messy to deal with.
+Interfacing to 
+\series bold
+third-party software
+\series default
+ may become hairy.
+ systemd appears to assume that more or less 
+\emph on
+everything
+\emph default
+ is controlled by systemd.
+ Pre-existing software would sometimes need to be adapted to systemd, but
+ this isn't always possible in practice.
+ For example, 
+\family typewriter
+systemd-notify
+\family default
+ assumes that you can alter some third-party-controlled executables or complex
+ third-party systems, which often isn't easily possible in practice
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The problem is that 
+\family typewriter
+systemd-notify
+\family default
+ needs to be inserted into the 
+\emph on
+control flow
+\emph default
+ of your third-party software.
+ This doesn't work if your third-party software doesn't have the right hooks
+ in the right places, or when there exists no local control flow at some
+ (failure) conditions.
+ Therefore, any status inquiry would need to be configurable at systemd
+ units, not by any modifications of third-party software.
+ Unfortunately, the current systemd does not have appropriate features like
+ 
+\family typewriter
+ExecCheckState=/my/state-reporting-script.pl
+\family default
+ or 
+\family typewriter
+.py
+\family default
+ or similar.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Enumerate
+Sometimes it can be 
+\series bold
+messy
+\series default
+ to deal with.
  In particular, it can sometimes 
 \emph on
 believe
 \emph default
- that the system 
+ that some parts of the system 
 \emph on
 were
 \emph default
- in a particular state, although in reality it isn't.
- Compensation is hairy.
+ in a particular state, although in reality they aren't.
+ The current version of systemd lacks an important property called 
+\series bold
+Idempotence
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In industrial automation and control, it is quite standard that you specify
+ the 
+\series bold
+desired target state
+\series default
+, without having to obey the current state.
+ For example, if a big fan or a big pump is already running, or if a valve
+ is already open, there will be no error if somebody tries to 
+\begin_inset Quotes eld
+\end_inset
+
+start
+\begin_inset Quotes erd
+\end_inset
+
+ it (for whatever reason, or when induced from a higher level in the control
+ hierarchy).
+ Unfortunately, 
+\family typewriter
+systemctl
+\family default
+ often reports an error code if you try to start a unit when it is currently
+ running, or when it 
+\emph on
+believes
+\emph default
+ that it 
+\emph on
+were
+\emph default
+ already running (whether this is actually true or not).
+ 
+\emph on
+Sometimes
+\emph default
+, there is a 
+\emph on
+workaround
+\emph default
+ by first stopping, and then restarting, or similar.
+ However, this is clearly an 
+\series bold
+absolute no-go
+\series default
+ for HA where uptime and interruption-free service is often a MUST.
+ For humans who have worked in complex industry plants, it is easy to become
+ 
+\emph on
+desperate
+\emph default
+ about this confusing (and sometimes 
+\begin_inset Quotes eld
+\end_inset
+
+
+\emph on
+unpredictable
+\emph default
+
+\begin_inset Quotes erd
+\end_inset
+
+) behaviour of systemd, with no easy chance to compensate these deficiencies.
+\end_layout
+
+\end_inset
+
+, which is more or less standard in industrial automation and control (e.g.
+ big industry plants).
+ Compensation via native systemd units and dependencies may become hairy,
+ if possible at all
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+According to 
+\family typewriter
+man sd_notify
+\family default
+, there exists a clearly defined message type 
+\family typewriter
+STOPPING=1
+\family default
+, but I cannot find a clearly defined and reliable equivalent of STOPPED=1
+ for reporting that the unit has actually completed the stopping, and that
+ now it is actually (re-)startable (again).
+ Notice that some third-party software needs some external preconditions
+ to be met before it can be started.
+ From the 
+\family typewriter
+sd_notify
+\family default
+ docs, it is unclear to me whether 
+\family typewriter
+ERRNO=0
+\family default
+ could be 
+\emph on
+misused
+\emph default
+ for such a report.
+ By reading some systemd sourcecode, I cannot easily tell, because the internal
+ state model of systemd appears to be extremely complex, and the message
+ passing model looks even more complex, like a huge finite state automaton
+ with additional non-trivial transitional conditions.
+ Semantically unspecified generic messages like STATUS=
+\begin_inset Quotes erd
+\end_inset
+
+freetext_message
+\begin_inset Quotes erd
+\end_inset
+
+ cannot not help me for achieving a clearly defined and reliable behaviour.
+\end_layout
+
+\begin_layout Plain Layout
+Notice that some third-party software does not use long-running daemons
+ at all, or only in certain places.
+ Then messages like 
+\family typewriter
+MAINPID=
+\family default
+ are not useful at all.
+ There exist use cases where 
+\series bold
+dynamic polling of actual state
+\series default
+ would be a very simple and easy solution in place of a complex state-keeping
+ / state transition / message passing model, for example a new unit directive
+ like 
+\family typewriter
+ExecCheckState=/my/state-reporting-script.pl
+\family default
+ or 
+\family typewriter
+.py
+\family default
+ or similar.
+\end_layout
+
+\end_inset
+
+.
+ MARS can workaround these shortcomings via a pseudo unit type 
+\family typewriter
+.script
+\family default
+ which allows you to directly call some (wrapper) scripts, or to write some
+ 
+\series bold
+adaptors
+\series default
+ to third-party software.
 \end_layout
 
 \begin_layout Enumerate
-Usablility / reporting: it is less usable for getting an overview over a
- bigger local system, and is practically unusable (out-of-the-box) for managing
+
+\series bold
+Usability
+\series default
+ / reporting: in my experience it is less usable for getting an overview
+ over a bigger local system, and less usable (out-of-the-box) for managing
  a bigger cluster at cluster level.
  Monitoring needs to be done separately.
 \end_layout
 
 \begin_layout Subsection
-Working Principle of the 
+Execution Model of systemd and marsadm
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Execution-Model-systemd"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+marsadm and systemd are playing together and communicating with each other
+ in the following way:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/systemd-template-generation.fig
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Communication between marsadm to systemd is done in the following ways:
+\end_layout
+
+\begin_layout Itemize
+by instanting a template residing in /etc/marsadm/systemd-templates (or
+ in another configurable location) and generating an instantiated unit into
+ /run/systemd/system/ as documented in 
+\family typewriter
+man systemd.unit
+\family default
+.
+ The method from 
+\family typewriter
+man systemd.generator
+\family default
+ is currently not yet supported (but possibly in a future release).
+\end_layout
+
+\begin_layout Itemize
+by replicating the following triggers across the mars cluster:
+\end_layout
+
+\begin_layout Itemize
+by touching the cluster-global file 
+\family typewriter
+/mars/userspace/systemd-trigger
+\family default
+ which in turn is watched at each cluster members by the systemd unit 
+\family typewriter
+mars-trigger.path
+\family default
+, which in turn activates 
+\family typewriter
+mars-trigger.service
+\family default
+, which in turn executes 
+\family typewriter
+ExecStart=/usr/bin/marsadm systemd-trigger-extern
+\family default
+ everywhere in the cluster.
+\end_layout
+
+\begin_layout Itemize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+sloppy
+\end_layout
+
+\end_inset
+
+ similarly for multiple per-resource triggers, by touching any of the resource-s
+pecific trigger files 
+\family typewriter
+/mars/resource-$res/systemd-trigger
+\family default
+ which is turn is watched by systemd units 
+\family typewriter
+mars-$res-trigger.path
+\family default
+ at each resource member, which then in turn activates 
+\family typewriter
+mars-$res-trigger.service
+\family default
+, which finally executes 
+\family typewriter
+ExecStart=/usr/bin/marsadm systemd-trigger-extern $res
+\family default
+ everywhere in the cluster.
+\end_layout
+
+\begin_layout Itemize
+In turn, 
+\family typewriter
+marsadm systemd-trigger-extern $res
+\family default
+ will start or stop the units as configured via 
+\family typewriter
+marsadm set-systemd-unit $res $start_unit_name $stop_unit_name
+\family default
+, as described later.
+\end_layout
+
+\begin_layout Standard
+This architecture looks somewhat complicated, but it was found to be necessary
+ to assure lockless parallel starting and stopping of multiple resources
+ without conflicts.
+ Apparently, systemd is not a fully asynchronous system, while a Distributed
+ System (like the MARS replication) is always a fully asynchronous system
+ by its very nature.
+ The above triggers are used to translate from the fully asynchronous Distribute
+d System to the less asynchronous systemd execution model.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+Fortunately, you don't need to deal too much with these details if you take
+ the example templates from 
+\family typewriter
+systemd-icpu/
+\family default
+ and adapt them to your application (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-systemd-Templates"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Subsection
+Working Principle of the Template Generator for 
 \family typewriter
 systemd
 \family default
- Template Engine
+
 \begin_inset CommandInset label
 LatexCommand label
 name "subsec:Working-Principle-of"
@@ -30395,7 +30852,7 @@ name "subsec:Working-Principle-of"
 \end_layout
 
 \begin_layout Standard
-Systemd already has some very basic templating capabilities.
+systemd already has some basic templating capabilities.
  It is possible to create unit names containing the 
 \family typewriter
 @
@@ -30421,7 +30878,7 @@ thin air
 \emph on
 inference machine
 \emph default
- for systemd templates does not yet exist.
+ for systemd template names does not yet exist.
 \end_layout
 
 \begin_layout Standard
@@ -30518,13 +30975,21 @@ varname
 \emph default
 }
 \family default
+ or 
+\family typewriter
+@escvar{
+\emph on
+varname
+\emph default
+}
+\family default
  parts or other macro definitions in their filename, and possibly also in
  their bodies, at arbitrary places.
  These 
 \family typewriter
 @{...}
 \family default
- parts are substituted by a 
+ parts are substituted by the 
 \family typewriter
 marsadm
 \family default
@@ -30702,7 +31167,8 @@ text
 \emph default
 }
 \family default
- This can be used in template filenames 
+ This is a matching operator, binding a string to a variable.
+ It can be used in template filenames 
 \emph on
 only
 \emph default
@@ -30933,6 +31399,9 @@ varname
 }}
 \family default
 .
+ This is often used in template filenames to ensure that MARS resource names
+ containing special symbols like dashes, are properly converted to systemd
+ naming conventions where a dash has a different pre-defined meaning.
 \end_layout
 
 \begin_layout Standard
@@ -30970,6 +31439,1183 @@ delete-resource
 \end_layout
 
 \begin_layout Subsection
+Template Markers
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Template-Markers"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Starting with 
+\family typewriter
+mars0.1astable119
+\family default
+, you may use some special markers in comments of systemd templates.
+ These comments are ignored by systemd, but interpreted by the marsadm template
+ engine.
+ The marker syntax is somewhat stricter than in usual comments:
+\end_layout
+
+\begin_layout Quote
+Exactly one hash symbol exactly at the start of the line, optionally followed
+ by whitespace, followed by the marker in CAPITAL letters.
+\end_layout
+
+\begin_layout Standard
+The requirement of exactly one hash symbol allows you to comment out markers
+ by using two hash symbols or more.
+ Here is a table of markers and their meaning:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Tabular
+<lyxtabular version="3" rows="6" columns="2">
+<features islongtable="true" longtabularalignment="center">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="left" valignment="top">
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Marker
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Meaning
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+# ALWAYS_DISABLED
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+The unit instance will be generated, but neither enabled nor started by
+ marsadm (except when exclicitly using it as an argument to 
+\family typewriter
+set-systemd-unit
+\family default
+).
+ Useful for generation of units you want to control by some other tools.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+# ALWAYS_START
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+This is the opposite of ALWAYS_DISABLED: this unit will always be enabled
+ and started, regardless what 
+\family typewriter
+marsadm get-systemd-want
+\family default
+ is telling you.
+ If it is no longer in use after leave-resource, only then it will be stopped.
+ Useful for permanent tasks such as 
+\family typewriter
+.path
+\family default
+ path watcher units, etc.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+# KEEP_RUNNING
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+This unit will always be enabled and started.
+ If the unit is no longer in use after leave-resource, it will be only be
+ disabled (protection against accidental restart), but otherwise stay untouched
+ by marsadm.
+ In particular, it will 
+\emph on
+not
+\emph default
+ be stopped if it is currently running.
+ Useful for important HA-like services which need to be controlled by another
+ means.
+ Also useful for 
+\emph on
+global
+\emph default
+ units which are independent from any resources.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+# ${NAME}_START
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+This can be used for simplification of the 
+\family typewriter
+set-systemd-unit
+\family default
+ command.
+ In place of providing a full template name with all of its escape characters
+ and all of its risky typos, simply say 
+\family typewriter
+marsadm set-systemd-unit mydata DEFAULT
+\family default
+.
+ This will search for templates marked with DEFAULT_START and DEFAULT_STOP,
+ and use the corresponding 
+\family typewriter
+@escvar{res}
+\family default
+ substitutions for starting and stopping.
+\end_layout
+
+\begin_layout Plain Layout
+HINT: by inventing other marker ${NAME}s, you may ease discrimination of
+ multiple operation modes.
+\end_layout
+
+\begin_layout Plain Layout
+Notice: 
+\family typewriter
+^{...}
+\family default
+ pattern matching is currently NYI, only 
+\family typewriter
+@{res}
+\family default
+ and variants like 
+\family typewriter
+@escvar{res}
+\family default
+ are currently implemented.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+# ${NAME}_STOP
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+See description of # ${NAME}_START.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Special 
+\family typewriter
+.script
+\family default
+ Pseudo Units
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Special-.script-Pseudo"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
+Howto use .script
+\end_layout
+
+\begin_layout Standard
+When a template name ends in 
+\family typewriter
+.script
+\family default
+ and has execute permissions, the marsadm template generator will write
+ the instantiated script (with all 
+\family typewriter
+@{...}
+\family default
+ variables substituted) into the directory 
+\family typewriter
+/etc/marsadm/systemd-generated/
+\family default
+ directory in place of 
+\family typewriter
+/run/systemd/systemd/
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+In place of 
+\family typewriter
+systemctl start $unit
+\family default
+, the script 
+\family typewriter
+/etc/marsadm/systemd-generated/$unit.script start
+\family default
+ is called with single parameter 
+\family typewriter
+start
+\family default
+, and similarly for 
+\family typewriter
+stop
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+This way, the author found it easy to program idempotent scripts, like adaptors
+ to third-party software.
+\end_layout
+
+\begin_layout Paragraph
+Motivation for .script
+\end_layout
+
+\begin_layout Standard
+The author has spent a lot of time (several months) for getting standard
+ systemd units to work in a fully asynchronous Distributed System consisting
+ of hundreds of machines, where 
+\emph on
+any
+\emph default
+ type of event may appear at 
+\emph on
+any
+\emph default
+ time.
+\end_layout
+
+\begin_layout Standard
+Although this big effort resulted in a somewhat working system, the result
+ is was not fully HA.
+\end_layout
+
+\begin_layout Standard
+Notice that HA is defined by a single number like 99.99% (see mars-architecture-g
+uide.pdf).
+ In practice, true HA 
+\emph on
+typically
+\emph default
+ means that the 
+\emph on
+total system
+\emph default
+, including its controlling components, must be 
+\series bold
+more reliable
+\series default
+ than (some or any) of its worker sub-components.
+ Notice that systemd is one one of these components.
+\end_layout
+
+\begin_layout Standard
+The problem with systemd was that it created failures on its own.
+ Compensation of these failures became very hairy with the current version,
+ as used for the experiments (Debian Buster).
+\end_layout
+
+\begin_layout Standard
+Apparently, systemd does not tolerate certain types of parallelism.
+ For example, while 
+\family typewriter
+systemd daemon-reload
+\family default
+ is currently executing, a parallel 
+\family typewriter
+systemctl start $other_unit
+\family default
+ may fail, although it normally works without problems.
+\end_layout
+
+\begin_layout Standard
+Even more unfortunate, sometimes systemd did no longer know the 
+\emph on
+actual state
+\emph default
+ of a unit, as the following example output snippet from 
+\family typewriter
+systemctl status mnt-test-lv
+\backslash
+x2d0.mount
+\family default
+ is demonstrating:
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+\size scriptsize
+Dec 24 17:00:48 c1 systemd[1]: Mounting MARS TESTING local mount on /mnt/test/lv
+-0...
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+\size scriptsize
+Dec 24 17:00:58 c1 systemd[1]: mnt-test-lv
+\backslash
+x2d0.mount: Mount process finished, but there is no mount.
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+\size scriptsize
+Dec 24 17:00:58 c1 systemd[1]: mnt-test-lv
+\backslash
+x2d0.mount: Failed with result 'protocol'.
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+\size scriptsize
+Dec 24 17:00:58 c1 systemd[1]: Failed to mount MARS TESTING local mount
+ on /mnt/test/lv-0.
+\end_layout
+
+\begin_layout Standard
+
+This failure report was wrong, because the mount had actually succeeded
+ in reality, but systemd wrongly assumed the opposite.
+ Neither 
+\family typewriter
+start
+\family default
+ nor 
+\family typewriter
+stop
+\family default
+ was possible afterwards, even after 
+\family typewriter
+systemctl reset-failed
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+
+Possibly this may be a bug, which could be fixed.
+ However, HA systems are expected to even work in the presence of bugs,
+ as best as possible.
+\end_layout
+
+\begin_layout Standard
+
+If you ever encounter a similar problem, you may get stuck in a dead end,
+ at least for a while.
+ Apparently, systemd is repairing the state of failed mount units after
+ some timeout, but in the meantime true HA with many nines is endangered.
+ Other unit types appear to show similar failure behaviour.
+\end_layout
+
+\begin_layout Standard
+
+What is the reason for this behaviour?
+\end_layout
+
+\begin_layout Standard
+
+The author is no systemd expert
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+
+The author might have overlooked further possibilities for solutions.
+ This rises the question how the 
+\series bold
+usability
+\series default
+ of systemd could be improved.
+\end_layout
+
+\end_inset
+
+, but here is an 
+\emph on
+attempt
+\emph default
+ to analyze the problems at 
+\emph on
+concept level
+\emph default
+, and to suggest some solutions.
+\end_layout
+
+\begin_layout Standard
+
+The following may be of interest for systemd developers, and for very advanced
+ users of systemd.
+ All others may skip the rest of this paragraph, and just use the 
+\family typewriter
+.script
+\family default
+ workaround as explained before.
+\end_layout
+
+\begin_layout Standard
+
+From observation, and from 
+\family typewriter
+man systemctl
+\family default
+ it appears to me that a 
+\family typewriter
+systemctl
+\family default
+ command invocation (aka job) is not fully equivalent to an 
+\family typewriter
+ExecStart=
+\family default
+ directive.
+ According to the docs, 
+\family typewriter
+Exec=
+\family default
+ and some sister directives are obeying dependencies to any queued or already
+ running jobs.
+ However, I found no obvious way for obeying dependencies when starting
+ jobs via 
+\family typewriter
+systemctl
+\family default
+ commands 
+\emph on
+manually
+\emph default
+.
+ There is an option 
+\family typewriter
+--job-mode=
+\family default
+ which defaults to the value 
+\family typewriter
+replace
+\family default
+, documenting the bad behaviour I have observed: it may 
+\series bold
+\emph on
+disturb
+\series default
+\emph default
+ a currently running or conflicting job.
+\end_layout
+
+\begin_layout Standard
+
+In worst case, the conflicting unit may fail 
+\begin_inset Quotes eld
+\end_inset
+
+unexpectedly
+\begin_inset Quotes erd
+\end_inset
+
+ from a user's viewpoint due to the default 
+\family typewriter
+--job-mode=replace
+\family default
+, and I have observed cases where it was neither startable nor stoppable
+ immediately afterwards (maybe this could depend on further properties of
+ called 
+\family typewriter
+Exec=
+\family default
+ scripts, which may stem from a third party, and are not constructed for
+ being called by systemd: eventually I got desperate after investing a lot
+ of time).
+\end_layout
+
+\begin_layout Standard
+
+Conclusions: there appear multiple non-trivial HA problems with the current
+ version of systemd.
+ While some of them may be bugs which could be fixed, others appear to reside
+ at 
+\emph on
+concept level
+\emph default
+:
+\end_layout
+
+\begin_layout Enumerate
+
+Jobs seem to be 
+\emph on
+uniquely identified
+\emph default
+ by unit names.
+ Thus it is not possible to 
+\emph on
+address
+\emph default
+ multiple different jobs belonging to the 
+\emph on
+same
+\emph default
+ unit.
+\begin_inset Newline newline
+\end_inset
+
+An example: 
+\family typewriter
+systemctl start unitA
+\family default
+ is currently running, taking a long time to execute.
+ During this, another command 
+\family typewriter
+systemctl stop unitA
+\family default
+ is started 
+\emph on
+in parallel
+\emph default
+ (e.g.
+ from another commandline shell).
+ According to the documented default behaviour 
+\family typewriter
+--job-mode=replace
+\family default
+, the old job may be 
+\emph on
+interrupted
+\emph default
+ in favour of the new one.
+ However, interruption of a job may be interpreted as a job failure, possibly
+ leading to state 
+\family typewriter
+failed
+\family default
+.
+ However, a failed unit can no longer be stopped, it seems to be treated
+ like if it were 
+\emph on
+already stopped
+\emph default
+.
+ It is possible to reset a failed unit via 
+\family typewriter
+systemctl reset-failed unitA
+\family default
+, but then I found that it is also treated as if it were already stopped,
+ such that 
+\family typewriter
+systemctl stop unitA
+\family default
+ just reports 
+\begin_inset Quotes eld
+\end_inset
+
+success
+\begin_inset Quotes erd
+\end_inset
+
+ without doing anything.
+ This may lead to 
+\emph on
+serious
+\emph default
+ problems in a HA world.
+ 
+\begin_inset Newline newline
+\end_inset
+
+An example: unitA was executing a script 
+\family typewriter
+scriptA.sh
+\family default
+ in oneshot mode.
+ Unit failure typically meant that the script was killed by a signal.
+ Even if 
+\family typewriter
+scriptA.sh
+\family default
+ had a signal handler doing proper application cleanup, and even if there
+ were no final SIGKILL which eventually killed the running signal handler,
+ the 
+\emph on
+application
+\emph default
+ may get 
+\emph on
+stuck
+\emph default
+ in some 
+\series bold
+undefined application state
+\series default
+.
+ But afterwards, one is unable to queue a stop job for cleanup
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+
+Possibly, a new directive 
+\family typewriter
+ExecCleanup=
+\family default
+ could help.
+ However, this could mean that a new command variant 
+\family typewriter
+systemctl cleanup unitA
+\family default
+ would need to be introduced.
+ This would complicate the user interface.
+ Instead, the author would prefer Idempotence, because Idempotences allows
+ to use 
+\family typewriter
+systemctl stop unitA
+\family default
+ for cleanup.
+ This results in a much simpler end-user interface.
+\end_layout
+
+\end_inset
+
+, as explained before.
+ Notice that queuing a start job in place of a cleanup job is no option
+ in general, at least in a HA world.
+\begin_inset Newline newline
+\end_inset
+
+According to the docs, there exists no 
+\family typewriter
+--job-mode=append
+\family default
+ or similar option, which would just queue / delay 
+\emph on
+any
+\emph default
+ new job for 
+\emph on
+any
+\emph default
+ unit, until all conflicting previous jobs are gone.
+ Notice that this would be always mathematically possible (e.g.
+ resulting in a strictly sequential job order).
+ An implementation should be technically possible, but currently it seems
+ not implemented in systemd according to the docs.
+ This lack of full dependency awareness for entering new jobs causes numerous
+ other problems, not only the previously described ones.
+\begin_inset Newline newline
+\end_inset
+
+Possibly (the author has checked
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+
+The documentation 
+\family typewriter
+man systemd
+\family default
+ explains a subtle difference.
+ The conflicts causing 
+\family typewriter
+--job-mode=fail
+\family default
+ to fail seem to be different from general conflicts in unit dependencies.
+ Although not precisely documented, the observed behaviour luckily appears
+ to make HA more likely.
+ There remains some uncertainity caused by the documented failure possibility.
+ A new option called 
+\family typewriter
+--job-mode=append
+\family default
+ or 
+\family typewriter
+--job-mode=wait
+\family default
+ could resolve this, for example by resulting in strict sequential operations
+ in place of 
+\begin_inset Quotes eld
+\end_inset
+
+unnecessary
+\begin_inset Quotes erd
+\end_inset
+
+ failures.
+\end_layout
+
+\end_inset
+
+, which resulted in some behavioural improvements) the 
+\family typewriter
+--job-mode=fail
+\family default
+ option can be used for a self-programmed busy-wait submission loop, in
+ order to 
+\emph on
+approach
+\emph default
+ (but not to 
+\emph on
+guarantee
+\emph default
+ in HA sense) disturbance-free addition of new systemctl jobs obeying all
+ specified dependencies, and without causing side effects on already queued
+ / running jobs.
+ However, this trick did not always help in the presence of the above mount
+ unit failure example, triggered by 
+\emph on
+transitive
+\emph default
+ dependencies.
+ Another remaining problem is the exit code: there is no documented difference
+ showing the 
+\emph on
+reason
+\emph default
+ of the failure.
+ Was it a conflict with another queued job caused by 
+\family typewriter
+--job-mode=fail
+\family default
+, or did the unit 
+\emph on
+itself
+\emph default
+ fail?
+\end_layout
+
+\begin_layout Enumerate
+
+Not only in the presence of multiple jobs for the same unit (possibly submitted
+ in parallel to each other), query operations like 
+\family typewriter
+systemctl is-active unitA
+\family default
+ (or 
+\family typewriter
+is-failed
+\family default
+ etc) are prone to races.
+ A potential future solution could be externally visible job IDs for identifying
+ jobs.
+ Similar concepts are for example used in printer job spoolers for decades.
+ Of course, information about terminated jobs have to be kept for some time,
+ or until some maximum job entries are exhausted.
+ In addition, true asynchronous invocation via 
+\family typewriter
+--no-block
+\family default
+ and later polling the job ID would also become possible.
+\end_layout
+
+\begin_layout Enumerate
+
+Systemd lacks an important property called Idempotence.
+ Idempotence is a very common feature in big industry plants, where hundreds
+ of human workers may act on controlling hundrets of facilities.
+ Each alarm call may cause a different person to try to 
+\begin_inset Quotes eld
+\end_inset
+
+fix
+\begin_inset Quotes erd
+\end_inset
+
+ a problem.
+ Idempotence is a 
+\emph on
+must
+\emph default
+ in such an industry environment.
+ Idempotence means that 
+\begin_inset Quotes eld
+\end_inset
+
+start
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+stop
+\begin_inset Quotes erd
+\end_inset
+
+ are always working when possible at all, 
+\series bold
+regardless of the previous state
+\series default
+ of the 
+\emph on
+machinery
+\emph default
+ (
+\emph on
+not
+\emph default
+ of some 
+\emph on
+software
+\emph default
+ state).
+ For operations stuff, there is no need to obey any previous state.
+ When pressing a 
+\begin_inset Quotes eld
+\end_inset
+
+start
+\begin_inset Quotes erd
+\end_inset
+
+ button, it means 
+\begin_inset Quotes eld
+\end_inset
+
+ensure that the machine including all of of its sub-components will be running
+\begin_inset Quotes erd
+\end_inset
+
+, regardless whether it was running before, or not, or only half-running,
+ or only an arbitrary subset of sub-components was running before.
+ So the button press does not declare an operation, it declares a 
+\series bold
+target state
+\series default
+.
+\begin_inset Newline newline
+\end_inset
+
+It is the task of the Idempotence controller software to ensure that the
+ target state is being reached 
+\emph on
+somehow
+\emph default
+.
+ This does not specify a particular way for reaching the target state.
+ In general, there might be multiple ways.
+ Very sophisticated controller software may even try multiple ways, until
+ one of them succeeds in reaching the specified target state.
+\end_layout
+
+\begin_layout Standard
+
+A future Idempotence feature of systemd could be implemented as follows:
+\end_layout
+
+\begin_layout Enumerate
+
+In the unit file, an option for declaration of the Idempotence property
+ could be added.
+ Backwards compatibility: the semantics of conventional non-idempotent units
+ should not be changed unless idempotence is declared explicitly.
+\end_layout
+
+\begin_layout Enumerate
+
+When Idempotence is declared, 
+\family typewriter
+systemctl start
+\family default
+ or 
+\family typewriter
+systemctl stop
+\family default
+ will 
+\emph on
+always
+\emph default
+ execute a start/stop job somewhen later, obeying all dependencies.
+ Optionally, this could also mean that in 
+\emph on
+worst case
+\emph default
+ all conflicting previous jobs might need to terminate first.
+ More sophisticated variants might provide mechanisms for 
+\series bold
+controlled abortion
+\series default
+ of startup operations, provided that they usually do not lead to failure
+ at all.
+ Care must be taken that failures caused by aborts will not occur too frequently
+ for HA.
+ When failures caused by aborts are occuring too frequently, the concept
+ of abort should be disabled.
+\end_layout
+
+\begin_layout Enumerate
+
+When 
+\family typewriter
+ExecStart=
+\family default
+ or 
+\family typewriter
+ExecStop=
+\family default
+ is declared in an Idempotent unit, the script will be 
+\emph on
+always
+\emph default
+ executed, regardess of the previous internal systemd state of the unit.
+ It is up to the script writer to ensure idempotence at his/her script code.
+ This means, the 
+\emph on
+script
+\emph default
+ has to approach the application's target state independently from the previous
+ application state, and has to report in its exit code whether the 
+\emph on
+target state
+\emph default
+ has been actually reached.
+\end_layout
+
+\begin_layout Enumerate
+
+A very helpful addition to 
+\emph on
+any
+\emph default
+ systemd unit (not only to Idempotent ones) would be a new directive 
+\family typewriter
+ExecCheck=
+\family default
+ .
+ In place of keeping a copy of the application state inside of systemd,
+ it would allow to directly 
+\series bold
+poll
+\series default
+ the actual 
+\emph on
+application
+\emph default
+ state via callback, whenever it becomes necessary.
+ The user could provide a state-checking script which has no side effects,
+ other than querying the actual state of the application.
+ This feature would be extremely helpful for turning 
+\emph on
+any
+\emph default
+ conventional unit into an idempotent one, likely without need for changing
+ anything else (e.g.
+ in third-party software, even when it lacks idempotence).
+ Only when actual state checking is available and when it does not fail,
+ Idempotent units may be allowed to skip the execution of other 
+\family typewriter
+ExecStartOrStop=
+\family default
+ actions.
+\end_layout
+
+\begin_layout Standard
+
+In ideal case, 
+\family typewriter
+ExecCheck=
+\family default
+ or another measure for achieving true HA idempotence might make the above
+ 
+\family typewriter
+*.script
+\family default
+ workaround superfluous.
+\end_layout
+
+\begin_layout Subsection
 Example 
 \family typewriter
 systemd
@@ -30987,11 +32633,45 @@ name "subsec:Example-systemd-Templates"
 \begin_layout Standard
 These can be found in the MARS repo in the 
 \family typewriter
-systemd/
+systemd-testing/
 \family default
- subdirectory.
- At the moment, the following are available (subject to further extension
- and improvements without notice):
+ and the
+\family typewriter
+ systemd-icpu/
+\family default
+ subdirectories.
+ Until systemd is supporting idempotence natively, any newbee is advised
+ to take one of the examples 
+\family typewriter
+systemd-testing/mnt-test-@escvar{res}-testload.script
+\family default
+ and 
+\family typewriter
+systemd-icpu/nodeagent-@escvar{res}.script
+\family default
+ as a basis for own modifications.
+\end_layout
+
+\begin_layout Standard
+At the moment, the following templates are available (subject to further
+ extension and improvements without notice):
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+daemon-reload.service
+\family default
+ A helper unit which ensures that 
+\family typewriter
+systemctl daemon-reload
+\family default
+ is not triggered in parallel to itself.
+ It also reduces the risk for parallel execution with some other units,
+ but unfortunately cannot provide full mutual exclusion with everything
+ else.
+ Hopefully a future version of systemd will allow specification of full
+ mutual exclusion.
 \end_layout
 
 \begin_layout Description
@@ -31042,7 +32722,19 @@ mars-trigger.path
 \family default
  This is used for remote triggering of the marsadm template engine from
  another MARS cluster member, e.g.
- when initiating a handover.
+ when executing 
+\family typewriter
+marsadm join-resource
+\family default
+ or 
+\family typewriter
+leave-resource
+\family default
+ or 
+\family typewriter
+set-systemd-unit
+\family default
+.
  Local triggering is also possible via 
 \family typewriter
 touch /mars/userspace/systemd-trigger
@@ -31050,7 +32742,7 @@ touch /mars/userspace/systemd-trigger
 .
  When triggered, the command 
 \family typewriter
-marsadm systemd-trigger
+marsadm systemd-trigger-extern
 \family default
  (without 
 \family typewriter
@@ -31061,17 +32753,35 @@ marsadm systemd-trigger
 \family typewriter
 systemd
 \family default
- templates and start those units where the local host is in primary role.
+ templates when necessary.
 \end_layout
 
 \begin_layout Description
 
 \family typewriter
-dev-mars-@{res}.path
+mars-trigger.service
 \family default
- This is used for generic triggering of any 
+ An intermediate helper unit, sitting inbetween 
 \family typewriter
-systemd
+mars-trigger.path
+\family default
+ and 
+\family typewriter
+marsadm systemd-trigger-extern
+\family default
+.
+ It also ensures that the marsadm command is never called in parallel to
+ itself.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+mnt-test-@escvar{res}.path
+\family default
+ This path unit is used for generic triggering of any 
+\family typewriter
+resource-specific systemd
 \family default
  unit as set by 
 \family typewriter
@@ -31085,32 +32795,186 @@ reference "subsec:Handover-using-systemd"
 \end_inset
 
 ).
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Pitfall: systemd's path unit watchers are based on the 
+\family typewriter
+inotify
+\family default
+ infrastructure of the kernel.
+ By default, many kernels are configured to a rather low number of inotify
+ watches.
+ When using more than 20 MARS resources, or when userspace also consumes
+ inotify watches, some of the path watches may not start up (typical 
+\family typewriter
+systemctl status
+\family default
+ messages are hinting at 
+\begin_inset Quotes eld
+\end_inset
+
+resource
+\begin_inset Quotes erd
+\end_inset
+
+ or similar).
+ You may need some kernel tweaks, such as 
+\family typewriter
+echo 4096 > /proc/sys/fs/inotify/max_user_instances
+\family default
+ and/or relatives.
 \end_layout
 
 \begin_layout Description
 
 \family typewriter
-^{mntname}-@{res}.mount
+mnt-test-@escvar{res}.service
 \family default
- This is one of the possible sub-ordinate targets which depend on 
+ Similarly to 
 \family typewriter
-dev-mars-@{res}.path
+mars-trigger.service
+\family default
+, this sits inbetween the per-resource trigger and the executed command
+ 
+\family typewriter
+marsadm systemd-trigger-extern @{res}
+\family default
+ , which in turn either calls 
+\family typewriter
+systemctl
+\family default
+ for actually starting / stopping the per-resource units, or in turn it
+ directly calls any 
+\family typewriter
+.script
+\family default
+ workaround.
+ See the overview picture in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Execution-Model-systemd"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+\series bold
+mnt-test-@escvar{res}-testload.script
+\family default
+\series default
+ This is an academic example for testing and for inspection, not intended
+ for production.
+ It shows the currently recommended script workaround for achieving idempotence.
+ Fully automatic activation / deactivation of this target during handover
+ via 
+\family typewriter
+marsadm primary $res
+\family default
+ can be configured via one of the following commands: 
+\family typewriter
+marsadm set-systemd-unit mydata DEFAULT
+\family default
+ or by the long form 
+\family typewriter
+marsadm set-systemd-unit mydata mnt-test-mydata.script.
+\begin_inset Newline newline
+\end_inset
+
+
+\family default
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Note that the 
+\emph on
+previous
+\emph default
+ 
+\family typewriter
+*trigger*{path,service}
+\family default
+ native units remain necessary for getting 
+\family typewriter
+*.script
+\family default
+ to work.
+ Any potential races in 
+\emph on
+their
+\emph default
+ activation are automatically healed by idempotent re-triggering of this
+ .script workaround.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ The following native templates might be used in place of this workaround,
+ but I have to warn that the following native systemd units are not fully
+ passing various stress tests, while the corresponding .script workaround
+ has passed them.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+mnt-test-@escvar{res}.mount
+\family default
+
+\begin_inset space ~
+\end_inset
+
+or
+\begin_inset space ~
+\end_inset
+
+
+\family typewriter
+^{mntname}-@escvar{res}.mount
+\family default
+ This is one of the possible native systemd execution targets configurable
+ by 
+\family typewriter
+marsadm set-systemd-unit
 \family default
 .
- For fully automatic activation of this target, use something like 
+ For fully automatic activation / deactivation of this alternative target
+ during handover via 
+\family typewriter
+marsadm primary $res
+\family default
+, you can configure a very basic test with something like 
 \family typewriter
 marsadm set-systemd-unit mydata vol-mydata.mount
 \family default
  or similar.
- This will automatically mount 
-\family typewriter
-/dev/mars/mydata
-\family default
- onto the mountpoint 
-\family typewriter
-/vol/mydata
-\family default
-.
+ 
 \begin_inset Newline newline
 \end_inset
 
@@ -31152,7 +33016,7 @@ marsadm set-systemd-unit mydata another-mountdir-mydata.mount
 
  Look into the template file 
 \family typewriter
-^{mntname}-@{res}.mount
+^{mntname}-@escvar{res}.mount
 \family default
 .
  In the first line, there is the following macro call:
@@ -31210,38 +33074,38 @@ type
 \begin_layout Description
 
 \family typewriter
-^{mntname}-@{res}-testload.service
+mnt-test-@escvar{res}-testload.service
 \family default
  This is an academic example for testing and for inspection, not intended
  for production.
- Here you can see how a 
+ Here you can see in comments how a 
 \series bold
 transitive dependency chain
 \series default
- should be configured.
+ could be configured.
  In its body, this template contains a 
 \family typewriter
 BindsTo=
 \family default
+ plus 
+\family typewriter
+After=
+\family default
  reference to another template 
 \family typewriter
-^{mntname}-@{res}-medium-02.service
+^{mntname}-@escvar{res}-delay.service
 \family default
 , which in turn contains a 
 \family typewriter
 BindsTo=
 \family default
+ plus 
+\family typewriter
+After=
+\family default
  reference to 
 \family typewriter
-^{mntname}-@{res}-medium-01.service
-\family default
-, which eventually references 
-\family typewriter
-^{mntname}-@{res}.mount
-\family default
- also via 
-\family typewriter
-BindsTo=
+mnt-test-@escvar{res}.mount
 \family default
 .
 \begin_inset Newline newline
@@ -31284,7 +33148,11 @@ systemctl stop vol-mydata.mount
 \family typewriter
 BindsTo=
 \family default
- directive in place of weaker ones like 
+ directive plus 
+\family typewriter
+After=
+\family default
+ in place of weaker ones like 
 \family typewriter
 Requires=
 \family default
@@ -31300,7 +33168,7 @@ Requires=
 
 \end_inset
 
- In many cases (but not always), you also need an 
+ In most cases (but not always), you also need an 
 \family typewriter
 After=
 \family default
@@ -31340,7 +33208,7 @@ logically same name
 \end_layout
 
 \begin_layout Subsection
-Handover involving 
+Fully Automatic Handover using 
 \family typewriter
 systemd
 \begin_inset CommandInset label
@@ -31365,14 +33233,18 @@ reference "subsec:Working-Principle-of"
  In case you have never used the template engine before, you can create
  the first instantiation via 
 \family typewriter
-marsadm systemd-trigger --force
+marsadm systemd-trigger
 \family default
 .
  Afterwards, inspect 
 \family typewriter
 /run/systemd/system/
 \family default
- for newly created template instances and check them.
+ for newly created template instances (and 
+\family typewriter
+/etc/marsadm/systemd-generated/
+\family default
+ for any .script workarounds) and check them.
 \end_layout
 
 \begin_layout Standard
@@ -31380,7 +33252,25 @@ For each resource
 \family typewriter
 $res
 \family default
-, you should set (potentially different) systemd targets via 
+, you should set systemd targets in one of the following variants:
+\end_layout
+
+\begin_layout Itemize
+short form: 
+\family typewriter
+marsadm set-systemd-unit $res DEFAULT
+\end_layout
+
+\begin_layout Itemize
+long form, using the .script workaround: 
+\family typewriter
+marsadm set-systemd-unit $res mnt-test-$res-testload.script
+\family default
+ 
+\end_layout
+
+\begin_layout Itemize
+most general form: 
 \family typewriter
 marsadm set-systemd-unit $res 
 \begin_inset Quotes eld
@@ -31401,7 +33291,11 @@ $stop_unit
 \end_inset
 
 .
- Notice that 
+ 
+\end_layout
+
+\begin_layout Standard
+Except for .script workarounds, 
 \family typewriter
 $start_unit
 \family default
@@ -31409,7 +33303,7 @@ $start_unit
 \family typewriter
 $stop_unit
 \family default
- are typically denoting 
+ will typically denote 
 \emph on
 different
 \emph default
@@ -31417,13 +33311,13 @@ different
 \end_layout
 
 \begin_layout Description
-Example: assume your stack consists of 
+Example: assume your native systemd-controlled stack consists of 
 \family typewriter
-vol-@{res}.mount
+vol-@escvar{res}.mount
 \family default
  and 
 \family typewriter
-nfs-export-@{res}.service
+nfs-export-@escvar{res}.service
 \family default
 .
  Before the filesystem can be exported via 
@@ -31439,18 +33333,22 @@ first
 \family typewriter
 systemd
 \family default
- can do this easily for you: just add a 
+ can do this automatically for you: just add a 
 \family typewriter
 Requires=
+\family default
+ or 
+\family typewriter
+BindsTo=
 \family default
  dependency between both targets, or similar.
  Then, simply use 
 \family typewriter
 nfs-export-mydata.service
 \family default
- as start unit.
- Whenever it needs to be started, systemd will automatically analyze its
- dependencies and automatically start 
+ as your start unit.
+ Whenever it (thinks that it) needs to be started, systemd will automatically
+ analyze its dependencies and automatically start 
 \family typewriter
 vol-mydata.mount
 \family default
@@ -31464,7 +33362,7 @@ systemctl stop nfs-export-mydata.service
 \emph on
 could
 \emph default
- work in some cases, but in general it is not reliable.
+ work in some cases, but in general it doesn't work this way.
  Reason: there might be other 
 \emph on
 sister
@@ -31474,17 +33372,29 @@ sister
 also
 \emph default
  depend on the mount.
- In some cases, you need not necessarily notice any sisters, because systemd
+ In some cases, you may not necessarily notice any sisters, because systemd
  can add further (internal) targets 
 \emph on
 automatically
 \emph default
 .
- The problem is easily solvable by 
+ The problem is easily solvable by using 
+\family typewriter
+BindsTo=
+\family default
+ and/or 
+\family typewriter
+PartOf=
+\family default
+ dependencies, peferably augmented with 
+\family typewriter
+After=
+\family default
+, and then 
 \family typewriter
 systemctl stop vol-mydata.mount
 \family default
-, which will automatically tear down 
+ will automatically tear down 
 \emph on
 all
 \emph default
@@ -31537,6 +33447,23 @@ marsadm set-systemd-unit $res
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Tip: groups of units can be controlled via .target units, see 
+\family typewriter
+man systemd.target
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
 When everything is set up properly, the following should work:
 \end_layout
 
@@ -31699,15 +33626,16 @@ $start_unit
 
 
 \family default
- should be automatically executed.
+ should be executed automaticy.
+ In turn, this should bring up your configured services.
 \end_layout
 
 \begin_layout Standard
-The rest depends on your 
+Details depend on your 
 \family typewriter
 systemd
 \family default
- and its configuration.
+ configuration / templates.
  For example, you can configure systemd targets for activation of VMs, or
  for 
 \family typewriter
@@ -31799,8 +33727,8 @@ marsadm set-systemd-unit mydata
 
 
 \family default
- would solve the problem, this would make you forget the old start and stop
- unit names.
+ would solve the problem, this could make you forget the old start and stop
+ unit names (if you don't use markers like DEFAULT etc).
  You could workaround by some wrapper script remembering the old names via
  
 \family typewriter

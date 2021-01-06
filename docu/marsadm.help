@@ -79,6 +79,9 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   --threshold=<bytes>
     Some macros like 'fetch-threshold-reached' use this for determining
     their sloppyness.
+  --systemd-enable=<0|1>
+    Enable / disable any systemd actions.
+    On by default.
   --host=<hostname>
     Act as if the command was running on cluster node <hostname>.
     Warning! This is dangerous! First try --dry-run
@@ -577,6 +580,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Please read mars-user-manual.pdf on this.
     When <stop_unit_name> is omitted, it will be treated equal to
     <start_unit_name>.
+    You may also use special keywords like DEFAULT, please read the manuals.
 
   set-systemd-want
     usage: set-systemd-want <resource_name> <host_name>
@@ -592,6 +596,9 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     NOT OFFICIALLY SUPPORTED - ONLY FOR EXPERTS.
     RTFS = Read The Fucking Sourcecode.
     Use this only if you know what you are doing.
+
+  systemd-trigger
+    usage: systemd-trigger [<resource>]
 
   up
     usage: up <resource_name>
