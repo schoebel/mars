@@ -140,6 +140,34 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable119
+	* Major systemd update, only relevant when you are using the
+	  systemd template generator:
+	  - Now works completely lockless. This should improve
+	    the parallelism degree and reduce the risk of deadlocks.
+	  - Now uses per-resource triggers for parallel incremental updates
+	    after {create,join,leave}-resource etc.
+	    Attention: checkout the new templates in systemd-testing/
+	    (the old ones will no longer work).
+	  - New pseudo unit type .script : in place of being interpreted
+	    by systemd, you may now write some (wrapper) scripts for
+	    more complex operations, and/or for achieving idempotence.
+	    Although I would like to prefer native systemd units, I
+	    added this feature after I became desperate when trying to
+	    achieve true idempotence via native systemd units. After several
+	    months of fruitless attempts, I gave up and added .script .
+	    For details, please read the new docs.
+	    An example of .script can be found in the new systemd-icpu/ .
+	    Notice that "nodeagent" is a third-party tool which in turn
+	    may call systemctl for startup of LXC containers (after
+	    contacting a database, and a plethora of other things).
+	    Any attempts to call nodeagent via ExecStart= and co did
+	    not really work as it should.
+	  - Some new template engine features, like markers DEFAULT_START
+	    and much more.
+	* Updated docs on systemd.
+	* No other changes outside of the systemd area.
+
 mars0.1astable118
 	* Critical fix, only relevant for trial builds without
 	  pre-patch: kernel NULL deref, fixed by Gabriel Francisco.
