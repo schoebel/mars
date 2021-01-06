@@ -6373,6 +6373,8 @@ int make_gate(struct mars_rotate *rot, struct mars_dent *dent)
 	_gate_brick->rewire = true;
 	inhibit_mask = _check_allow(rot->parent_path, "gate-mask");
 	rot->gate_brick->inhibit_mask = inhibit_mask;
+	if (rot->if_brick)
+		rot->if_brick->busy_open = (inhibit_mask != 0);
 	/* early reporting when gate has changed */
 	if (inhibit_mask != rot->old_inhibit_mask) {
 		_show_gate(rot);
