@@ -661,6 +661,15 @@ another
  decrease factor of about 2 is typically possible.
 \end_layout
 
+\begin_layout Itemize
+The Linux-based MARS prosumer device is an alternative to iSCSI, and can
+ help you earning more cost advantages from 
+\family typewriter
+FlexibleSharding
+\family default
+, when hypervisors are also OpenSource-based.
+\end_layout
+
 \end_inset
 
 
@@ -3391,7 +3400,7 @@ lost forever
 \series bold
 physically from scratch
 \series default
-.
+ (or built up somewhere else).
 \end_layout
 
 \begin_layout Standard
@@ -3413,7 +3422,7 @@ Notice: nobody can know in advance whether (parts of) datacenter B will
 \emph on
 lost
 \emph default
-, or whether it will be A.
+, or whether it will be datacenter A.
 \end_layout
 
 \begin_layout Standard
@@ -4050,8 +4059,9 @@ restrictions from technology
 \series bold
 Vendor Lock-In
 \series default
- is binding you to to a certain brand of commercial storage boxes, certain
- opportunities will be missed.
+ is binding you to to a certain brand of commercial storage boxes, or to
+ a certain brand of hypervisor appliances, certain opportunities will be
+ missed.
  By going to self-built and self-administered RAID storage, typically an
  invest factor between 3 and 10 can be saved (see section 
 \begin_inset CommandInset ref
@@ -5514,10 +5524,14 @@ name "sec:Kirchhoff-Suitability-of-Storage-Networks"
 \end_layout
 
 \begin_layout Standard
-When storage networks are used at certain architectures, they will have
- some impact which is widely under-estimated.
- Disregarding this impact can lead to serious problems, up to major project
- failures, and may induce 
+When storage networks are used at certain architectures, they will produce
+ some 
+\emph on
+consequences
+\emph default
+ which are widely under-estimated.
+ Disregarding these consequences can lead to serious problems, up to major
+ project failures, and may induce 
 \series bold
 high cost
 \series default
@@ -6135,13 +6149,16 @@ status open
 \begin_layout Plain Layout
 
 \series bold
-Pitfalls: VLANS and ROCEv2 and Spine-Leaf Architectures
+Pitfalls: VLANs and ROCEv2 and Spine-Leaf Architectures
 \end_layout
 
 \end_inset
 
-As mentioned in this guide at several places, realtime storage networks
- should always be built as 
+As mentioned in this guide at several places, 
+\emph on
+realtime
+\emph default
+ storage networks should be built as 
 \series bold
 physically separate networks
 \series default
@@ -6189,7 +6206,7 @@ functionally
 
 \end_inset
 
- As said: realtime storage networks should always be built as 
+ As said: realtime storage networks should be built as 
 \series bold
 physically separate networks
 \series default
@@ -6720,7 +6737,7 @@ necessarily
 \emph on
 another
 \emph default
- traffic class at the same place.
+ competing traffic class at the same place.
 \end_layout
 
 \end_inset
@@ -6768,8 +6785,8 @@ Here is a schematic explanation of the zones where scheduling (in general)
 \end_layout
 
 \begin_layout Enumerate
-As long as the congestion threshold is not exceeded, you typically won't
- need a sophisticated scheduling algorithm.
+Nobrainer zone: as long as the congestion threshold is not exceeded, you
+ typically won't need a sophisticated scheduling algorithm.
  Practically 
 \emph on
 any
@@ -13520,7 +13537,7 @@ noprefix "false"
 
 \end_inset
 
- In general, storage networks won't work over long distances.
+ In general, realtime storage networks won't work over long distances.
  Even it would be possible, 
 \series bold
 asymmetry problems
@@ -14098,7 +14115,8 @@ RemoteSharding This variant needs a (possibly dedicated) storage network,
 
  in total.
  Each storage server exports a block device over iSCSI (or over another
- transport like MARS' prosumer device) to at most 
+ transport like MARS' prosumer device, see mars-user-manual.pdf) to at most
+ 
 \begin_inset Formula $O(k)$
 \end_inset
 
@@ -14243,6 +14261,7 @@ noprefix "false"
 \begin_layout Description
 FlexibleSharding This is a dynamic combination of LocalSharding and RemoteShardi
 ng, dynamically re-configurable, as explained below.
+ An example implementation is the MARS prosumer device.
 \end_layout
 
 \begin_layout Description
@@ -14511,11 +14530,12 @@ name "subsec:FlexibleSharding"
 
 \end_inset
 
-Notice that MARS' new prosumer device feature (formerly called 
+ Notice that MARS' new prosumer device feature (see mars-user-manual.pdf,
+ formerly called 
 \emph on
 remote device
 \emph default
-, like a kind of replacement for iSCSI) can not only be used for a 
+, an alternative to iSCSI) can not only be used for a 
 \family typewriter
 RemoteSharding
 \family default
@@ -14551,7 +14571,7 @@ BigCluster
 \end_layout
 
 \begin_layout Standard
-Models re-introducing some kind of 
+When models are re-introducing some kind of 
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
@@ -14575,11 +14595,11 @@ potential
 \emph on
 actual
 \emph default
- realtime connections during runtime, are 
+ realtime connections during runtime, suchalike models are 
 \series bold
 not
 \series default
- the preferred model for MARS operations in large scale.
+ preferred for MARS operations in large scale.
  Following is a compromize, which tries to minimize the NOF explained in
  section 
 \begin_inset CommandInset ref
@@ -14603,7 +14623,8 @@ noprefix "false"
 
 \end_inset
 
-The basic idea is that each server 
+ The basic idea is that each server can not only run with local storage,
+ but additionall 
 \emph on
 can
 \emph default
@@ -14616,9 +14637,11 @@ both
 and
 \emph default
  in client role, both at the same time, and individually for each resource.
+ Example: see description of the MARS prosumer device in mars-user-guide.pdf.
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 3
 status open
 
@@ -14677,7 +14700,31 @@ The main difference to
 \family typewriter
 BigCluster
 \family default
- is to use iSCSI or the MARS prosumer device 
+ is to use an iSCSI
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Caution: classical iSCSI operations and their tools are typically supporting
+ only 
+\family typewriter
+RemoteSharding
+\family default
+ or 
+\family typewriter
+BigClusterSharding
+\family default
+, but not 
+\family typewriter
+FlexibleSharding
+\family default
+ as defined here.
+ Support could be addable with some effort.
+\end_layout
+
+\end_inset
+
+ transport or the MARS prosumer device 
 \emph on
 only where necessary
 \emph default
@@ -14692,8 +14739,8 @@ directly
 locally
 \emph default
  by Virtual Machines (VMs), whenever possible.
- At abstract architectual level, detail technologies KVM/qemu vs filesystem-base
-d local LXC containers make no real difference
+ At abstract architectual level, detail technologies KVM / qemu vs filesystem-ba
+sed local LXC containers make no real difference
 \begin_inset Foot
 status open
 
@@ -14739,8 +14786,42 @@ Notice that local operations of VMs doesn't produce any storage network
 \end_layout
 
 \begin_layout Standard
-Only in cases of resource imbalance, such as (transient) CPU or RAM peaks
- (e.g.
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Example implementation: MARS' prosumer device can 
+\emph on
+automatically
+\emph default
+ and 
+\emph on
+transparently
+\emph default
+ remove the network layer inbetween the storage and the device, when possible.
+ Conversely, it can automatically re-introduce the network transport when
+ necessary.
+ This is indicated by the status display 
+\family typewriter
+LocalProsumer
+\family default
+ versus 
+\family typewriter
+Prosumer@
+\emph on
+$primary
+\family default
+\emph default
+, see mars-user-manual.pdf.
+\end_layout
+
+\begin_layout Standard
+Flexible load balancing: in cases of short-term resource imbalance, such
+ as (transient) CPU or RAM peaks (e.g.
  caused by DDOS attacks), and only when the 
 \series bold
 ability for butterfly
@@ -14770,11 +14851,11 @@ This may happen when a disaster has already destroyed one of your datacenters,
 \series bold
 fallback strategy
 \series default
- is used: 
+ needs to be used: 
 \emph on
 Some
 \emph default
- VMs or containers may then be run somewhere else over the network.
+ VMs or containers may then run somewhere else over the network.
  In a well-balanced and well-dimensioned system, this will be the 
 \series bold
 vast minority
@@ -14784,6 +14865,30 @@ vast minority
 \end_layout
 
 \begin_layout Standard
+A key idea behind 
+\family typewriter
+FlexibleSharding
+\family default
+ is to use realtime network transports for IO only for 
+\emph on
+short-term
+\emph default
+ load balancing, while long-term imbalances should be preferably treated
+ by background LV migration (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Principle-of-Background"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, also take a look at the Football sub-project), as far as possible.
+\end_layout
+
+\begin_layout Standard
+\noindent
 
 \series bold
 \begin_inset Flex Custom Color Box 3
@@ -14800,6 +14905,7 @@ Running (geo-)redundant VMs directly on the same servers as their storage
 \end_layout
 
 \begin_layout Standard
+\noindent
 You simply don't need to buy and operate 
 \begin_inset Formula $2\cdot(n+m)$
 \end_inset
@@ -14832,7 +14938,7 @@ shared memory
 
 \end_inset
 
-In addition to this and to reduced networking cost, there are further cost
+ In addition to this and to reduced networking cost, there are further cost
  savings at power consumption, air conditioning, Height Units (HUs), number
  of HDDs, operating cost, etc as explained in section 
 \begin_inset CommandInset ref
@@ -14848,7 +14954,7 @@ noprefix "false"
 \end_layout
 
 \begin_layout Subsection
-Principle of Background Migration
+Principle of Background LV Migration
 \begin_inset CommandInset label
 LatexCommand label
 name "subsec:Principle-of-Background"
@@ -14859,8 +14965,8 @@ name "subsec:Principle-of-Background"
 \end_layout
 
 \begin_layout Standard
-The sharding model needs a different approach to load balancing of storage
- space than the big cluster model.
+The sharding model needs a different approach to long-term load balancing
+ of storage space than the big cluster model.
  There are serveral possibilities at different layers, each addressing different
  
 \series bold
