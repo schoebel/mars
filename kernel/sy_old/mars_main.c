@@ -2608,7 +2608,7 @@ void touch_systemd_trigger(const char *filename)
 	}
 	if (f && !IS_ERR(f)) {
 #ifdef MARS_HAS_KERNEL_READ
-		(void)kernel_write(f, str, len, dummy_pos);
+		(void)kernel_write(f, str, len, &dummy_pos);
 #else
 		(void)vfs_write(f, str, len, &dummy_pos);
 #endif
