@@ -140,6 +140,12 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable120
+	* Fix build with LTS kernel 4.14.
+	  IMPORTANT: you need to patch your 4.14 kernel sources with
+	  pre-patches/vanilla-4.14/0001-sched-wait-fix-endless-kthread-loop-at-timeout.patch
+	  Otherwise you will encounter _massive_ problems!
+
 mars0.1astable119
 	* Major systemd update, only relevant when you are using the
 	  systemd template generator:
