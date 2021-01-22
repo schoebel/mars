@@ -4118,11 +4118,19 @@ sub _get_ip {
       return $check;
     }
   }
-  # Try /usr/bin/host
-  my $answer = `/usr/bin/host -t A $peer`;
+  # Try /usr/bin/getent first
+  my $answer = `/usr/bin/getent hosts '$peer'`;
+  chomp $answer;
+  my $type = "GETENT";
+  if (!$answer || $answer !~ m/([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/) {
+    # Try /usr/bin/host
+    $answer = `/usr/bin/host -t A '$peer'`;
+    chomp $answer;
+    my $type = "DNS";
+  }
   if ($answer && $answer =~ m/([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/) {
     my $addr = $1;
-    lprint_stderr "DNS query for '$peer' found IPv4 address '$addr'\n";
+    lprint_stderr "$type query for '$peer' found IPv4 address '$addr'\n";
     $known_ips{$peer} = $addr;
     return $addr;
   }
