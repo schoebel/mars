@@ -1192,6 +1192,15 @@ static int if_switch(struct if_brick *brick)
 		/* There might be subtle races */
 		check_io_done(brick, true);
 		if (input->bdev) {
+#if defined(USE_CONGESTED_FN) && defined(MARS_HAS_BDI_GET)
+			struct backing_dev_info *bdi;
+
+			/* ensure that callbacks will stop */
+			MARS_DBG("unregister congested_fn\n");
+			bdi = input->bdev->bd_bdi;
+			if (bdi)
+				bdi->congested_fn = NULL;
+#endif
 			MARS_DBG("calling bdput()\n");
 			bdput(input->bdev);
 			input->bdev = NULL;
@@ -1201,6 +1210,11 @@ static int if_switch(struct if_brick *brick)
 		input->disk = NULL;
 		q = input->q;
 		if (q) {
+#if defined(USE_CONGESTED_FN) && !defined(MARS_HAS_BDI_GET)
+			/* ensure that callbacks will stop */
+			MARS_DBG("unregister congested_fn\n");
+			q->backing_dev_info.congested_fn = NULL;
+#endif
 			blk_cleanup_queue(q);
 			input->q = NULL;
 		}
@@ -1428,6 +1442,7 @@ static int if_input_construct(struct if_input *input)
 static int if_input_destruct(struct if_input *input)
 {
 	int i;
+
 	for (i = 0; i < IF_HASH_MAX; i++) {
 		CHECK_HEAD_EMPTY(&input->hash_table[i].hash_anchor);
 	}
