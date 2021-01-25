@@ -435,20 +435,20 @@ loff_t mf_dirty_length(struct mapfree_info *mf, enum dirty_stage stage)
 	 */
 	if (stage > 0) {
 		struct dirty_length *d0 = _get_dl(mf, 0);
-		u64 nr1 = ACCESS_ONCE(dl->dl_appends);
-		u64 nr0 = ACCESS_ONCE(d0->dl_appends);
+		u64 nr1 = READ_ONCE(dl->dl_appends);
+		u64 nr0 = READ_ONCE(d0->dl_appends);
 
 		if (nr0 <= nr1) {
 			loff_t real_size = mapfree_real_size(mf);
 
 			/* check for races once again */
-			nr1 = ACCESS_ONCE(dl->dl_appends);
-			nr0 = ACCESS_ONCE(d0->dl_appends);
+			nr1 = READ_ONCE(dl->dl_appends);
+			nr0 = READ_ONCE(d0->dl_appends);
 			if (nr0 <= nr1)
 				return real_size;
 		}
 	}
-	return ACCESS_ONCE(dl->dl_length);
+	return READ_ONCE(dl->dl_length);
 #else /* cannot rely on atomic read of two 32bit values */
 	loff_t res;
 	unsigned long flags;

@@ -253,4 +253,11 @@ extern int _compat_unlink(
 #define HAS_ZLIB
 #endif
 
+/* general compat */
+
+/* new code prefers READ_ONCE in place of ACCESS_ONCE */
+#ifndef READ_ONCE
+#define READ_ONCE ACCESS_ONCE
+#endif
+
 #endif /* _MARS_COMPAT */
