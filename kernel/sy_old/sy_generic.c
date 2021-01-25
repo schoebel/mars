@@ -60,19 +60,6 @@
 #define d_backing_inode(dentry)   ((dentry)->d_inode)
 #endif
 
-/* FIXME: some Redhat/openvz kernels seem to have both (backporting etc).
- * The folling is an incomplete quickfix / workaround. TBD.
- */
-#if !defined(__WAIT_ATOMIC_T_KEY_INITIALIZER) || defined(RHEL_RELEASE)
-#define HAS_VFS_READDIR
-#elif !defined(f_dentry)
-#define __HAS_NEW_FILLDIR_T
-#endif
-
-#ifdef RENAME_NOREPLACE
-#define __HAS_RENAME2
-#endif
-
 //      end_remove_this
 /////////////////////////////////////////////////////////////////////
 
