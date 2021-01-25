@@ -3372,7 +3372,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "delays=%d | "
 #endif
 		 "current #mrefs = %d "
-		 "shadow_mem_used=%ld/%lld "
+		 "shadow_mem_used=%lld/%lld "
 		 "replay_count=%d "
 #ifdef ADDITIONAL_COUNTERS
 		 "mshadow=%d/%d "
@@ -3442,7 +3442,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->total_delay_count),
 #endif
 		 atomic_read(&brick->mref_object_layout.alloc_count),
-		 atomic64_read(&brick->shadow_mem_used) / 1024,
+		 (s64)atomic64_read(&brick->shadow_mem_used) / 1024,
 		 brick_global_memlimit,
 		 atomic_read(&brick->replay_count),
 #ifdef ADDITIONAL_COUNTERS
