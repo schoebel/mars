@@ -426,7 +426,11 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 	set_fs(get_ds());
 	latency = TIME_STATS(
 		this_timing,
+#ifdef MARS_HAS_PREPATCH_V2
+		res = ksys_io_submit(output->ctxp, 1, &iocbp)
+#else
 		res = sys_io_submit(output->ctxp, 1, &iocbp)
+#endif
 		);
 	set_fs(oldfs);
 
@@ -463,7 +467,11 @@ static int aio_submit_dummy(struct aio_output *output)
 
 	oldfs = get_fs();
 	set_fs(get_ds());
+#ifdef MARS_HAS_PREPATCH_V2
+	res = ksys_io_submit(output->ctxp, 1, &iocbp);
+#else
 	res = sys_io_submit(output->ctxp, 1, &iocbp);
+#endif
 	set_fs(oldfs);
 
 	if (likely(res >= 0)) {
@@ -687,7 +695,11 @@ static int aio_event_thread(void *data)
 		/* TODO: don't timeout upon termination.
 		 * Probably we should submit a dummy request.
 		 */
+#ifdef MARS_HAS_PREPATCH_V2
+		count = ksys_io_getevents(output->ctxp, 1, MARS_MAX_AIO_READ, events, &timeout);
+#else
 		count = sys_io_getevents(output->ctxp, 1, MARS_MAX_AIO_READ, events, &timeout);
+#endif
 		set_fs(oldfs);
 
 		if (count > 0) {
@@ -798,7 +810,11 @@ void _destroy_ioctx(struct aio_output *output)
 		MARS_DBG("ioctx count = %d destroying %p\n", atomic_read(&ioctx_count), (void*)output->ctxp);
 		oldfs = get_fs();
 		set_fs(get_ds());
+#ifdef MARS_HAS_PREPATCH_V2
+		err = ksys_io_destroy(output->ctxp);
+#else
 		err = sys_io_destroy(output->ctxp);
+#endif
 		set_fs(oldfs);
 		atomic_dec(&ioctx_count);
 		MARS_DBG("ioctx count = %d status = %d\n", atomic_read(&ioctx_count), err);
@@ -936,7 +952,11 @@ int _create_ioctx(struct aio_output *output)
 
 	oldfs = get_fs();
 	set_fs(get_ds());
+#ifdef MARS_HAS_PREPATCH_V2
+	err = ksys_io_setup(MARS_MAX_AIO, &output->ctxp);
+#else
 	err = sys_io_setup(MARS_MAX_AIO, &output->ctxp);
+#endif
 	set_fs(oldfs);
 	if (likely(output->ctxp))
 		atomic_inc(&ioctx_count);
