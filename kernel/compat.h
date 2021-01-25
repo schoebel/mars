@@ -39,16 +39,27 @@
 #define __HAS_RENAME2
 #endif
 
-/* TRANSITIONAL compatibility to BOTH the old prepatch
+/* TRANSITIONAL compatibility to the old/new prepatch
  * and the new wrappers around vfs_*().
  */
 #ifdef MARS_MAJOR
+/*
+ * Obey 819671ff849b07b9831b91de879ddc5da4b333d4 as much as possible,
+ * detected via 57b56ac6fecb05c3192586e4892572dd13d972de
+ */
+#ifdef SB_I_UNTRUSTED_MOUNTER
+#define MARS_HAS_PREPATCH_V2
+#undef HAS_VFS_READDIR
+#define __HAS_NEW_FILLDIR_T
+#else
+/* old prepatch (to disappear), using deprecated sys_*() calls */
 #define MARS_HAS_PREPATCH
+#endif
 #else
 #define MARS_MAJOR (DRBD_MAJOR + 1)
 #endif
 
-#ifdef MARS_HAS_PREPATCH
+#if defined(MARS_HAS_PREPATCH_V2) || defined(MARS_HAS_PREPATCH)
 
 #include <linux/syscalls.h>
 

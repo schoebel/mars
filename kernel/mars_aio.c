@@ -43,6 +43,10 @@
 
 #include "mars_aio.h"
 
+#if !defined(MARS_HAS_PREPATCH_V2) && !defined(MARS_HAS_PREPATCH)
+#warning You are compiling without pre-patch, resulting in BAD IO PERFORMANCE
+#endif
+
 #define MARS_MAX_AIO      512
 #define MARS_MAX_AIO_READ 32
 

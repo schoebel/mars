@@ -49,6 +49,11 @@
 
 #include "compat.h"
 
+#ifdef MARS_HAS_PREPATCH_V2
+/* needed for mars_rename() */
+#include "sy_old/strategy.h"
+#endif
+
 #ifndef GFP_BRICK
 #define GFP_BRICK GFP_NOIO
 #endif
