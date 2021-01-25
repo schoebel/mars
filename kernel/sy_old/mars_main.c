@@ -3431,7 +3431,9 @@ bool is_shutdown(void)
 	int used = atomic_read(&global_mshadow_count);
 
 	if (used  > 0) {
-		MARS_INF("global shutdown delayed: there are %d buffers in use, occupying %ld bytes\n", used, atomic64_read(&global_mshadow_used));
+		MARS_INF("global shutdown delayed: there are %d buffers in use, occupying %lld bytes\n",
+			 used,
+			 (s64)atomic64_read(&global_mshadow_used));
 		return false;
 	}
 	used = atomic_read(&mars_global_io_flying);
