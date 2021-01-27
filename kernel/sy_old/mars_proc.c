@@ -288,10 +288,10 @@ int lamport_sysctl_handler(
 		get_lamport(&know, &lnow);
 		
 		res = scnprintf(tmp, my_len,
-			       "CURRENT_TIME=%ld.%09ld\n"
-			       "lamport_now=%ld.%09ld\n",
-			       know.tv_sec, know.tv_nsec,
-			       lnow.tv_sec, lnow.tv_nsec
+				"CURRENT_TIME=%lld.%09ld\n"
+				"lamport_now=%lld.%09ld\n",
+				(s64)know.tv_sec, know.tv_nsec,
+				(s64)lnow.tv_sec, lnow.tv_nsec
 			);
 
 		if (copy_to_user(buffer, tmp, res)) {
