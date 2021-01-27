@@ -26,13 +26,16 @@
 
 #include <linux/major.h>
 
-/* FIXME: some Redhat/openvz kernels seem to have both (backporting etc).
- * The following is an incomplete quickfix / workaround. TBD.
+/* Detect 5c0ba4e0762e6dabd14a5c276652e2defec38de7
+ * and f2b91d8d385d2cef3a1e3b3846f2dde4a6720c43
+ * via 2b44c4db2e2f1765d35163a861d301038e0c8a75
  */
-#if !defined(__WAIT_ATOMIC_T_KEY_INITIALIZER) || defined(RHEL_RELEASE)
-#define HAS_VFS_READDIR
-#elif !defined(f_dentry)
+#ifdef PF_SUSPEND_TASK
+#define MARS_HAS_ITERATE_DIR
+#if !defined(f_dentry)
 #define __HAS_NEW_FILLDIR_T
+#endif
+/* else use old vfs_readdir() */
 #endif
 
 #ifdef RENAME_NOREPLACE
@@ -49,8 +52,6 @@
  */
 #ifdef SB_I_UNTRUSTED_MOUNTER
 #define MARS_HAS_PREPATCH_V2
-#undef HAS_VFS_READDIR
-#define __HAS_NEW_FILLDIR_T
 #else
 /* old prepatch (to disappear), using deprecated sys_*() calls */
 #define MARS_HAS_PREPATCH

@@ -1490,7 +1490,7 @@ int dent_compare(struct mars_dent *a, struct mars_dent *b)
 }
 
 //      remove_this
-#ifndef HAS_VFS_READDIR
+#ifdef MARS_HAS_ITERATE_DIR
 //      end_remove_this
 struct mars_dir_context {
 	struct dir_context ctx;
@@ -1530,13 +1530,11 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 #endif
 {
 //      remove_this
-#ifdef HAS_VFS_READDIR
-	struct mars_cookie *cookie = __buf;
-#else
-//      end_remove_this
+#ifdef MARS_HAS_ITERATE_DIR
 	struct mars_dir_context *buf = (void *)__buf;
 	struct mars_cookie *cookie = buf->cookie;
-//      remove_this
+#else
+	struct mars_cookie *cookie = __buf;
 #endif
 //      end_remove_this
 	struct mars_dent *dent;
@@ -1900,11 +1898,7 @@ static int _mars_readdir(struct mars_cookie *cookie)
 
 	for (;;) {
 //      remove_this
-#ifdef HAS_VFS_READDIR
-		cookie->hit = false;
-		status = vfs_readdir(f, mars_filler, cookie);
-#else
-//      end_remove_this
+#ifdef MARS_HAS_ITERATE_DIR
 		struct mars_dir_context buf = {
 			.ctx.actor = mars_filler,
 			.cookie = cookie,
@@ -1912,7 +1906,9 @@ static int _mars_readdir(struct mars_cookie *cookie)
 
 		cookie->hit = false;
 		status = iterate_dir(f, &buf.ctx);
-//      remove_this
+#else
+		cookie->hit = false;
+		status = vfs_readdir(f, mars_filler, cookie);
 #endif
 //      end_remove_this
 		if (!cookie->hit)
