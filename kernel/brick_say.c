@@ -768,7 +768,9 @@ void _rollover_channel(struct say_channel *ch)
 			
 			oldfs = get_fs();
 			set_fs(get_ds());
-#ifdef MARS_HAS_PREPATCH
+#ifdef MARS_HAS_PREPATCH_V2
+			mars_rename(old, new);
+#elif defined(MARS_HAS_PREPATCH)
 			sys_rename(old, new);
 #else
 			_compat_rename(old, new);
