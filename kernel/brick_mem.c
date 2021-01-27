@@ -51,10 +51,10 @@
 #define INT_ACCESS(ptr,offset) (*(int*)(((char*)(ptr)) + (offset)))
 
 #define _BRICK_FMT(_fmt,_class)						\
-	"%ld.%09ld %ld.%09ld MEM_%-5s %s[%d] %s:%d %s(): "		\
+	"%lld.%09ld %lld.%09ld MEM_%-5s %s[%d] %s:%d %s(): "		\
 		_fmt,							\
-		_s_now.tv_sec, _s_now.tv_nsec,				\
-		_l_now.tv_sec, _l_now.tv_nsec,				\
+		(s64)_s_now.tv_sec, _s_now.tv_nsec,			\
+		(s64)_l_now.tv_sec, _l_now.tv_nsec,			\
 		say_class[_class],					\
 		current->comm, (int)smp_processor_id(),			\
 		__BASE_FILE__,						\
