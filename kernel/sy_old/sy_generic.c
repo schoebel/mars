@@ -729,7 +729,8 @@ int mars_symlink(const char *oldpath, const char *newpath,
 	    !stamp &&
 	    !stat.mtime.tv_nsec &&
 	    times[0].tv_sec == stat.mtime.tv_sec) {
-		MARS_DBG("workaround timestamp tv_sec=%ld\n", stat.mtime.tv_sec);
+		MARS_DBG("workaround timestamp tv_sec=%lld\n",
+			 (s64)stat.mtime.tv_sec);
 		times[0].tv_sec = stat.mtime.tv_sec + 1;
 		/* Setting tv_nsec to 1 prevents from unnecessarily reentering
 		 * this workaround again if accidentally the original tv_nsec
@@ -991,9 +992,9 @@ int compat_ordered_unlink(const char *path,
 	marker_status = mars_stat(marker_path, &stat, true);
 	if (marker_status < 0 ||
 	    lamport_time_compare(stamp, &stat.mtime) >= 0) {
-		MARS_DBG("creating / updating marker '%s' mtime=%lu.%09lu\n",
+		MARS_DBG("creating / updating marker '%s' mtime=%lld.%09ld\n",
 			 marker_path,
-			 stamp->tv_sec, stamp->tv_nsec);
+			 (s64)stamp->tv_sec, stamp->tv_nsec);
 		status = mars_symlink(serial_str, marker_path, stamp, false);
 	}
 	if (marker_status < 0 ||
@@ -3383,7 +3384,7 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		MARS_STAT("---------\n");
 	}
 	MARS_STAT("BRICK type = %s path = '%s' name = '%s' "
-		  "create_stamp = %ld.%09ld "
+		  "create_stamp = %lld.%09ld "
 		  "size_hint=%d "
 		  "mrefs_alloc = %d "
 		  "mrefs_apsect_alloc = %d "
@@ -3394,7 +3395,7 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		  SAFE_STR(test->type->type_name),
 		  SAFE_STR(test->brick_path),
 		  SAFE_STR(test->brick_name),
-		  test->create_stamp.tv_sec, test->create_stamp.tv_nsec,
+		  (s64)test->create_stamp.tv_sec, test->create_stamp.tv_nsec,
 		  test->mref_object_layout.size_hint,
 		  atomic_read(&test->mref_object_layout.alloc_count),
 		  atomic_read(&test->mref_object_layout.aspect_count),
@@ -3443,13 +3444,13 @@ void _show_dent_list(struct mars_global *global, int *count)
 		struct list_head *sub;
 
 		dent = container_of(tmp, struct mars_dent, dent_link);
-		MARS_STAT("dent %d%d %d '%s' '%s' stamp=%ld.%09ld\n",
+		MARS_STAT("dent %d%d %d '%s' '%s' stamp=%lld.%09ld\n",
 			  dent->d_no_scan,
 			  dent->d_running,
 			  dent->d_class,
 			  SAFE_STR(dent->d_path),
 			  SAFE_STR(dent->new_link),
-			  dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
+			  (s64)dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
 		(*count)++;
 		for (sub = dent->brick_list.next; sub != &dent->brick_list; sub = sub->next) {
 			struct mars_brick *test;
