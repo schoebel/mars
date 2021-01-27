@@ -614,9 +614,9 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 			spin_lock_irqsave(&ch->ch_lock[class], flags);
 			
 			_say(ch, class, NULL, true,
-			     "%ld.%09ld %ld.%09ld %s %s[%d] %s:%d %s(): ",
-			     s_now.tv_sec, s_now.tv_nsec,
-			     l_now.tv_sec, l_now.tv_nsec,
+			     "%lld.%09ld %lld.%09ld %s %s[%d] %s:%d %s(): ",
+			     (s64)s_now.tv_sec, s_now.tv_nsec,
+			     (s64)l_now.tv_sec, l_now.tv_nsec,
 			     prefix,
 			     current->comm, (int)smp_processor_id(),
 			     file, line,
@@ -636,9 +636,9 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 		spin_lock_irqsave(&ch->ch_lock[SAY_TOTAL], flags);
 
 		_say(ch, SAY_TOTAL, NULL, true,
-		     "%ld.%09ld %ld.%09ld %s_%-5s %s %s[%d] %s:%d %s(): ",
-		     s_now.tv_sec, s_now.tv_nsec,
-		     l_now.tv_sec, l_now.tv_nsec,
+		     "%lld.%09ld %lld.%09ld %s_%-5s %s %s[%d] %s:%d %s(): ",
+		     (s64)s_now.tv_sec, s_now.tv_nsec,
+		     (s64)l_now.tv_sec, l_now.tv_nsec,
 		     prefix, say_class[orig_class],
 		     channel_name,
 		     current->comm, (int)smp_processor_id(),
@@ -844,9 +844,9 @@ void treat_channel(struct say_channel *ch, int class)
 		get_lamport(&s_now, &l_now);
 		len = scnprintf(buf,
 			       SAY_BUFMAX,
-			       "%ld.%09ld %ld.%09ld %s %d OVERFLOW %d times\n",
-			       s_now.tv_sec, s_now.tv_nsec,
-			       l_now.tv_sec, l_now.tv_nsec,
+			       "%lld.%09ld %lld.%09ld %s %d OVERFLOW %d times\n",
+				(s64)s_now.tv_sec, s_now.tv_nsec,
+				(s64)l_now.tv_sec, l_now.tv_nsec,
 			       ch->ch_name,
 			       class,
 			       overflow);
