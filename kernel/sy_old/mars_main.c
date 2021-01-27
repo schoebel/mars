@@ -309,9 +309,9 @@ void _show_vals(struct key_value_pair *start,
 			}
 		}
 		if (start->val) {
-			char *src = path_make("%ld.%09ld %ld.%09ld %s",
-					      start->system_stamp.tv_sec, start->system_stamp.tv_nsec, 
-					      start->lamport_stamp.tv_sec, start->lamport_stamp.tv_nsec, 
+			char *src = path_make("%lld.%09ld %lld.%09ld %s",
+					      (s64)start->system_stamp.tv_sec, start->system_stamp.tv_nsec,
+					      (s64)start->lamport_stamp.tv_sec, start->lamport_stamp.tv_nsec,
 					      start->val);
 			ordered_symlink(src, dst, NULL);
 			brick_string_free(src);
@@ -1817,8 +1817,8 @@ int __show_stamp(const char *path, const char *name, struct lamport_time *stamp)
 	char *dst = NULL;
 	int status = -EINVAL;
 
-	src = path_make("%ld.%09ld",
-			stamp->tv_sec,
+	src = path_make("%lld.%09ld",
+			(s64)stamp->tv_sec,
 			stamp->tv_nsec);
 	dst = path_make("%s/actual-%s/%s", path, my_id(), name);
 
@@ -2024,7 +2024,7 @@ int __make_copy(struct mars_dent *belongs,
 		make_msg(msg_pair,
 			 "from = '%s' to = '%s'"
 			 " on = %d start_pos = %lld end_pos = %lld"
-			 " actual_pos = %lld actual_stamp = %ld.%09ld"
+			 " actual_pos = %lld actual_stamp = %lld.%09ld"
 			 " ops_rate = %d amount_rate = %d"
 			 " read_fly = %d write_fly = %d error_code = %d nr_errors = %d",
 			 argv[0],
@@ -2033,7 +2033,7 @@ int __make_copy(struct mars_dent *belongs,
 			 _copy->copy_start,
 			 _copy->copy_end,
 			 _copy->copy_last,
-			 _copy->copy_last_stamp.tv_sec, _copy->copy_last_stamp.tv_nsec,
+			 (s64)_copy->copy_last_stamp.tv_sec, _copy->copy_last_stamp.tv_nsec,
 			 _copy->copy_limiter ? _copy->copy_limiter->lim_ops_rate : 0,
 			 _copy->copy_limiter ? _copy->copy_limiter->lim_amount_rate : 0,
 			 atomic_read(&_copy->copy_read_flight),
@@ -2601,15 +2601,15 @@ void touch_systemd_trigger(const char *filename)
 	struct file *f;
 	const int flags = O_CREAT | O_NOFOLLOW | O_RDWR;
 	const int prot = 0600;
-	struct timespec now = get_real_lamport();
+	struct lamport_time now = get_real_lamport();
 	int len;
 	loff_t dummy_pos = 0;
 	mm_segment_t oldfs;
 	char str[32];
 
 	len = snprintf(str, sizeof(str),
-		       "%ld.%09ld\n",
-		       now.tv_sec, now.tv_nsec);
+		       "%lld.%09ld\n",
+		       (s64)now.tv_sec, now.tv_nsec);
 	oldfs = get_fs();
 	set_fs(get_ds());
 	f = filp_open(filename, flags, prot);
@@ -2713,7 +2713,10 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		update_mtime = lamport_time_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) > 0;
 		update_ctime = lamport_time_compare(&remote_dent->new_stat.ctime, &local_stat.ctime) > 0;
 
-		MARS_IO("timestamps '%s' remote = %ld.%09ld local = %ld.%09ld\n", remote_path, remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec, local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
+		MARS_IO("timestamps '%s' remote = %lld.%09ld local = %lld.%09ld\n",
+			remote_path,
+			(s64)remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec,
+			(s64)local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
 
 #ifdef MARS_HAS_PREPATCH
 		if ((remote_dent->new_stat.mode & S_IRWXU) !=
@@ -2861,8 +2864,8 @@ int run_bones(struct mars_peerinfo *peer)
 		const char *src;
 		const char *dst;
 
-		src = path_make("%ld.%09ld",
-				remote_start_stamp.tv_sec,
+		src = path_make("%lld.%09ld",
+				(s64)remote_start_stamp.tv_sec,
 				remote_start_stamp.tv_nsec);
 		dst = path_make("/mars/actual-%s/read-stamp",
 				peer->peer);
@@ -3363,7 +3366,8 @@ void _make_alive(void)
 
 	/* These need to be updated always */
 	get_lamport(NULL, &now);
-	tmp = path_make("%ld.%09ld", now.tv_sec, now.tv_nsec);
+	tmp = path_make("%lld.%09ld",
+			(s64)now.tv_sec, now.tv_nsec);
 	if (likely(tmp)) {
 		_make_alivelink_str("time", tmp);
 		brick_string_free(tmp);
@@ -6096,8 +6100,8 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 	/* create syncpos symlink when necessary */
 	if (copy_last == copy->copy_end && !rot->sync_finish_stamp.tv_sec) {
 		get_lamport(NULL, &rot->sync_finish_stamp);
-		MARS_DBG("sync finished at timestamp %lu\n",
-			 rot->sync_finish_stamp.tv_sec);
+		MARS_DBG("sync finished at timestamp %lld\n",
+			 (s64)rot->sync_finish_stamp.tv_sec);
 		/* Give the remote replay position a chance to become
 		 * recent enough.
 		 */
@@ -6144,10 +6148,10 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 		if (unlikely(status < 0))
 			goto done;
 		if (lamport_time_compare(&peer_time, &rot->sync_finish_stamp) < 0) {
-			MARS_INF("peer replay link '%s' is not recent enough (%lu < %lu)\n",
+			MARS_INF("peer replay link '%s' is not recent enough (%lld < %lld)\n",
 				 peer_replay_path,
-				 peer_time.tv_sec,
-				 rot->sync_finish_stamp.tv_sec);
+				 (s64)peer_time.tv_sec,
+				 (s64)rot->sync_finish_stamp.tv_sec);
 			mars_remote_trigger(MARS_TRIGGER_TO_REMOTE);
 			status = -EAGAIN;
 			goto done;
@@ -6415,8 +6419,10 @@ static int make_sync(struct mars_dent *dent)
 
 	/* Informational
 	 */
-	MARS_DBG("start_pos = %lld end_pos = %lld sync_finish_stamp=%lu do_start=%d\n",
-		 start_pos, end_pos, rot->sync_finish_stamp.tv_sec, do_start);
+	MARS_DBG("start_pos = %lld end_pos = %lld sync_finish_stamp=%lld do_start=%d\n",
+		 start_pos, end_pos,
+		 (s64)rot->sync_finish_stamp.tv_sec,
+		 do_start);
 
 	/* Now do it....
 	 */
@@ -7626,8 +7632,8 @@ char *_mars_info(void)
 #if 0 // usually there is not enough space in PAGE_SIZE
 		pos += scnprintf(
 			txt + pos, max - pos,
-			"dent stamp=%ld.%09ld path='%s' value='%s'\n",
-			dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec,
+			"dent stamp=%lld.%09ld path='%s' value='%s'\n",
+			(s64)dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec,
 			SAFE_STR(dent->d_path),
 			SAFE_STR(dent->new_link)
 			);
