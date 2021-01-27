@@ -672,7 +672,7 @@ static int aio_event_thread(void *data)
 		mm_segment_t oldfs;
 		int count;
 		int i;
-		struct lamport_time timeout = {
+		struct timespec timeout = {
 			.tv_nsec =
 				tinfo->should_terminate ||
 				!brick->power.button ? 0 : 100000,
