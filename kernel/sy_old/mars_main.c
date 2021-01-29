@@ -1452,13 +1452,15 @@ static
 int _update_link_when_necessary(struct mars_rotate *rot, const char *type, const char *old, const char *new)
 {
 	char *check = NULL;
-	struct lamport_time limit = get_real_lamport();
+	struct lamport_time limit;
 	struct lamport_time stamp = {};
 	int status = -EINVAL;
 	bool res = false;
 
 	if (unlikely(!old || !new))
 		goto out;
+
+	get_real_lamport(&limit);
 
 	/* Check whether something really has changed (avoid
 	 * useless/disturbing timestamp updates)
@@ -2601,11 +2603,13 @@ void touch_systemd_trigger(const char *filename)
 	struct file *f;
 	const int flags = O_CREAT | O_NOFOLLOW | O_RDWR;
 	const int prot = 0600;
-	struct lamport_time now = get_real_lamport();
+	struct lamport_time now;
 	int len;
 	loff_t dummy_pos = 0;
 	mm_segment_t oldfs;
 	char str[32];
+
+	get_real_lamport(&now);
 
 	len = snprintf(str, sizeof(str),
 		       "%lld.%09ld\n",
@@ -3085,10 +3089,12 @@ int peer_thread(void *data)
 		old_transl = mars_translate_hostname(peer->peer);
 		if (!old_transl || !strcmp(old_transl, peer->peer)) {
 			static struct lamport_time full_fetch_stamp;
-			struct lamport_time now = get_real_lamport();
+			struct lamport_time now;
 
+			get_real_lamport(&now);
 			MARS_ERR("unknown peer '%s'\n",
 				 peer->peer);
+
 			/* desperate: try to fetch /mars/ips/ not too frequently */
 			if (!full_fetch_stamp.tv_sec ||
 			    now.tv_sec - full_fetch_stamp.tv_sec > 60) {

@@ -803,7 +803,7 @@ bool _is_done(struct copy_brick *brick)
 static int _copy_thread(void *data)
 {
 	struct copy_brick *brick = data;
-	struct lamport_time last_progress = get_real_lamport();
+	struct lamport_time last_progress;
 	int i;
 
 	MARS_DBG("--------------- copy_thread %p starting\n", brick);
@@ -813,6 +813,8 @@ static int _copy_thread(void *data)
 	brick->verify_error_count = 0;
 	for (i = 0; i < COPY_INPUT_NR; i++)
 		brick->inputs[i]->check_hint = 0;
+
+	get_real_lamport(&last_progress);
 
 	if (brick->copy_limiter)
 			mars_limit_reset(brick->copy_limiter);
@@ -847,10 +849,11 @@ static int _copy_thread(void *data)
 				progress += _run_copy(brick, old_dirty);
 			/* abort when no progress is made for a longer time */
 			if (progress > 0) {
-				last_progress = get_real_lamport();
+				get_real_lamport(&last_progress);
 			} else {
-				struct lamport_time next_progress = get_real_lamport();
+				struct lamport_time next_progress;
 
+				get_real_lamport(&next_progress);
 				next_progress.tv_sec -= mars_copy_timeout;
 				if (lamport_time_compare(&next_progress, &last_progress) > 0)
 					brick->is_aborting = true;

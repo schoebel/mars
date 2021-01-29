@@ -45,11 +45,11 @@ struct timing_stats {
 	({								\
 		struct lamport_time __tmp_diff;				\
 									\
-		(_stamp1) = get_real_lamport();				\
+		get_real_lamport(&(_stamp1));				\
 									\
 		_CODE;							\
 									\
-		(_stamp2) = get_real_lamport();				\
+		 get_real_lamport(&(_stamp2));				\
 		__tmp_diff = lamport_time_sub((_stamp2), (_stamp1));	\
 		lamport_time_to_ns(&__tmp_diff);			\
 	})
@@ -95,7 +95,7 @@ extern int report_timing(struct timing_stats *tim, char *str, int maxlen);
 #else  // CONFIG_MARS_DEBUG
 
 #define _TIME_STATS(_timing, _stamp1, _stamp2, _CODE)			\
-	((void)_timing, (_stamp1) = (_stamp2) = get_real_lamport(), _CODE, 0)
+	((void)_timing, get_real_lamport(&(_stamp1)), (_stamp1) = (_stamp2), _CODE, 0)
 
 #define TIME_STATS(_timing, _CODE)		\
 	((void)_timing, _CODE, 0)
@@ -128,10 +128,13 @@ struct banning {
 static inline
 bool banning_hit(struct banning *ban, long long duration)
 {
-	struct lamport_time now = get_real_lamport();
-	struct lamport_time new_hit = now;
-	bool hit = lamport_time_compare(&ban->ban_last_hit, &now) >= 0;
+	struct lamport_time now;
+	struct lamport_time new_hit;
+	bool hit;
 
+	get_real_lamport(&now);
+	hit = lamport_time_compare(&ban->ban_last_hit, &now) >= 0;
+	new_hit = now;
 	lamport_time_add_ns(&new_hit, duration);
 	ban->ban_renew_count++;
 	ban->ban_hit = true;
@@ -146,7 +149,7 @@ bool banning_hit(struct banning *ban, long long duration)
 static inline
 bool banning_is_hit(struct banning *ban)
 {
-	struct lamport_time now = get_real_lamport();
+	struct lamport_time now;
 
 	/* always report at least once after a hit */
 	if (ban->ban_hit) {
@@ -154,6 +157,7 @@ bool banning_is_hit(struct banning *ban)
 		return true;
 	}
 
+	get_real_lamport(&now);
 	return lamport_time_compare(&ban->ban_last_hit, &now) >= 0 &&
 	  lamport_time_to_ns(&ban->ban_last_hit);
 }

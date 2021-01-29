@@ -206,7 +206,7 @@ void _call_bio_endio(struct if_brick *brick, struct bio *bio, int error)
 #endif
 #endif
 	/* Just a hint for userspace, no strictness needed */
-	brick->completion_stamp = get_real_lamport();
+	get_real_lamport(&brick->completion_stamp);
 }
 
 /* callback

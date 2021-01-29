@@ -708,7 +708,7 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		 * CMOS hardware clock value, until ntpd
 		 * corrected the system clock, fortunately.
 		 */
-		real_now = get_real_lamport();
+		get_real_lamport(&real_now);
 		status = 1;
 		if (likely(stat.mtime.tv_sec <
 			   real_now.tv_sec + max_lamport_future))
@@ -2978,7 +2978,7 @@ restart:
 		if (brick->power.button != brick->power.led_on ||
 		    brick->power.button == brick->power.led_off) {
 			if (!brick->kill_stamp.tv_sec) {
-				brick->kill_stamp = get_real_lamport();
+				get_real_lamport(&brick->kill_stamp);
 				brick->kill_stamp.tv_sec += 10;
 			}
 		}
@@ -2990,10 +2990,10 @@ restart:
 		 * CHECK: how to avoid too frequent switching by other means?
 		 */
 		if (!brick->kill_stamp.tv_sec) {
-			brick->kill_stamp = get_real_lamport();
+			get_real_lamport(&brick->kill_stamp);
 			brick->kill_stamp.tv_sec += 3;
 		}
-		now = get_real_lamport();
+		get_real_lamport(&now);
 		if (lamport_time_compare(&now, &brick->kill_stamp) <= 0 &&
 		    global &&
 		    global->global_power.button) {

@@ -113,7 +113,7 @@ void _get_lamport(struct lamport_clock *clock,
 	 * Lamport timestamps, respectively, in relation to pseudo-parallel
 	 * calls to get_lamport().
 	 */
-	_real_now = get_real_lamport();
+	get_real_lamport(&_real_now);
 
 	up_read(&clock->lamport_sem);
 
@@ -180,7 +180,7 @@ void _set_get_lamport(struct lamport_clock *clock,
 		*lamport_now = lamport_time_add(clock->lamport_stamp,
 						(struct lamport_time){0, 1});
 	clock->lamport_stamp = *lamport_now;
-	_real_now = get_real_lamport();
+	get_real_lamport(&_real_now);
 	up_write(&clock->lamport_sem);
 
 	if (real_now)
@@ -199,9 +199,10 @@ int max_lamport_future = 30 * 24 * 3600;
 bool _protect_lamport_time(struct lamport_clock *clock,
 			   struct lamport_time *check)
 {
-	struct lamport_time limit = get_real_lamport();
+	struct lamport_time limit;
 	bool res = false;
 
+	get_real_lamport(&limit);
 	limit.tv_sec += max_lamport_future;
 	if (unlikely(check->tv_sec >= limit.tv_sec)) {
 		down_write(&clock->lamport_sem);

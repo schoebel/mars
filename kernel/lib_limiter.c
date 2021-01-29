@@ -54,7 +54,7 @@ int mars_limit(struct mars_limiter *lim, int amount)
 	if (unlikely(amount < 0))
 		amount = 0;
 
-	now = get_real_lamport();
+	get_real_lamport(&now);
 
 	/* Compute the maximum delay along the path
 	 * down to the root of the hierarchy tree.

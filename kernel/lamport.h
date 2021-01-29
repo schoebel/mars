@@ -26,7 +26,8 @@
 
 #include <linux/time.h>
 #include <linux/ktime.h>
-#ifndef CURRENT_TIME
+/* adapt to 8b094cd03b4a3793220d8d8d86a173bfea8c285b */
+#ifndef ktime_get_real_ts
 #include <linux/timekeeping.h>
 #endif
 
@@ -43,7 +44,7 @@
 # define lamport_time_add     timespec64_add
 # define lamport_time_add_ns  timespec64_add_ns
 # define lamport_time_sub     timespec64_sub
-# define get_real_lamport     current_kernel_time64
+# define __get_real_lamport   current_kernel_time64
 #else /* deprecated */
 # define lamport_time         timespec
 # define lamport_time_to_ns   timespec_to_ns
@@ -52,7 +53,16 @@
 # define lamport_time_add     timespec_add
 # define lamport_time_add_ns  timespec_add_ns
 # define lamport_time_sub     timespec_sub
-# define get_real_lamport()   CURRENT_TIME
+# define __get_real_lamport() CURRENT_TIME
+#endif
+
+/* Compat: adapt to old code before e4b92b108c6cd6b311e4b6e85d6a87a34599a6e3
+ * obeying edca71fecb77e2697337d192cbfe96f513407761
+ * and the previously mentioned commits regarding CURRENT_TIME
+ */
+#if defined(getnstimeofday64) || defined(ktime_get_real_ts64) || defined(CURRENT_TIME)
+#define ktime_get_coarse_real_ts64(real_now)		\
+	*(real_now) = __get_real_lamport()
 #endif
 
 #include <linux/rwsem.h>
@@ -80,6 +90,10 @@ extern int max_lamport_future;
 extern void _get_lamport(struct lamport_clock *clock,
 			 struct lamport_time *real_now,
 			 struct lamport_time *lamport_now);
+
+/* This version gets only the real time */
+#define get_real_lamport(real_now)					\
+	ktime_get_coarse_real_ts64(real_now)
 
 /* This ensures _strict_ monotonicity of the Lamport clock */
 extern void _set_lamport(struct lamport_clock *clock,
@@ -155,7 +169,7 @@ void __lamport_op(struct lamport_time *clock,
 
 	/* Get and handle realtime */
 	if (real_now) {
-		*real_now = get_real_lamport();
+		get_real_lamport(real_now);
 		if (lamport_time_compare(real_now, clock) > 0)
 			*clock = *real_now;
 	}
