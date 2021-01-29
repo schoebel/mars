@@ -174,6 +174,13 @@ extern int _compat_unlink(
 #define MARS_HAS_BIO_THROTTLED
 #endif
 
+/* adapt to 0d945c1f966b2bcb67bb12be749da0a7fb00201b
+ * detected via 8f4236d9008b0973a8281256ccfde6913cdec6cb
+ */
+#ifdef QUEUE_FLAG_BYPASS
+#define MARS_HAS_OLD_QUEUE_LOCK
+#endif
+
 /* IO accounting */
 
 /* adapt to 394ffa503bc40e32d7f54a9b817264e81ce131b4

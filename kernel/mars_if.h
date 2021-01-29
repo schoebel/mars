@@ -91,7 +91,9 @@ struct if_input {
 	atomic_t total_mref_write_count;
 #endif
 	/* private */
+#ifdef MARS_HAS_OLD_QUEUE_LOCK
 	spinlock_t req_lock;
+#endif
 	struct semaphore kick_sem;
 	struct if_hash_anchor *hash_table;
 };

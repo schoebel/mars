@@ -308,7 +308,11 @@ void _if_unplug(struct if_input *input)
 	MARS_IO("plugged_count = %d\n", atomic_read(&input->plugged_count));
 
 	down(&input->kick_sem);
+#ifdef MARS_HAS_OLD_QUEUE_LOCK
 	traced_lock(&input->req_lock, flags);
+#else
+	traced_lock(&input->q->queue_lock, flags);
+#endif
 #ifdef USE_TIMER
 	del_timer(&input->timer);
 #endif
@@ -317,7 +321,11 @@ void _if_unplug(struct if_input *input)
 		list_replace_init(&input->plug_anchor, &tmp_list);
 		atomic_set(&input->plugged_count, 0);
 	}
-  	traced_unlock(&input->req_lock, flags);
+#ifdef MARS_HAS_OLD_QUEUE_LOCK
+	traced_unlock(&input->req_lock, flags);
+#else
+	traced_unlock(&input->q->queue_lock, flags);
+#endif
 	up(&input->kick_sem);
 
 	while (!list_empty(&tmp_list)) {
@@ -773,9 +781,17 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 				list_add_tail(&mref_a->hash_head, &input->hash_table[hash_index].hash_anchor);
 				traced_unlock(&input->hash_table[hash_index].hash_lock, flags);
 
+#ifdef MARS_HAS_OLD_QUEUE_LOCK
 				traced_lock(&input->req_lock, flags);
+#else
+				traced_lock(&input->q->queue_lock, flags);
+#endif
 				list_add_tail(&mref_a->plug_head, &input->plug_anchor);
+#ifdef MARS_HAS_OLD_QUEUE_LOCK
 				traced_unlock(&input->req_lock, flags);
+#else
+				traced_unlock(&input->q->queue_lock, flags);
+#endif
 			} // !mref
 
 			pos += this_len;
@@ -818,7 +834,11 @@ err:
 #ifdef USE_TIMER
 	else {
 		unsigned long flags;
+#ifdef MARS_HAS_OLD_QUEUE_LOCK
 		traced_lock(&input->req_lock, flags);
+#else
+		traced_lock(&input->q->queue_lock, flags);
+#endif
 		if (timer_pending(&input->timer)) {
 			del_timer(&input->timer);
 		}
@@ -826,7 +846,11 @@ err:
 		input->timer.data = (unsigned long)input;
 		input->timer.expires = jiffies + USE_TIMER;
 		add_timer(&input->timer);
+#ifdef MARS_HAS_OLD_QUEUE_LOCK
 		traced_unlock(&input->req_lock, flags);
+#else
+		traced_unlock(&input->q->queue_lock, flags);
+#endif
 	}
 #endif
 
@@ -1104,8 +1128,10 @@ static int if_switch(struct if_brick *brick)
 		MARS_DBG("unplug_fn\n");
 		q->unplug_fn = if_unplug;
 #endif
+#ifdef MARS_HAS_OLD_QUEUE_LOCK
 		MARS_DBG("queue_lock\n");
 		q->queue_lock = &input->req_lock; // needed!
+#endif
 		
 		input->bdev = bdget(MKDEV(disk->major, minor));
 		/* we have no partitions. we contain only ourselves. */
@@ -1431,7 +1457,9 @@ static int if_input_construct(struct if_input *input)
 	}
 	INIT_LIST_HEAD(&input->plug_anchor);
 	sema_init(&input->kick_sem, 1);
+#ifdef MARS_HAS_OLD_QUEUE_LOCK
 	spin_lock_init(&input->req_lock);
+#endif
 	atomic_set(&input->plugged_count, 0);
 #ifdef USE_TIMER
 	init_timer(&input->timer);
