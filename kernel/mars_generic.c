@@ -1048,7 +1048,7 @@ void _mars_log(char *buf, int len)
 	mm_segment_t oldfs;
 	
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	mutex_lock(&trace_lock);
 
 	vfs_write(mars_log_file, buf, len, &mars_log_pos);
@@ -1182,7 +1182,7 @@ int __init init_mars(void)
 		int prot = 0600;
 		mm_segment_t oldfs;
 		oldfs = get_fs();
-		set_fs(get_ds());
+		set_fs(KERNEL_DS);
 		mars_log_file = filp_open("/mars/trace.csv", flags, prot);
 		set_fs(oldfs);
 		if (IS_ERR(mars_log_file)) {

@@ -175,7 +175,7 @@ int write_aops(struct sio_output *output, struct mref_object *mref)
 	mm_segment_t oldfs;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	ret = vfs_write(file, data, len, &pos);
 	set_fs(oldfs);
 #else
@@ -309,7 +309,7 @@ int read_aops(struct sio_output *output, struct mref_object *mref)
 	(void) sio_direct_splice_actor; // shut up gcc
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	ret = vfs_read(output->mf->mf_filp, mref->ref_data, len, &pos);
 	set_fs(oldfs);
 #else

@@ -423,7 +423,7 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 	}
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	latency = TIME_STATS(
 		this_timing,
 #ifdef MARS_HAS_PREPATCH_V2
@@ -466,7 +466,7 @@ static int aio_submit_dummy(struct aio_output *output)
 	struct iocb *iocbp = &iocb;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 #ifdef MARS_HAS_PREPATCH_V2
 	res = ksys_io_submit(output->ctxp, 1, &iocbp);
 #else
@@ -691,7 +691,7 @@ static int aio_event_thread(void *data)
 #endif
 
 		oldfs = get_fs();
-		set_fs(get_ds());
+		set_fs(KERNEL_DS);
 		/* TODO: don't timeout upon termination.
 		 * Probably we should submit a dummy request.
 		 */
@@ -809,7 +809,7 @@ void _destroy_ioctx(struct aio_output *output)
 
 		MARS_DBG("ioctx count = %d destroying %p\n", atomic_read(&ioctx_count), (void*)output->ctxp);
 		oldfs = get_fs();
-		set_fs(get_ds());
+		set_fs(KERNEL_DS);
 #ifdef MARS_HAS_PREPATCH_V2
 		err = ksys_io_destroy(output->ctxp);
 #else
@@ -951,7 +951,7 @@ int _create_ioctx(struct aio_output *output)
 	output->ctxp = 0;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 #ifdef MARS_HAS_PREPATCH_V2
 	err = ksys_io_setup(MARS_MAX_AIO, &output->ctxp);
 #else

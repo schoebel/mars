@@ -530,7 +530,7 @@ bool mars_is_mountpoint(const char *pathname)
 	bool res = false;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 
 	status = user_path_at(AT_FDCWD, pathname, 0, &path);
 	if (unlikely(status < 0)) {
@@ -566,7 +566,7 @@ int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
 	int status;
 	
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	if (use_lstat) {
 		status = vfs_lstat((char*)path, stat);
 	} else {
@@ -588,7 +588,7 @@ void mars_sync(void)
 	mm_segment_t oldfs;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	f = filp_open("/mars", O_DIRECTORY | O_RDONLY, 0);
 	set_fs(oldfs);
 	if (unlikely(IS_ERR(f)))
@@ -615,7 +615,7 @@ int mars_mkdir(const char *path)
 	int status;
 	
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 #ifdef MARS_HAS_PREPATCH
 	status = sys_mkdir(path, 0700);
 #else
@@ -634,7 +634,7 @@ int mars_rmdir(const char *path)
 	int status;
 	
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	status = sys_rmdir(path);
 	set_fs(oldfs);
 
@@ -651,7 +651,7 @@ int mars_unlink(const char *path)
 	int status;
 	
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 #ifdef MARS_HAS_PREPATCH
 	status = sys_unlink(path);
 #else
@@ -687,7 +687,7 @@ int mars_symlink(const char *oldpath, const char *newpath,
 #endif
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 
 	status = vfs_lstat((char*)newpath, &stat);
 
@@ -774,7 +774,7 @@ char *mars_readlink(const char *newpath, struct lamport_time *stamp)
 	int status = -ENOMEM;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 
 	status = user_lpath(newpath, &path);
 	if (unlikely(status < 0)) {
@@ -851,7 +851,7 @@ int mars_rename(const char *oldpath, const char *newpath)
 	int status;
 	
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 #ifdef MARS_HAS_PREPATCH
 	status = sys_rename(oldpath, newpath);
 #else
@@ -870,7 +870,7 @@ int mars_chmod(const char *path, mode_t mode)
 	int status;
 	
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	status = sys_chmod(path, mode);
 	set_fs(oldfs);
 
@@ -914,7 +914,7 @@ void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining)
 	*total = *remaining = 0;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 
 	res = user_path_at(AT_FDCWD, fspath, 0, &path);
 
@@ -1346,7 +1346,7 @@ int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 	struct kstat tmp = {};
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 
 	status = vfs_lstat(newpath, &tmp);
 	if (status < 0) {
@@ -1885,7 +1885,7 @@ static int _mars_readdir(struct mars_cookie *cookie)
 	}
 
         oldfs = get_fs();
-        set_fs(get_ds());
+        set_fs(KERNEL_DS);
         f = filp_open(cookie->path, O_DIRECTORY | O_RDONLY, 0);
         set_fs(oldfs);
 	if (unlikely(IS_ERR(f))) {

@@ -242,7 +242,7 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 		mf->mf_max = -1;
 
 		oldfs = get_fs();
-		set_fs(get_ds());
+		set_fs(KERNEL_DS);
 		mf->mf_filp = filp_open(name, flags, prot);
 		set_fs(oldfs);
 

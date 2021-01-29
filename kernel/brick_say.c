@@ -383,7 +383,7 @@ struct say_channel *_make_channel(const char *name, bool must_exist)
 	int status;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	status = vfs_stat((char*)name, &kstat);
 	set_fs(oldfs);
 
@@ -691,7 +691,8 @@ void out_to_file(struct file *file, char *buf, int len)
 			     &log_pos);
 #else
 		mm_segment_t oldfs = get_fs();
-		set_fs(get_ds());
+
+		set_fs(KERNEL_DS);
 		(void)vfs_write(file, buf, len, &log_pos);
 		set_fs(oldfs);
 #endif
@@ -772,7 +773,7 @@ void _rollover_channel(struct say_channel *ch)
 			}
 			
 			oldfs = get_fs();
-			set_fs(get_ds());
+			set_fs(KERNEL_DS);
 #ifdef MARS_HAS_PREPATCH_V2
 			mars_rename(old, new);
 #elif defined(MARS_HAS_PREPATCH)

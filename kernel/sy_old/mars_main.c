@@ -2615,7 +2615,7 @@ void touch_systemd_trigger(const char *filename)
 		       "%lld.%09ld\n",
 		       (s64)now.tv_sec, now.tv_nsec);
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	f = filp_open(filename, flags, prot);
 	if (!f || IS_ERR(f)) {
 		/* remove any .deleted symlink and try again */
@@ -3924,7 +3924,7 @@ void _create_new_logfile(const char *path)
 	mm_segment_t oldfs;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	f = filp_open(path, flags, prot);
 	set_fs(oldfs);
 	if (IS_ERR(f)) {
