@@ -3142,6 +3142,8 @@ EXPORT_SYMBOL_GPL(_aio_brick_type);
 const struct generic_brick_type *_sio_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_sio_brick_type);
 
+#define MAX_PREV_COUNT 8
+
 struct mars_brick *make_brick_all(
 	struct mars_global *global,
 	struct mars_dent *belongs,
@@ -3161,11 +3163,17 @@ struct mars_brick *make_brick_all(
 	const char *new_path;
 	char *_new_path = NULL;
 	struct mars_brick *brick = NULL;
-	char *paths[prev_count + 1];
-	struct mars_brick *prev[prev_count + 1];
+	char *paths[MAX_PREV_COUNT];
+	struct mars_brick *prev[MAX_PREV_COUNT];
 	bool switch_state;
 	int i;
 	int status;
+
+	if (prev_count >= MAX_PREV_COUNT) {
+		MARS_ERR("internal: prev_count=%d too high!\n",
+			 prev_count);
+		goto err;
+	}
 
 	// treat variable arguments
 	va_start(args, prev_count);
