@@ -238,6 +238,12 @@ extern int _compat_unlink(
 #define __HAS_STRUCT_NET
 #endif
 
+/* adapt to a9beb86ae6e55bd92f38453c8623de60b8e5a308
+ */
+#ifdef SO_SNDTIMEO_NEW
+#define MARS_HAS_SO_SNDTIMEO_NEW
+#endif
+
 /* for crypto stuff */
 #include <linux/crypto.h>
 

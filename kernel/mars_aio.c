@@ -672,11 +672,19 @@ static int aio_event_thread(void *data)
 		mm_segment_t oldfs;
 		int count;
 		int i;
+#ifdef MARS_HAS_SO_SNDTIMEO_NEW
+		struct __kernel_timespec timeout = {
+			.tv_nsec =
+				tinfo->should_terminate ||
+				!brick->power.button ? 0 : 100000,
+		};
+#else
 		struct timespec timeout = {
 			.tv_nsec =
 				tinfo->should_terminate ||
 				!brick->power.button ? 0 : 100000,
 		};
+#endif
 
 		if (unlikely(!(void*)output->ctxp)) {
 			MARS_ERR("Oops, context vanished. queued_sum = %d\n", atomic_read(&tinfo->queued_sum));

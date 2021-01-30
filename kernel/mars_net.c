@@ -193,9 +193,15 @@ static int current_debug_nr = 0; // no locking, just for debugging
 static
 void _set_socketopts(struct socket *sock, struct mars_tcp_params *params, bool is_server)
 {
+#ifdef MARS_HAS_SO_SNDTIMEO_NEW
+	struct __kernel_sock_timeval t = {
+		.tv_sec = params->tcp_timeout,
+	};
+#else
 	struct timeval t = {
 		.tv_sec = params->tcp_timeout,
 	};
+#endif
 	int x_true = 1;
 
 	/* TODO: improve this by a table-driven approach
@@ -216,8 +222,13 @@ void _set_socketopts(struct socket *sock, struct mars_tcp_params *params, bool i
 	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, params->tcp_keepcnt);
 	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, params->tcp_keepintvl);
 	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, params->tcp_keepidle);
+#ifdef MARS_HAS_SO_SNDTIMEO_NEW
+	_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO_NEW, t);
+	_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO_NEW, t);
+#else
 	_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, t);
 	_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, t);
+#endif
 }
 
 int mars_create_socket(struct mars_socket *msock,
