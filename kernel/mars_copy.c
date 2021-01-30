@@ -485,7 +485,8 @@ restart:
 		if (st->active[1]) { // idempotence: wait by unchanged state
 			goto idle;
 		}
-		/* fallthrough => wait for both mrefs to appear */
+		/* wait for both mrefs to appear */
+		/* fallthrough */
 	case COPY_STATE_READ1:
 	case COPY_STATE_READ3:
 		if (st->active[0]) { // idempotence: wait by unchanged state
