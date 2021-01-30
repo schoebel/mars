@@ -169,8 +169,10 @@ extern int _compat_unlink(
 #endif
 
 /* adapt to 8d2bbd4c8236e9e38e6b36ac9e2c54fdcfe5b335
+ * obyeing 2b24e6f63ac9e817630424c6d8f008256348dfc4,
+ * the latter detected via 932f4a630a695212bdc7379b05f9bd0dafc5d968
  */
-#ifdef BIO_THROTTLED
+#if defined(BIO_THROTTLED) || defined(FOLL_LONGTERM)
 #define MARS_HAS_BIO_THROTTLED
 #endif
 
