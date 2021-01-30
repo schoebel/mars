@@ -267,6 +267,13 @@ extern int _compat_unlink(
 #define HAS_SHA1
 #endif
 
+/* adapt to 877b5691f27a1aec0d9b53095a323e45c30069e2
+ * detected via 113b7dfd827175977ea71cc4a29c1ac24acb9fce
+ */
+#ifdef LRU_ALL_FILE
+#define MARS_HAS_SHASH_DESC_FLAGS
+#endif
+
 /* compression stuff */
 
 #if (defined(CONFIG_LZO_COMPRESS) || defined(CONFIG_LZO_COMPRESS_MODULE)) && \

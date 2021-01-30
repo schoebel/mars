@@ -198,7 +198,9 @@ void md5_old_digest(void *digest, const void *data, int len)
 	int status;
 
 	sdesc->shash.tfm = md5_tfm;
+#ifdef MARS_HAS_SHASH_DESC_FLAGS
 	sdesc->shash.flags = 0;
+#endif
 
 	memset(digest, 0, MARS_DIGEST_SIZE);
 	status = crypto_shash_digest(&sdesc->shash, data, len, digest);
@@ -225,8 +227,9 @@ void md5_digest(void *digest, const void *data, int len)
 	int status;
 
 	sdesc->shash.tfm = md5_tfm;
+#ifdef MARS_HAS_SHASH_DESC_FLAGS
 	sdesc->shash.flags = 0;
-
+#endif
 	memset(digest, 0, MARS_DIGEST_SIZE);
 
 	/* exploit the bigger MARS_DIGEST_SIZE by computing MD5 in chunks */
@@ -270,7 +273,9 @@ void crc32c_digest(void *digest, const void *data, int len)
 	int status;
 
 	sdesc->shash.tfm = crc32c_tfm;
+#ifdef MARS_HAS_SHASH_DESC_FLAGS
 	sdesc->shash.flags = 0;
+#endif
 	memset(digest, 0, MARS_DIGEST_SIZE);
 
 	/* exploit the bigger MARS_DIGEST_SIZE by computing CRC32C in chunks */
@@ -314,7 +319,9 @@ void crc32_digest(void *digest, const void *data, int len)
 	int status;
 
 	sdesc->shash.tfm = crc32_tfm;
+#ifdef MARS_HAS_SHASH_DESC_FLAGS
 	sdesc->shash.flags = 0;
+#endif
 	memset(digest, 0, MARS_DIGEST_SIZE);
 
 	/* exploit the bigger MARS_DIGEST_SIZE by computing CRC32 in chunks */
@@ -354,7 +361,9 @@ void sha1_digest(void *digest, const void *data, int len)
 	int status;
 
 	sdesc->shash.tfm = sha1_tfm;
+#ifdef MARS_HAS_SHASH_DESC_FLAGS
 	sdesc->shash.flags = 0;
+#endif
 
 	status = crypto_shash_digest(&sdesc->shash, data, len, tmp);
 	if (unlikely(status < 0)) {
@@ -592,7 +601,9 @@ __u32 mars_digest(__u32 digest_flags,
 	unsigned int i = round_robin++ % OBSOLETE_TFM_MAX;
 	struct hash_desc desc = {
 		.tfm = mars_tfm[i],
+#ifdef MARS_HAS_SHASH_DESC_FLAGS
 		.flags = 0,
+#endif
 	};
 	struct scatterlist sg;
 
