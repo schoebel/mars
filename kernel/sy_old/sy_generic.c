@@ -764,6 +764,14 @@ done:
 	return status;
 }
 
+/* adapt to ce6595a28a15c874aee374757dcd08f537d7b24d
+ * detected via 84a2bd39405ffd5fa6d6d77e408c5b9210da98de
+ */
+#ifdef LOOKUP_ROOT_GRABBED
+#define user_lpath(name,path)					\
+	user_path_at_empty(AT_FDCWD, (name), 0, (path), NULL)
+#endif
+
 char *mars_readlink(const char *newpath, struct lamport_time *stamp)
 {
 	char *res = NULL;
