@@ -6318,19 +6318,19 @@ static int make_sync(struct mars_dent *dent)
 	if (do_start && rot->replay_mode && rot->end_pos > rot->start_pos &&
 	    mars_sync_flip_interval >= 8) {
 		if (!rot->flip_start) {
-			/* Give replay a fair chance to jump in, even when
+			/* Give replay a chance to jump in, e.g. when
 			 * multiple logrotates are necessary, or when
 			 * logfiles are damaged, etc.
 			 * Exception: the current logfile cannot be freed
 			 * anyway.
 			 */
 			if (!rot->next_relevant_log ||
-			    rot->flip_round++ > 3) {
+			    rot->flip_round++ > 0) {
 				rot->flip_start = jiffies;
 				rot->flip_round = 0;
+			} else {
+				do_start = false;
 			}
-			do_start = false;
-			mars_trigger();
 		} else if ((long long)jiffies - rot->flip_start > mars_sync_flip_interval * HZ &&
 			   rot->sync_brick &&
 			   rot->sync_brick->power.led_on &&
