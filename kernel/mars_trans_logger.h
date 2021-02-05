@@ -238,6 +238,7 @@ struct trans_logger_brick {
 	atomic_t total_restart_count;
 	atomic_t total_delay_count;
 #endif
+	int pressure_mode;
 	// queues
 	struct logger_queue q_phase[LOGGER_QUEUES];
 	struct rank_data rkd[LOGGER_QUEUES];

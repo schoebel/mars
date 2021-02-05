@@ -2409,6 +2409,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 		pressure_mode = 0;
 	else if (trans_logger_disable_pressure < 0)
 		pressure_mode = 1;
+	brick->pressure_mode = pressure_mode;
 
 	if (delay_callers) {
 		if (!brick->delay_callers) {
@@ -3305,6 +3306,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "log_reads=%d | "
 		 "cease_logging=%d "
 		 "stopped_logging=%d "
+		 "pressure_mode=%d "
 		 "congested=%d | "
 		 "replay_start_pos = %lld "
 		 "replay_end_pos = %lld | "
@@ -3363,6 +3365,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 brick->log_reads,
 		 brick->cease_logging,
 		 brick->stopped_logging,
+		 brick->pressure_mode,
 		 _congested(brick),
 		 brick->replay_start_pos,
 		 brick->replay_end_pos,
