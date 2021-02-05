@@ -32,6 +32,8 @@
 
 #ifdef CONFIG_MARS_DEBUG
 #define MARS_BIO_DEBUG
+extern struct mars_limiter bio_throttle_read;
+extern struct mars_limiter bio_throttle_write;
 #endif
 
 extern int bio_nr_requests;

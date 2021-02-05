@@ -39,6 +39,7 @@
 #include "mars.h"
 #include "lib_timing.h"
 #include "lib_mapfree.h"
+#include "lib_limiter.h"
 
 #include "mars_bio.h"
 
@@ -72,6 +73,13 @@ struct threshold bio_io_threshold[2] = {
 	},
 };
 EXPORT_SYMBOL_GPL(bio_io_threshold);
+
+#ifdef CONFIG_MARS_DEBUG
+struct mars_limiter bio_throttle_read = {
+};
+struct mars_limiter bio_throttle_write = {
+};
+#endif
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -343,6 +351,15 @@ static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 		}
 		mref_a->do_dealloc = true;
 	}
+
+#ifdef CONFIG_MARS_DEBUG
+	/* Only for testing, e.g. simulation of degraded RAID etc
+	 */
+	if (mref->ref_flags & MREF_WRITE)
+		mars_limit_sleep(&bio_throttle_write, (mref->ref_len + 512) / 1024);
+	else
+		mars_limit_sleep(&bio_throttle_read, (mref->ref_len + 512) / 1024);
+#endif
 
 	status = make_bio(output->brick, mref->ref_data, mref->ref_len, mref->ref_pos, mref_a, &mref_a->bio);
 	if (unlikely(status < 0 || !mref_a->bio)) {
