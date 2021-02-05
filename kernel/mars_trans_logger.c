@@ -2340,6 +2340,8 @@ bool _check_pressure(struct trans_logger_brick *brick)
 {
 	int active;
 
+	if (!brick->power.button)
+		return false;
 	/*
 	 * Writeback IO starvation can occur when too many concurrents reads
 	 * are filling the IO channnels for a very long time (e.g. when
@@ -2363,8 +2365,7 @@ bool _check_pressure(struct trans_logger_brick *brick)
 		atomic_read(&brick->any_fly_count) +
 		brick->q_phase[0].q_queued + brick->q_phase[0].q_active;
 
-	return (active > trans_logger_pressure_limit) &&
-		brick->power.button;
+	return (active > trans_logger_pressure_limit);
 }
 
 static noinline
