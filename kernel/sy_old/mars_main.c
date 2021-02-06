@@ -866,7 +866,8 @@ struct mars_rotate {
 	int inf_prev_sequence;
 	int inf_old_sequence;
 	long long flip_start;
-	loff_t flip_pos;
+	loff_t sync_copy_last;
+	loff_t sync_copy_last_old;
 	loff_t dev_size;
 	loff_t start_pos;
 	loff_t end_pos;
@@ -6044,13 +6045,14 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 	const char *syncpos_path = NULL;
 	const char *peer_replay_path = NULL;
 	const char *peer_replay_link = NULL;
+	loff_t copy_last = copy->copy_last;
 	int status = -EINVAL;
 
 	if (!peer || peer[0] == '(')
 		goto done;
 
 	/* create syncpos symlink when necessary */
-	if (copy->copy_last == copy->copy_end && !rot->sync_finish_stamp.tv_sec) {
+	if (copy_last == copy->copy_end && !rot->sync_finish_stamp.tv_sec) {
 		get_lamport(NULL, &rot->sync_finish_stamp);
 		MARS_DBG("sync finished at timestamp %lu\n",
 			 rot->sync_finish_stamp.tv_sec);
@@ -6110,12 +6112,14 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 		}
 	}
 
-	src = path_make("%lld", copy->copy_last);
+	src = path_make("%lld", copy_last);
 	dst = path_make("%s/syncstatus-%s", rot->parent_path, my_id());
 
 	_crashme(4, true);
 
 	status = _update_link_when_necessary(rot, "syncstatus", src, dst);
+	if (!status)
+		rot->sync_copy_last = copy_last;
 
 	brick_string_free(src);
 	brick_string_free(dst);
@@ -6323,14 +6327,15 @@ static int make_sync(struct mars_dent *dent)
 			if (!rot->next_relevant_log ||
 			    rot->flip_round++ > 3) {
 				rot->flip_start = jiffies;
-				rot->flip_pos = rot->start_pos;
 				rot->flip_round = 0;
 			}
 			do_start = false;
 			mars_trigger();
 		} else if ((long long)jiffies - rot->flip_start > mars_sync_flip_interval * HZ &&
 			   rot->sync_brick &&
-			   rot->sync_brick->copy_last > rot->flip_pos) {
+			   rot->sync_brick->power.led_on &&
+			   rot->sync_copy_last != rot->sync_copy_last_old) {
+			rot->sync_copy_last_old = rot->sync_copy_last;
 			do_start = false;
 			rot->flip_start = 0;
 			rot->flip_round = 0;
