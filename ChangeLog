@@ -140,6 +140,20 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable122
+	* Minor improvement (possibly a regression from 0.1astable116),
+	  observed in a very tricky situation where _both_ the primary
+	  and secondary RAIDs were heavily degraded at the same time:
+	  The replay could take too much preference over sync, leading
+	  to quasi-starvation of sync.
+	  Workaround was possible by temporarily setting
+	  /proc/sys/mars/sync_flip_interval_sec to 0, and manually
+	  switching between replay and sync.
+	  Now awful RAID degradation should be handled more gracefully.
+	* Minor improvement, stimulated by Gabriel Franciso:
+	  Before marsadm asks DNS, first /etc/hosts is consulted
+	  via /usr/bin/getent.
+
 mars0.1astable121
 	* Fix scarce use-after-free, only observed at rmmod operations
 	  under KASAN test kernel 4.14.
