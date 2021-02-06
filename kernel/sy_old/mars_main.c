@@ -6153,6 +6153,7 @@ int update_syncstatus(struct mars_brick *_copy, bool switch_on, void *private)
 	if (copy &&
 	    ((copy->power.button && copy->power.led_on) ||
 	     !copy->copy_start ||
+	     (copy->copy_last > copy->copy_start) ||
 	     (copy->copy_last == copy->copy_end && copy->copy_end > 0))) {
 		status = _update_syncstatus(cc->rot, copy, cc->peer);
 	}
