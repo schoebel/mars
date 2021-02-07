@@ -3390,6 +3390,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "mref_flying2=%d "
 		 "ban=(%d,%d,%d,%d) "
 #ifdef CONFIG_MARS_DEBUG
+		 "rkd=(%lld,%lld,%lld,%lld) "
 		 "bail=(%d,%d,%d,%d) "
 		 "sel=%d "
 #endif
@@ -3467,6 +3468,10 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 banning_is_hit(&brick->q_phase[2].q_banning),
 		 banning_is_hit(&brick->q_phase[3].q_banning),
 #ifdef CONFIG_MARS_DEBUG
+		 brick->rkd[0].rkd_current_points,
+		 brick->rkd[1].rkd_current_points,
+		 brick->rkd[2].rkd_current_points,
+		 brick->rkd[3].rkd_current_points,
 		 brick->bail[0],
 		 brick->bail[1],
 		 brick->bail[2],
