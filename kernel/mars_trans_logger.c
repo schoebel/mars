@@ -3292,14 +3292,16 @@ int trans_logger_switch(struct trans_logger_brick *brick)
 
 //////////////// informational / statistics ///////////////
 
+#define STAT_STR_LEN 2048
+
 static noinline
 char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 {
-	char *res = brick_string_alloc(1024);
+	char *res = brick_string_alloc(STAT_STR_LEN);
 	if (!res)
 		return NULL;
 
-	snprintf(res, 1023,
+	snprintf(res, STAT_STR_LEN - 1,
 		 "mode replay=%d "
 		 "continuous=%d "
 		 "replay_code=%d "
@@ -3355,6 +3357,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "log_fly=%d "
 		 "mref_flying1=%d "
 		 "mref_flying2=%d "
+		 "ban=(%d,%d,%d,%d) "
 		 "phase0=%d-%d <%d/%d> "
 		 "phase1=%d-%d <%d/%d> "
 		 "phase2=%d-%d <%d/%d> "
@@ -3424,6 +3427,10 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->log_fly_count),
 		 atomic_read(&brick->inputs[TL_INPUT_LOG1]->logst.mref_flying),
 		 atomic_read(&brick->inputs[TL_INPUT_LOG2]->logst.mref_flying),
+		 banning_is_hit(&brick->q_phase[0].q_banning),
+		 banning_is_hit(&brick->q_phase[1].q_banning),
+		 banning_is_hit(&brick->q_phase[2].q_banning),
+		 banning_is_hit(&brick->q_phase[3].q_banning),
 		 brick->q_phase[0].q_active,
 		 brick->q_phase[0].q_queued,
 		 brick->q_phase[0].pushback_count,
