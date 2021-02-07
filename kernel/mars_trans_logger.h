@@ -242,6 +242,10 @@ struct trans_logger_brick {
 	// queues
 	struct logger_queue q_phase[LOGGER_QUEUES];
 	struct rank_data rkd[LOGGER_QUEUES];
+#ifdef CONFIG_MARS_DEBUG
+	int bail[LOGGER_QUEUES];
+	int selected;
+#endif
 	int caller_flag;
 	int worker_flag;
 	bool   delay_callers;

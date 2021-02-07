@@ -2439,11 +2439,14 @@ int _do_ranking(struct trans_logger_brick *brick)
 		int queued = brick->q_phase[i].q_queued;
 		int flying;
 
+#ifdef CONFIG_MARS_DEBUG
+		brick->bail[i] = -1;
 		/* only for testing */
 		if ((i == 3) &&
 		    (trans_logger_disable_pressure < -1 ||
 		     trans_logger_disable_pressure > 1))
 			queued = 0;
+#endif
 
 		MARS_IO("i = %d queued = %d\n", i, queued);
 
@@ -2452,8 +2455,12 @@ int _do_ranking(struct trans_logger_brick *brick)
 		 * Otherwise, (almost) infinite selection of untreatable
 		 * queues may occur.
 		 */
-		if (queued <= 0)
+		if (queued <= 0) {
+#ifdef CONFIG_MARS_DEBUG
+			brick->bail[i] = 1;
+#endif
 			continue;
+		}
 
 		if (banning_is_hit(&brick->q_phase[i].q_banning)) {
 #ifdef IO_DEBUGGING
@@ -2466,12 +2473,18 @@ int _do_ranking(struct trans_logger_brick *brick)
 				brick->q_phase[i].q_banning.ban_renew_count,
 				brick->q_phase[i].q_banning.ban_count);
 #endif
+#ifdef CONFIG_MARS_DEBUG
+			brick->bail[i] = 2;
+#endif
 			break;
 		}
 
 		if (i == 0) {
 			// limit mref IO parallelism on transaction log
 			ranking_compute(&rkd[0], extra_rank_mref_flying, mref_flying);
+#ifdef CONFIG_MARS_DEBUG
+			brick->bail[i] = 3;
+#endif
 		} else if (i == 1 && !pressure_mode) {
 			struct trans_logger_brick *leader;
 			int lim;
@@ -2480,11 +2493,17 @@ int _do_ranking(struct trans_logger_brick *brick)
 				MARS_IO("BAILOUT phase_[0]queued = %d phase_[0]active = %d\n",
 					brick->q_phase[0].q_queued,
 					brick->q_phase[0].q_active);
+#ifdef CONFIG_MARS_DEBUG
+				brick->bail[i] = 4;
+#endif
 				break;
 			}
 
 			if ((leader = elect_leader(&global_writeback)) != brick) {
 				MARS_IO("BAILOUT leader=%p brick=%p\n", leader, brick);				
+#ifdef CONFIG_MARS_DEBUG
+				brick->bail[i] = 5;
+#endif
 				break;
 			}
 
@@ -2498,12 +2517,18 @@ int _do_ranking(struct trans_logger_brick *brick)
 					mars_global_ban.ban_renew_count,
 					mars_global_ban.ban_count);
 #endif
+#ifdef CONFIG_MARS_DEBUG
+				brick->bail[i] = 6;
+#endif
 				break;
 			}
 
 			lim = mars_limit(&global_writeback.limiter, 0);
 			if (lim > 0) {
 				MARS_IO("BAILOUT via limiter %d\n", lim);
+#ifdef CONFIG_MARS_DEBUG
+				brick->bail[i] = 7;
+#endif
 				break;
 			}
 		}
@@ -2515,6 +2540,9 @@ int _do_ranking(struct trans_logger_brick *brick)
 		MARS_IO("i = %d queued = %d flying = %d\n", i, queued, flying);
 
 		ranking_compute(&rkd[i], fly_ranks[pressure_mode][i], flying);
+#ifdef CONFIG_MARS_DEBUG
+		brick->bail[i] = 0;
+#endif
 	}
 
 	// finalize it
@@ -2527,6 +2555,9 @@ int _do_ranking(struct trans_logger_brick *brick)
 		MARS_IO("rkd[%d]: points = %lld tmp = %lld got = %lld\n", i, rkd[i].rkd_current_points, rkd[i].rkd_tmp, rkd[i].rkd_got);
 	}
 	MARS_IO("res = %d\n", res);
+#endif
+#ifdef CONFIG_MARS_DEBUG
+	brick->selected = res;
 #endif
 	return res;
 }
@@ -3358,6 +3389,10 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "mref_flying1=%d "
 		 "mref_flying2=%d "
 		 "ban=(%d,%d,%d,%d) "
+#ifdef CONFIG_MARS_DEBUG
+		 "bail=(%d,%d,%d,%d) "
+		 "sel=%d "
+#endif
 		 "phase0=%d-%d <%d/%d> "
 		 "phase1=%d-%d <%d/%d> "
 		 "phase2=%d-%d <%d/%d> "
@@ -3431,6 +3466,13 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 banning_is_hit(&brick->q_phase[1].q_banning),
 		 banning_is_hit(&brick->q_phase[2].q_banning),
 		 banning_is_hit(&brick->q_phase[3].q_banning),
+#ifdef CONFIG_MARS_DEBUG
+		 brick->bail[0],
+		 brick->bail[1],
+		 brick->bail[2],
+		 brick->bail[3],
+		 brick->selected,
+#endif
 		 brick->q_phase[0].q_active,
 		 brick->q_phase[0].q_queued,
 		 brick->q_phase[0].pushback_count,
