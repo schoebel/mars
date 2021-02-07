@@ -2476,7 +2476,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 #ifdef CONFIG_MARS_DEBUG
 			brick->bail[i] = 2;
 #endif
-			break;
+			continue;
 		}
 
 		if (i == 0) {

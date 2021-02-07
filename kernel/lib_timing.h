@@ -122,6 +122,7 @@ struct banning {
 	// statistical
 	int ban_renew_count;
 	int ban_count;
+	bool ban_hit;
 };
 
 static inline
@@ -133,6 +134,7 @@ bool banning_hit(struct banning *ban, long long duration)
 
 	lamport_time_add_ns(&new_hit, duration);
 	ban->ban_renew_count++;
+	ban->ban_hit = true;
 	if (!lamport_time_to_ns(&ban->ban_last_hit) ||
 	    lamport_time_compare(&ban->ban_last_hit, &new_hit) < 0) {
 		ban->ban_last_hit = new_hit;
@@ -145,6 +147,12 @@ static inline
 bool banning_is_hit(struct banning *ban)
 {
 	struct lamport_time now = get_real_lamport();
+
+	/* always report at least once after a hit */
+	if (ban->ban_hit) {
+		ban->ban_hit = false;
+		return true;
+	}
 
 	return lamport_time_compare(&ban->ban_last_hit, &now) >= 0 &&
 	  lamport_time_to_ns(&ban->ban_last_hit);
