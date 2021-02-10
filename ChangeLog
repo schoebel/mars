@@ -140,6 +140,15 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable123
+	* Major fix: under very unlikely conditions, deadlock
+	  of the logger IO scheduling was possible.
+	  Never observed during millions of total operation hours.
+	  Please update for maximum HA safety.
+	* Minor fix: scarce divide by zero in IO or network throughput
+	  limiters (normally not used) was possible under very
+	  special cirmumstances.
+
 mars0.1astable122
 	* Minor improvement (possibly a regression from 0.1astable116),
 	  observed in a very tricky situation where _both_ the primary
