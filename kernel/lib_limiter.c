@@ -35,7 +35,13 @@
 #define DEFAULT_MIN_WINDOW (LIMITER_TIME_RESOLUTION * 1)
 #define DEFAULT_MAX_WINDOW (LIMITER_TIME_RESOLUTION * 4)
 
-#define MAX_DIVIDER        (DEFAULT_MIN_WINDOW / 10)
+#define MIN_DIVIDER        (DEFAULT_MIN_WINDOW / 10)
+#define MAX_DIVIDER        (DEFAULT_MAX_WINDOW * 10)
+
+#define CLAMP_WINDOW(x)					\
+	(x) < MIN_DIVIDER ? MIN_DIVIDER :		\
+	(x) > MAX_DIVIDER ? MAX_DIVIDER :		\
+	    (x)
 
 #define MS_TO_TR(x)         ((__s64)(x) * (LIMITER_TIME_RESOLUTION / 1000))
 #define TR_TO_MS(x)         ((x) / (LIMITER_TIME_RESOLUTION / 1000))
@@ -64,8 +70,7 @@ int mars_limit(struct mars_limiter *lim, int amount)
 		 * Small windows in the denominator could fake unrealistic rates.
 		 * Do not divide by too small numbers.
 		 */
-		if (window < MAX_DIVIDER)
-			window = MAX_DIVIDER;
+		window = CLAMP_WINDOW(window);
 
 		if (unlikely(lim->lim_min_window_ms <= TR_TO_MS(MAX_DIVIDER)))
 			lim->lim_min_window_ms = TR_TO_MS(DEFAULT_MIN_WINDOW);
@@ -93,7 +98,7 @@ int mars_limit(struct mars_limiter *lim, int amount)
 			lim->lim_amount_accu = 0;
 			lim->lim_ops_rate = 0;
 			lim->lim_amount_rate = 0;
-			window = MAX_DIVIDER;
+			window = MIN_DIVIDER;
 		} else {
 			__s64 diff_window;
 
@@ -128,6 +133,7 @@ int mars_limit(struct mars_limiter *lim, int amount)
 					/* recompute the new window */
 					diff = lamport_time_sub(now, lim->lim_stamp);
 					window = lamport_time_to_ns(&diff);
+					window = CLAMP_WINDOW(window);
 				}
 			}
 		}
