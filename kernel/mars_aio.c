@@ -834,15 +834,15 @@ void _destroy_ioctx(struct aio_output *output)
 #endif
 	}
 
+	mutex_lock(&_fd_lock);
 	fd = output->fd;
 	if (likely(fd >= 0)) {
 		MARS_DBG("destroying fd %d\n", fd);
-		mutex_lock(&_fd_lock);
 		fd_uninstall(fd);
 		put_unused_fd(fd);
 		output->fd = -1;
-		mutex_unlock(&_fd_lock);
 	}
+	mutex_unlock(&_fd_lock);
 
  done:
 	if (likely(current->mm)) {
