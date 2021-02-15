@@ -140,6 +140,19 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable124
+	* Major improvement: support for LTS kernels 4.19 and 5.4.
+	  A new pre-patch generation obeying the new ksys_* conventions
+	  has been added. This will help further porting in the future.
+	  IMPORTANT: do NOT OMIT the fix for upstream bug
+	  0001-sched-wait-fix-endless-kthread-loop-at-timeout.patch
+	  from directoy  pre-patches/vanilla-*/ .
+	  Leaving out this fix may SERIOUSLY HARM your experience,
+	  due to kernel soft lockups happening when the network
+	  is interrupted, i.e. exactly during certain types of incidents.
+	  Anyway, please also use 0001-mars-v2-minimum-pre-patch-for-mars.patch
+	  because IO performance is MUCH WORSE without this pre-patch.
+
 mars0.1astable123
 	* Major fix: under very unlikely conditions, deadlock
 	  of the logger IO scheduling was possible.
