@@ -172,6 +172,7 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 	struct list_head *tmp;
 	unsigned int hash = mf_hash(name);
 
+	flags |= O_CLOEXEC;
 	if (!(flags & O_DIRECT)) {
 		down_read(&mf_table[hash].hash_mutex);
 		for (tmp = mf_table[hash].hash_anchor.next;
