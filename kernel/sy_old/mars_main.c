@@ -420,8 +420,10 @@ const char *rot_keys[] = {
 	"err-splitbrain-detected",
 	// from _update_file()
 	"inf-fetch",
+	"inf-fetch-start",
 	// from make_sync()
 	"inf-sync",
+	"inf-sync-start",
 	// from make_log_step()
 	"wrn-log-consecutive",
 	// from make_log_finalize()
@@ -5574,13 +5576,16 @@ int make_log_finalize(struct mars_dent *dent)
 
 		if (do_start && rot->forbid_replay) {
 			MARS_INF("cannot start replay because sync wants to start\n");
-			make_rot_msg(rot, "inf-replay-start", "cannot start replay because sync wants to star");
+			make_rot_msg(rot, "inf-replay-start",
+				     "cannot start replay because sync wants to start");
 			do_start = false;
 		}
 
 		if (do_start && rot->sync_brick && !rot->sync_brick->power.led_off) {
 			MARS_INF("cannot start replay because sync is running\n");
-			make_rot_msg(rot, "inf-replay-start", "cannot start replay because sync is running");
+			if (!rot->sync_brick->power.button)
+				make_rot_msg(rot, "inf-replay-start",
+				     "cannot start replay because sync has not yet stopped");
 			do_start = false;
 		}
 
@@ -6250,17 +6255,20 @@ static int make_sync(struct mars_dent *dent)
 		return 0;
 	}
 
+	do_start = _check_allow(dent->d_parent->d_path, "attach");
+
 	/* Determine peer
 	 */
 	tmp = path_make("%s/primary", dent->d_parent->d_path);
 	peer = ordered_readlink(tmp, NULL);
 	if (is_deleted_link(peer)) {
 		MARS_ERR("cannot determine primary, symlink '%s'\n", tmp);
+		if (do_start)
+			make_rot_msg(rot, "inf-sync-start",
+			     "cannot sync because no primary is designated");
 		status = 0;
 		goto done;
 	}
-
-	do_start = _check_allow(dent->d_parent->d_path, "attach");
 
 	/* Analyze replay position
 	 */
@@ -6269,6 +6277,9 @@ static int make_sync(struct mars_dent *dent)
 		if (strcmp(dent->new_link, ".deleted"))
 			MARS_ERR("bad syncstatus symlink syntax '%s' (%s)\n",
 				 dent->new_link, dent->d_path);
+		if (do_start)
+			make_rot_msg(rot, "inf-sync-start",
+			     "cannot sync because syncstatus link is bad");
 		do_start = false;
 	}
 
@@ -6289,12 +6300,18 @@ static int make_sync(struct mars_dent *dent)
 	size_str = ordered_readlink(tmp, NULL);
 	if (is_deleted_link(size_str)) {
 		MARS_ERR("cannot determine size '%s'\n", tmp);
+		if (do_start)
+			make_rot_msg(rot, "inf-sync-start",
+			     "cannot sync because size link is missing");
 		status = -ENOENT;
 		goto done;
 	}
 	status = sscanf(size_str, "%lld", &end_pos);
 	if (status != 1) {
 		MARS_ERR("bad size symlink syntax '%s' (%s)\n", size_str, tmp);
+		if (do_start)
+			make_rot_msg(rot, "inf-sync-start",
+			     "cannot sync because size link is bad");
 		status = -EINVAL;
 		goto done;
 	}
@@ -6318,17 +6335,20 @@ static int make_sync(struct mars_dent *dent)
 	if (do_start && (rot->has_double_logfile | rot->has_hole_logfile)) {
 		MARS_WRN("no sync possible due to discontiguous logfiles (%d|%d)\n",
 			 rot->has_double_logfile, rot->has_hole_logfile);
-		if (do_start)
-			start_pos = 0;
+		make_rot_msg(rot, "inf-sync-start",
+			     "cannot start sync because logfiles are discontiguous");
+		start_pos = 0;
 		do_start = false;
 	}
 
 	/* stop sync when primary is unknown
 	 */
-	if (!strcmp(peer, "(none)")) {
+	if (do_start &&
+	    (!peer || !peer[0] || !strcmp(peer, "(none)"))) {
 		MARS_INF("cannot start sync, no primary is designated\n");
-		if (do_start)
-			start_pos = 0;
+		make_rot_msg(rot, "inf-sync-start",
+			     "cannot start sync because no primary is designated");
+		start_pos = 0;
 		do_start = false;
 	}
 
@@ -6342,8 +6362,9 @@ static int make_sync(struct mars_dent *dent)
 	    strcmp(syncfrom_str, peer)) {
 		MARS_WRN("cannot start sync, primary has changed: '%s' != '%s'\n",
 			 syncfrom_str, peer);
-		if (do_start)
-			start_pos = 0;
+		make_rot_msg(rot, "inf-sync-start",
+			     "cannot start sync because primary has changed");
+		start_pos = 0;
 		do_start = false;
 	}
 
@@ -6351,8 +6372,11 @@ static int make_sync(struct mars_dent *dent)
 	 */
 	if (do_start) {
 		_global_sync_nr++;
-		if (_global_sync_nr > global_sync_limit && global_sync_limit > 0)
+		if (_global_sync_nr > global_sync_limit && global_sync_limit > 0) {
+			make_rot_msg(rot, "inf-sync-start",
+			     "do not start sync due to global synclimit");
 			do_start = false;
+		}
 	}
 	rot->want_sync = do_start;
 
@@ -6375,6 +6399,8 @@ static int make_sync(struct mars_dent *dent)
 			      compare_replaylinks(rot, peer, my_id(), NULL, NULL) < 0);
 	if (rot->forbid_replay) {
 		MARS_INF("cannot start sync because my data is newer than the remote one at '%s'!\n", peer);
+		make_rot_msg(rot, "inf-sync-start",
+			     "ensure data consistency: cannot start sync because replay has gone too far");
 		do_start = false;
 	}
 
