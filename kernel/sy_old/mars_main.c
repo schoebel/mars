@@ -4735,11 +4735,19 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 		char  *tmp = path_make("%s/primary", rot->parent_path);
 		const char *primary = ordered_readlink(tmp, NULL);
 
+		brick_string_free(tmp);
 		if (likely(primary && primary[0])) {
 			int cmp = compare_replaylinks(rot, primary, my_id(), &min_pos, NULL);
 
 			MARS_DBG("want_sync compare=%d min_pos=%lld\n",
 				 cmp, min_pos);
+			/* prevent sequence number to pass by */
+			if (cmp < 0) {
+				MARS_INF("disallow passby due to sync\n");
+				brick_string_free(primary);
+				status = -EAGAIN;
+				goto done;
+			}
 		}
 		if (min_pos >= 0 &&
 		    min_pos < *newpos) {
@@ -4752,7 +4760,6 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 				 *oldpos_end, *newpos);
 			*oldpos_end = min_pos;
 		}
-		brick_string_free(tmp);
 		brick_string_free(primary);
 	}
 
