@@ -443,7 +443,7 @@ static
 void _new_block_info(void *data, int len, int cline)
 {
 	struct mem_block_info *inf;
-	int hash;
+	unsigned int hash;
 	unsigned long flags;
 
 	for (;;) {
@@ -469,7 +469,7 @@ struct mem_block_info *_find_block_info(void *data, bool remove)
 {
 	struct mem_block_info *res = NULL;
 	struct list_head *tmp;
-	int hash = INFO_LIST_HASH(data);
+	unsigned int hash = INFO_LIST_HASH(data);
 	unsigned long flags;
 
 	if (remove)
