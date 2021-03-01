@@ -49,7 +49,6 @@ struct bio_mref_aspect {
 	struct bio_output *output;
 	unsigned long long start_stamp;
 	int status_code;
-	int hash_pos;
 	int alloc_len;
 	bool do_dealloc;
 };
