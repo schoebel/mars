@@ -39,6 +39,9 @@
 
 #define CLIENT_HASH_MAX (PAGE_SIZE / sizeof(struct list_head))
 
+#define CLIENT_HASH_FN(x)			\
+	((unsigned long)(x) % CLIENT_HASH_MAX)
+
 int mars_client_info_timeout = 0;
 
 int mars_client_abort = 10;
@@ -475,14 +478,17 @@ static
 void _hash_insert(struct client_output *output, struct client_mref_aspect *mref_a)
 {
 	struct mref_object *mref = mref_a->object;
-	int hash_index;
+	int ref_id;
+	unsigned int hash_index;
 
 	mutex_lock(&output->mutex);
 	list_del(&mref_a->io_head);
 	list_add_tail(&mref_a->io_head, &output->mref_list);
 	list_del(&mref_a->hash_head);
-	mref->ref_id = ++output->last_id;
-	hash_index = mref->ref_id % CLIENT_HASH_MAX;
+	ref_id = READ_ONCE(output->last_id) + 1;
+	WRITE_ONCE(output->last_id, ref_id);
+	WRITE_ONCE(mref->ref_id, ref_id);
+	hash_index = CLIENT_HASH_FN(ref_id);
 	list_add_tail(&mref_a->hash_head, &output->hash_table[hash_index]);
 	mutex_unlock(&output->mutex);
 }
@@ -592,7 +598,8 @@ int receiver_thread(void *data)
 			break;
 		case CMD_CB:
 		{
-			int hash_index = cmd.cmd_int1 % CLIENT_HASH_MAX;
+			unsigned long id = READ_ONCE(cmd.cmd_int1);
+			unsigned int hash_index = CLIENT_HASH_FN(id);
 
 			mutex_lock(&output->mutex);
 			for (tmp = output->hash_table[hash_index].next; tmp != &output->hash_table[hash_index]; tmp = tmp->next) {
@@ -600,7 +607,7 @@ int receiver_thread(void *data)
 				mref_a = container_of(tmp, struct client_mref_aspect, hash_head);
 				tmp_mref = mref_a->object;
 				CHECK_PTR(tmp_mref, err);
-				if (tmp_mref->ref_id != cmd.cmd_int1)
+				if (READ_ONCE(tmp_mref->ref_id) != cmd.cmd_int1)
 					continue;
 				mref = tmp_mref;
 				list_del_init(&mref_a->hash_head);
