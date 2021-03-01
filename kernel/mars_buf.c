@@ -58,10 +58,11 @@
 ///////////////////////// own helper functions ////////////////////////
 
 static inline
-int buf_hash_fn(loff_t base_index)
+unsigned int buf_hash_fn(loff_t base_index)
 {
 	// simple and stupid
-	loff_t tmp;
+	unsigned long long tmp;
+
 	tmp = base_index ^ (base_index / MARS_BUF_HASH_MAX);
 	//tmp ^= tmp / (MARS_BUF_HASH_MAX * MARS_BUF_HASH_MAX);
 	return ((unsigned)tmp) % MARS_BUF_HASH_MAX;
@@ -72,7 +73,7 @@ static
 struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, struct buf_head *new)
 {
 	
-	int hash = buf_hash_fn(base_index);
+	unsigned int hash = buf_hash_fn(base_index);
 	spinlock_t *lock = &brick->cache_anchors[hash].hash_lock;
 	struct list_head *start	= &brick->cache_anchors[hash].hash_anchor;
 	struct list_head *tmp;
@@ -131,7 +132,7 @@ struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, s
 static inline
 bool _remove_hash(struct buf_brick *brick, struct buf_head *bf)
 {
-	int hash;
+	unsigned int hash;
 	spinlock_t *lock;
 	unsigned long flags;
 	bool success = false;
