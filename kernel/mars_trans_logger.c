@@ -291,10 +291,11 @@ struct writeback_info *qq_wb_fetch(struct logger_queue *q)
 
 
 static inline
-int hash_fn(loff_t pos)
+unsigned int hash_fn(loff_t pos)
 {
 	// simple and stupid
-	long base_index = pos >> REGION_SIZE_BITS;
+	unsigned long base_index = pos >> REGION_SIZE_BITS;
+
 	base_index += base_index / HASH_TOTAL / 7;
 	return base_index % HASH_TOTAL;
 }
@@ -322,7 +323,8 @@ struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos,
 		if (++count > max) {
 			max = count;
 			if (!(max % 100)) {
-				MARS_INF("hash max=%d hash=%d (pos=%lld)\n", max, hash_fn(pos), pos);
+				MARS_INF("hash max=%d hash=%u (pos=%lld)\n",
+					 max, hash_fn(pos), pos);
 			}
 		}
 #endif
@@ -366,7 +368,7 @@ static noinline
 struct trans_logger_mref_aspect *hash_find(struct trans_logger_brick *brick, loff_t pos, int *max_len, bool find_unstable)
 {
 	
-	int hash = hash_fn(pos);
+	unsigned int hash = hash_fn(pos);
 	struct trans_logger_hash_anchor *sub_table = brick->hash_table[hash / HASH_PER_PAGE];
 	struct trans_logger_hash_anchor *start = &sub_table[hash % HASH_PER_PAGE];
 	struct trans_logger_mref_aspect *res;
@@ -393,7 +395,7 @@ struct trans_logger_mref_aspect *hash_find(struct trans_logger_brick *brick, lof
 static noinline
 void hash_insert(struct trans_logger_brick *brick, struct trans_logger_mref_aspect *elem_a)
 {
-        int hash = hash_fn(elem_a->object->ref_pos);
+        unsigned int hash = hash_fn(elem_a->object->ref_pos);
 	struct trans_logger_hash_anchor *sub_table = brick->hash_table[hash / HASH_PER_PAGE];
 	struct trans_logger_hash_anchor *start = &sub_table[hash % HASH_PER_PAGE];
         //unsigned int flags;
@@ -425,7 +427,7 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 {
 	loff_t pos = *_pos;
 	int len = *_len;
-        int hash = hash_fn(pos);
+        unsigned int hash = hash_fn(pos);
 	struct trans_logger_hash_anchor *sub_table = brick->hash_table[hash / HASH_PER_PAGE];
 	struct trans_logger_hash_anchor *start = &sub_table[hash % HASH_PER_PAGE];
 	struct list_head *tmp;
@@ -542,13 +544,14 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 {
 	struct list_head *tmp;
 	struct trans_logger_hash_anchor *start = NULL;
+#ifdef CONFIG_MARS_DEBUG
 	int first_hash = -1;
-	//unsigned int flags;
+#endif
 
 	for (tmp = list->next; tmp != list; tmp = tmp->next) {
 		struct trans_logger_mref_aspect *elem_a;
 		struct mref_object *elem;
-		int hash;
+		unsigned int hash;
 
 		elem_a = container_of(tmp, struct trans_logger_mref_aspect, collect_head);
 		elem = elem_a->object;
@@ -559,10 +562,12 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 		if (!start) {
 			struct trans_logger_hash_anchor *sub_table = brick->hash_table[hash / HASH_PER_PAGE];
 			start = &sub_table[hash % HASH_PER_PAGE];
-			first_hash = hash;
 			down_write(&start->hash_mutex);
+#ifdef CONFIG_MARS_DEBUG
+			first_hash = hash;
 		} else if (unlikely(hash != first_hash)) {
 			MARS_ERR("oops, different hashes: %d != %d\n", hash, first_hash);
+#endif
 		}
 		
 		if (!elem_a->is_hashed) {
@@ -587,7 +592,7 @@ void hash_ensure_stableness(struct trans_logger_brick *brick, struct trans_logge
 {
 	if (!mref_a->is_stable) {
 		struct mref_object *mref = mref_a->object;
-		int hash = hash_fn(mref->ref_pos);
+		unsigned int hash = hash_fn(mref->ref_pos);
 		struct trans_logger_hash_anchor *sub_table = brick->hash_table[hash / HASH_PER_PAGE];
 		struct trans_logger_hash_anchor *start = &sub_table[hash % HASH_PER_PAGE];
 
