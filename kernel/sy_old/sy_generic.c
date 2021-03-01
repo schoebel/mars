@@ -1716,10 +1716,10 @@ void _mars_order(struct mars_cookie *cookie, struct mars_dent *dent)
 		for (;;) {
 			struct list_head *hash_try;
 			struct list_head *hash_try_anchor;
-			int hash_try_index = test->d_hash;
+			unsigned int hash_try_index = test->d_hash;
 
 #ifdef CONFIG_MARS_DEBUG
-			if (unlikely(hash_try_index < 0 || hash_try_index >= MARS_GLOBAL_HASH)) {
+			if (unlikely(hash_try_index >= MARS_GLOBAL_HASH)) {
 				MARS_ERR("bad hash index %d\n", hash_try_index);
 				break;
 			}
