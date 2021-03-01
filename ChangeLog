@@ -140,6 +140,16 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable125
+	* Critical fixes: over a very long time, internal int counters
+	  could wrap around into negative numbers and cause kernel Oops.
+	* Critical safeguard: about once per 1 million of operation hours,
+	  a stacktrace was observed in copy_endio().
+	  At the moment, I have no reproducer for the very spurious
+	  bug. Hopefully it is fixed now.
+	* Minor improvement: alternation between sync and replay
+	  now avoids unnecessary waiting.
+
 mars0.1astable124
 	* Major improvement: support for LTS kernels 4.19 and 5.4.
 	  A new pre-patch generation obeying the new ksys_* conventions
