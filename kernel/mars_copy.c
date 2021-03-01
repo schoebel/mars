@@ -325,6 +325,11 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data,
 	if (mref->ref_prio < MARS_PRIO_HIGH || mref->ref_prio > MARS_PRIO_LOW)
 		mref->ref_prio = brick->io_prio;
 
+	st = &GET_STATE(brick, index);
+	st->len = len;
+	WRITE_ONCE(st->table[queue], mref);
+	WRITE_ONCE(st->active[queue], true);
+
 	SETUP_CALLBACK(mref, copy_endio, mref_a);
 	
 	input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
@@ -339,15 +344,14 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data,
 		MARS_DBG("shorten len %d < %d\n", mref->ref_len, len);
 	}
 	if (queue == 0) {
-		GET_STATE(brick, index).len = mref->ref_len;
-	} else if (unlikely(mref->ref_len < GET_STATE(brick, index).len)) {
-		MARS_DBG("shorten len %d < %d at index %d\n", mref->ref_len, GET_STATE(brick, index).len, index);
-		GET_STATE(brick, index).len = mref->ref_len;
+		st->len = mref->ref_len;
+	} else if (unlikely(mref->ref_len < st->len)) {
+		MARS_DBG("shorten len %d < %d at index %d\n",
+			 mref->ref_len,
+			 st->len,
+			 index);
+		st->len = mref->ref_len;
 	}
-
-	st = &GET_STATE(brick, index);
-	WRITE_ONCE(st->table[queue], mref);
-	WRITE_ONCE(st->active[queue], true);
 
 	if (flags & MREF_WRITE) {
 		atomic_inc(&brick->copy_write_flight);
