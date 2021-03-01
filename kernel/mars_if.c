@@ -331,7 +331,7 @@ void _if_unplug(struct if_input *input)
 	while (!list_empty(&tmp_list)) {
 		struct if_mref_aspect *mref_a;
 		struct mref_object *mref;
-		int hash_index;
+		unsigned int hash_index;
 		unsigned long flags;
 
 		mref_a = container_of(tmp_list.next, struct if_mref_aspect, plug_head);
@@ -620,7 +620,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 		while (bv_len > 0) {
 			struct list_head *tmp;
-			int hash_index;
+			unsigned int hash_index;
 			int this_len = 0;
 			unsigned long flags;
 
@@ -629,7 +629,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 			MARS_IO("rw = %d i = %d pos = %lld  bv_page = %p bv_offset = %d data = %p bv_len = %d\n", rw, i, pos, bvec->bv_page, bvec->bv_offset, data, bv_len);
 
-			hash_index = (pos / IF_HASH_CHUNK) % IF_HASH_MAX;
+			hash_index = ((unsigned long)pos / IF_HASH_CHUNK) % IF_HASH_MAX;
 
 #ifdef REQUEST_MERGING
 			traced_lock(&input->hash_table[hash_index].hash_lock, flags);

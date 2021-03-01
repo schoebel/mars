@@ -56,7 +56,7 @@ struct if_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head plug_head;
 	struct list_head hash_head;
-	int hash_index;
+	unsigned int hash_index;
 	int bio_count;
 	int current_len;
 	int max_len;
