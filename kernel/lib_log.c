@@ -490,6 +490,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	 * the time of starting the transfer.
 	 */
 	offset = logst->validflag_offset;
+	barrier();
 	DATA_PUT(data, offset, (char)1);
 
 	nr_cb = cb_info->nr_cb++;
