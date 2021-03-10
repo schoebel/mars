@@ -814,6 +814,11 @@ int log_scan(void *buf,
 				*dealloc = new_buf;
 				crc_buf = new_buf;
 				crc_len = decompr_len;
+			} else {
+				MARS_ERR(SCAN_TXT "decompression 0x%x failure len=%d/%d\n",
+					 SCAN_PAR,  check_flags,
+					 crc_len, decompr_len);
+				return -EBADMSG;
 			}
 		}
 
