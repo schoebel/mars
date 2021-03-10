@@ -148,19 +148,43 @@ err:
 }
 
 static
-int log_compress(struct log_status *logst, int len, __u32 *result_flags)
+int log_compress(struct log_status *logst, int len,
+		 int *padded_len,
+		 __u32 *result_flags)
 {
 	struct mref_object *mref = logst->log_mref;
+	void *inplace_buf;
+	void *compr_buf;
+	int compr_len;
 	int res;
 
 	if (unlikely(!mref || !mref->ref_data || len <= 0))
 		return 0;
 
-	res = mars_compress(mref->ref_data + logst->payload_offset, len,
-			    NULL, 0,
+	compr_len = len + compress_overhead;
+	compr_buf = brick_mem_alloc(compr_len);
+	inplace_buf = mref->ref_data + logst->payload_offset;
+
+	res = mars_compress(inplace_buf, len,
+			    compr_buf, compr_len,
 			    enabled_log_compressions,
 			    result_flags);
-	used_log_compression = *result_flags;
+
+	/* pad the resulting length */
+	if (res > 0) {
+		int pad_len = ((res + (_LOG_PAD - 1)) / _LOG_PAD) * _LOG_PAD;
+
+		/* Did compression pay off? */
+		if (pad_len < len) {
+			*padded_len = pad_len;
+			used_log_compression = *result_flags;
+			memcpy(inplace_buf, compr_buf, res);
+		} else {
+			*padded_len = len;
+			res = 0;
+		}
+	}
+	brick_mem_free(compr_buf);
 	return res;
 }
 
@@ -411,13 +435,16 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	decompr_len = 0;
 	padded_len = len;
 	if (logst->do_compress) {
-		int new_len = log_compress(logst, len, &check_flags);
-		int padded_new_len = ((new_len + (_LOG_PAD-1)) / _LOG_PAD) * _LOG_PAD;
+		__u32 new_check_flags = check_flags;
+		int new_len = log_compress(logst, len,
+					   &padded_len,
+					   &new_check_flags);
 
-		if (new_len > 0 && padded_new_len < len) {
+		/* When compression did not pay off, treat as uncompressed */
+		if (new_len > 0) {
+			check_flags = new_check_flags;
 			/* exchange the lengths */
 			decompr_len = len;
-			padded_len = padded_new_len;
 			len = new_len;
 		}
 	}

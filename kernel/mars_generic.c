@@ -705,9 +705,7 @@ int mars_compress(void *src_data,
 		if (!dst_data) {
 			tmp_buf = brick_mem_alloc(max_len);
 		} else if (dst_len < max_len) {
-			MARS_ERR("LZO compression buffer too small: %d < %d\n",
-				 dst_len, max_len);
-			return 0;
+			return -ENOSPC;
 		}
 		wrkmem = brick_mem_alloc(LZO1X_1_MEM_COMPRESS);
 
@@ -717,7 +715,7 @@ int mars_compress(void *src_data,
 		/* ensure that the result is really smaller */
 		if (status == LZO_E_OK &&
 		    res_len > 0 &&
-		    res_len < src_len) {
+		    res_len <= dst_len) {
 			used_compression = MREF_COMPRESS_LZO;
 			*result_flags |= MREF_COMPRESS_LZO;
 			res = res_len;
@@ -746,9 +744,7 @@ int mars_compress(void *src_data,
 		if (!dst_data) {
 			tmp_buf = brick_mem_alloc(max_len);
 		} else if (dst_len < max_len) {
-			MARS_ERR("LZ4 compression buffer too small: %d < %lu\n",
-				 dst_len, max_len);
-			return 0;
+			return -ENOSPC;
 		}
 
 		wrkmem = brick_block_alloc(0, LZ4_MEM_COMPRESS);
@@ -766,7 +762,9 @@ int mars_compress(void *src_data,
 				      tmp_buf, &res_len,
 				      wrkmem);
 #endif
-		if (likely(!status && res_len > 0 && res_len < src_len)) {
+		if (likely(!status &&
+			   res_len > 0 &&
+			   res_len <= dst_len)) {
 			used_compression = MREF_COMPRESS_LZ4;
 			*result_flags |= MREF_COMPRESS_LZ4;
 			res = res_len;
@@ -792,9 +790,7 @@ int mars_compress(void *src_data,
 		if (!dst_data) {
 			tmp_buf = brick_mem_alloc(src_len);
 		} else if (dst_len < src_len) {
-			MARS_ERR("ZLIB compression buffer too small: %d < %d\n",
-				 dst_len, src_len);
-			return 0;
+			return -ENOSPC;
 		}
 
 		status = zlib_deflateInit(&stream, mars_zlib_compression_level);
@@ -813,7 +809,8 @@ int mars_compress(void *src_data,
 			goto zlib_err;
 
 		status = zlib_deflateEnd(&stream);
-		if (status == Z_OK && stream.total_out < src_len) {
+		if (status == Z_OK &&
+		    stream.total_out <= dst_len) {
 			used_compression = MREF_COMPRESS_ZLIB;
 			*result_flags |= MREF_COMPRESS_ZLIB;
 			res = stream.total_out;
