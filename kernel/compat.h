@@ -306,5 +306,9 @@ extern int _compat_unlink(
 #ifndef READ_ONCE
 #define READ_ONCE ACCESS_ONCE
 #endif
+#ifndef WRITE_ONCE
+/* quirk */
+#define WRITE_ONCE(dst,src) ACCESS_ONCE(dst) = (src)
+#endif
 
 #endif /* _MARS_COMPAT */
