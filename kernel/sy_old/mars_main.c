@@ -6254,6 +6254,7 @@ static int make_sync(struct mars_dent *dent)
 	    !dent->new_link) {
 		return 0;
 	}
+	rot = dent->d_parent->d_private;
 
 	do_start = _check_allow(dent->d_parent->d_path, "attach");
 
@@ -6282,10 +6283,6 @@ static int make_sync(struct mars_dent *dent)
 			     "cannot sync because syncstatus link is bad");
 		do_start = false;
 	}
-
-	rot = dent->d_parent->d_private;
-	status = -ENOENT;
-	CHECK_PTR(rot, done);
 
 	rot->allow_update = true;
 	assign_dent(&rot->syncstatus_dent, dent);
