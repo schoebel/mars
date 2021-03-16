@@ -273,7 +273,7 @@ struct key_value_pair {
 static inline
 void clear_vals(struct key_value_pair *start)
 {
-	while (start->key) {
+	while (start && start->key) {
 		brick_string_free(start->val);
 		brick_string_free(start->old_val);
 		start++;
@@ -286,7 +286,7 @@ void _show_vals(struct key_value_pair *start,
 	       const char *add,
 	       bool silent)
 {
-	while (start->key) {
+	while (start && start->key) {
 		char *dst = path_make("%s/actual-%s/msg-%s%s", path, my_id(), add, start->key);
 
 		// show the old message for some keep_time if no new one is available
@@ -337,9 +337,9 @@ void show_vals(struct key_value_pair *start, const char *path, const char *add)
 }
 
 static inline
-void assign_keys(struct key_value_pair *start, const char **keys)
+void assign_keys(struct key_value_pair *start, const char * const * keys)
 {
-	while (*keys) {
+	while (start && *keys) {
 		start->key = *keys;
 		start++;
 		keys++;
@@ -349,7 +349,7 @@ void assign_keys(struct key_value_pair *start, const char **keys)
 static inline
 struct key_value_pair *find_key(struct key_value_pair *start, const char *key)
 {
-	while (start->key) {
+	while (start && start->key) {
 		if (!strcmp(start->key, key)) {
 			return start;
 		}
@@ -369,7 +369,6 @@ void _make_msg(int line, struct key_value_pair *pair, const char *fmt, ...)
 	va_list args;
 
 	if (unlikely(!pair || !pair->key)) {
-		MARS_ERR("bad pointer %p at line %d\n", pair, line);
 		return;
 	}
 	pair->last_jiffies = jiffies;
@@ -403,7 +402,7 @@ struct key_value_pair gbl_pairs[] = {
 	make_msg(find_key(gbl_pairs, key), fmt, ##args)
 
 static
-const char *rot_keys[] = {
+const char * const rot_keys[] = {
 	// from _update_version_link()
 	"err-versionlink-skip",
 	// from _update_info()
@@ -420,7 +419,6 @@ const char *rot_keys[] = {
 	"err-splitbrain-detected",
 	// from _update_file()
 	"inf-fetch",
-	"inf-fetch-start",
 	// from make_sync()
 	"inf-sync",
 	"inf-sync-start",
@@ -437,8 +435,10 @@ const char *rot_keys[] = {
 	NULL,
 };
 
+#define NR_ROT_KEYS (sizeof(rot_keys) / sizeof(char *))
+
 #define make_rot_msg(rot, key, fmt, args...)			\
-	make_msg(find_key(&(rot)->msgs[0], key), fmt, ##args)
+	make_msg(find_key((rot)->msgs, key), fmt, ##args)
 
 
 #define IS_EXHAUSTED()             (mars_emergency_mode > 0)
@@ -914,7 +914,7 @@ struct mars_rotate {
 	bool infs_is_dirty[INFS_MAX];
 	struct trans_logger_info infs[INFS_MAX];
 	struct trans_logger_info current_inf;
-	struct key_value_pair msgs[sizeof(rot_keys) / sizeof(char*)];
+	struct key_value_pair msgs[NR_ROT_KEYS];
 };
 
 static struct rw_semaphore rot_sem = __RWSEM_INITIALIZER(rot_sem);
@@ -2396,13 +2396,15 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 #endif
 	const char *argv[2] = { tmp, file };
 	struct copy_brick *copy = NULL;
-	struct key_value_pair *msg_pair = find_key(rot->msgs, "inf-fetch");
+	struct key_value_pair *msg_pair;
 	loff_t start_pos;
 	bool do_start = true;
 	int status = -ENOMEM;
 
-	if (unlikely(!tmp))
+	if (unlikely(!rot || !tmp))
 		goto done;
+
+	msg_pair = find_key(rot->msgs, "inf-fetch");
 
 	rot->fetch_round = 0;
 
