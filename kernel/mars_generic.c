@@ -466,7 +466,7 @@ void benchmark_digest(char *name, __u32 flags)
 				  }
 			  }
 			  );
-	printk("%-10s digest duration = %12lld ns\n",
+	printk(KERN_INFO "%-10s digest duration = %12lld ns\n",
 	       name, delta);
  err:
 	kfree(testpage);
@@ -980,7 +980,7 @@ void benchmark_compress(char *name, __u32 flags)
 				  }
 			  }
 			  );
-	printk("%-8s compress duration = %12lld ns\n", name, delta);
+	printk(KERN_INFO "%-8s compress duration = %12lld ns\n", name, delta);
 
  err:
 	kfree(testpage);
