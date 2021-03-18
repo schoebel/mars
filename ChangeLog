@@ -140,6 +140,18 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable126
+	* Critical regression from mars0.1astable125: uninitialized
+	  pointer could lead to (rare) kernel oops. Not observed in
+	  practice until now. Please upgrade for safety.
+	* Major fix, only relevant when logfile compression was enabled:
+	  In certain corner cases, compressed logfiles were not always
+	  decompressible, as indicated by DefectiveLog error messages.
+	  Workaround was possible by switching compression off, cron,
+	  and invalidate.
+	* Minor compat fix: very old kernels missing WRITE_ONCE.
+	* Minor cosmetics: benchmark results now priority KERN_INFO.
+
 mars0.1astable125
 	* Critical fixes: over a very long time, internal int counters
 	  could wrap around into negative numbers and cause kernel Oops.
