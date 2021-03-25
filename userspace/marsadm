@@ -2404,7 +2404,7 @@ sub get_global_versions {
   }
   my $compat_path = "$mars/compat-deletions";
   $compat_deletions = get_link($compat_path, 2);
-  if ($kernel_features_version < 3 || !defined($compat_deletions) || $compat_deletions eq "") {
+  if ($kernel_features_version < 3) {
     $compat_deletions = 1;
   }
 }
