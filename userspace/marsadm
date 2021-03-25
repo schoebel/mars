@@ -5672,7 +5672,7 @@ sub link_purge_global {
   # only when a new kernel is running
   if (defined($kernel_compat) && $kernel_compat ne "") {
     my $keep_time = 0;
-    my $glob = "{alive,buildtag,emergency,features,rest-space,time,tree,usable,used,compat-alive}";
+    my $glob = "{alive,buildtag,emergency,features,rest-space,time,tree,usable,used,compat-alivelinks}";
     # Notice: $kernel_compat might differ from $compat_alivelinks
     # For example, this can happen temporarily during join-cluster & co
     if (!$kernel_compat) {
