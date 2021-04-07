@@ -2777,13 +2777,13 @@ sub _activate_resource {
   lprint "OK, resource directory '$resdir' exists.\n";
   my $check_link = "$resdir/size";
   $max_retry = 3;
-  until (get_link($check_link, 1)) {
-    my $condition = "return get_link(\"$check_link\", 1);";
+  until (get_link($check_link, 2)) {
+    my $condition = "return get_link(\"$check_link\", 2);";
     update_cluster($cmd, $res, "*", $condition);
     if ($max_retry-- < 0) {
       ldie "link '$check_link' does not exist.\n";
     }
-    lwarn "link '$check_link' does not yet exist, fetching...\n";
+    lprint "link '$check_link' does not yet exist, fetching...\n";
     $need_trigger++;
     sleep(3);
   }
