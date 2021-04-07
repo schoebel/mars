@@ -1370,7 +1370,8 @@ sub make_systemd_unit {
 	}
       }
     }
-    lwarn "cannot find any systemd template for target unit '$target'\n";
+    my $do_warn = lamport_glob("$mars/resource-*/systemd-*-unit");
+    lwarn "cannot find any systemd template for target unit '$target'\n" if $do_warn;
     $generated_units{$gen_key} = 0;
     return 0;
   }
