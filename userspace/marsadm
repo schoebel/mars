@@ -7278,7 +7278,8 @@ sub eval_fn {
       $peer = $$env{"host"} unless $peer;
       return 0 if eval_fn($env, "is-primary", $peer);
       my $replay  = get_link($$env{"resdir"} . "/replay-$peer", 1);
-      $replay =~ m/^(log-[^,]+),([0-9]*)/;
+      my $matches = $replay =~ m/^(log-[^,]+),([0-9]*)/;
+      return 1 unless $matches;
       my $logfile = $$env{"resdir"} . "/" . $1;
       my $logpos = $2;
       if (! -r $logfile) {
