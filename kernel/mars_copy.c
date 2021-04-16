@@ -1099,6 +1099,7 @@ void copy_reset_statistics(struct copy_brick *brick)
 static int copy_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct copy_mref_aspect *ini = (void*)_ini;
+
 	(void)ini;
 	return 0;
 }
@@ -1106,6 +1107,7 @@ static int copy_mref_aspect_init_fn(struct generic_aspect *_ini)
 static void copy_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct copy_mref_aspect *ini = (void*)_ini;
+
 	(void)ini;
 }
 
