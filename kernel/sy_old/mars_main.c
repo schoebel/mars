@@ -4740,7 +4740,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 		const char *primary = ordered_readlink(tmp, NULL);
 
 		brick_string_free(tmp);
-		if (likely(primary && primary[0])) {
+		if (likely(primary && primary[0]) && strcmp(primary, "(none)")) {
 			int cmp = compare_replaylinks(rot, primary, my_id(), &min_pos, NULL);
 
 			MARS_DBG("want_sync compare=%d min_pos=%lld\n",
