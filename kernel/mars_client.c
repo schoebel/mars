@@ -555,8 +555,6 @@ int receiver_thread(void *data)
         while (brick->power.button && !brick_thread_should_stop()) {
 		struct mars_cmd cmd = {};
 		struct list_head *tmp;
-		struct client_mref_aspect *mref_a = NULL;
-		struct mref_object *mref = NULL;
 
 		if (ch->recv_error) {
 			/* The protocol may be out of sync.
@@ -598,17 +596,29 @@ int receiver_thread(void *data)
 			break;
 		case CMD_CB:
 		{
+			struct mref_object *mref = NULL;
+			struct client_mref_aspect *mref_a = NULL;
 			unsigned long id = READ_ONCE(cmd.cmd_int1);
 			unsigned int hash_index = CLIENT_HASH_FN(id);
 
 			mutex_lock(&output->mutex);
 			for (tmp = output->hash_table[hash_index].next; tmp != &output->hash_table[hash_index]; tmp = tmp->next) {
 				struct mref_object *tmp_mref;
-				mref_a = container_of(tmp, struct client_mref_aspect, hash_head);
-				tmp_mref = mref_a->object;
+				struct client_mref_aspect *tmp_mref_a;
+
+				tmp_mref_a = container_of(tmp, struct client_mref_aspect, hash_head);
+				/* Treat any non-members of io lists as absent.
+				 * This may happen during re-assignment to another io list.
+				 */
+				if (unlikely(list_empty(&tmp_mref_a->io_head)))
+					continue;
+
+				tmp_mref = tmp_mref_a->object;
 				CHECK_PTR(tmp_mref, err);
 				if (READ_ONCE(tmp_mref->ref_id) != cmd.cmd_int1)
 					continue;
+
+				mref_a = tmp_mref_a;
 				mref = tmp_mref;
 				list_del_init(&mref_a->hash_head);
 				list_del_init(&mref_a->io_head);
@@ -621,7 +631,7 @@ int receiver_thread(void *data)
 			}
 			mutex_unlock(&output->mutex);
 
-			if (unlikely(!mref)) {
+			if (unlikely(!mref || !mref_a)) {
 				MARS_WRN("got unknown callback id %d on '%s' @%s\n",
 					 cmd.cmd_int1,
 					 output->bundle.path,
@@ -1073,6 +1083,7 @@ void client_reset_statistics(struct client_brick *brick)
 static int client_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct client_mref_aspect *ini = (void*)_ini;
+
 	INIT_LIST_HEAD(&ini->io_head);
 	INIT_LIST_HEAD(&ini->hash_head);
 	INIT_LIST_HEAD(&ini->tmp_head);
@@ -1082,6 +1093,7 @@ static int client_mref_aspect_init_fn(struct generic_aspect *_ini)
 static void client_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct client_mref_aspect *ini = (void*)_ini;
+
 	CHECK_HEAD_EMPTY(&ini->io_head);
 	CHECK_HEAD_EMPTY(&ini->hash_head);
 }
