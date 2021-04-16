@@ -171,7 +171,7 @@ void __clear_mref(struct copy_brick *brick, struct mref_object *mref, unsigned q
 }
 
 static
-void _clear_mref(struct copy_brick *brick, int index, unsigned queue)
+void _clear_mref(struct copy_brick *brick, unsigned index, unsigned queue)
 {
 	struct copy_state *st = &GET_STATE(brick, index);
 	struct mref_object *mref = READ_ONCE(st->table[queue]);
@@ -180,7 +180,7 @@ void _clear_mref(struct copy_brick *brick, int index, unsigned queue)
 		/* This should never happen */
 		if (unlikely(READ_ONCE(st->active[queue]))) {
 			WRITE_ONCE(st->active[queue], false);
-			MARS_ERR("clearing active mref, index = %d queue = %u\n",
+			MARS_ERR("clearing active mref, index = %u queue = %u\n",
 				 index, queue);
 		}
 		__clear_mref(brick, mref, queue);
@@ -191,7 +191,8 @@ void _clear_mref(struct copy_brick *brick, int index, unsigned queue)
 static
 void _clear_all_mref(struct copy_brick *brick)
 {
-	int i;
+	unsigned i;
+
 	for (i = 0; i < NR_COPY_REQUESTS; i++) {
 		GET_STATE(brick, i).state = COPY_STATE_START;
 		_clear_mref(brick, i, 0);
@@ -219,7 +220,7 @@ void copy_endio(struct generic_callback *cb)
 	struct copy_input *input;
 	struct copy_brick *brick;
 	struct copy_state *st;
-	int index;
+	unsigned index;
 	unsigned queue;
 	int error = 0;
 
@@ -243,7 +244,7 @@ void copy_endio(struct generic_callback *cb)
 	index = GET_INDEX(mref->ref_pos);
 	st = &GET_STATE(brick, index);
 
-	MARS_IO("queue = %u index = %d pos = %lld status = %d\n",
+	MARS_IO("queue = %u index = %u pos = %lld status = %d\n",
 		queue, index,
 		mref->ref_pos,
 		cb->cb_error);
@@ -256,7 +257,7 @@ void copy_endio(struct generic_callback *cb)
 		goto exit;
 	}
 	if (unlikely(READ_ONCE(st->table[queue]) != mref)) {
-		MARS_ERR("table corruption at %d %u (%p => %p)\n",
+		MARS_ERR("table corruption at %u %u (%p => %p)\n",
 			 index,
 			 queue, st->table[queue],
 			 mref);
@@ -269,7 +270,10 @@ void copy_endio(struct generic_callback *cb)
 		 * Worst case just produces more error output.
 		 */
 		if (!brick->copy_error_count++) {
-			MARS_WRN("IO error %d on index %d, old state = %d\n", cb->cb_error, index, st->state);
+			MARS_WRN("IO error %d on index %u, old state = %d\n",
+				 cb->cb_error,
+				 index,
+				 st->state);
 		}
 	}
 
@@ -296,7 +300,7 @@ err:
 
 static
 int _make_mref(struct copy_brick *brick,
-	       int index,
+	       unsigned index,
 	       unsigned queue,
 	       void *data,
 	       loff_t pos, loff_t end_pos,
@@ -362,7 +366,7 @@ int _make_mref(struct copy_brick *brick,
 	if (queue == 0) {
 		st->len = mref->ref_len;
 	} else if (unlikely(mref->ref_len < st->len)) {
-		MARS_DBG("shorten len %d < %d at index %d\n",
+		MARS_DBG("shorten len %d < %d at index %u\n",
 			 mref->ref_len,
 			 st->len,
 			 index);
@@ -417,7 +421,7 @@ __u32 _make_flags(bool verify_mode, bool is_local)
  * calling this too often does no harm, just costs performance).
  */
 static
-int _next_state(struct copy_brick *brick, int index, loff_t pos)
+int _next_state(struct copy_brick *brick, unsigned index, loff_t pos)
 {
 	struct mref_object *mref0;
 	struct mref_object *mref1;
@@ -434,7 +438,7 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 restart:
 	state = next_state;
 
-	MARS_IO("ENTER index=%d state=%d pos=%lld table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d prev=%d len=%d error=%d do_restart=%d\n",
+	MARS_IO("ENTER index=%u state=%d pos=%lld table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d prev=%d len=%d error=%d do_restart=%d\n",
 		index,
 		state,
 		pos,
@@ -465,7 +469,8 @@ restart:
 		 */
 		if ((unsigned long)READ_ONCE(st->table[0]) |
 		    (unsigned long)READ_ONCE(st->table[1])) {
-			MARS_ERR("index %d not startable\n", index);
+			MARS_ERR("index %u not startable at pos=%lld\n",
+				 index, pos);
 			progress = -EPROTO;
 			goto idle;
 		}
@@ -596,12 +601,14 @@ restart:
 		}
 		mref0 = READ_ONCE(st->table[0]);
 		if (unlikely(!mref0 || !mref0->ref_data)) {
-			MARS_ERR("src buffer for write does not exist, state %d at index %d\n", state, index);
+			MARS_ERR("src buffer for write does not exist, state %d at index %u\n",
+				 state, index);
 			progress = -EILSEQ;
 			break;
 		}
 		if (unlikely(READ_ONCE(st->active[0]))) {
-			MARS_ERR("src buffer for write is active, state %d at index %d\n", state, index);
+			MARS_ERR("src buffer for write is active, state %d at index %u\n",
+				 state, index);
 			progress = -EILSEQ;
 			break;
 		}
@@ -657,7 +664,8 @@ restart:
 		 */
 		goto idle;
 	default:
-		MARS_ERR("illegal state %d at index %d\n", state, index);
+		MARS_ERR("illegal state %d at index %u\n",
+			 state, index);
 		_clash(brick);
 		progress = -EILSEQ;
 	}
@@ -677,7 +685,7 @@ idle:
 		progress++;
 	}
 
-	MARS_IO("LEAVE index=%d state=%d next_state=%d table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d prev=%d len=%d error=%d progress=%d\n",
+	MARS_IO("LEAVE index=%u state=%d next_state=%d table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d prev=%d len=%d error=%d progress=%d\n",
 		index,
 		st->state,
 		next_state,
@@ -742,7 +750,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 	for (pos = this_start;
 	     pos < brick->copy_end || brick->append_mode > 1;
 	     pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
-		int index = GET_INDEX(pos);
+		unsigned index = GET_INDEX(pos);
 		struct copy_state *st = &GET_STATE(brick, index);
 		int this_progress;
 
@@ -773,7 +781,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 		for (pos = brick->copy_last;
 		     pos < brick->copy_end;
 		     pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
-			int index = GET_INDEX(pos);
+			unsigned index = GET_INDEX(pos);
 			struct copy_state *st = &GET_STATE(brick, index);
 
 			if (st->state != COPY_STATE_FINISHED) {
