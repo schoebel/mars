@@ -485,9 +485,13 @@ void _hash_insert(struct client_output *output, struct client_mref_aspect *mref_
 	list_del(&mref_a->io_head);
 	list_add_tail(&mref_a->io_head, &output->mref_list);
 	list_del(&mref_a->hash_head);
-	ref_id = READ_ONCE(output->last_id) + 1;
-	WRITE_ONCE(output->last_id, ref_id);
-	WRITE_ONCE(mref->ref_id, ref_id);
+	ref_id = READ_ONCE(mref->ref_id);
+	while (!ref_id) {
+		/* This may wrap around without harm */
+		ref_id = READ_ONCE(output->last_id) + 1;
+		WRITE_ONCE(output->last_id, ref_id);
+		WRITE_ONCE(mref->ref_id, ref_id);
+	}
 	hash_index = CLIENT_HASH_FN(ref_id);
 	list_add_tail(&mref_a->hash_head, &output->hash_table[hash_index]);
 	mutex_unlock(&output->mutex);
