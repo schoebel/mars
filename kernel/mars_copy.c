@@ -750,7 +750,8 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 
 	prev = -1;
 	if (this_start > brick->copy_last) {
-		prev = GET_INDEX(this_start - COPY_CHUNK);
+		if (this_start >= COPY_CHUNK)
+			prev = GET_INDEX(this_start - COPY_CHUNK);
 		max -= (this_start - brick->copy_last) / COPY_CHUNK;
 		all_max = max;
 	}
