@@ -328,20 +328,22 @@ struct generic_output {
 };
 
 #define GENERIC_OUTPUT_CALL(OUTPUT,OP,ARGS...)				\
-	(								\
+	({								\
+		mb();							\
 		(void)LOCK_CHECK(OP),					\
 		(OUTPUT) && (OUTPUT)->ops->OP ?				\
 		(OUTPUT)->ops->OP(OUTPUT, ##ARGS) :			\
-		-ENOTCONN						\
-	)
+		-ENOTCONN;						\
+	})
 		
 #define GENERIC_INPUT_CALL(INPUT,OP,ARGS...)				\
-	(							        \
+	({								\
+		mb();							\
 		(void)LOCK_CHECK(OP),					\
 		(INPUT) && (INPUT)->connect ?				\
 		GENERIC_OUTPUT_CALL((INPUT)->connect, OP, ##ARGS) :	\
-		-ENOTCONN						\
-	)
+		-ENOTCONN;						\
+	})
 
 #define GENERIC_BRICK_OPS(BRITYPE)					\
 	int (*brick_switch)(struct BRITYPE##_brick *brick);		\
