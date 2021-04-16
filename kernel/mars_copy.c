@@ -294,7 +294,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data,
 	int len;
 	int status = -EAGAIN;
 
-	if (brick->clash || end_pos <= 0)
+	if (brick->clash || pos < 0 || end_pos <= 0 || pos >= end_pos)
 		goto done;
 
 	mref = copy_alloc_mref(brick);
