@@ -70,7 +70,7 @@ struct copy_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct copy_input *input;
 	struct copy_brick *brick;
-	int queue;
+	unsigned queue;
 };
 
 struct copy_brick {

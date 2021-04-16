@@ -162,15 +162,16 @@ unsigned _determine_input(struct copy_brick *brick, struct mref_object *mref)
 #define GET_OFFSET(pos)   ((pos) % COPY_CHUNK)
 
 static
-void __clear_mref(struct copy_brick *brick, struct mref_object *mref, int queue)
+void __clear_mref(struct copy_brick *brick, struct mref_object *mref, unsigned queue)
 {
 	struct copy_input *input;
+
 	input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
 	GENERIC_INPUT_CALL(input, mref_put, mref);
 }
 
 static
-void _clear_mref(struct copy_brick *brick, int index, int queue)
+void _clear_mref(struct copy_brick *brick, int index, unsigned queue)
 {
 	struct copy_state *st = &GET_STATE(brick, index);
 	struct mref_object *mref = READ_ONCE(st->table[queue]);
@@ -179,7 +180,8 @@ void _clear_mref(struct copy_brick *brick, int index, int queue)
 		/* This should never happen */
 		if (unlikely(READ_ONCE(st->active[queue]))) {
 			WRITE_ONCE(st->active[queue], false);
-			MARS_ERR("clearing active mref, index = %d queue = %d\n", index, queue);
+			MARS_ERR("clearing active mref, index = %d queue = %u\n",
+				 index, queue);
 		}
 		__clear_mref(brick, mref, queue);
 		WRITE_ONCE(st->table[queue], NULL);
@@ -218,7 +220,7 @@ void copy_endio(struct generic_callback *cb)
 	struct copy_brick *brick;
 	struct copy_state *st;
 	int index;
-	int queue;
+	unsigned queue;
 	int error = 0;
 
 	LAST_CALLBACK(cb);
@@ -241,14 +243,23 @@ void copy_endio(struct generic_callback *cb)
 	index = GET_INDEX(mref->ref_pos);
 	st = &GET_STATE(brick, index);
 
-	MARS_IO("queue = %d index = %d pos = %lld status = %d\n", queue, index, mref->ref_pos, cb->cb_error);
-	if (unlikely(queue < 0 || queue >= 2)) {
-		MARS_ERR("bad queue %d\n", queue);
+	MARS_IO("queue = %u index = %d pos = %lld status = %d\n",
+		queue, index,
+		mref->ref_pos,
+		cb->cb_error);
+
+	if (unlikely(queue >= 2)) {
+		MARS_ERR("bad queue %u at %p %p\n",
+			 queue,
+			 cb, mref_a);
 		error = -EINVAL;
 		goto exit;
 	}
 	if (unlikely(READ_ONCE(st->table[queue]) != mref)) {
-		MARS_ERR("table corruption at %d %d (%p => %p)\n", index, queue, st->table[queue], mref);
+		MARS_ERR("table corruption at %d %u (%p => %p)\n",
+			 index,
+			 queue, st->table[queue],
+			 mref);
 		error = -EEXIST;
 		goto exit;
 	}
@@ -284,7 +295,10 @@ err:
 }
 
 static
-int _make_mref(struct copy_brick *brick, int index, int queue, void *data,
+int _make_mref(struct copy_brick *brick,
+	       int index,
+	       unsigned queue,
+	       void *data,
 	       loff_t pos, loff_t end_pos,
 	       __u32 flags)
 {
