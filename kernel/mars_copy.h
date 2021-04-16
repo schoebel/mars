@@ -62,7 +62,7 @@ struct copy_state {
 	char state;
 	bool writeout;
 	short prev;
-	short len;
+	unsigned short len;
 	short error;
 };
 

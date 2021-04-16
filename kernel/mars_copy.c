@@ -310,8 +310,8 @@ int _make_mref(struct copy_brick *brick,
 	struct copy_mref_aspect *mref_a;
 	struct copy_input *input;
 	struct copy_state *st;
-	int offset;
-	int len;
+	unsigned offset;
+	unsigned len;
 	int status = -EAGAIN;
 
 	if (brick->clash || pos < 0 || end_pos <= 0 || pos >= end_pos)
@@ -336,7 +336,10 @@ int _make_mref(struct copy_brick *brick,
 	offset = GET_OFFSET(pos);
 	len = COPY_CHUNK - offset;
 	if (pos + len > end_pos) {
-		len = end_pos - pos;
+		unsigned new_len = end_pos - pos;
+
+		if (new_len < len)
+			len = new_len;
 	}
 	mref->ref_len = len;
 	mref->ref_prio = (flags & MREF_WRITE) ?
@@ -356,17 +359,22 @@ int _make_mref(struct copy_brick *brick,
 	mref_a->input = input;
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
 	if (unlikely(status < 0)) {
-		MARS_ERR("status = %d\n", status);
+		MARS_ERR("mref_get %u status = %d\n",
+			 len, status);
 		mars_free_mref(mref);
 		goto done;
 	}
+#ifdef CONFIG_MARS_DEBUG
+	/* in general, mref_get() may deliver a shorter buffer */
 	if (unlikely(mref->ref_len < len)) {
-		MARS_DBG("shorten len %d < %d\n", mref->ref_len, len);
+		MARS_DBG("shorten len %d < %u\n",
+			 mref->ref_len, len);
 	}
+#endif
 	if (queue == 0) {
 		st->len = mref->ref_len;
 	} else if (unlikely(mref->ref_len < st->len)) {
-		MARS_DBG("shorten len %d < %d at index %u\n",
+		MARS_DBG("shorten len %d < %u at index %u\n",
 			 mref->ref_len,
 			 st->len,
 			 index);
@@ -438,7 +446,7 @@ int _next_state(struct copy_brick *brick, unsigned index, loff_t pos)
 restart:
 	state = next_state;
 
-	MARS_IO("ENTER index=%u state=%d pos=%lld table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d prev=%d len=%d error=%d do_restart=%d\n",
+	MARS_IO("ENTER index=%u state=%d pos=%lld table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d prev=%d len=%u error=%d do_restart=%d\n",
 		index,
 		state,
 		pos,
@@ -685,7 +693,7 @@ idle:
 		progress++;
 	}
 
-	MARS_IO("LEAVE index=%u state=%d next_state=%d table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d prev=%d len=%d error=%d progress=%d\n",
+	MARS_IO("LEAVE index=%u state=%d next_state=%d table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d prev=%d len=%u error=%d progress=%d\n",
 		index,
 		st->state,
 		next_state,
@@ -781,6 +789,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 		for (pos = brick->copy_last;
 		     pos < brick->copy_end;
 		     pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
+			unsigned len;
 			unsigned index = GET_INDEX(pos);
 			struct copy_state *st = &GET_STATE(brick, index);
 
@@ -809,12 +818,13 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			}
 			// rollover
 			st->state = COPY_STATE_START;
-			count += st->len;
+			len = st->len;
+			count += len;
 			// check contiguity
-			if (unlikely(GET_OFFSET(pos) + st->len != COPY_CHUNK)) {
+			if (unlikely(GET_OFFSET(pos) + len != COPY_CHUNK)) {
 				/* Short read detected: shorten the copy_end.
 				 */
-				brick->copy_end = pos + st->len;
+				brick->copy_end = pos + len;
 				break;
 			}
 		}
