@@ -158,8 +158,8 @@ unsigned _determine_input(struct copy_brick *brick, struct mref_object *mref)
 	return INPUT_A_IO;
 }
 
-#define GET_INDEX(pos)    (((pos) / COPY_CHUNK) % NR_COPY_REQUESTS)
-#define GET_OFFSET(pos)   ((pos) % COPY_CHUNK)
+#define GET_INDEX(pos)    (((unsigned long)(pos) / COPY_CHUNK) % NR_COPY_REQUESTS)
+#define GET_OFFSET(pos)   ((unsigned long)(pos) % COPY_CHUNK)
 
 static
 void __clear_mref(struct copy_brick *brick, struct mref_object *mref, unsigned queue)
