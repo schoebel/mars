@@ -48,7 +48,7 @@
 #define MAX_COPY_REQUESTS  (PAGE_SIZE / sizeof(struct copy_state*) * STATES_PER_PAGE)
 
 #define GET_STATE(brick,index)						\
-	((brick)->st[(index) / STATES_PER_PAGE][(index) % STATES_PER_PAGE])
+	((brick)->st[(unsigned)(index) / STATES_PER_PAGE][(unsigned)(index) % STATES_PER_PAGE])
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -129,7 +129,7 @@ int _clear_clash(struct copy_brick *brick)
  * crashes during inconsistency caused by partial replication of writes.
  */
 static
-int _determine_input(struct copy_brick *brick, struct mref_object *mref)
+unsigned _determine_input(struct copy_brick *brick, struct mref_object *mref)
 {
 	int below;
 	int behind;
@@ -200,9 +200,11 @@ void _clear_all_mref(struct copy_brick *brick)
 static
 void _clear_state_table(struct copy_brick *brick)
 {
-	int i;
+	unsigned i;
+
 	for (i = 0; i < MAX_SUB_TABLES; i++) {
 		struct copy_state *sub_table = brick->st[i];
+
 		memset(sub_table, 0, PAGE_SIZE);
 	}
 }
@@ -920,8 +922,9 @@ static int copy_get_info(struct copy_output *output, struct mars_info *info)
 static int copy_ref_get(struct copy_output *output, struct mref_object *mref)
 {
 	struct copy_input *input;
-	int index;
+	unsigned index;
 	int status;
+
 	index = _determine_input(output->brick, mref);
 	input = output->brick->inputs[index];
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
@@ -935,7 +938,7 @@ static void copy_ref_put(struct copy_output *output, struct mref_object *mref)
 {
 	struct copy_brick *brick = output->brick;
 	struct copy_input *input;
-	int index;
+	unsigned index;
 
 	index = _determine_input(brick, mref);
 	input = brick->inputs[index];
@@ -949,7 +952,8 @@ static void copy_ref_put(struct copy_output *output, struct mref_object *mref)
 static void copy_ref_io(struct copy_output *output, struct mref_object *mref)
 {
 	struct copy_input *input;
-	int index;
+	unsigned index;
+
 	index = _determine_input(output->brick, mref);
 	input = output->brick->inputs[index];
 	GENERIC_INPUT_CALL(input, mref_io, mref);
@@ -1079,7 +1083,8 @@ MARS_MAKE_STATICS(copy);
 static
 void _free_pages(struct copy_brick *brick)
 {
-	int i;
+	unsigned i;
+
 	for (i = 0; i < MAX_SUB_TABLES; i++) {
 		struct copy_state *sub_table = brick->st[i];
 
@@ -1094,7 +1099,7 @@ void _free_pages(struct copy_brick *brick)
 
 static int copy_brick_construct(struct copy_brick *brick)
 {
-	int i;
+	unsigned i;
 
 	brick->st = brick_block_alloc(0, PAGE_SIZE);
 	if (unlikely(!brick->st)) {
@@ -1108,7 +1113,7 @@ static int copy_brick_construct(struct copy_brick *brick)
 
 		// this should be usually optimized away as dead code
 		if (unlikely(i >= MAX_SUB_TABLES)) {
-			MARS_ERR("sorry, subtable index %d is too large.\n", i);
+			MARS_ERR("sorry, subtable index %u is too large.\n", i);
 			_free_pages(brick);
 			return -EINVAL;
 		}
@@ -1116,7 +1121,7 @@ static int copy_brick_construct(struct copy_brick *brick)
 		sub_table = brick_block_alloc(0, PAGE_SIZE);
 		brick->st[i] = sub_table;
 		if (unlikely(!sub_table)) {
-			MARS_ERR("cannot allocate state subtable %d.\n", i);
+			MARS_ERR("cannot allocate state subtable %u\n", i);
 			_free_pages(brick);
 			return -ENOMEM;
 		}
