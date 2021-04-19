@@ -140,6 +140,12 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable127
+	* Major fixes / safeguards: very rare stacktraces in copy_endio()
+	  and client_io() are hopefully better addressed now.
+	  I have no reproduced at the moment.
+	* Various minor fixes and improvements.
+
 mars0.1astable126
 	* Critical regression from mars0.1astable125: uninitialized
 	  pointer could lead to (rare) kernel oops. Not observed in
