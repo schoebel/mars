@@ -140,6 +140,12 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable128
+	* Critical fix: inherent races between automatic network re-submission
+	  and completion are compensated now.
+	  Likely, these races could have been the reason for very rare
+	  stack traces.
+
 mars0.1astable127
 	* Major fixes / safeguards: very rare stacktraces in copy_endio()
 	  and client_io() are hopefully better addressed now.
