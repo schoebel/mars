@@ -44,6 +44,7 @@ struct client_mref_aspect {
 	unsigned long submit_jiffies;
 	int alloc_len;
 	bool do_dealloc;
+	bool has_completed;
 };
 
 struct client_brick {
