@@ -672,8 +672,15 @@ int receiver_thread(void *data)
 					 output->bundle.path,
 					 output->bundle.host,
 					 status);
-				if (had_completed)
+				if (had_completed) {
+#if 1
+					printk("ALREADY FINISHED %d\n", mref->_object_cb.cb_error);
+#endif
 					goto has_finished;
+				}
+#if 1
+				printk("RE-INSERT %d\n", mref->_object_cb.cb_error);
+#endif
 				_hash_insert(output, mref_a, true);
 				goto done;
 			}
@@ -684,6 +691,11 @@ int receiver_thread(void *data)
 			if (!had_completed) {
 				SIMPLE_CALLBACK(mref, mref->_object_cb.cb_error);
 			}
+#if 1
+			else {
+				printk("SKIPPED %d\n", mref->_object_cb.cb_error);
+			}
+#endif
 
 		has_finished:
 			client_ref_put(output, mref);
