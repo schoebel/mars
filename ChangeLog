@@ -151,7 +151,17 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
-mars0.1astable128
+mars0.1astable129
+	* Painful regression from mars0.1astable128: rmmod mars (and possibly
+	  some other situations) could hang forever, requiring reboot.
+	  Please upgrade ASAP in case you already have deployed
+	  exactly this version. Do not use it anymore.
+	* Minor fix: when the new prepatch series v2 was used
+	  (LTS kernels 4.19 and 5.4), "modinfo mars" was incorrectly
+	  reporting "no_prepatch". Now the report tells you the
+	  prepatch series (v1 versus v2).
+
+mars0.1astable128 (do not use anymore)
 	* Critical fix: inherent races between automatic network re-submission
 	  and completion are compensated now.
 	  Likely, these races could have been the reason for very rare
