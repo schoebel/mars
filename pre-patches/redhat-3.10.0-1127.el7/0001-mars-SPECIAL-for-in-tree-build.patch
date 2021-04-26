@@ -1,0 +1,36 @@
+From 3d1cfc9efdbf1edd82471840a6d4cc518f902d92 Mon Sep 17 00:00:00 2001
+From: Thomas Schoebel-Theuer <tst@1und1.de>
+Date: Fri, 28 Jun 2013 11:03:14 +0200
+Subject: [PATCH] mars: SPECIAL for in-tree build
+
+---
+ block/Kconfig  | 2 ++
+ block/Makefile | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/block/Kconfig b/block/Kconfig
+index 171304b8720..15dfa8414b2 100644
+--- a/block/Kconfig
++++ b/block/Kconfig
+@@ -118,6 +118,8 @@ source "block/partitions/Kconfig"
+ 
+ endmenu
+ 
++source block/mars/kernel/Kconfig
++
+ endif # BLOCK
+ 
+ config BLOCK_COMPAT
+diff --git a/block/Makefile b/block/Makefile
+index bb6f7b632de..df9b9e3d9ff 100644
+--- a/block/Makefile
++++ b/block/Makefile
+@@ -24,3 +24,5 @@ obj-$(CONFIG_BLOCK_COMPAT)	+= compat_ioctl.o
+ obj-$(CONFIG_BLK_DEV_INTEGRITY)	+= blk-integrity.o
+ obj-$(CONFIG_BLK_MQ_PCI)	+= blk-mq-pci.o
+ obj-$(CONFIG_BLK_DEBUG_FS)	+= blk-mq-debugfs.o
++
++obj-$(CONFIG_MARS)		+= mars/kernel/
+-- 
+2.26.2
+
