@@ -816,7 +816,7 @@ void _destroy_ioctx(struct aio_output *output)
 		mm_segment_t oldfs;
 		int err;
 
-		MARS_DBG("ioctx count = %d destroying %p\n", atomic_read(&ioctx_count), (void*)output->ctxp);
+		printk("ioctx count = %d destroying %p\n", atomic_read(&ioctx_count), (void*)output->ctxp);
 		oldfs = get_fs();
 		set_fs(KERNEL_DS);
 #ifdef MARS_HAS_PREPATCH_V2
@@ -838,7 +838,7 @@ void _destroy_ioctx(struct aio_output *output)
 	mutex_lock(&_fd_lock);
 	fd = output->fd;
 	if (likely(fd >= 0)) {
-		MARS_DBG("destroying fd %d\n", fd);
+		printk("destroying fd %d\n", fd);
 		fd_uninstall(fd);
 		put_unused_fd(fd);
 		output->fd = -1;
@@ -908,6 +908,7 @@ static int _get_fd(void)
 		err = get_unused_fd_flags(0);
 #endif
 		mutex_unlock(&_fd_lock);
+		printk("fh=%d\n", err);
 		/* safety workaround: skip standard Unix filehandles */
 	} while (err >= 0 && err <= 2 && count++ < 3);
  done:
