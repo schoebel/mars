@@ -789,7 +789,8 @@ void fd_uninstall(unsigned int fd)
 	}
 	spin_lock_irqsave(&files->file_lock, flags);
 	fdt = files_fdtable(files);
-	rcu_assign_pointer(fdt->fd[fd], NULL);
+	if (likely(fdt))
+		rcu_assign_pointer(fdt->fd[fd], NULL);
 	spin_unlock_irqrestore(&files->file_lock, flags);
 }
 EXPORT_SYMBOL(fd_uninstall);
