@@ -1053,7 +1053,7 @@ static int aio_submit_thread(void *data)
 					continue;
 				}
 
-				MARS_DBG("ENODATA %lld\n", len);
+				MARS_DBG("ENODATA %d\n", mref->ref_len);
 				_complete(output, mref_a, -ENODATA);
 				continue;
 			}
