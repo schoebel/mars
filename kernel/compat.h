@@ -24,6 +24,7 @@
 #ifndef _MARS_COMPAT
 #define _MARS_COMPAT
 
+#include <generated/uapi/linux/version.h>
 #include <linux/major.h>
 
 /* Detect 5c0ba4e0762e6dabd14a5c276652e2defec38de7
@@ -134,11 +135,6 @@ extern int _compat_unlink(
  */
 #ifdef bio_set_dev
 #define MARS_HAS_SET_DEV
-#endif
-
-/* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */
-#ifdef bio_op
-#define MARS_HAS_NEW_BIO_OP
 #endif
 
 #ifdef bio_end_sector
@@ -310,5 +306,17 @@ extern int _compat_unlink(
 /* quirk */
 #define WRITE_ONCE(dst,src) ACCESS_ONCE(dst) = (src)
 #endif
+
+
+/* specialized compat for RHEL / CentOS / etc */
+
+#ifdef RHEL_MAJOR
+
+#if RHEL_MAJOR <= 7
+#undef MARS_HAS_NEW_BIO_OP
+#define MARS_HAS_PART_STATS_QUEUE
+#endif
+
+#endif /* RHEL_MAJOR */
 
 #endif /* _MARS_COMPAT */

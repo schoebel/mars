@@ -152,7 +152,11 @@ void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
 	const int cpu = part_stat_lock();
 
 	(void)cpu;
+#ifdef MARS_HAS_PART_STATS_QUEUE
+	part_round_stats(input->q, cpu, &input->disk->part0);
+#else
 	part_round_stats(cpu, &input->disk->part0);
+#endif
 	part_stat_inc(cpu, &input->disk->part0, ios[rw]);
 //      remove_this
 #ifdef MARS_HAS_BVEC_ITER
@@ -163,7 +167,11 @@ void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
 	part_stat_add(cpu, &input->disk->part0, sectors[rw], bio->bi_size >> 9);
 #endif
 //      end_remove_this
+#ifdef MARS_HAS_PART_STATS_QUEUE
+	part_inc_in_flight(input->q, &input->disk->part0, rw);
+#else
 	part_inc_in_flight(&input->disk->part0, rw);
+#endif
 	part_stat_unlock();
 	biow->start_time = jiffies;
 }
@@ -177,8 +185,13 @@ void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
 	const int cpu = part_stat_lock();
 	(void)cpu;
 	part_stat_add(cpu, &input->disk->part0, ticks[rw], duration);
+#ifdef MARS_HAS_PART_STATS_QUEUE
+	part_round_stats(input->q, cpu, &input->disk->part0);
+	part_dec_in_flight(input->q, &input->disk->part0, rw);
+#else
 	part_round_stats(cpu, &input->disk->part0);
 	part_dec_in_flight(&input->disk->part0, rw);
+#endif
 	part_stat_unlock();
 }
 
