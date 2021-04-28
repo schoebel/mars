@@ -1,0 +1,36 @@
+From 83806e2ee44d247c89fc58f1f3bd6e66a2a90f6e Mon Sep 17 00:00:00 2001
+From: Thomas Schoebel-Theuer <tst@1und1.de>
+Date: Wed, 28 Apr 2021 15:07:31 +0200
+Subject: [PATCH] mars: SPECIAL for in-tree build
+
+---
+ block/Kconfig  | 2 ++
+ block/Makefile | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/block/Kconfig b/block/Kconfig
+index 68bc82e99..1d9b4b1eb 100644
+--- a/block/Kconfig
++++ b/block/Kconfig
+@@ -182,6 +182,8 @@ source "block/partitions/Kconfig"
+ 
+ endmenu
+ 
++source block/mars/kernel/Kconfig
++
+ endif # BLOCK
+ 
+ config BLOCK_COMPAT
+diff --git a/block/Makefile b/block/Makefile
+index 9ef57ace9..c074adff6 100644
+--- a/block/Makefile
++++ b/block/Makefile
+@@ -36,3 +36,5 @@ obj-$(CONFIG_BLK_DEBUG_FS)	+= blk-mq-debugfs.o
+ obj-$(CONFIG_BLK_DEBUG_FS_ZONED)+= blk-mq-debugfs-zoned.o
+ obj-$(CONFIG_BLK_SED_OPAL)	+= sed-opal.o
+ obj-$(CONFIG_BLK_PM)		+= blk-pm.o
++
++obj-$(CONFIG_MARS)		+= mars/kernel/
+-- 
+2.26.2
+
