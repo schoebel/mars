@@ -1,0 +1,205 @@
+From cfa3aed499f01b3f0ddf3d69ad9f4d9489fc001e Mon Sep 17 00:00:00 2001
+From: Thomas Schoebel-Theuer <tst@1und1.de>
+Date: Mon, 25 Jan 2021 13:03:54 +0100
+Subject: [PATCH] mars: v2 minimum pre-patch for mars
+
+---
+ fs/aio.c                   | 45 ++++++++++++++++++++++++++++++++++----
+ fs/utimes.c                |  2 ++
+ include/linux/aio.h        |  1 +
+ include/linux/syscalls.h   | 10 +++++++++
+ include/uapi/linux/major.h |  1 +
+ mm/page_alloc.c            |  2 ++
+ 6 files changed, 57 insertions(+), 4 deletions(-)
+
+diff --git a/fs/aio.c b/fs/aio.c
+index e81c8583e..426937da0 100644
+--- a/fs/aio.c
++++ b/fs/aio.c
+@@ -191,6 +191,7 @@ struct aio_kiocb {
+ static DEFINE_SPINLOCK(aio_nr_lock);
+ unsigned long aio_nr;		/* current system wide number of aio requests */
+ unsigned long aio_max_nr = 0x10000; /* system wide maximum number of aio requests */
++EXPORT_SYMBOL_GPL(aio_max_nr);
+ /*----end sysctl variables---*/
+ 
+ static struct kmem_cache	*kiocb_cachep;
+@@ -1263,7 +1264,7 @@ static long read_events(struct kioctx *ctx, long min_nr, long nr,
+  *	pointer is passed for ctxp.  Will fail with -ENOSYS if not
+  *	implemented.
+  */
+-SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
++long ksys_io_setup(unsigned nr_events, aio_context_t *ctxp)
+ {
+ 	struct kioctx *ioctx = NULL;
+ 	unsigned long ctx;
+@@ -1292,6 +1293,12 @@ SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
+ out:
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(ksys_io_setup);
++
++SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
++{
++	return ksys_io_setup(nr_events, ctxp);
++}
+ 
+ #ifdef CONFIG_COMPAT
+ COMPAT_SYSCALL_DEFINE2(io_setup, unsigned, nr_events, u32 __user *, ctx32p)
+@@ -1332,7 +1339,7 @@ COMPAT_SYSCALL_DEFINE2(io_setup, unsigned, nr_events, u32 __user *, ctx32p)
+  *	implemented.  May fail with -EINVAL if the context pointed to
+  *	is invalid.
+  */
+-SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
++long ksys_io_destroy(aio_context_t ctx)
+ {
+ 	struct kioctx *ioctx = lookup_ioctx(ctx);
+ 	if (likely(NULL != ioctx)) {
+@@ -1361,6 +1368,12 @@ SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
+ 	pr_debug("EINVAL: invalid context id\n");
+ 	return -EINVAL;
+ }
++EXPORT_SYMBOL_GPL(ksys_io_destroy);
++
++SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
++{
++	return ksys_io_destroy(ctx);
++}
+ 
+ static void aio_remove_iocb(struct aio_kiocb *iocb)
+ {
+@@ -1693,8 +1706,8 @@ static int io_submit_one(struct kioctx *ctx, struct iocb __user *user_iocb,
+  *	are available to queue any iocbs.  Will return 0 if nr is 0.  Will
+  *	fail with -ENOSYS if not implemented.
+  */
+-SYSCALL_DEFINE3(io_submit, aio_context_t, ctx_id, long, nr,
+-		struct iocb __user * __user *, iocbpp)
++long ksys_io_submit(aio_context_t ctx_id, long nr,
++		    struct iocb __user *__user *iocbpp)
+ {
+ 	struct kioctx *ctx;
+ 	long ret = 0;
+@@ -1731,6 +1744,13 @@ SYSCALL_DEFINE3(io_submit, aio_context_t, ctx_id, long, nr,
+ 	percpu_ref_put(&ctx->users);
+ 	return i ? i : ret;
+ }
++EXPORT_SYMBOL_GPL(ksys_io_submit);
++
++SYSCALL_DEFINE3(io_submit, aio_context_t, ctx_id, long, nr,
++		struct iocb __user * __user *, iocbpp)
++{
++	return ksys_io_submit(ctx_id, nr, iocbpp);
++}
+ 
+ #ifdef CONFIG_COMPAT
+ COMPAT_SYSCALL_DEFINE3(io_submit, compat_aio_context_t, ctx_id,
+@@ -1859,6 +1879,23 @@ static long do_io_getevents(aio_context_t ctx_id,
+ 	return ret;
+ }
+ 
++long ksys_io_getevents(aio_context_t ctx_id,
++		       long min_nr,
++		       long nr,
++		       struct io_event __user * events,
++		       struct timespec __user * timeout)
++{
++	struct timespec64	ts;
++
++	if (timeout) {
++		if (unlikely(get_timespec64(&ts, timeout)))
++			return -EFAULT;
++	}
++
++	return do_io_getevents(ctx_id, min_nr, nr, events, timeout ? &ts : NULL);
++}
++EXPORT_SYMBOL_GPL(ksys_io_getevents);
++
+ /* io_getevents:
+  *	Attempts to read at least min_nr events and up to nr events from
+  *	the completion queue for the aio_context specified by ctx_id. If
+diff --git a/fs/utimes.c b/fs/utimes.c
+index 8d51cb508..696262f59 100644
+--- a/fs/utimes.c
++++ b/fs/utimes.c
+@@ -1,4 +1,5 @@
+ // SPDX-License-Identifier: GPL-2.0
++#include <linux/module.h>
+ #include <linux/file.h>
+ #include <linux/mount.h>
+ #include <linux/namei.h>
+@@ -162,6 +163,7 @@ long do_utimes(int dfd, const char __user *filename, struct timespec64 *times,
+ out:
+ 	return error;
+ }
++EXPORT_SYMBOL(do_utimes);
+ 
+ SYSCALL_DEFINE4(utimensat, int, dfd, const char __user *, filename,
+ 		struct timespec __user *, utimes, int, flags)
+diff --git a/include/linux/aio.h b/include/linux/aio.h
+index b83e68dd0..62061e975 100644
+--- a/include/linux/aio.h
++++ b/include/linux/aio.h
+@@ -12,6 +12,7 @@ typedef int (kiocb_cancel_fn)(struct kiocb *);
+ 
+ /* prototypes */
+ #ifdef CONFIG_AIO
++#define HAS_AIO_MAX
+ extern void exit_aio(struct mm_struct *mm);
+ void kiocb_set_cancel_fn(struct kiocb *req, kiocb_cancel_fn *cancel);
+ #else
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index ed03cace6..b30ed8eb0 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -1134,6 +1134,16 @@ asmlinkage long sys_ni_syscall(void);
+  * the ksys_xyzyyz() functions prototyped below.
+  */
+ 
++long ksys_io_submit(aio_context_t ctx_id, long nr,
++		    struct iocb __user *__user *iocbpp);
++long ksys_io_getevents(aio_context_t ctx_id,
++		       long min_nr,
++		       long nr,
++		       struct io_event __user * events,
++		       struct timespec __user * timeout);
++long ksys_io_setup(unsigned nr_events, aio_context_t *ctxp);
++long ksys_io_destroy(aio_context_t ctx);
++
+ int ksys_mount(char __user *dev_name, char __user *dir_name, char __user *type,
+ 	       unsigned long flags, void __user *data);
+ int ksys_umount(char __user *name, int flags);
+diff --git a/include/uapi/linux/major.h b/include/uapi/linux/major.h
+index 7e5fa8e15..edfbce01e 100644
+--- a/include/uapi/linux/major.h
++++ b/include/uapi/linux/major.h
+@@ -149,6 +149,7 @@
+ #define UNIX98_PTY_SLAVE_MAJOR	(UNIX98_PTY_MASTER_MAJOR+UNIX98_PTY_MAJOR_COUNT)
+ 
+ #define DRBD_MAJOR		147
++#define MARS_MAJOR		148
+ #define RTF_MAJOR		150
+ #define RAW_MAJOR		162
+ 
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 2e8629750..8cff68850 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -268,6 +268,7 @@ compound_page_dtor * const compound_page_dtors[] = {
+ };
+ 
+ int min_free_kbytes = 1024;
++EXPORT_SYMBOL(min_free_kbytes);
+ int user_min_free_kbytes = -1;
+ int watermark_scale_factor = 10;
+ 
+@@ -7452,6 +7453,7 @@ static void __setup_per_zone_wmarks(void)
+ 	/* update totalreserve_pages */
+ 	calculate_totalreserve_pages();
+ }
++EXPORT_SYMBOL(setup_per_zone_wmarks);
+ 
+ /**
+  * setup_per_zone_wmarks - called when min_free_kbytes changes
+-- 
+2.26.2
+
