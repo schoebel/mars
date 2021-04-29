@@ -151,6 +151,13 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable132
+	* Major BETA improvement: pre-patches and adaptations for RHEL / CentOS
+	  series 7 and 8 kernels.
+	  The combination with these kernels is only lab-tested (since ShaHoLin
+	  uses Debian for production), and is not yet in production
+	  at other teams inside of 1&1 / Ionos / Strato / Arsys / Fasthosts.
+
 mars0.1astable131
 	* Major fix: long-standing race condition on aspect {de,}allocation.
 	  Was triggering extremely rarely and was very hard to
