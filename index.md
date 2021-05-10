@@ -4,9 +4,9 @@
 
 `git clone git@github.com:schoebel/mars.git`
 
-or https://github.com/schoebel/mars
+or [https://github.com/schoebel/mars](https://github.com/schoebel/mars)
 
-GPLed software AS IS, sponsored by 1&1 Internet SE (www.1und1.de). Contact: tst@1und1.de
+GPLed software AS IS, sponsored by 1&1 Internet SE ([www.1und1.de](https://www.1und1.de)). Contact: tst@1und1.de
 
 ## What is MARS?
 
