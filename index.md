@@ -4,9 +4,9 @@
 
 `git clone git@github.com:schoebel/mars.git`
 
-or https://github.com/schoebel/mars
+or [https://github.com/schoebel/mars](https://github.com/schoebel/mars)
 
-GPLed software AS IS, sponsored by 1&1 Internet SE (www.1und1.de). Contact: tst@1und1.de
+GPLed software AS IS, sponsored by 1&1 Internet SE ([www.1und1.de](https://www.1und1.de)). Contact: tst@1und1.de
 
 ## What is MARS?
 
@@ -37,7 +37,7 @@ distances (less than 50km), due to fundamental properties of distributed systems
 
 ## Documentation / Manual
 
-See https://github.com/schoebel/mars/blob/master/docu/mars-manual.pdf
+See [https://github.com/schoebel/mars/blob/master/docu/mars-user-manual.pdf](https://github.com/schoebel/mars/blob/master/docu/mars-user-manual.pdf)
 
 Intro: the use cases MARS vs DRBD can be found in chapter 1.
 
