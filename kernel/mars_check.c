@@ -26,7 +26,7 @@
  * checks various semantic properties, uses watchdog to find lost callbacks.
  */
 
-/* FIXME: this code has been unused for a long time, it is unlikly
+/* FIXME: this code has been unused for a long time, it is unlikely
  * to work at all.
  */
 
