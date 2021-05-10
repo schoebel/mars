@@ -37,7 +37,7 @@ distances (less than 50km), due to fundamental properties of distributed systems
 
 ## Documentation / Manual
 
-See https://github.com/schoebel/mars/blob/master/docu/mars-manual.pdf
+See [https://github.com/schoebel/mars/blob/master/docu/mars-user-manual.pdf](https://github.com/schoebel/mars/blob/master/docu/mars-user-manual.pdf)
 
 Intro: the use cases MARS vs DRBD can be found in chapter 1.
 
