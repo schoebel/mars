@@ -472,7 +472,7 @@ restart:
 		next_state = COPY_STATE_START;
 		/* fallthrough */
 	case COPY_STATE_START:
-		/* This is the relgular starting state.
+		/* This is the regular starting state.
 		 * It must be zero, automatically entered via memset()
 		 */
 		if ((unsigned long)READ_ONCE(st->table[0]) |

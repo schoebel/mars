@@ -149,7 +149,7 @@ void _set_lamport_nonstrict(struct lamport_clock *clock,
 {
 	protect_lamport_time(lamport_advance);
 
-	/*  Speculate that advaning is not necessary, to avoid the lock
+	/*  Speculate that advancing is not necessary, to avoid the lock
 	 */
 	if (lamport_time_compare(lamport_advance, &clock->lamport_stamp) > 0) {
 		down_write(&clock->lamport_sem);
@@ -191,7 +191,7 @@ void _set_get_lamport(struct lamport_clock *clock,
 }
 EXPORT_SYMBOL_GPL(_set_get_lamport);
 
-/* Protect against illegal values, e.g. from currupt filesystems etc.
+/* Protect against illegal values, e.g. from corrupt filesystems etc.
  */
 
 int max_lamport_future = 30 * 24 * 3600;

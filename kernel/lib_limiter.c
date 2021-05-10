@@ -66,7 +66,7 @@ int mars_limit(struct mars_limiter *lim, int amount)
 		int rate;
 		int max_rate;
 
-		/* Sometimes, raw CPU clocks may do weired things...
+		/* Sometimes, raw CPU clocks may do weird things...
 		 * Small windows in the denominator could fake unrealistic rates.
 		 * Do not divide by too small numbers.
 		 */

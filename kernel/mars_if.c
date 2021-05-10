@@ -420,7 +420,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	const int  sectors = bio_sectors(bio);
 //      remove_this
 /* Adapt to different kernel versions.
- * This is a maintainance nightmare.
+ * This is a maintenance nightmare.
  * Most is provisionary.
  */
 #if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)

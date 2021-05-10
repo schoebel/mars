@@ -59,7 +59,7 @@ char *my_id(void)
 	if (unlikely(!id[0])) {
 		struct new_utsname *u;
 
-		//down_read(&uts_sem); // FIXME: this is currenty not EXPORTed from the kernel!
+		//down_read(&uts_sem); // FIXME: this is currently not EXPORTed from the kernel!
 		u = utsname();
 		if (u) {
 			strncpy(id, u->nodename, sizeof(id));
