@@ -6337,10 +6337,25 @@ sub wait_umount_res {
 
 sub invalidate_res_phase0 {
   my ($cmd, $res) = @_;
+  my $nr_retry = 0;
+  my $status;
+ retry:
   check_not_primary($cmd, $res);
   my $primary = _get_designated_primary($res);
   ldie "for operation '$cmd', some other designated primary must exist (currently there is none)\n" if $primary eq "(none)";
   ldie "Cannot invalidate the designated primary host '$primary'\n" if $primary eq $host;
+  my $emergency_path = "$mars/resource-$res/actual-$primary/has-emergency";
+  my $emergency = get_link($emergency_path, 1);
+  if ($emergency) {
+    lwarn "Primary '$primary' is in emergency mode. Cannot invalidate '$res'.\n";
+    $nr_retry++;
+    sleep($nr_retry);
+    if ($nr_retry <= 5) {
+      update_cluster($cmd, $res, $primary);
+      goto retry;
+    }
+    lwarn "Primary '$primary' is in emergency mode. Cannot invalidate '$res'.\n";
+  }
   return 0;
 }
 
@@ -6438,13 +6453,8 @@ sub invalidate_res_phase9 {
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/fetch", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/replay", 1);
   finish_links();
-  my $emergency_path = "$mars/resource-$res/actual-$primary/has-emergency";
-  my $emergency = get_link($emergency_path, 1);
-  if ($emergency) {
-    lwarn "Primary '$primary' is in emergency mode. Cannot start sync.\n";
-  } else {
-    _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 1);
-  }
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 1);
+  finish_links();
   return 0;
 }
 
