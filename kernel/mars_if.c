@@ -365,8 +365,8 @@ void _if_unplug(struct if_input *input)
 			atomic_inc(&input->total_skip_sync_count);
 #endif
 
-		GENERIC_INPUT_CALL(input, mref_io, mref);
-		GENERIC_INPUT_CALL(input, mref_put, mref);
+		GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
+		GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
 	}
 #ifdef IO_DEBUGGING
 	{

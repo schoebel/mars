@@ -190,19 +190,22 @@ static int check_watchdog(void *data)
 static int check_get_info(struct check_output *output, struct mars_info *info)
 {
 	struct check_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
 static int check_ref_get(struct check_output *output, struct mref_object *mref)
 {
 	struct check_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mref_get, mref);
 }
 
 static void check_ref_put(struct check_output *output, struct mref_object *mref)
 {
 	struct check_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mref_put, mref);
+
+	GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
 }
 
 static void check_ref_io(struct check_output *output, struct mref_object *mref)
@@ -240,7 +243,7 @@ static void check_ref_io(struct check_output *output, struct mref_object *mref)
 		INSERT_CALLBACK(mref, &mref_a->cb, check_endio, mref_a);
 	}
 
-	GENERIC_INPUT_CALL(input, mref_io, mref);
+	GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
 
 	atomic_inc(&mref_a->call_count);
 fatal: ;

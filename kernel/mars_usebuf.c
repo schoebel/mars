@@ -100,7 +100,7 @@ static void _usebuf_endio(struct generic_callback *cb)
 			sub_mref->ref_flags |= MREF_WRITE;
 			_usebuf_copy(mref, sub_mref, 1);
 			mref->ref_flags |= MREF_UPTODATE;
-			GENERIC_INPUT_CALL(mref_a->input, mref_io, sub_mref);
+			GENERIC_INPUT_CALL_VOID(mref_a->input, mref_io, sub_mref);
 			return;
 #endif
 		}
@@ -219,7 +219,7 @@ static void usebuf_ref_put(struct usebuf_output *output, struct mref_object *mre
 	if (!_mref_put(mref))
 		return;
 
-	GENERIC_INPUT_CALL(input, mref_put, sub_mref);
+	GENERIC_INPUT_CALL_VOID(input, mref_put, sub_mref);
 	usebuf_free_mref(mref);
 }
 
@@ -291,7 +291,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 	_usebuf_endio(sub_mref->ref_cb);
 	return;
 #endif
-	GENERIC_INPUT_CALL(input, mref_io, sub_mref);
+	GENERIC_INPUT_CALL_VOID(input, mref_io, sub_mref);
 
 	return;
 

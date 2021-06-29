@@ -172,7 +172,7 @@ int cb_thread(void *data)
 			mref->ref_data = NULL;
 		}
 		if (mref_a->do_put) {
-			GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
+			GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_put, mref);
 			atomic_dec(&brick->in_flight);
 		} else {
 			mars_free_mref(mref);
@@ -271,7 +271,7 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 	}
 	mref_a->do_put = true;
 	atomic_inc(&brick->in_flight);
-	GENERIC_INPUT_CALL(brick->inputs[0], mref_io, mref);
+	GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_io, mref);
 
 done:
 	return status;
@@ -296,7 +296,7 @@ void _clean_list(struct server_brick *brick, struct list_head *start)
 			continue;
 
 		if (mref_a->do_put) {
-			GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
+			GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_put, mref);
 			atomic_dec(&brick->in_flight);
 		} else {
 			mars_free_mref(mref);
@@ -678,25 +678,29 @@ int handler_thread(void *data)
 static int server_get_info(struct server_output *output, struct mars_info *info)
 {
 	struct server_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
 static int server_ref_get(struct server_output *output, struct mref_object *mref)
 {
 	struct server_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mref_get, mref);
 }
 
 static void server_ref_put(struct server_output *output, struct mref_object *mref)
 {
 	struct server_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mref_put, mref);
+
+	GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
 }
 
 static void server_ref_io(struct server_output *output, struct mref_object *mref)
 {
 	struct server_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mref_io, mref);
+
+	GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
 }
 
 static int server_switch(struct server_brick *brick)

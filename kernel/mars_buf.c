@@ -576,7 +576,8 @@ static void _buf_ref_put(struct buf_output *output, struct buf_mref_aspect *mref
 	bf = mref_a->rfa_bf;
 	if (!bf) {
 		struct buf_brick *brick = output->brick;
-		GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
+
+		GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_put, mref);
 		return;
 	}
 
@@ -673,14 +674,14 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 		len = mref->ref_len;
 		
 #ifndef FAKE_IO
-		GENERIC_INPUT_CALL(input, mref_io, mref);
+		GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
 #else
 		// fake IO for testing
 		mref_a->cb.cb_error = status;
 		mref_a->cb.cb_fn(&mref_a->cb);
 #endif
 
-		GENERIC_INPUT_CALL(input, mref_put, mref);
+		GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
 
 		start_data += len;
 		start_pos += len;
@@ -876,7 +877,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 	 */
 	bf = mref_a->rfa_bf;
 	if (!bf) {
-		GENERIC_INPUT_CALL(brick->inputs[0], mref_io, mref);
+		GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_io, mref);
 		return;
 	}
 

@@ -51,12 +51,12 @@ void exit_logst(struct log_status *logst)
 	}
 	if (logst->read_mref) {
 		MARS_DBG("putting read_mref\n");
-		GENERIC_INPUT_CALL(logst->input, mref_put, logst->read_mref);
+		GENERIC_INPUT_CALL_VOID(logst->input, mref_put, logst->read_mref);
 		logst->read_mref = NULL;
 	}
 	if (logst->log_mref) {
 		MARS_DBG("putting log_mref\n");
-		GENERIC_INPUT_CALL(logst->input, mref_put, logst->log_mref);
+		GENERIC_INPUT_CALL_VOID(logst->input, mref_put, logst->log_mref);
 		logst->log_mref = NULL;
 	}
 }
@@ -230,8 +230,8 @@ void log_flush(struct log_status *logst)
 	atomic_inc(&logst->mref_flying);
 	atomic_inc(&global_mref_flying);
 
-	GENERIC_INPUT_CALL(logst->input, mref_io, mref);
-	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
+	GENERIC_INPUT_CALL_VOID(logst->input, mref_io, mref);
+	GENERIC_INPUT_CALL_VOID(logst->input, mref_put, mref);
 
 	logst->log_pos += logst->offset;
 	logst->offset = 0;
@@ -342,7 +342,7 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 	return data + offset;
 
 put:
-	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
+	GENERIC_INPUT_CALL_VOID(logst->input, mref_put, mref);
 	logst->log_mref = NULL;
 	return NULL;
 
@@ -541,7 +541,7 @@ restart:
 	if (!mref || logst->do_free) {
 		loff_t this_len;
 		if (mref) {
-			GENERIC_INPUT_CALL(logst->input, mref_put, mref);
+			GENERIC_INPUT_CALL_VOID(logst->input, mref_put, mref);
 			logst->read_mref = NULL;
 			logst->log_pos += logst->offset;
 			logst->offset = 0;
@@ -583,7 +583,7 @@ restart:
 		logst->got = false;
 		logst->do_free = false;
 
-		GENERIC_INPUT_CALL(logst->input, mref_io, mref);
+		GENERIC_INPUT_CALL_VOID(logst->input, mref_io, mref);
 
 		wait_event_interruptible_timeout(logst->event, logst->got, 60 * HZ);
 		status = -ETIME;
@@ -635,7 +635,7 @@ done:
 done_put:
 	old_offset = logst->offset;
 	if (mref) {
-		GENERIC_INPUT_CALL(logst->input, mref_put, mref);
+		GENERIC_INPUT_CALL_VOID(logst->input, mref_put, mref);
 		logst->read_mref = NULL;
 		logst->log_pos += logst->offset;
 		logst->offset = 0;

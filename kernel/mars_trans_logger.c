@@ -970,7 +970,7 @@ restart:
 	input = brick->inputs[TL_INPUT_READ];
 	CHECK_PTR(input, err);
 
-	GENERIC_INPUT_CALL(input, mref_put, mref);
+	GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
 
 err: ;
 }
@@ -1089,7 +1089,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 
 	input = output->brick->inputs[TL_INPUT_READ];
 
-	GENERIC_INPUT_CALL(input, mref_io, mref);
+	GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
 	return;
 err:
 	MARS_FAT("cannot handle IO\n");
@@ -1465,12 +1465,12 @@ void _fire_one(struct list_head *tmp, bool do_update)
 	sub_input = sub_mref_a->my_input;
 
 #ifdef DO_WRITEBACK
-	GENERIC_INPUT_CALL(sub_input, mref_io, sub_mref);
+	GENERIC_INPUT_CALL_VOID(sub_input, mref_io, sub_mref);
 #else
 	SIMPLE_CALLBACK(sub_mref, 0);
 #endif
 	if (do_update) { // CHECK: shouldn't we do this always?
-		GENERIC_INPUT_CALL(sub_input, mref_put, sub_mref);
+		GENERIC_INPUT_CALL_VOID(sub_input, mref_put, sub_mref);
 	}
 }
 
@@ -2140,7 +2140,7 @@ bool phase3_startio(struct writeback_info *wb)
 		sub_mref = sub_mref_a->object;
 		sub_input = sub_mref_a->my_input;
 
-		GENERIC_INPUT_CALL(sub_input, mref_put, sub_mref);
+		GENERIC_INPUT_CALL_VOID(sub_input, mref_put, sub_mref);
 	}
 
 	update_writeback_info(wb);
@@ -3038,7 +3038,7 @@ int replay_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len
 		SETUP_CALLBACK(mref, replay_endio, mref_a);
 		mref_a->my_brick = brick;
 
-		GENERIC_INPUT_CALL(input, mref_io, mref);
+		GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
 
 		if (unlikely(mref->ref_len <= 0)) {
 			status = -EINVAL;
@@ -3050,7 +3050,7 @@ int replay_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len
 		buf += mref->ref_len;
 		len -= mref->ref_len;
 
-		GENERIC_INPUT_CALL(input, mref_put, mref);
+		GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
 	}
 #endif
 	status = 0;

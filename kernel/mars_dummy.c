@@ -47,6 +47,7 @@ static
 int dummy_get_info(struct dummy_output *output, struct mars_info *info)
 {
 	struct dummy_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
@@ -54,6 +55,7 @@ static
 int dummy_ref_get(struct dummy_output *output, struct mref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mref_get, mref);
 }
 
@@ -61,14 +63,16 @@ static
 void dummy_ref_put(struct dummy_output *output, struct mref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mref_put, mref);
+
+	GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
 }
 
 static
 void dummy_ref_io(struct dummy_output *output, struct mref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mref_io, mref);
+
+	GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
 }
 
 static

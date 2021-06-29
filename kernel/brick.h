@@ -327,23 +327,58 @@ struct generic_output {
 	GENERIC_OUTPUT(generic);
 };
 
-#define GENERIC_OUTPUT_CALL(OUTPUT,OP,ARGS...)				\
+
+#define _GENERIC_OUTPUT_CALL(OUTPUT,OP,ARGS...)				\
 	({								\
-		mb();							\
-		(void)LOCK_CHECK(OP),					\
+		(void)LOCK_CHECK(OP);					\
 		(OUTPUT) && (OUTPUT)->ops->OP ?				\
 		(OUTPUT)->ops->OP(OUTPUT, ##ARGS) :			\
 		-ENOTCONN;						\
 	})
 		
-#define GENERIC_INPUT_CALL(INPUT,OP,ARGS...)				\
+#define GENERIC_OUTPUT_CALL(OUTPUT,OP,ARGS...)				\
+	({								\
+		int __status;						\
+									\
+		mb();							\
+		__status = _GENERIC_OUTPUT_CALL(OUTPUT, OP, ##ARGS);	\
+		mb();							\
+		__status;						\
+	})
+
+#define GENERIC_OUTPUT_CALL_VOID(OUTPUT,OP,ARGS...)			\
 	({								\
 		mb();							\
-		(void)LOCK_CHECK(OP),					\
+		_GENERIC_OUTPUT_CALL(OUTPUT, OP, ##ARGS);		\
+		mb();							\
+	})
+
+
+#define _GENERIC_INPUT_CALL(INPUT,OP,ARGS...)				\
+	({								\
+		(void)LOCK_CHECK(OP);					\
 		(INPUT) && (INPUT)->connect ?				\
-		GENERIC_OUTPUT_CALL((INPUT)->connect, OP, ##ARGS) :	\
+		_GENERIC_OUTPUT_CALL((INPUT)->connect, OP, ##ARGS) :	\
 		-ENOTCONN;						\
 	})
+
+#define GENERIC_INPUT_CALL(INPUT,OP,ARGS...)				\
+	({								\
+		int __status;						\
+									\
+		mb();							\
+		__status = _GENERIC_INPUT_CALL(INPUT, OP, ##ARGS);	\
+		mb();							\
+		__status;						\
+	})
+
+#define GENERIC_INPUT_CALL_VOID(INPUT,OP,ARGS...)			\
+	({								\
+		mb();							\
+		_GENERIC_INPUT_CALL(INPUT, OP, ##ARGS);			\
+		mb();							\
+	})
+
 
 #define GENERIC_BRICK_OPS(BRITYPE)					\
 	int (*brick_switch)(struct BRITYPE##_brick *brick);		\

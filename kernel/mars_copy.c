@@ -167,7 +167,7 @@ void __clear_mref(struct copy_brick *brick, struct mref_object *mref, unsigned q
 	struct copy_input *input;
 
 	input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
-	GENERIC_INPUT_CALL(input, mref_put, mref);
+	GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
 }
 
 static
@@ -389,7 +389,7 @@ int _make_mref(struct copy_brick *brick,
 		atomic_inc(&global_copy_read_flight);
 	}
 
-	GENERIC_INPUT_CALL(input, mref_io, mref);
+	GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
 
 done:
 	return status;
@@ -975,7 +975,7 @@ static void copy_ref_put(struct copy_output *output, struct mref_object *mref)
 
 	index = _determine_input(brick, mref);
 	input = brick->inputs[index];
-	GENERIC_INPUT_CALL(input, mref_put, mref);
+	GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
 	if (atomic_dec_and_test(&brick->io_flight)) {
 		WRITE_ONCE(brick->trigger, true);
 		wake_up_interruptible(&brick->event);
@@ -989,7 +989,7 @@ static void copy_ref_io(struct copy_output *output, struct mref_object *mref)
 
 	index = _determine_input(output->brick, mref);
 	input = output->brick->inputs[index];
-	GENERIC_INPUT_CALL(input, mref_io, mref);
+	GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
 }
 
 static int copy_switch(struct copy_brick *brick)
