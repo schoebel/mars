@@ -456,7 +456,9 @@ done: ;
 EXPORT_SYMBOL_GPL(generic_free);
 
 static
-struct generic_aspect *_new_aspect(struct generic_brick *brick, struct generic_object *obj)
+struct generic_aspect *_new_aspect(struct generic_brick *brick,
+				   struct generic_object *obj,
+				   int nr)
 {
 	struct generic_aspect *res = NULL;
 	const struct generic_brick_type *brick_type = brick->type;
@@ -517,6 +519,7 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick, struct generic_o
 			goto done;
 		}
 	}
+	WRITE_ONCE(obj->aspects[nr], res);
 
 done:
 	return res;
@@ -525,6 +528,7 @@ done:
 struct generic_aspect *generic_get_aspect(struct generic_brick *brick, struct generic_object *obj)
 {
 	struct generic_aspect *res = NULL;
+	struct generic_aspect **all_aspects;
 	int nr;
 
 	CHECK_PTR(brick, done);
@@ -535,12 +539,15 @@ struct generic_aspect *generic_get_aspect(struct generic_brick *brick, struct ge
 		BRICK_ERR("bad nr = %d\n", nr);
 		goto done;
 	}
-
-	res = obj->aspects[nr];
-	if (!res) {
-		res = _new_aspect(brick, obj);
-		obj->aspects[nr] = res;
+	all_aspects = READ_ONCE(obj->aspects);
+	if (unlikely(!all_aspects)) {
+		BRICK_ERR("get_aspect on deleting object %p\n",
+			  obj);
+		goto done;
 	}
+	res = all_aspects[nr];
+	if (!res)
+		res = _new_aspect(brick, obj, nr);
 	CHECK_PTR(res, done);
 	CHECK_PTR(res->object, done);
 	_CHECK(res->object == obj, done);
