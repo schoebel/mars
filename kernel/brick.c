@@ -408,20 +408,30 @@ void generic_free(struct generic_object *object)
 {
 	const struct generic_object_type *object_type;
 	struct generic_object_layout *object_layout;
+	struct generic_aspect **all_aspects;
 	int i;
 
 	CHECK_PTR(object, done);
-	object_type = object->object_type;
+	object_type = READ_ONCE(object->object_type);
+	WRITE_ONCE(object->object_type, NULL);
 	CHECK_PTR_NULL(object_type, done);
 	object_layout = object->object_layout;
 	CHECK_PTR(object_layout, done);
 	atomic_dec(&object_layout->alloc_count);
+
+	all_aspects = READ_ONCE(object->aspects);
+	WRITE_ONCE(object->aspects, NULL);
+	if (!all_aspects)
+		goto free;
+
 	for (i = 0; i < object->aspect_nr_max; i++) {
 		const struct generic_aspect_type *aspect_type;
-		struct generic_aspect *aspect = object->aspects[i];
+		struct generic_aspect *aspect = READ_ONCE(all_aspects[i]);
+
 		if (!aspect)
 			continue;
-		object->aspects[i] = NULL;
+
+		WRITE_ONCE(all_aspects[i], NULL);
 		aspect_type = aspect->aspect_type;
 		CHECK_PTR_NULL(aspect_type, done);
 		if (aspect_type->exit_fn) {
@@ -432,6 +442,7 @@ void generic_free(struct generic_object *object)
 		brick_mem_free(aspect);
 		atomic_dec(&object_layout->aspect_count);
 	}
+ free:
 	if (object_type->exit_fn) {
 		object_type->exit_fn(object);
 	}
