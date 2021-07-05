@@ -461,6 +461,7 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick,
 				   int nr)
 {
 	struct generic_aspect *res = NULL;
+	struct generic_aspect **all_aspects;
 	const struct generic_brick_type *brick_type = brick->type;
 	const struct generic_object_type *object_type;
 	const struct generic_aspect_type *aspect_type;
@@ -474,6 +475,13 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick,
 	aspect_type = brick_type->aspect_types[object_type_nr];
 	CHECK_PTR_NULL(aspect_type, done);
 	
+	all_aspects = READ_ONCE(obj->aspects);
+	if (unlikely(!all_aspects)) {
+		BRICK_WRN("object %p: no aspect %d possible\n",
+			  obj, nr);
+		goto done;
+	}
+
 	size = aspect_type->aspect_size;
 	rest = obj->max_offset - obj->free_offset;
 	if (likely(size <= rest)) {
@@ -519,7 +527,7 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick,
 			goto done;
 		}
 	}
-	WRITE_ONCE(obj->aspects[nr], res);
+	WRITE_ONCE(all_aspects[nr], res);
 
 done:
 	return res;
