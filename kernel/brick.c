@@ -36,6 +36,7 @@
 int _brick_msleep(int msecs, bool shorten)
 {
 	unsigned long timeout;
+
 	flush_signals(current);
 	if (msecs <= 0) {
 		brick_yield();
@@ -116,6 +117,7 @@ int generic_register_brick_type(const struct generic_brick_type *new_type)
 {
 	int i;
 	int found = -1;
+
 	BRICK_DBG("generic_register_brick_type() name=%s\n", new_type->type_name);
 	for (i = 0; i < nr_brick_types; i++) {
 		if (!brick_types[i]) {
@@ -195,6 +197,7 @@ int generic_brick_init_full(
 	for (i = 0; i < brick_type->max_inputs; i++) {
 		struct generic_input *input = data;
 		const struct generic_input_type *type = *input_types++;
+
 		if (!type || type->input_size <= 0) {
 			return -EINVAL;
 		}
@@ -225,6 +228,7 @@ int generic_brick_init_full(
 	for (i = 0; i < brick_type->max_outputs; i++) {
 		struct generic_output *output = data;
 		const struct generic_output_type *type = *output_types++;
+
 		if (!type || type->output_size <= 0) {
 			return -EINVAL;
 		}
@@ -248,6 +252,7 @@ int generic_brick_init_full(
 	}
 	for (i = 0; i < brick_type->max_inputs; i++) {
 		struct generic_input *input = brick->inputs[i];
+
 		if (!input)
 			continue;
 		if (!input->type) {
@@ -263,6 +268,7 @@ int generic_brick_init_full(
 	}
 	for (i = 0; i < brick_type->max_outputs; i++) {
 		struct generic_output *output = brick->outputs[i];
+
 		if (!output)
 			continue;
 		if (!output->type) {
@@ -284,6 +290,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 {
 	int i;
 	int status;
+
 	// first, check all outputs
 	for (i = 0; i < brick->type->max_outputs; i++) {
 		struct generic_output *output = brick->outputs[i];
@@ -301,6 +308,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
         // ok, test succeeded. start destruction...
 	for (i = 0; i < brick->type->max_outputs; i++) {
 		struct generic_output *output = brick->outputs[i];
+
 		if (!output)
 			continue;
 		if (!output->type) {
@@ -318,6 +326,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 	}
 	for (i = 0; i < brick->type->max_inputs; i++) {
 		struct generic_input *input = brick->inputs[i];
+
 		if (!input)
 			continue;
 		if (!input->type) {
@@ -390,6 +399,7 @@ struct generic_object *generic_alloc(struct generic_brick *brick, struct generic
 
 	if (object_type->init_fn) {
 		int status = object_type->init_fn(object);
+
 		if (status < 0) {
 			goto err_free;
 		}
@@ -500,6 +510,7 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick,
 		res->shortcut = true;
 	} else {
 		struct generic_object_layout *object_layout = obj->object_layout;
+
 		CHECK_PTR(object_layout, done);
 		/* Maintain the size hint.
 		 * In future, only small aspects should be integrated into
@@ -508,6 +519,7 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick,
 		 */
 		if (size < PAGE_SIZE / 2) {
 			int max;
+
 			max = obj->free_offset + size;
 			/* This is racy, but races won't do any harm because
 			 * it is just a hint, not essential.
@@ -529,6 +541,7 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick,
 
 	if (aspect_type->init_fn) {
 		int status = aspect_type->init_fn(res);
+
 		if (unlikely(status < 0)) {
 			BRICK_ERR("aspect init %p %p %p status = %d\n", brick, obj, res, status);
 			goto done;
@@ -579,6 +592,7 @@ EXPORT_SYMBOL_GPL(generic_get_aspect);
 void set_button(struct generic_switch *sw, bool val, bool force)
 {
 	bool oldval = sw->button;
+
 	if ((sw->force_off |= force))
 		val = false;
 	if (val != oldval) {
@@ -592,6 +606,7 @@ EXPORT_SYMBOL_GPL(set_button);
 void set_led_on(struct generic_switch *sw, bool val)
 {
 	bool oldval = sw->led_on;
+
 	if (val != oldval) {
 		sw->led_on = val;
 		//sw->trigger = true;
@@ -603,6 +618,7 @@ EXPORT_SYMBOL_GPL(set_led_on);
 void set_led_off(struct generic_switch *sw, bool val)
 {
 	bool oldval = sw->led_off;
+
 	if (val != oldval) {
 		sw->led_off = val;
 		//sw->trigger = true;
@@ -631,6 +647,7 @@ EXPORT_SYMBOL_GPL(set_button_wait);
 const struct meta *find_meta(const struct meta *meta, const char *field_name)
 {
 	const struct meta *tmp;
+
 	for (tmp = meta; tmp->field_name; tmp++) {
 		if (!strcmp(field_name, tmp->field_name)) {
 			return tmp;
