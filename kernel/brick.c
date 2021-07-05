@@ -461,6 +461,7 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick,
 				   int nr)
 {
 	struct generic_aspect *res = NULL;
+	struct generic_aspect *old_aspect;
 	struct generic_aspect **all_aspects;
 	const struct generic_brick_type *brick_type = brick->type;
 	const struct generic_object_type *object_type;
@@ -480,6 +481,12 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick,
 		BRICK_WRN("object %p: no aspect %d possible\n",
 			  obj, nr);
 		goto done;
+	}
+	old_aspect = READ_ONCE(all_aspects[nr]);
+	if (unlikely(old_aspect)) {
+		BRICK_WRN("object %p: aspect index %d already at %p\n",
+			  obj, nr, old_aspect);
+		return old_aspect;
 	}
 
 	size = aspect_type->aspect_size;
