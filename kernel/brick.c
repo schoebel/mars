@@ -448,18 +448,16 @@ void generic_free(struct generic_object *object)
 		WRITE_ONCE(all_aspects[i], NULL);
 		aspect_type = aspect->aspect_type;
 		CHECK_PTR_NULL(aspect_type, done);
-		if (aspect_type->exit_fn) {
+		if (aspect_type->exit_fn)
 			aspect_type->exit_fn(aspect);
-		}
 		if (aspect->shortcut)
 			continue;
 		brick_mem_free(aspect);
 		atomic_dec(&object_layout->aspect_count);
 	}
  free:
-	if (object_type->exit_fn) {
+	if (object_type->exit_fn)
 		object_type->exit_fn(object);
-	}
 	brick_mem_free(object);
 done: ;
 }
