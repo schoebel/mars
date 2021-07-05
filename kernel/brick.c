@@ -409,6 +409,7 @@ void generic_free(struct generic_object *object)
 	const struct generic_object_type *object_type;
 	struct generic_object_layout *object_layout;
 	struct generic_aspect **all_aspects;
+	int aspect_nr_max;
 	int i;
 
 	CHECK_PTR(object, done);
@@ -424,7 +425,10 @@ void generic_free(struct generic_object *object)
 	if (!all_aspects)
 		goto free;
 
-	for (i = 0; i < object->aspect_nr_max; i++) {
+	aspect_nr_max = READ_ONCE(object->aspect_nr_max);
+	WRITE_ONCE(object->aspect_nr_max, 0);
+
+	for (i = 0; i < aspect_nr_max; i++) {
 		const struct generic_aspect_type *aspect_type;
 		struct generic_aspect *aspect = READ_ONCE(all_aspects[i]);
 
