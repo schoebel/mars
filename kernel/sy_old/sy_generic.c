@@ -102,7 +102,7 @@ const struct meta mars_dent_meta[] = {
 EXPORT_SYMBOL_GPL(mars_dent_meta);
 
 //      remove_this
-#ifndef MARS_HAS_PREPATCH
+#if !defined(MARS_HAS_PREPATCH) && !defined(MARS_HAS_PREPATCH_V2)
 /////////////////////////////////////////////////////////////////////
 
 /* The _compat_*() functions are needed for the out-of-tree version
@@ -128,7 +128,9 @@ EXPORT_SYMBOL_GPL(mars_dent_meta);
 #ifndef FLOCK_VERIFY_READ /* detect kernel 4.5-rc1 via acc15575e */
 #define HAS_INODE_LOCK_WRAPPERS
 #endif
+#endif
 
+#ifndef MARS_HAS_PREPATCH
 /* Hack because of 8bcb77fabd7cbabcad49f58750be8683febee92b
  */
 static int __path_parent(const char *name, struct path *path, unsigned flags)
@@ -156,7 +158,9 @@ static int __path_parent(const char *name, struct path *path, unsigned flags)
 	return error;
 #endif
 }
+#endif
 
+#if !defined(MARS_HAS_PREPATCH) && !defined(MARS_HAS_PREPATCH_V2)
 /* code is blindly stolen from symlinkat()
  * and later adapted to various kernels
  */
@@ -272,7 +276,9 @@ out_dput:
 #endif
 	return error;
 }
+#endif
 
+#ifndef MARS_HAS_PREPATCH
 /* This has some restrictions:
  *  - oldname and newname must reside in the same directory
  *  - standard case, no mountpoints inbetween
@@ -403,7 +409,9 @@ exit1:
 exit:
 	return error;
 }
+#endif
 
+#if !defined(MARS_HAS_PREPATCH) && !defined(MARS_HAS_PREPATCH_V2)
 /* This has some restrictions:
  *  - standard case, no mountpoints inbetween
  *  - no security checks (we are anyway called from kernel code)
@@ -616,7 +624,9 @@ int mars_mkdir(const char *path)
 	
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
-#ifdef MARS_HAS_PREPATCH
+#ifdef MARS_HAS_PREPATCH_V2
+	status = ksys_mkdir(path, 0700);
+#elif defined(MARS_HAS_PREPATCH)
 	status = sys_mkdir(path, 0700);
 #else
 	status = _compat_mkdir(path, 0700);
@@ -629,13 +639,17 @@ EXPORT_SYMBOL_GPL(mars_mkdir);
 
 int mars_rmdir(const char *path)
 {
-#ifdef MARS_HAS_PREPATCH
+#if defined(MARS_HAS_PREPATCH) || defined(MARS_HAS_PREPATCH_V2)
 	mm_segment_t oldfs;
 	int status;
 	
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#ifdef MARS_HAS_PREPATCH_V2
+	status = ksys_rmdir(path);
+#else
 	status = sys_rmdir(path);
+#endif
 	set_fs(oldfs);
 
 	return status;
@@ -652,7 +666,9 @@ int mars_unlink(const char *path)
 	
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
-#ifdef MARS_HAS_PREPATCH
+#ifdef MARS_HAS_PREPATCH_V2
+	status = ksys_unlink(path);
+#elif defined(MARS_HAS_PREPATCH)
 	status = sys_unlink(path);
 #else
 	status = _compat_unlink(path);
@@ -739,7 +755,15 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		times[0].tv_nsec = 1;
 	}
 
-#ifdef MARS_HAS_PREPATCH
+#ifdef MARS_HAS_PREPATCH_V2
+	(void)ksys_unlink(tmp);
+	status = ksys_symlink(oldpath, tmp);
+	if (status >= 0) {
+		ksys_lchown(tmp, 0, 0);
+		memcpy(&times[1], &times[0], sizeof(struct lamport_time));
+		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
+	}
+#elif defined(MARS_HAS_PREPATCH)
 	(void)sys_unlink(tmp);
 	status = sys_symlink(oldpath, tmp);
 	if (status >= 0) {
