@@ -168,12 +168,15 @@ loff_t mapfree_real_size(struct mapfree_info *mf)
 
 struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 {
+	struct kstat check_stat = {};
 	struct mapfree_info *mf = NULL;
 	struct list_head *tmp;
 	unsigned int hash = mf_hash(name);
 
 	flags |= O_CLOEXEC;
-	if (!(flags & O_DIRECT)) {
+	if (!(flags & O_DIRECT) &&
+	    mars_stat(name, &check_stat, false) >= 0 &&
+	    (S_ISBLK(check_stat.mode))) {
 		down_read(&mf_table[hash].hash_mutex);
 		for (tmp = mf_table[hash].hash_anchor.next;
 		     tmp != &mf_table[hash].hash_anchor;
