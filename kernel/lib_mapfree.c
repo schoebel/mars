@@ -478,8 +478,10 @@ loff_t mf_get_any_dirty(const char *filename, int stage)
 	     tmp = tmp->next) {
 		struct mapfree_info *mf = container_of(tmp, struct mapfree_info, mf_head);
 		if (!strcmp(mf->mf_name, filename)) {
-			res = mf_dirty_length(mf, stage);
-			break;
+			loff_t len = mf_dirty_length(mf, stage);
+
+			if (len > res)
+				res = len;
 		}
 	}
 	up_read(&mf_table[hash].hash_mutex);
