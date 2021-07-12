@@ -110,9 +110,9 @@ int _clear_clash(struct copy_brick *brick)
 	return old;
 }
 
-/* Current semantics:
+/* Current semantics (NOT REALLY IMPLEMENTED because OUTPUT IS NOT IN USE)
  *
- * All writes are always going to the original input A. They are _not_
+ * All writes from the OUTPUT are always going to the original input A. They are _not_
  * replicated to B.
  *
  * In order to get B really uptodate, you have to replay the right
@@ -136,7 +136,7 @@ unsigned _determine_input(struct copy_brick *brick, struct mref_object *mref)
 	loff_t ref_end;
 
 	if (!brick->utilize_mode || brick->low_dirty)
-		return INPUT_A_IO;
+		return INPUT_A;
 
 	ref_end = mref->ref_pos + mref->ref_len;
 	below = ref_end <= brick->copy_start;
@@ -149,13 +149,13 @@ unsigned _determine_input(struct copy_brick *brick, struct mref_object *mref)
 				wake_up_interruptible(&brick->event);
 			}
 		}
-		return INPUT_A_IO;
+		return INPUT_A;
 	}
 
 	if (below)
-		return INPUT_B_IO;
+		return INPUT_B;
 
-	return INPUT_A_IO;
+	return INPUT_A;
 }
 
 #define GET_INDEX(pos)    (((unsigned long)(pos) / COPY_CHUNK) % NR_COPY_REQUESTS)
@@ -166,7 +166,7 @@ void __clear_mref(struct copy_brick *brick, struct mref_object *mref, unsigned q
 {
 	struct copy_input *input;
 
-	input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
+	input = queue ? brick->inputs[INPUT_B] : brick->inputs[INPUT_A];
 	GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
 }
 
@@ -355,7 +355,7 @@ int _make_mref(struct copy_brick *brick,
 
 	SETUP_CALLBACK(mref, copy_endio, mref_a);
 	
-	input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
+	input = queue ? brick->inputs[INPUT_B] : brick->inputs[INPUT_A];
 	mref_a->input = input;
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
 	if (unlikely(status < 0)) {
@@ -948,7 +948,8 @@ static int _copy_thread(void *data)
 
 static int copy_get_info(struct copy_output *output, struct mars_info *info)
 {
-	struct copy_input *input = output->brick->inputs[INPUT_B_IO];
+	struct copy_input *input = output->brick->inputs[INPUT_B];
+
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
@@ -1052,8 +1053,6 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 "copy_end = %lld "
 		 "check_hint[0] = %lld "
 		 "check_hint[1] = %lld "
-		 "check_hint[2] = %lld "
-		 "check_hint[3] = %lld "
 		 "copy_error = %d "
 		 "copy_error_count = %d "
 		 "verify_ok_count = %d "
@@ -1071,8 +1070,6 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 brick->copy_end,
 		 brick->inputs[0]->check_hint,
 		 brick->inputs[1]->check_hint,
-		 brick->inputs[2]->check_hint,
-		 brick->inputs[3]->check_hint,
 		 brick->copy_error,
 		 brick->copy_error_count,
 		 brick->verify_ok_count,

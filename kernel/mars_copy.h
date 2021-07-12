@@ -26,11 +26,9 @@
 
 #include <linux/wait.h>
 
-#define INPUT_A_IO   0
-#define INPUT_A_COPY 1
-#define INPUT_B_IO   2
-#define INPUT_B_COPY 3
-#define COPY_INPUT_NR 4
+#define INPUT_A       0
+#define INPUT_B       1
+#define COPY_INPUT_NR 2
 
 extern int mars_copy_overlap;
 extern int mars_copy_strict_write_order;

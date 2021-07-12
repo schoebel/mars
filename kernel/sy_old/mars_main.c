@@ -2016,12 +2016,10 @@ int __make_copy(struct mars_dent *belongs,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
 			       switch_copy ? 2 : -1,
 			       "%s",
-			       (const char *[]){"%s", "%s", "%s", "%s"},
-			       4,
+			       (const char *[]){"%s", "%s"},
+			       2,
 			       copy_path,
 			       cc.fullpath[0],
-			       cc.fullpath[0],
-			       cc.fullpath[1],
 			       cc.fullpath[1]);
 	if (copy) {
 		struct copy_brick *_copy = (void*)copy;
