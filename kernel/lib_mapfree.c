@@ -50,7 +50,7 @@ struct mf_hash_anchor {
 	struct task_struct *hash_thread;
 };
 
-#define MAPFREE_HASH 16
+#define MAPFREE_HASH 128
 
 static inline
 unsigned int mf_hash(const char *name)
