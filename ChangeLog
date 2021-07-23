@@ -151,6 +151,23 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable131
+	* Major fix: long-standing race condition on aspect {de,}allocation.
+	  Was triggering extremely rarely and was very hard to
+	  reproduce, but it could lead to rare stacktraces and
+	  to rare kernel hangs.
+	  I am not 100% sure to have fixed it fully, but massive testing
+	  over a long time tells me that it has _at least_ improved.
+	  Further stresstest improvements after safeguarding potentially
+	  misleading callbacks from aio & co over shared kernel files,
+	  where their shared pagecache cannot distinguish different callers.
+	  Possibly more improvements might appear in future releases.
+	  This will take a lot of time for extreme stress-testing.
+	* Minor safeguard: better safeguard of indirect calls via mb().
+	  Theoretically, this should be unnecessary. But I saw some
+	  extremely rare effects (only at a certain hardware class),
+	  so I prefer stability over maximum performance.
+
 mars0.1astable130
 	* Minor improvement: marsadm now compensates race between
 	  emergency mode removal and invalidate.
