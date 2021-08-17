@@ -538,6 +538,9 @@ struct ctl_table io_tuning_table[] = {
 	THRESHOLD_ENTRIES(&aio_io_threshold[1],  "aio_io_w"),
 	THRESHOLD_ENTRIES(&aio_sync_threshold,   "aio_sync"),
 	INT_ENTRY("if_nr_requests", if_nr_requests, 0600),
+#if defined(MARS_HAS_BIO_IO_ACCT) || defined(MARS_HAS_GENERIC_BLK_ACCOUNTING)
+	INT_ENTRY("if_io_acct", mars_io_acct, 0600),
+#endif
 	{}
 };
 

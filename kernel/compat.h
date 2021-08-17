@@ -240,6 +240,19 @@ extern int __oldcompat_unlink(
 #define MARS_HAS_NEW_GENERIC_BLK_ACCOUNTING
 #endif
 
+/* Adapt to e722fff238bbfe6308d7778a8c2163c181bf998a
+ * after 956d510ee78caebc83c0eaeb892db5b239a36a06
+ * detected via 0512a75b98f847c2e9a4b664013424e603e202f7
+ * (see also 24d69293d9a561645e0b4d78c2fb179827e35f53)
+ * and disable the old methods.
+ */
+#ifdef BLK_STS_ZONE_RESOURCE
+#define MARS_HAS_BIO_IO_ACCT
+#undef MARS_HAS_GENERIC_BLK_ACCOUNTING
+#undef MARS_HAS_OLD_BLK_ACCOUNTING
+#undef MARS_HAS_NEW_GENERIC_BLK_ACCOUNTING
+#endif
+
 /* vfs stuff */
 
 /* Adapt to

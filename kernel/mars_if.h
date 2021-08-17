@@ -126,4 +126,8 @@ struct if_brick {
 
 MARS_TYPES(if);
 
+///////////////////////// statistics ////////////////////////
+
+extern int mars_io_acct;
+
 #endif

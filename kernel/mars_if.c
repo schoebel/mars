@@ -102,7 +102,43 @@ static int device_minor = 0;
 
 ///////////////////////// linux operations ////////////////////////
 
-#ifdef MARS_HAS_GENERIC_BLK_ACCOUNTING
+#ifdef MARS_HAS_BIO_IO_ACCT
+/* Now IO accounting is enabled by default.
+ * Thanks to Christoph Hellwig who simplified the upstream a lot.
+ */
+int mars_io_acct = 1;
+
+static inline
+void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
+{
+	struct bio *bio;
+
+	if (!mars_io_acct)
+		return;
+
+	bio = biow->bio;
+	/* We cannot account at certain kernels when bi_disk is unknown.
+	 */
+	if (!bio || !bio->bi_disk)
+		return;
+
+	biow->start_time = bio_start_io_acct(bio);
+}
+
+static inline
+void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
+{
+	struct bio *bio;
+
+	if (!biow->start_time)
+		return;
+
+	bio = biow->bio;
+	bio_end_io_acct(bio, biow->start_time);
+}
+
+/* Check whether some old IO accounting methods are usable */
+#elif defined(MARS_HAS_GENERIC_BLK_ACCOUNTING)
 
 /* Disbaled by default, for saving overhead */
 int mars_io_acct = 0;
@@ -144,6 +180,7 @@ void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
 			    biow->start_time);
 }
 
+/* To disappear in the long term */
 #elif defined(MARS_HAS_OLD_BLK_ACCOUNTING)
 
 static
