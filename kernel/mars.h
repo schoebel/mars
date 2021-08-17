@@ -546,7 +546,11 @@ static inline void use_fake_mm(void)
 	if (!current->mm && mm_fake) {
 		atomic_inc(&mm_fake_count);
 		MARS_DBG("using fake, count=%d\n", atomic_read(&mm_fake_count));
+#ifdef MARS_USE_kthread_use_mm
+		kthread_use_mm(mm_fake);
+#else
 		use_mm(mm_fake);
+#endif
 	}
 }
 
@@ -557,8 +561,12 @@ static inline void unuse_fake_mm(void)
 	if (current->mm == mm_fake && mm_fake) {
 		MARS_DBG("unusing fake, count=%d\n", atomic_read(&mm_fake_count));
 		atomic_dec(&mm_fake_count);
+#ifdef MARS_USE_kthread_use_mm
+		kthread_unuse_mm(mm_fake);
+#else
 		unuse_mm(mm_fake);
 		current->mm = NULL;
+#endif
 	}
 }
 

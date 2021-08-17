@@ -256,6 +256,13 @@ extern int __oldcompat_unlink(
 #include <linux/sched/mm.h>
 #endif
 
+/* Adapt to f5678e7f2ac31c270334b936352f0ef2fe7dd2b3
+ * via 14c3656b7284a8649496584869e8c6642ec1abbb
+ */
+#ifdef MMAP_LOCK_INITIALIZER
+#define MARS_USE_kthread_use_mm
+#endif
+
 /* for networking */
 #include <net/sock.h>
 
