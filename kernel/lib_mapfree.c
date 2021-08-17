@@ -475,9 +475,6 @@ loff_t mf_dirty_length(struct mapfree_info *mf, enum dirty_stage stage)
 	CHECK_PTR_NULL(dl, done);
 
 #ifdef CONFIG_64BIT
-	/* Avoid locking by assuming that 64bit reads are atomic in itself */
-	smp_read_barrier_depends();
-
 	/* Use the real length when no writes are flying.
 	 */
 	if (stage > 0) {
