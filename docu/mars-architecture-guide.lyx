@@ -10690,7 +10690,7 @@ Number of instances
 \begin_inset Text
 
 \begin_layout Plain Layout
-medium
+medium to very high
 \end_layout
 
 \end_inset
@@ -10710,7 +10710,11 @@ low to medium
 \begin_inset Text
 
 \begin_layout Plain Layout
-Typical access
+
+\emph on
+Typical
+\emph default
+ access
 \end_layout
 
 \end_inset
@@ -10893,7 +10897,7 @@ Centralized pool management
 \begin_inset Text
 
 \begin_layout Plain Layout
-per cluster
+per (big) cluster
 \end_layout
 
 \end_inset
