@@ -12774,18 +12774,62 @@ A
 \emph on
 potential
 \emph default
- drawback of block layer replication is that you are typically limited to
- active-passive replication.
- An active-active operation is not impossible at block layer (see combinations
- of DRBD with 
+ drawback of block layer replication is that you will be 
+\emph on
+typically
+\emph default
+ limited to active-passive replication.
+ An active-active operation is generally 
+\emph on
+not impossible
+\emph default
+ at block layer (see combinations of DRBD with 
 \family typewriter
 ocfs2
 \family default
 ), but less common, and less safe to operate.
+ For example, Linbit does 
+\emph on
+not recommend
+\emph default
+ the active-active mode as supported by DRBD, while the newer MARS feature
+ called 
+\begin_inset Quotes eld
+\end_inset
+
+Prosumer Device
+\begin_inset Quotes erd
+\end_inset
+
+ can do it also for non-critical or non-performant purposes, but this is
+ also 
+\emph on
+not recommended
+\emph default
+ for block-level coupling of active-active filesystems like 
+\family typewriter
+ocfs2
+\family default
+ when highly loaded, or when any non-predictable 
+\series bold
+split-brain
+\series default
+ (see unavoidability in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) cannot be easily resolved at higher layers.
 \end_layout
 
 \begin_layout Standard
-This limitation isn't necessarily caused by the choice of layer.
+This limitation / disrecommendation isn't necessarily caused by the choice
+ of layer.
  It is simply caused by the 
 \series bold
 laws of physics
@@ -12796,6 +12840,82 @@ laws of physics
 DSM = Distributed Shared Memory
 \series default
 .
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Pitfalls for Managers and Architects
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ When designing or comparing architectures or implementations, 
+\series bold
+do 
+\emph on
+not skip
+\series default
+\emph default
+ reading section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, even if it 
+\emph on
+looks
+\emph default
+ to you like an 
+\begin_inset Quotes eld
+\end_inset
+
+academic
+\begin_inset Quotes erd
+\end_inset
+
+ explanation.
+ These explanations are about important 
+\series bold
+reasons for project failures
+\series default
+, and explaining why 
+\series bold
+Distributed Systems are 
+\emph on
+generally harder
+\emph default
+ than Local Systems
+\series default
+.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -12812,7 +12932,7 @@ inferior
 \begin_layout Standard
 Therefore: you simply shouldn't try to solve 
 \series bold
-long-distance communication needs
+short or long-distance communication needs
 \series default
  via communication over shared filesystems.
  Even simple producer-consumer scenarios (one-way communication) are less
@@ -12826,6 +12946,7 @@ synchronisation overhead at metadata level
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 3
 status open
 
