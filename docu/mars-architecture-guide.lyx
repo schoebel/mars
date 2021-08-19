@@ -5462,8 +5462,11 @@ another
 model
 \emph default
 , matching the above definition of Cloud Storage.
- The main architectural difference is granularity, as explained in section
- 
+ The main architectural difference is (1) 
+\series bold
+granularity
+\series default
+, as explained in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "sec:Granularity-at-Architecture"
@@ -5473,7 +5476,22 @@ noprefix "false"
 
 \end_inset
 
-, and the stacking order of sub-components.
+, and (2) the 
+\series bold
+stacking order of sub-components
+\series default
+ (cf.
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Layering-Rules"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
 \end_layout
 
 \end_inset
