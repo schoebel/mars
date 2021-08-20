@@ -22798,16 +22798,295 @@ noprefix "false"
  e.g.
  via some simple scripts, and expediting to another host where the snapshots
  are then applied to another ZFS instance.
- When there is less data to be expedited, loop cycle times can go down to
- a few seconds.
+ When there is less data to be expedited, loop cycle times should go down
+ to a few seconds.
  When much data is written at the primary site, loop cycle times will rise
  up.
+ According to some advocates, this should be no problem.
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Important: ZFS is 
+\series bold
+not
+\series default
+ an entirely free OpenSource component.
+ According to 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/ZFS
+\end_layout
+
+\end_inset
+
+ it is a 
+\emph on
+mixture
+\emph default
+ of OpenSource with 
+\series bold
+proprietary
+\series default
+ sub-components.
+ Oracle is its current project owner, and is 
+\emph on
+known
+\emph default
+ in the OpenSource scene for first 
+\emph on
+marketing
+\emph default
+ something as 
+\begin_inset Quotes eld
+\end_inset
+
+free
+\begin_inset Quotes erd
+\end_inset
+
+, but some years later 
+\emph on
+may
+\emph default
+ suddenly decide some 
+\series bold
+fees
+\series default
+ for some 
+\emph on
+sub
+\emph default
+-functionality, forcing you to pay if this strategy was 
+\emph on
+succesful
+\emph default
+ in creating some sort of 
+\series bold
+Vendor Lock-In
+\series default
+ to some of the 
+\emph on
+sub
+\emph default
+-components over the years.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Unfortunately, the mentioned English Wikipedia article does not clearly
+ specify this.
+ When possible, read the corresponding German article in 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://de.wikipedia.org/wiki/ZFS_(Dateisystem)
+\end_layout
+
+\end_inset
+
+.
+ In 2021, there is a footnote text 
+\begin_inset Quotes eld
+\end_inset
+
+Fabian A.
+ Scherschel: Linus Torvalds erteilt ZFS im Linux-Kernel erneute Absage.
+ In: Heise online.
+ 10.
+ Januar 2020.
+ Abgerufen am 22.
+ Mai 2020.
+\begin_inset Quotes erd
+\end_inset
+
+ pointing at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://heise.de/-4633302
+\end_layout
+
+\end_inset
+
+ which tells you that Linus Torvalds has 
+\series bold
+\emph on
+refreshed
+\series default
+\emph default
+ in 2020 his previous 
+\series bold
+\emph on
+decision
+\series default
+\emph default
+ that the out-of-tree ZFS Linux kernel module will 
+\series bold
+not
+\series default
+ be included into the 
+\series bold
+upstream
+\series default
+ Linux kernel.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+\emph on
+Long-Term
+\emph default
+ ZFS Strategy
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ When possible, and for 
+\emph on
+new
+\emph default
+ projects: 
+\series bold
+do 
+\emph on
+not
+\emph default
+ rely on
+\series default
+ the external 
+\series bold
+ZFS
+\series default
+ non-upstream 
+\series bold
+Linux kernel module
+\series default
+ for 
+\series bold
+enterprise-critical
+\series default
+ use cases.
+ History has shown that such non-upstream projects 
+\emph on
+may
+\emph default
+ somewhen slip into some non-maintained state.
+ For a manager, this would more or less lead to some EOL = End Of Life state,
+ or increase your own maintenance effort.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 The following table tries to explain why geo-redundancy is not as simple
- to achieve as believed, at least without addition of sophisticated additional
- means
+ to achieve under Linux as some people seem to believe, at least without
+ addition of 
+\emph on
+highly sophisticated
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice: so-called 
+\begin_inset Quotes eld
+\end_inset
+
+Orchestration Layers
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\series bold
+cannot
+\series default
+ achieve the same level of geo-redundancy as DRBD and MARS can do.
+ Even when so-called Orchestrations would be built geo-redundant in itself
+ in some way, they would form some kind of SPOF = Single Point Of Failure.
+ Notice that they would need 
+\emph on
+their own
+\emph default
+ geo-redundancy, otherwise they would violate Dijkstra's layering rules
+ (see 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Layering-Rules"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+)
+\end_layout
+
+\end_inset
+
+
+\emph default
+ additional means
 \begin_inset Foot
 status open
 
@@ -22825,14 +23104,98 @@ tical storage.
 
 \end_inset
 
-:
+.
+ The table compares the built-in functionality at component level.
+ While DRBD and MARS are rated as they are supported by their creators,
+ ZFS gets some (more or less 
+\begin_inset Quotes eld
+\end_inset
+
+unfair
+\begin_inset Quotes erd
+\end_inset
+
+) 
+\emph on
+advantage
+\emph default
+ by adding some local sysadmin-alike scripts which are then 
+\series bold
+responsible
+\series default
+ for geo-redundancy, together with the external ZFS Linux kernel module.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+From a management viewpoint, ZFS-based replication may easily lead to dependenci
+es from necessary co-work of the following responsibles:
+\end_layout
+
+\begin_layout Enumerate
+Linux kernel upstream.
+\end_layout
+
+\begin_layout Enumerate
+External ZFS kernel module.
+\end_layout
+
+\begin_layout Enumerate
+(Local) sysadmins and/or developers which are responsible for the geo-redundancy
+ functionality (both development + operations), which is 
+\series bold
+not
+\series default
+ provided by the previous participants.
+\end_layout
+
+\begin_layout Plain Layout
+In contrast, here is the future 
+\emph on
+envisioned
+\emph default
+ responsibility for MARS geo-redundancy:
+\end_layout
+
+\begin_layout Enumerate
+Linux kernel upstream, where Linus Torvalds is the boss and the MARS developers
+ are members of his community, producing and maintaining 
+\series bold
+generic
+\series default
+ sub-components usable 
+\emph on
+everywhere
+\emph default
+ on the world.
+\end_layout
+
+\begin_layout Enumerate
+Local sysadmins, responsible for 
+\series bold
+operations
+\series default
+ of specific Linux-based 
+\series bold
+instances
+\series default
+.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
 \noindent
 \align center
 \begin_inset Tabular
-<lyxtabular version="3" rows="15" columns="4">
+<lyxtabular version="3" rows="17" columns="4">
 <features tabularvalignment="middle">
 <column alignment="left" valignment="top">
 <column alignment="center" valignment="top">
@@ -22843,7 +23206,7 @@ tical storage.
 \begin_inset Text
 
 \begin_layout Plain Layout
-OpenSource Component
+(non-)OpenSource Component
 \end_layout
 
 \end_inset
@@ -22870,7 +23233,7 @@ MARS
 \begin_inset Text
 
 \begin_layout Plain Layout
-ZFS
+ZFS (+scripts)
 \end_layout
 
 \end_inset
@@ -23145,7 +23508,7 @@ yes
 \begin_inset Text
 
 \begin_layout Plain Layout
-no
+no (+hard)
 \end_layout
 
 \end_inset
@@ -23183,7 +23546,7 @@ yes
 \begin_inset Text
 
 \begin_layout Plain Layout
-no
+no (+hard)
 \end_layout
 
 \end_inset
@@ -23221,7 +23584,7 @@ yes
 \begin_inset Text
 
 \begin_layout Plain Layout
-no
+no (+hard)
 \end_layout
 
 \end_inset
@@ -23232,7 +23595,7 @@ no
 \begin_inset Text
 
 \begin_layout Plain Layout
-Built-in data overflow handling
+Built-in delta-overflow handling
 \end_layout
 
 \end_inset
@@ -23270,7 +23633,7 @@ no, missing
 \begin_inset Text
 
 \begin_layout Plain Layout
-Unnoticed data loss due to overflow
+Unnoticed data loss due to delta overflow
 \end_layout
 
 \end_inset
@@ -23304,11 +23667,61 @@ possible
 </cell>
 </row>
 <row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\emph on
+Higher 
+\emph default
+space for 
+\emph on
+long-lasting
+\emph default
+ fullsync
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes, 
+\begin_inset Formula $\lessapprox*2$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
 <cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
-Split-brain awareness
+Built-in split-brain awareness
 \end_layout
 
 \end_inset
@@ -23335,7 +23748,7 @@ yes
 \begin_inset Text
 
 \begin_layout Plain Layout
-no
+no (+hard)
 \end_layout
 
 \end_inset
@@ -23373,6 +23786,116 @@ yes
 \begin_inset Text
 
 \begin_layout Plain Layout
+no (+costly)
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+S-B resolution transfer granularity
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+sector
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+sector
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+unknown
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In worst case, a 
+\emph on
+full
+\emph default
+ snapshot may be needed for a complete ZFS 
+\emph on
+full
+\emph default
+sync.
+ In worst case, this might roughly double the total required storage space,
+ which may be needed 
+\emph on
+temporarily
+\emph default
+ during a long-lasting 
+\emph on
+full
+\emph default
+sync.
+ In contrast, DRBD and MARS can 
+\series bold
+incrementally
+\series default
+ run a (fast) fullsync in parallel to running IO, without need for temporary
+ snapshot space.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Protect against illegal data modification
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
 no
 \end_layout
 
@@ -23380,11 +23903,11 @@ no
 </cell>
 </row>
 <row>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
-Protect against illegal data modification
+OpenSource
 \end_layout
 
 \end_inset
@@ -23411,7 +23934,7 @@ yes
 \begin_inset Text
 
 \begin_layout Plain Layout
-no
+partly
 \end_layout
 
 \end_inset
@@ -23426,10 +23949,17 @@ no
 
 \begin_layout Standard
 \noindent
-The last item means that ZFS by itself does not protect against amok-running
- applications modifiying the secondary (backup) side in parallel to the
+\begin_inset Quotes eld
+\end_inset
+
+Illegal data modification
+\begin_inset Quotes erd
+\end_inset
+
+ means that ZFS by itself does not protect against amok-running applications
+ and/or tools modifiying the secondary (backup) side in parallel to the
  replication process (at least not by default).
- Workarounds may be possible, but are not easy to create and to test for
+ Workarounds might be possible, but are not easy to create and to test for
  enterprise-critical applications.
 \end_layout
 
@@ -23481,12 +24011,156 @@ backup
 
 \end_inset
 
- Known 
+ Some contemporary 
 \family typewriter
 zfs
 \family default
  replication setups at sisters of 1&1 Ionos are lacking the butterfly ability,
  likely due to these difficulties.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Why are ZFS-based roles / handover / failover / butterfly / split-brain
+ awareness + resolution operations 
+\emph on
+harder
+\emph default
+ than you might expect?
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Look at line 
+\begin_inset Quotes eld
+\end_inset
+
+Granularity
+\begin_inset Quotes erd
+\end_inset
+
+: when 
+\emph on
+multiple
+\emph default
+ subvolumes are hosted by the 
+\emph on
+same
+\emph default
+ zpool instance, but are 
+\emph on
+required
+\emph default
+ to do some DRBD-alike or MARS-alike operations 
+\emph on
+independently from each other
+\emph default
+, and 
+\series bold
+in parallel to running / unfinished replication
+\series default
+ tasks, this may easily become a 
+\series bold
+challenge
+\series default
+.
+ Hopefully the subvolumes are 
+\series bold
+not nested
+\series default
+.
+ 
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ A few workarounds may be possible by a general 1:1 correspondence between
+ zpools and (sub)volumes.
+ However, this could increase the sysadmin workload.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Even more 
+\series bold
+hairy
+\series default
+: when there exist multiple zpools at one side, and/or different zpools
+ at different geo-redundant sides, and/or different assignments of subvolumes
+ to zpools, then you might need a prayer, in particular when the 
+\series bold
+CAP theorem
+\series default
+ comes also into play and/or when the other side is 
+\series bold
+not reachable during a geo-incident
+\series default
+, and/or when 
+\series bold
+multiple impacts
+\series default
+ are occuring in parallel at the same time (so-called 
+\series bold
+rolling disasters
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+MARS is regularly tested for many cascading impacts, to react 
+\emph on
+as best as possible
+\emph default
+ (best-effort principle).
+\end_layout
+
+\end_inset
+
+).
+ Possibly, all of this can be resolved, but don't under-estimate the 
+\series bold
+total implementation and test effort
+\series default
+.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -23522,15 +24196,20 @@ zfs
 \series bold
 snapshots
 \series default
- (without adding replication on top of it) can be 
+ (without adding fs-layer replication on top of it) can be 
 \series bold
 easily combined
 \series default
- with DRBD or MARS replication, because 
+ with block-layer DRBD or MARS replication.
+ Reason: 
 \family typewriter
 zfs
 \family default
- snapshots are residing at 
+ snapshots are 
+\emph on
+necessarily
+\emph default
+ residing at 
 \emph on
 filesystem
 \emph default
@@ -23538,10 +24217,66 @@ filesystem
 \emph on
 block
 \emph default
- layer.
+ layer (see the picture in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ Due to original Unix architecture, 
+\series bold
+cartesian products of layers
+\series default
+ are possible in many cases.
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Unfortunately, some ZFS advocates have been told that 
+\emph on
+layer merging
+\emph default
+ between block layer and FS layer 
+\series bold
+would
+\series default
+ be an 
+\begin_inset Quotes eld
+\end_inset
+
+advantage
+\begin_inset Quotes erd
+\end_inset
+
+.
+ However, this contradicts with 
+\series bold
+Parnas' modularization rules
+\series default
+ when combined with Dijkstra's layering rules.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 2
 status open
 
@@ -23552,16 +24287,16 @@ status open
 \begin_layout Plain Layout
 
 \series bold
-Combination of zfs with MARS
+Combination of ZFS with DRBD or MARS
 \end_layout
 
 \end_inset
 
-Just create your zpools at the 
+Idea: create your zpools 
 \emph on
-top
+on top
 \emph default
- of DRBD or MARS virtual devices, and use 
+ of DRBD or MARS resources = virtual devices, and use 
 \family typewriter
 zpool import
 \family default
@@ -23573,7 +24308,7 @@ export
 \emph on
 individually
 \emph default
- at handover / failover of each LV.
+ at handover / failover of each LV instance.
  A relatively easy way for implemention is the 
 \family typewriter
 systemd
@@ -23603,6 +24338,54 @@ marsadm
 \begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ As a side effect of 
+\family typewriter
+zpool import
+\family default
+ and its sisters, a whole 
+\emph on
+bunch
+\emph default
+ of subvolumes can be activated with 1 shot.
+ This means: your handover / failover 
+\series bold
+granularity
+\series default
+ may be configured 
+\series bold
+more coarse
+\series default
+ than your more fine-grained hierarchy of ZFS snapshots.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Another side effect: butterfly and other geo-redundancy operations are
+ becoming easy, just by a 1:1 correspondence between DRBD / MARS resources
+ and zpools.
+ Then your ZFS snapshots are 
+\series bold
+orthogonal
+\series default
+ to the geo-redundancy.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
 	scale 17
@@ -23614,7 +24397,7 @@ marsadm
 \emph on
 fundamental
 \emph default
- difference
+ architectural difference
 \series default
  between zpools and classical RAID / LVM stacked architectures.
  Some zfs advocates are propagating zpools as a replacement for both RAID
@@ -23696,7 +24479,7 @@ logical
 
 \end_inset
 
- There is another argument: zfs tries to 
+ There is another argument: ZFS tries to 
 \emph on
 hide
 \emph default
@@ -23712,8 +24495,12 @@ Some sysadmins acting as
 \family typewriter
 zfs
 \family default
- advocates are reclaiming this as an advantage, because they need to understand
- only a single tool for managing 
+ advocates are reclaiming this as an advantage.
+ Apparently, they need to learn and understand only a 
+\emph on
+single
+\emph default
+ tool for managing 
 \begin_inset Quotes eld
 \end_inset
 
@@ -23722,7 +24509,7 @@ everything
 \end_inset
 
 .
- However, this is a short-sighted argument when it comes to 
+ However, this may turn into a short-sighted argument when it comes to 
 \emph on
 true
 \emph default
