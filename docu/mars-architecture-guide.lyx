@@ -13144,8 +13144,8 @@ name "subsec:Performance-Tradeoffs-from-Load-Distribution"
 \end_layout
 
 \begin_layout Standard
-A frequent argument from BigCluster advocates is that random repliction
- would provide better performance.
+A frequent argument from BigCluster advocates is that the so-called Random
+ Repliction would provide better performance.
  This argument isn't wrong, but it does not hit the point.
 \end_layout
 
@@ -13160,8 +13160,8 @@ noprefix "false"
 
 \end_inset
 
-, load distribution isn't a unique concept bound to BigCluster / random
- replication.
+, load distribution isn't a unique concept bound to BigCluster or to Random
+ Replication.
  Load distribution has been used since decades at a variety of 
 \series bold
 RAID striping
