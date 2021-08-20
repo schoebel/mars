@@ -512,6 +512,7 @@ cost and risk dimensions
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 3
 status open
 
@@ -545,7 +546,7 @@ increase reliablity and reduce cost at the same time
 
 \begin_layout Itemize
 When applicable for a certain use case, the best architectural model is
- 
+ shown to be 
 \series bold
 sharding
 \series default
@@ -566,8 +567,8 @@ When the so-called
 \series bold
 FlexibleSharding
 \series default
- variant of the sharding model is combined with a novel load balancing method
- called 
+ variant of the sharding model is possible, and when combined with a novel
+ load balancing method called 
 \series bold
 Football
 \series default
@@ -583,12 +584,21 @@ By both intuitive and mathematical explanations, and contrary to some contempora
 ry belief, you will learn 
 \series bold
 \emph on
-why
+why(!)
 \emph default
  BigCluster architectures are generally worse
 \series default
- in practically any dimension.
- There exist certain use cases where BigCluster cannot be explicitly recommended.
+ in practically any dimension, with only 
+\emph on
+few exeptions
+\emph default
+.
+ 
+\series bold
+Hints
+\series default
+ are provided at certain use cases where BigCluster cannot be explicitly
+ recommended, and other hints at some of the few exceptions.
 \end_layout
 
 \begin_layout Itemize
@@ -623,7 +633,7 @@ When cross-datacenter replication and/or geo-redundancy is required, the
 \series bold
 ability for butterfly
 \series default
- leads to further HA improvements.
+ leads to further HA = High Availability improvements during ordinary operations.
 \end_layout
 
 \begin_layout Itemize
@@ -631,7 +641,8 @@ Object-based
 \series bold
 Cloud Storage
 \series default
- can also be built on top of a sharding model.
+ can also be built on top of a sharding model, avoiding cost and reliability
+ / risk pitfalls caused by BigCluster.
 \end_layout
 
 \begin_layout Itemize
@@ -644,8 +655,12 @@ why OpenSource component-based storage systems
 factors
 \emph default
 ), at least when you need a few petabytes of storage.
- Alone by relinquishing Vendor-Lock-In and going to RAID-based Linux storage,
- invest will typically decrease by factors between 3 and 10.
+ Alone by relinquishing 
+\series bold
+Vendor-Lock-In
+\series default
+ and going to RAID-based Linux storage, invest will typically decrease by
+ factors between 3 and 10.
  By going to a 
 \family typewriter
 LocalSharding
@@ -744,7 +759,11 @@ Misunderstanding
 expensive
 \series default
 .
- This guide is about investments and follow-up cost in the range of 
+ This guide is about investments and 
+\emph on
+follow-up cost
+\emph default
+ in the range of 
 \series bold
 millions
 \series default
