@@ -23324,10 +23324,14 @@ name "subsec:Filesystem-Layer-vs"
 \end_layout
 
 \begin_layout Standard
-Following factors are responsible for better architectural (cf section 
+Following factors are known to be responsible for better architectural (cf
+ section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -23382,7 +23386,7 @@ more frequently
 
 \end_inset
 
- Neglecting metadata and its access patterns is a major source of ill-designs.
+ Neglecting metadata and their access patterns is a major source of ill-designs.
  I know of projects which have failed (in their original setup) because
  of this.
  Repair may involve some non-trivial architectural changes.
@@ -23421,8 +23425,9 @@ inherent advantage
 \series bold
 Caching
 \series default
-: shared memory caches in kernelspace (page cache + dentry cache) vs distributed
- caches over network.
+: shared memory caches in kernelspace (e.g.
+ Linux page cache + dentry cache) vs distributed caches over loosely coupling
+ via networks.
  See the picture in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
@@ -23433,7 +23438,19 @@ noprefix "false"
 
 \end_inset
 
-.
+: caches are one of the 
+\emph on
+most important
+\emph default
+ performance boosters, which are more or less 
+\emph on
+required
+\emph default
+ for today's performance expectations / requirements (at least for non-trivial
+ load patterns).
+ While local caches are nowadays typically scaling reasonably well to more
+ than 100 CPUs on modern SMP / NUMA systems, distributed caches have a long-stan
+ding academic history of expectation failures, or even project failures.
 \begin_inset Newline newline
 \end_inset
 
@@ -23449,8 +23466,8 @@ noprefix "false"
 \emph on
 examples
 \emph default
- where shared distributed caches do not work at all.
- Frequently, this has to with strict consistency requirements, and with
+ where shared distributed caches did not work at all.
+ Frequently, this has to do with strict consistency requirements, and with
  runtime access patterns.
  I know of 
 \emph on
@@ -23468,14 +23485,162 @@ noprefix "false"
 \end_inset
 
  has failed because of violations of POSIX filesystem semantics.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Conversely, the absence of POSIX-like requirements for filesystems and/or
+ relaxed consistency like 
+\begin_inset Quotes eld
+\end_inset
+
+eventually consistent
+\begin_inset Quotes erd
+\end_inset
+
+ does 
+\emph on
+not prove
+\emph default
+ that distributed caches will work better than local ones.
+ Please recall the picture from section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and compare with the 
+\series bold
+thrashing problems
+\series default
+ described in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ Thrashing will typically 
+\emph on
+not
+\emph default
+ be improved when running over loosely coupled RAM-to-RAM-to-Disk transfers,
+ in place of traditional local caching.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In addition, having multiple 
+\series bold
+nested caches
+\series default
+ over several instances and their layers are typically not only in conflict
+ with Dijkstra's rules.
+ They can easily increase the 
+\series bold
+total complexity
+\series default
+ of Distributed Systems and their 
+\series bold
+implementation / testing overhead
+\series default
+.
+ Loosely coupled systems are typically prone to 
+\series bold
+more complex failure scenarios
+\series default
+ (cf section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Short summary: distributed 
+\emph on
+exclusive
+\emph default
+ caches are typically worsening the total reliability, while distributed
+ 
+\emph on
+inclusive
+\emph default
+ caches are often complexifying the recovery of node failures.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Attention: do not believe that node failures cannot create more or less
+ 
+\begin_inset Quotes eld
+\end_inset
+
+artificial
+\begin_inset Quotes erd
+\end_inset
+
+ data inconsistencies.
+ The famous 
+\series bold
+CAP theorem
+\series default
+ is also valid for distributed caches!
 \end_layout
 
 \begin_layout Enumerate
-Only in distributed systems: the 
+Only in non-trivial distributed systems: the 
 \series bold
 cache coherence problem
 \series default
-, both on metadata and on data.
+, both on metadata and on data, and/or on 
+\emph on
+interactions
+\emph default
+ between them.
  Depending on load patterns, this can lead to tremendous performance degradation
 , see example in section 
 \begin_inset CommandInset ref
@@ -23488,6 +23653,33 @@ noprefix "false"
 \end_inset
 
 .
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ To repeat once again: loosely coupled systems and their caches are typically
+ prone to more complex failure scenarios (cf section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), making 
+\series bold
+failure recovery
+\series default
+ more complex.
 \end_layout
 
 \begin_layout Enumerate
@@ -23574,7 +23766,8 @@ noprefix "false"
 \end_inset
 
 ) are no true intermediate filesystems.
- They are violating Dijkstra's important layering rules (see section 
+ They are typically violating Dijkstra's important layering rules (see section
+ 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "subsec:Layering-Rules"
