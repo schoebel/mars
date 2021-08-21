@@ -3211,6 +3211,838 @@ noprefix "false"
 
 \end_layout
 
+\begin_layout Section
+What is Scalability
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:What-is-Scalability"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Many technical people know that 
+\emph on
+tightly coupled
+\emph default
+ computers like SMP = Symmetric Multi Processing systems or NUMA = Non-Uniform
+ Memory Access systems have some 
+\series bold
+scalabily limit
+\series default
+, also called 
+\emph on
+bottleneck
+\emph default
+ (or 
+\emph on
+RAM bottleneck
+\emph default
+ or 
+\emph on
+von-Neumann bottleneck
+\emph default
+ or similar).
+ 
+\end_layout
+
+\begin_layout Standard
+Unfortunately, this can induce a 
+\series bold
+common mis-belief
+\series default
+: just design a 
+\emph on
+loosely coupled
+\emph default
+ cluster or grid, and then any scalability limit would be gone; such a system
+ would have 
+\begin_inset Quotes eld
+\end_inset
+
+no scalability limits
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Such a belief is 
+\series bold
+fundamentally broken
+\series default
+ and may induce 
+\emph on
+massive
+\emph default
+ problems and/or cost.
+\end_layout
+
+\begin_layout Standard
+The fundamental terms 
+\begin_inset Quotes eld
+\end_inset
+
+tightly coupled
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+loosely coupled
+\begin_inset Quotes erd
+\end_inset
+
+ are 
+\series bold
+important
+\series default
+ to know, also for 
+\emph on
+responsibles
+\emph default
+ like managers.
+ They can be found in 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Multiprocessing#Processor_coupling
+\end_layout
+
+\end_inset
+
+.
+ In 2021, this article mentions an interesting experience, with some emphasis
+ added by me:
+\end_layout
+
+\begin_layout Quote
+Tightly coupled systems 
+\series bold
+perform better
+\series default
+ and are physically smaller than loosely coupled systems, but have 
+\emph on
+historically(!)
+\emph default
+ required greater initial investments and 
+\emph on
+may
+\emph default
+ depreciate rapidly [...]
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Nowadays, the 
+\emph on
+historic part
+\emph default
+ of this experience does not apply anymore.
+ Today's standard servers are 
+\emph on
+tightly coupled
+\emph default
+ within their enclosure, for ordinary prices.
+ Servers with more than 100 standard SMP CPUs are not extremely expensive,
+ while even small loosely coupled 
+\series bold
+clusters
+\series default
+ are typically 
+\series bold
+much more expensive
+\series default
+.
+ In a datacenter, rackspace and network cost are not neglectible, as well
+ as further contributors to TCO = Total Cost of Ownership.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Some people believe that the term 
+\begin_inset Quotes eld
+\end_inset
+
+scalability
+\begin_inset Quotes erd
+\end_inset
+
+ would be 
+\emph on
+defined as
+\emph default
+ 
+\begin_inset Quotes eld
+\end_inset
+
+there are no limits
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Such a belief is not only wrong, it is 
+\series bold
+dangerous
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Failures and Indirect Cost by ill-usage of 
+\begin_inset Quotes eld
+\end_inset
+
+scalability
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ or 
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+: There is no valid general definition of 
+\begin_inset Quotes eld
+\end_inset
+
+scalabilty
+\begin_inset Quotes erd
+\end_inset
+
+ for all science areas.
+ Even when narrowed down to 
+\emph on
+computer science
+\emph default
+, there is no generally accepted unique definition.
+ Even in certain sub-areas like 
+\emph on
+storage systems
+\emph default
+ or certain 
+\emph on
+application classes
+\emph default
+, the term can easily 
+\series bold
+mislead
+\series default
+ you in your role as a 
+\series bold
+\emph on
+responsible manager
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ For some people like sales persons or so-called 
+\begin_inset Quotes eld
+\end_inset
+
+evangelists
+\begin_inset Quotes erd
+\end_inset
+
+ or advocates, this creates an 
+\emph on
+opportunity
+\emph default
+ for their 
+\emph on
+marketing
+\emph default
+ (cf footnote 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "fn:faked-scalability"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), and for 
+\series bold
+tearing out money from your pocket
+\series default
+.
+ It may imply further bad effects, e.g.
+ by 
+\series bold
+creation of impressions
+\series default
+ (or even un-proved claims) about
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+arbitrary(!) scalability
+\series default
+ of certain architectures / solution classes / products / etc, and/or
+\end_layout
+
+\begin_layout Itemize
+several further mis-guidings, some of them looking like 
+\emph on
+deliberately not corrected
+\emph default
+ even when counter-arguments had been published (see examples in section
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Scalability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ According to many physical laws like 
+\series bold
+limited speed of light
+\series default
+ or 
+\series bold
+limited density of matter
+\series default
+, 
+\begin_inset Quotes eld
+\end_inset
+
+infinite resources
+\begin_inset Quotes erd
+\end_inset
+
+ do not exist.
+ Thus:
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+
+\series bold
+\size larger
+\begin_inset Quotes eld
+\end_inset
+
+Infinite
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+Arbitrary
+\begin_inset Quotes erd
+\end_inset
+
+ Scalability does not exist.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+A 
+\emph on
+draft
+\emph default
+ of an 
+\emph on
+attempt
+\emph default
+ for a 
+\emph on
+hopefully
+\emph default
+ better defintion of 
+\begin_inset Quotes eld
+\end_inset
+
+*scalable
+\begin_inset Quotes erd
+\end_inset
+
+ can be found in appendix 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:Definition-of-Scalability"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ According to Einstein and many other fundamental laws, 
+\emph on
+every
+\emph default
+ system on this globe has 
+\series bold
+\emph on
+always
+\emph default
+ some scalability limit
+\series default
+, somewhere.
+ Even the internet has some limit.
+ Scalability is 
+\emph on
+always
+\emph default
+ a 
+\series bold
+non-linear
+\series default
+ behaviour.
+ In general, it cannot be computed or fully predicted due to 
+\emph on
+unknown influence factors
+\emph default
+.
+ As a manager, you are trained to deal with 
+\begin_inset Quotes eld
+\end_inset
+
+unknowns
+\begin_inset Quotes erd
+\end_inset
+
+.
+ As an architect, you need to deal with this also.
+ 
+\end_layout
+
+\begin_layout Quote
+\noindent
+
+\series bold
+\size larger
+In order to find a 
+\emph on
+practical
+\emph default
+ limit, you must 
+\emph on
+reach
+\emph default
+ it.
+\end_layout
+
+\begin_layout Standard
+Consequence: there exists no general 
+\begin_inset Quotes eld
+\end_inset
+
+unlimited scalability
+\begin_inset Quotes erd
+\end_inset
+
+, only some 
+\begin_inset Quotes eld
+\end_inset
+
+currently scalable
+\begin_inset Quotes erd
+\end_inset
+
+ systems which have 
+\series bold
+not yet
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There are 
+\emph on
+some
+\emph default
+ cases where the scalability of a certain system is 
+\emph on
+estimated(!)
+\emph default
+ as so high, such that it will likely never be reached.
+ Notice: this is not a 
+\emph on
+proof
+\emph default
+, but just a 
+\emph on
+prediction
+\emph default
+.
+ 
+\end_layout
+
+\end_inset
+
+ reached their scalability limit
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+Example: Scalability of MARS
+\end_layout
+
+\end_inset
+
+The current 
+\emph on
+official
+\emph default
+ scalability limits of MARS are documented in the appendix of mars-user-manual.pd
+f.
+ They are following a 
+\emph on
+conservative communication strategy
+\emph default
+, not intended for marketing.
+ Further 
+\emph on
+practical experiences
+\emph default
+ for 
+\emph on
+certain hardware
+\emph default
+ are documented in the ChangeLog.
+ These 
+\emph on
+practical
+\emph default
+ limits are 
+\emph on
+much better
+\emph default
+, but they are depending on the released kernel and MARS version, and on
+ many other factors.
+ It is all else but easy to provide 
+\emph on
+generic information
+\emph default
+ on scalability of a certain more or less generic product.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Here is a picture of the important 
+\series bold
+Zones of Scalability
+\series default
+ as explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Scalability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/principle-scalability.fig
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Importance of Scalability Limits
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not believe any people who are not aware of the 
+\emph on
+fact
+\emph default
+ that 
+\begin_inset Quotes eld
+\end_inset
+
+scalability
+\begin_inset Quotes erd
+\end_inset
+
+ of a certain offering can only be 
+\emph on
+claimed
+\emph default
+ when the 
+\series bold
+Scalability Limit
+\series default
+ is reported and 
+\emph on
+checkable
+\emph default
+ for a 
+\series bold
+certain workload
+\series default
+ and/or 
+\series bold
+workload class
+\series default
+ and/or 
+\series bold
+application class
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\emph on
+Ensure
+\emph default
+ that you are 
+\emph on
+really
+\emph default
+ talking about a 
+\emph on
+relevant
+\emph default
+ workload and/or (application) class, fitting your needs.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ When you 
+\series bold
+reach a scalability limit
+\series default
+ for a relevant product operated on system 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+, and when its 
+\emph on
+upgrade
+\emph default
+ to the future workload 
+\begin_inset Formula $W_{j}$
+\end_inset
+
+ (definitions see appendix 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:Definition-of-Scalability"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) would become 
+\emph on
+too expensive
+\emph default
+, your company is 
+\emph on
+risking
+\emph default
+ the 
+\series bold
+danger
+\series default
+ of 
+\series bold
+loss of a product line
+\series default
+, or potentially even of going 
+\series bold
+out of business
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+More details can be found in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Scalability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
 \begin_layout Chapter
 Architectural Principles and Properties
 \begin_inset CommandInset label
@@ -19419,6 +20251,138 @@ name "sec:Scalability-Arguments-from"
 \end_layout
 
 \begin_layout Standard
+In this section, the term 
+\begin_inset Quotes eld
+\end_inset
+
+scalability
+\begin_inset Quotes erd
+\end_inset
+
+ is used in its contemporary traditional form, 
+\emph on
+not yet
+\emph default
+ conforming the new definition as proposed in appendix 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:Definition-of-Scalability"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ Otherwise, the 
+\series bold
+contemporary confusion about scalability
+\series default
+ could be even intensified.
+ We start with some background about this confusion.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+Some Sources of Confusion
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ People are less prone to confusion if they (a) know Amdahl's law (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Amdahl%27s_law
+\end_layout
+
+\end_inset
+
+), and (b) know and obey the 
+\emph on
+preconditions
+\emph default
+ when this law is 
+\emph on
+applicable
+\emph default
+, and when it 
+\emph on
+must not
+\emph default
+ be applied.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ People are typically more prone to confusion if they (a) are only citing
+ Gustafson's law (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Gustafson%27s_law
+\end_layout
+
+\end_inset
+
+) without also considering Amdahl's law and further laws / theories including
+ their 
+\series bold
+preconditions
+\series default
+ and 
+\series bold
+applicability
+\series default
+, and/or (b) are 
+\series bold
+misinterpreting
+\series default
+ the slope parameter at Gustafson, and/or (c) do not account for the 
+\series bold
+context
+\series default
+ / 
+\series bold
+use cases
+\series default
+ for which Gustafson's law was formulated.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 3
 status open
 
@@ -19429,7 +20393,7 @@ status open
 \begin_layout Plain Layout
 
 \series bold
-Importance of scalability
+Importance of Scalability
 \end_layout
 
 \end_inset
@@ -19439,7 +20403,11 @@ Scalability is important for
 mass data
 \series default
  / mass production.
- It determines the technical limits of 
+ It determines the 
+\series bold
+technical limits
+\series default
+ of 
 \series bold
 scaling effects
 \series default
@@ -19448,9 +20416,9 @@ scaling effects
 \series bold
 limit the business
 \series default
-, and its resolvement can produce high 
+, and its resolvement can produce 
 \series bold
-cost
+high cost
 \series default
 .
 \end_layout
@@ -19464,7 +20432,11 @@ cost
 \noindent
 Unfortunately, in some circles, seriously wrong habits have established.
  I know of examples causing unnecessary problems and cost in the range of
- millions of €.
+ 
+\series bold
+millions of €
+\series default
+.
 \end_layout
 
 \begin_layout Standard
@@ -19806,8 +20778,13 @@ zones
  Only in the scaling zone, some near-linear behaviour can be expected.
  Next comes the saturation zone, where the effects of inherent system limits
  are already retarding progress.
- After exeeding the scalability limit, no further progress is happening.
- Upon overload, many systems are even reacting with a 
+ After exeeding the scalability limit, typically no further progress is
+ happening.
+ Upon overload, 
+\emph on
+many(!)
+\emph default
+ systems are even reacting with a 
 \emph on
 regression
 \emph default
@@ -19819,7 +20796,11 @@ Any serious study should consciously deal with
 \emph on
 all
 \emph default
- of these zones, possibly except the regression
+ of these zones, possibly 
+\emph on
+only
+\emph default
+ except the regression
 \begin_inset Foot
 status open
 
@@ -19840,7 +20821,7 @@ risks
 
 \end_inset
 
- zone.
+ zone when measuring real-life systems which need to conform to some SLAs.
 \end_layout
 
 \begin_layout Standard
@@ -19852,16 +20833,33 @@ risks
 
 \end_inset
 
- There exists no excuse for omission
+ There exists 
+\series bold
+no excuse for omission
+\series default
+
 \begin_inset Foot
 status open
 
 \begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fn:faked-scalability"
+
+\end_inset
+
 Several years ago, I attended a presentation at an OpenSource conference.
  It was about scalability of a Java programming environment for some SMP
  machines.
- The presenter showed some nice graphics, however showing only the scaling
- zone.
+ The presenter showed some nice graphics, however showing 
+\emph on
+only
+\emph default
+ the 
+\emph on
+scaling zone
+\emph default
+ of the measured performance of his demo application.
  He publicly claimed 
 \begin_inset Quotes eld
 \end_inset
@@ -19871,14 +20869,79 @@ arbitrary scalability
 \end_inset
 
 .
- After the talk, I tried to catch him, in order to ask him under 4 eyes
- whether he encountered some limit.
- His very short answer was that there is no limit, completely unwilling
- to talk with me at all, and quickly leaving the room.
+ After the talk, I tried to meet him downstairs in the arena of the theater,
+ in order to ask him under 4 eyes whether he had seen some limit somewhere.
+ His 
+\emph on
+very short
+\emph default
+ answer was 
+\begin_inset Quotes eld
+\end_inset
+
+there is no limit
+\begin_inset Quotes erd
+\end_inset
+
+, completely 
+\emph on
+unwilling
+\emph default
+ to talk to me at all, and 
+\emph on
+very quickly
+\emph default
+ leaving the theater upstairs from the arena (by skipping intermediate stairs
+ like in sports, and taking 2 or 3 stairs with his legs at each of his very
+ long steps).
 \end_layout
 
 \begin_layout Plain Layout
-Unfortunately, this 
+Before that, no attendee had publicly asked a similar question, and the
+ very short public discussion was only about a high number of use cases
+ where the new tool would be highly beneficial.
+\end_layout
+
+\begin_layout Plain Layout
+Theoretically, he 
+\emph on
+could
+\emph default
+ have 
+\emph on
+meant
+\emph default
+ the scalability of his 
+\emph on
+tool
+\emph default
+, independently from running on any hardware.
+ However, he did 
+\emph on
+not
+\emph default
+ talk about this, and his presented measurement data was about 
+\emph on
+end-to-end performance
+\emph default
+ of his 
+\emph on
+demo application
+\emph default
+, measured on a certain hardware.
+ Thus his 
+\series bold
+claim was
+\series default
+ definitely 
+\series bold
+wrong
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+Unfortunately, a similar 
 \begin_inset Quotes eld
 \end_inset
 
@@ -19886,10 +20949,14 @@ methodology
 \begin_inset Quotes erd
 \end_inset
 
- seemed to have been copied by more and more presenters.
+ seems to have been copied by more and more presenters.
  The problem is not only wrong claims.
  The problem is that managers and other decision makers can lose a lot of
- money when believing suchalike 
+ money when believing 
+\series bold
+false claims
+\series default
+ or even 
 \series bold
 fake results
 \series default
@@ -23845,7 +24912,7 @@ sector
 \begin_layout Plain Layout
 unknown
 \begin_inset Foot
-status open
+status collapsed
 
 \begin_layout Plain Layout
 In worst case, a 
@@ -23916,44 +24983,6 @@ yes
 
 \begin_layout Plain Layout
 no
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-OpenSource
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-yes
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-yes
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-partly
 \end_layout
 
 \end_inset
@@ -40476,6 +41505,752 @@ A_{s,p,T}(k,n)=n^{s+1}*T*\sum_{\bar{k}=k}^{k*n}C(k,\bar{k},k*n)*\binom{k*n}{\bar
 \end_inset
 
 
+\end_layout
+
+\begin_layout Chapter
+Draft Definition of 
+\begin_inset Quotes eld
+\end_inset
+
+*Scalabilty
+\begin_inset Quotes erd
+\end_inset
+
+
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Definition-of-Scalability"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Here is a 
+\emph on
+proposal
+\emph default
+ of a 
+\emph on
+hopefully
+\emph default
+ more valuable definition of multiple variants of 
+\begin_inset Quotes eld
+\end_inset
+
+*scalability
+\begin_inset Quotes erd
+\end_inset
+
+ (as a DRAFT denoted in quotes) for 
+\series bold
+\emph on
+computer science
+\series default
+\emph default
+.
+ Certainly, this draft needs some improvements.
+ However, the author does not know a better definition, without the mentioned
+ 
+\series bold
+academic deficiencies
+\series default
+ from section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:What-is-Scalability"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ This draft tries to compensate much of them by introduction of some necessary
+ properties for 
+\series bold
+enterprise-grade real-life systems
+\series default
+, which need to satisfy the management body of a company, which in turn
+ needs to satisfy their stock holders.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Color Box
+status open
+
+\begin_layout Plain Layout
+For some index 
+\begin_inset Formula $i$
+\end_inset
+
+ the following has been already determined (otherwise a definition of 
+\begin_inset Quotes eld
+\end_inset
+
+*scalability
+\begin_inset Quotes erd
+\end_inset
+
+ in the following sense is 
+\emph on
+not possible
+\emph default
+):
+\end_layout
+
+\begin_layout Description
+(1) An existing real-life computer hardware or software system or sub-system
+ 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Description
+(2) An existing and measurable real-life workload 
+\begin_inset Formula $W_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Description
+(3) From 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+ and 
+\begin_inset Formula $W_{i}$
+\end_inset
+
+ an actual SLA conformance value 
+\begin_inset Formula $C(S_{i},W_{i})$
+\end_inset
+
+ between 0% and 100% has been determined by measurement, and checked for
+ validity.
+\end_layout
+
+\begin_layout Description
+(4) An SLA conformance target 
+\begin_inset Formula $T_{0}$
+\end_inset
+
+ between 0% and 100% had been given by an external product management, where
+ the index 
+\begin_inset Formula $0$
+\end_inset
+
+ does not depend on 
+\begin_inset Formula $i$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Plain Layout
+Now for another 
+\begin_inset Formula $j>i$
+\end_inset
+
+ the following can be determined (or at least 
+\emph on
+predicted
+\emph default
+) for a 
+\emph on
+future
+\emph default
+ point in time, and checked for validity (or at least for 
+\emph on
+sufficient prediction accuracy
+\emph default
+):
+\end_layout
+
+\begin_layout Description
+(1b) it is 
+\emph on
+possible
+\emph default
+ to augment 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+ to a truly bigger system 
+\begin_inset Formula $S_{j}$
+\end_inset
+
+ with 
+\begin_inset Formula $S_{j}\supset S_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Description
+(2b) it is 
+\emph on
+possible
+\emph default
+ to increase the old workload 
+\begin_inset Formula $W_{i}$
+\end_inset
+
+to a greater workload 
+\begin_inset Formula $W_{j}$
+\end_inset
+
+ with 
+\begin_inset Formula $W_{j}\supset W_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Description
+(3c) it is 
+\emph on
+possible
+\emph default
+ to determine (or at least 
+\emph on
+predict
+\emph default
+) the new SLA conformance value 
+\begin_inset Formula $C(S_{j},W_{j})$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+The new system 
+\begin_inset Formula $S_{j}$
+\end_inset
+
+ is called a 
+\series bold
+
+\begin_inset Quotes eld
+\end_inset
+
+better scaling system
+\begin_inset Quotes erd
+\end_inset
+
+
+\series default
+ than 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+ if and only if 
+\begin_inset Formula $C(S_{j},W_{j})\geq C(S_{i},W_{i})$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ This draft definition just tries to obey some 
+\emph on
+bare minimum
+\emph default
+ as needed by today's enterprises.
+ In practice, the workloads 
+\begin_inset Formula $W_{i}$
+\end_inset
+
+ and 
+\begin_inset Formula $W_{j}$
+\end_inset
+
+ must be somewhat harder: they must 
+\series bold
+conform to the needs
+\series default
+ of both the company and 
+\emph on
+enough
+\emph default
+ of its customers (defined by SLA) who are using the current system 
+\begin_inset Formula $S_{i},$
+\end_inset
+
+ and will use the future system 
+\begin_inset Formula $S_{j}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Important: the current and future systems must obey some more business-relevant
+ conditions, such as 
+\series bold
+cost
+\series default
+ / 
+\series bold
+risk
+\series default
+ / etc.
+ Details would be out of scope of this guide.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Notice: we just have defined the term 
+\begin_inset Quotes eld
+\end_inset
+
+better scaling
+\begin_inset Quotes erd
+\end_inset
+
+ (or its potential contrary 
+\begin_inset Quotes eld
+\end_inset
+
+worse scaling
+\begin_inset Quotes erd
+\end_inset
+
+) on a given system.
+ But this is 
+\emph on
+not yet
+\emph default
+ a definition of 
+\begin_inset Quotes eld
+\end_inset
+
+scalability
+\begin_inset Quotes erd
+\end_inset
+
+ as many people would like.
+ Now comes the key in mathematical terms:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Color Box
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+A.
+
+\series default
+ an existing system 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+ is called 
+\series bold
+
+\begin_inset Quotes eld
+\end_inset
+
+currently scalable
+\begin_inset Quotes erd
+\end_inset
+
+
+\series default
+, if and only if some index 
+\begin_inset Formula $j>i$
+\end_inset
+
+ exists, which satisfies
+\end_layout
+
+\begin_layout Description
+(1) 
+\begin_inset Formula $S_{j}\supset S_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Description
+(2) 
+\begin_inset Formula $W_{j}\supset W_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Description
+(3) 
+\begin_inset Formula $C(S_{j},W_{j})\geq C(S_{i},W_{i})\geq T_{0}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ In management speak: when the workload is increasing from the current 
+\begin_inset Formula $W_{i}$
+\end_inset
+
+ to some future 
+\begin_inset Formula $W_{j}$
+\end_inset
+
+, it 
+\emph on
+must
+\emph default
+ be possible to 
+\emph on
+upgrade
+\emph default
+ the current system 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+ to some future 
+\begin_inset Formula $S_{j}$
+\end_inset
+
+ without violation of the SLA target 
+\begin_inset Formula $T_{0}$
+\end_inset
+
+, and not even just 
+\emph on
+worsening
+\emph default
+ the current service level (which means that the SLA 
+\emph on
+could
+\emph default
+ be 
+\emph on
+potentially
+\emph default
+ strengthened).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ This does not include the 
+\series bold
+cost
+\series default
+ of the upgrade, and some other business-relevant side effects like non-linear
+ impact onto personal cost or datacenter cost or some external limitations
+ etc.
+ This should be added to a future improved version of this definition, which
+ is just an 
+\emph on
+attempt
+\emph default
+ to convert an academic view of the problem space to a more practical view
+ onto it.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Color Box
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+B.
+
+\series default
+ an existing system 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+ is called 
+\series bold
+
+\begin_inset Quotes eld
+\end_inset
+
+unscalable
+\begin_inset Quotes erd
+\end_inset
+
+
+\series default
+, if and only if 
+\series bold
+no
+\series default
+ index 
+\begin_inset Formula $j>i$
+\end_inset
+
+ exists, which satisfies
+\end_layout
+
+\begin_layout Description
+(1) 
+\begin_inset Formula $S_{j}\supseteq S_{i}$
+\end_inset
+
+ (notice that the hardware and/or software may stay 
+\emph on
+unmodified
+\emph default
+)
+\end_layout
+
+\begin_layout Description
+(2) 
+\begin_inset Formula $W_{j}\supset W_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Description
+(3) 
+\begin_inset Formula $C(S_{j},W_{j})\geq T_{0}$
+\end_inset
+
+ (notice that the current 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+ may be already 
+\emph on
+overloaded
+\emph default
+)
+\end_layout
+
+\begin_layout Plain Layout
+
+\series bold
+C.
+
+\series default
+ an existing system 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+ is called 
+\series bold
+
+\begin_inset Quotes eld
+\end_inset
+
+limited scalable
+\begin_inset Quotes erd
+\end_inset
+
+
+\series default
+, if and only if it was 
+\begin_inset Quotes eld
+\end_inset
+
+currently scalable
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\emph on
+somewhen in the past
+\emph default
+, and now it is neither 
+\begin_inset Quotes eld
+\end_inset
+
+currently scalable
+\begin_inset Quotes erd
+\end_inset
+
+ (see A) nor 
+\begin_inset Quotes eld
+\end_inset
+
+unscalable
+\begin_inset Quotes erd
+\end_inset
+
+ (see C).
+\end_layout
+
+\begin_layout Plain Layout
+
+\series bold
+D.
+
+\series default
+ the pure term 
+\series bold
+
+\begin_inset Quotes eld
+\end_inset
+
+scalable
+\begin_inset Quotes erd
+\end_inset
+
+
+\series default
+ without any prefix is deliberately either 
+\series bold
+undefined
+\series default
+, or defined as 
+\series bold
+
+\backslash
+error
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Important for managers: when a 
+\emph on
+relevant
+\emph default
+ future system 
+\begin_inset Formula $S_{j}$
+\end_inset
+
+ exists which will be scalable from the current 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+, but there exists no even greater 
+\begin_inset Formula $k>j$
+\end_inset
+
+ which would be 
+\begin_inset Quotes eld
+\end_inset
+
+future scalable
+\begin_inset Quotes erd
+\end_inset
+
+ := 
+\begin_inset Quotes eld
+\end_inset
+
+currently scalable
+\begin_inset Quotes erd
+\end_inset
+
+ in 
+\emph on
+future
+\emph default
+, then you 
+\emph on
+will
+\emph default
+ reach 
+\emph on
+some
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In general, the mathematical lattice theory tells us that a Scalability
+ Limit does 
+\emph on
+not
+\emph default
+ need to be unique, e.g.
+ when following 
+\emph on
+different
+\emph default
+ hardware upgrade paths.
+\end_layout
+
+\end_inset
+
+ 
+\series bold
+Scalability Limit
+\series default
+ of your concrete system 
+\begin_inset Formula $S_{i}$
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
