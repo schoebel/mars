@@ -8540,7 +8540,7 @@ really
 
 \begin_layout Subsection
 Negative Example: object store implementations mis-used as backend for block
- devices / POSIX filesystems
+ devices / directory or pointer structures / POSIX filesystems
 \begin_inset CommandInset label
 LatexCommand label
 name "par:Negative-Example:-object"
@@ -8619,6 +8619,13 @@ The crucial point is: several OSD implementations are internally using
 filesystems
 \series default
  for creating the object abstraction.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -8810,7 +8817,11 @@ file handles
 \series default
  before further operations can be carried out, object stores are typically
  skipping this intermediate step from a user's viewpoint.
- The user needs to supply the object ID for 
+ The user needs to supply the 
+\series bold
+object ID
+\series default
+ for 
 \emph on
 any
 \emph default
@@ -8934,11 +8945,11 @@ sparse files
  Concurrency on shared memory, together with SMP scalability to a contemporary
  degree, is what makes implementation really hard, and why there are only
  relatively few people in the world mastering this art.
- As a manager, compare with Dijkstra's remarks on required 
+ As a manager, please compare with Dijkstra's remarks on required 
 \series bold
 skill levels
 \series default
- for serious OS work...
+ for serious OS work.
 \begin_inset Newline newline
 \end_inset
 
@@ -9061,10 +9072,10 @@ representation
 status open
 
 \begin_layout Plain Layout
-Arguing with (trivial) syscall combinations or trivial parameter passing
- can be observed sometimes.
+Arguing with trivial syscall combinations or trivial parameter passing can
+ be observed sometimes.
  As a responsible manager, you should draw another conclusion: someone arguing
- this way is either fighting for a particular 
+ this way is likely fighting for a particular 
 \series bold
 political interest
 \series default
@@ -9072,7 +9083,7 @@ political interest
 \series bold
 unfair
 \series default
- manner, and/or in reality he demonstrates nothing but an extremely 
+ manner, and/or possibly demonstrating a 
 \series bold
 poor skill level
 \series default
@@ -9088,6 +9099,13 @@ poor skill level
 abstract functionality
 \emph default
  in the sense of Dijkstra.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -9151,6 +9169,13 @@ rich metadata
 
 \begin_layout Standard
 There is a clear answer: NO.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -9235,6 +9260,13 @@ not
 hidden cartesian products
 \emph default
  occurring at architecture level, and possibly also in implementations.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -9448,6 +9480,59 @@ native
 \begin_layout Standard
 We continue by looking at the client part of distributed block devices /
  distributed filesystems on top of OSDs.
+ 
+\end_layout
+
+\begin_layout Standard
+In general, POSIX-like semantics are 
+\emph on
+not necessarily
+\emph default
+ needed for 
+\emph on
+each and every
+\emph default
+ use case.
+ Filesystem-like functionality needs at least some 
+\begin_inset Quotes eld
+\end_inset
+
+directory-alike
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\series bold
+index functionality
+\series default
+ on 
+\series bold
+file names
+\series default
+ or 
+\series bold
+object names
+\series default
+, or similar.
+ POSIX is typically only required when a certain 
+\series bold
+parallelism degree
+\series default
+ must be delivered, while certain types of 
+\series bold
+race conditions
+\series default
+ must be 
+\emph on
+hidden
+\emph default
+ from the end-user.
+\end_layout
+
+\begin_layout Standard
+We will see some index functionality examples later.
+ First, we start with a more elaborate filesystem semantics on top of pure
+ object stores.
  The following example requires POSIX compliance
 \begin_inset Foot
 status open
@@ -9643,6 +9728,14 @@ xfs
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 3
 status open
 
@@ -10832,6 +10925,673 @@ geo-redundant
 
  Managed BGP makes you independent from the OS running inside of VMs.
  For example, Windows guests will become geo-redundant without modification.
+\end_layout
+
+\begin_layout Subsection
+Potentially Negative Example: layering directory-alike structures on top
+ of billions of eventually consistent objects
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Negative-Example:-directory structures over eventually consistent objects"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The following example is about a 
+\emph on
+potentially planned
+\emph default
+ system, which could be deducable from Dijkstra and/or contemporary belief.
+ It is 
+\emph on
+not
+\emph default
+ about direct violations
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In general, (distributed) object stores 
+\emph on
+can
+\emph default
+ be constructed without major violations of Dijktra's rules.
+ However, some contemporary implementations 
+\emph on
+may
+\emph default
+ have some problems in this area, see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Negative-Example:-object"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+ of Disjtra's rules, but about a 
+\emph on
+potential misinterpretation
+\emph default
+ of Dijkstra by ignoring some important 
+\series bold
+non-functional properties
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+When directory structures are implemented straight-forward on top of object
+ stores for 
+\series bold
+billions of objects
+\series default
+, there will be a 
+\series bold
+risk
+\series default
+ of fundamental problems which are 
+\emph on
+known
+\emph default
+ to filesystem and database implementers and their architects, provided
+ they also know the 
+\series bold
+Theory of Databases
+\series default
+ and/or the 
+\series bold
+Theory of Filesystems
+\series default
+ as published in the traditional research field about filesystems and databases.
+ For example, a huge bulk of academic research activity was historically
+ invested into 
+\series bold
+OODB
+\series default
+ = Object Oriented DataBases, while contemporary implementations like Kassandra
+ & co are typically contradicting to (or ignoring) some of their results.
+ Another huge bulk can be found in traditional 
+\series bold
+VLDB
+\series default
+ = Very Large DataBases.
+\end_layout
+
+\begin_layout Standard
+The following explanation is referring to 
+\emph on
+extremely big
+\emph default
+ 
+\series bold
+eventually consistent
+\series default
+ object stores, independently from local vs distributed types of object
+ stores.
+\end_layout
+
+\begin_layout Standard
+What is one of the important 
+\emph on
+fundamental problems
+\emph default
+ of directory-alike data structures (among a long list of other fundamental
+ problems to be solved)?
+\end_layout
+
+\begin_layout Standard
+Situation: data structures are living 
+\series bold
+inside of objects
+\series default
+ which contain 
+\series bold
+pointers or references to other objects
+\series default
+.
+ These may also contain some more pointers or references to further objects,
+ in a 
+\series bold
+\emph on
+transitive
+\series default
+\emph default
+ manner.
+\end_layout
+
+\begin_layout Standard
+Typical userspace programmers will not notice a problem here.
+ For example, Java enthusiasts or Python enthusiasts are using references
+ all the time, but they are using their pointers in the 
+\emph on
+virtual address space
+\emph default
+ of a 
+\series bold
+userspace process
+\series default
+.
+ These processes are typically 
+\emph on
+much smaller
+\emph default
+ than billions of objects.
+ In practice, their relatively few long-living objects are stored either
+ in 
+\end_layout
+
+\begin_layout Description
+(a) databases, or 
+\end_layout
+
+\begin_layout Description
+(b) in POSIX-aware local filesystems plus some object-oriented import /
+ export layers.
+\end_layout
+
+\begin_layout Standard
+Result: these programmers will likely confirm that they (almost) never have
+ seen a 
+\emph on
+fundamental
+\emph default
+ problem caused by their 
+\series bold
+persistence model
+\series default
+ (a) or (b) where some of their relatively few objects are living for a
+ 
+\emph on
+longer
+\emph default
+ time than their userspace processes are typically living.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Why
+\emph default
+ does such a relatively small object pointer structure typically work in
+ practice, at least when using (a) or (b) (with few exceptions)?
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+(a) Traditional databases are following the well-known 
+\series bold
+ACID
+\series default
+ = 
+\series bold
+A
+\series default
+tomicity + 
+\series bold
+C
+\series default
+onsistency + 
+\series bold
+I
+\series default
+solation + 
+\series bold
+D
+\series default
+urability principle.
+ There is an easily usable 
+\series bold
+commit
+\series default
+ operation which ensures this by definition.
+\end_layout
+
+\begin_layout Plain Layout
+(b) POSIX filesystems are lacking the 
+\series bold
+I
+\series default
+ = 
+\series bold
+I
+\series default
+solation property, but they can typically provide sufficient 
+\series bold
+A
+\series default
+ = 
+\series bold
+A
+\series default
+tomicity + 
+\series bold
+C
+\series default
+ = 
+\series bold
+C
+\series default
+onsistency + 
+\series bold
+D
+\series default
+ = 
+\series bold
+D
+\series default
+urability properties for important use cases.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Reason: some ACID databases must be able to run 
+\emph on
+on top of
+\emph default
+ some classical filesystems.
+ Thus some members of the OS = Operating System community were 
+\emph on
+traditionally
+\emph default
+ supporting the needs of some members of the database community (and some
+ old computer science members were even members of 
+\emph on
+both
+\emph default
+ communities in the good old times).
+ More details can be found in the literature.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Now comes the 1 million € or $ question:
+\end_layout
+
+\begin_layout Description
+\noindent
+(c) 
+\series bold
+\emph on
+What is the problem
+\series default
+\emph default
+ if you want to 
+\emph on
+reliably
+\emph default
+ store pointer-like or other referential structures in millions or billions
+ of 
+\series bold
+eventually consistent objects
+\series default
+, containing pointers or references to other eventually consistent objects?
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ We leave the answer to this question as an 
+\emph on
+exercise
+\emph default
+ to the reader.
+ Hint: large parts of a correct answer are already mentioned above.
+ 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Another fact is also important: by definition, true 
+\begin_inset Quotes eld
+\end_inset
+
+eventually consistent
+\begin_inset Quotes erd
+\end_inset
+
+ does deliberately 
+\emph on
+not provide
+\emph default
+ (or 
+\emph on
+omit for performance reasons
+\emph default
+) POSIX-like semantics and/or POSIX operations like global 
+\family typewriter
+sync()
+\family default
+ or their weaker sisters 
+\family typewriter
+fsync()
+\family default
+ or 
+\family typewriter
+msync()
+\family default
+, at least locally (which is often equivalent to 
+\begin_inset Quotes eld
+\end_inset
+
+in the whole cluster
+\begin_inset Quotes erd
+\end_inset
+
+), and at least 
+\emph on
+by default
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+Required Skills for Projects, using References on top of Eventually Consistent
+ Object Stores
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do 
+\series bold
+not
+\series default
+ accept important enterprise-level projects which place 
+\series bold
+masses
+\series default
+ of complex pointer or reference structures on top of 
+\series bold
+eventually consistent object
+\series default
+ stores.
+ You may become confronted with some of the following 
+\emph on
+potential problems
+\emph default
+:
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Dangling Pointers
+\series default
+, also called 
+\series bold
+Referential Integrity
+\series default
+ in databases (references to non-existing or lost or even 
+\emph on
+wrong
+\emph default
+ objects, potentially belonging to other customers, thus breaching privacy
+ / security / etc).
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Dangling Objects
+\series default
+ (unused / unreachable objects forgotten to free, filling up your storage
+ space over time).
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+False Sharing
+\series default
+ problems.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Endless Loops
+\series default
+ / 
+\series bold
+Cycles
+\series default
+ in long reference chains.
+\end_layout
+
+\begin_layout Itemize
+When active-active parallel writes to 
+\emph on
+logically shared data
+\emph default
+ in distributed object stores are possible: beware of 
+\series bold
+split brain
+\series default
+ (see CAP theorem) and/or some necessary 
+\series bold
+locking
+\series default
+ (e.g.
+ usage of 
+\series bold
+distributed lock managers
+\series default
+) leading to 
+\series bold
+systematic deadlocks
+\series default
+ and/or 
+\series bold
+Transaction Aborts
+\series default
+ similar to OODBs, see also 
+\series bold
+Transaction Theory
+\series default
+ in the database literature.
+ Notice that 
+\series bold
+Distributed COW
+\series default
+ = Copy on Writes may correspond to some known transactional abort behaviour
+ of 
+\series bold
+MVDB
+\series default
+ = 
+\series bold
+MultiVersion DataBases
+\series default
+, even when 
+\emph on
+not distributed
+\emph default
+, also described in the literature on Transaction Theory.
+ There are known solutions, but they may increase the total effort for reaching
+ certain SLAs.
+\end_layout
+
+\begin_layout Itemize
+Further classical problems from the old database and filesystem literature,
+ like unexpected data loss requiring an 
+\emph on
+equivalent
+\emph default
+ of 
+\series bold
+database recovery
+\series default
+ and/or 
+\family typewriter
+fsck
+\family default
+.
+ Beware of running suchalike on some billions of objects in a BigCluster
+ 
+\series bold
+shared pool
+\series default
+.
+ Notice that sharding architectures are requiring less effort, because there
+ is no 
+\series bold
+error propagation
+\series default
+ between relatively small pools.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Exception: under certain circumstances, you 
+\emph on
+might
+\emph default
+ accept such a project proposal when your staff has the 
+\series bold
+proven skills
+\series default
+ of 
+\emph on
+and
+\emph default
+ 
+\series bold
+experiences with
+\series default
+ (a) writing 
+\emph on
+and
+\emph default
+ maintaining an 
+\series bold
+ACID database
+\series default
+, or (b) writing 
+\emph on
+and
+\emph default
+ maintaining at least a 
+\series bold
+\emph on
+journalling(!)
+\emph default
+ filesystem
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ If so, insist on an acceptable 
+\series bold
+project plan
+\series default
+ with appropriate 
+\series bold
+fallback strategies
+\series default
+, and on competitive TCO.
+ There may be further requirements from company level, such as geo-redundancy,
+ typically imposing further conditions and implying 
+\series bold
+serious pitfalls
+\series default
+ (cf section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Requirements-for-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section
