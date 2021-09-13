@@ -1472,6 +1472,15 @@ copy of your data
 different location
 \series default
 .
+ Typically, the copy is 
+\emph on
+intended
+\emph default
+ for later 
+\emph on
+copyback
+\emph default
+.
  There are two distinct operations associated with backup:
 \end_layout
 
@@ -1508,7 +1517,7 @@ Restore
 opposite
 \emph default
  of backup creation.
- It also involves network traffic, but in 
+ It also involves network traffic, but typically in 
 \series bold
 reverse direction
 \series default
@@ -1526,7 +1535,11 @@ do not change
 \series bold
 triggered manually
 \series default
-, and only after some incident which led to 
+, and 
+\emph on
+typically
+\emph default
+ only after some incident which led to (supposed) 
 \series bold
 data loss
 \series default
@@ -1542,18 +1555,122 @@ data loss
 
 \end_inset
 
- It would be a 
+ In practice (with 
+\emph on
+few exceptions
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Theoretically, a restore operation could be designed more or less 
+\emph on
+idempotent
+\emph default
+.
+ So only some 
+\emph on
+missing
+\emph default
+ data would be restored, all else would typically remain unchanged.
+ However, this 
+\emph on
+may
+\emph default
+ violate the semantics of several applications, e.g.
+ violate the referential integrity of certain databases, and/or may leave
+ back some 
+\begin_inset Quotes eld
+\end_inset
+
+unknown
+\begin_inset Quotes erd
+\end_inset
+
+ and/or 
+\begin_inset Quotes eld
+\end_inset
+
+outdated
+\begin_inset Quotes erd
+\end_inset
+
+ data, potentially even in huge masses.
+ Example: in Shared Hosting Linux, some old PHP session cookies residing
+ in home directories might be restored, potentially even violating some
+ security rules.
+ When run regularly via cron jobs, the storage space may be flooded in the
+ long term with more or less 
+\begin_inset Quotes eld
+\end_inset
+
+useless
+\begin_inset Quotes erd
+\end_inset
+
+ data and/or inodes, e.g.
+ exceeding the 
+\emph on
+user quota
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Notice: in 
+\emph on
+strict
+\emph default
+ storage semantics, the deletion of data is a 
+\emph on
+valid
+\emph default
+ operation, which should not be violated except when you are sure that it
+ will not cause any harm.
+ Example: in Shared Hosting Linux, some customers are creating such masses
+ 
+\emph on
+regularly
+\emph default
+ via their own cron jobs.
+ Their 
+\emph on
+unnecessary restore
+\emph default
+ may become rather expensive over time.
+\end_layout
+
+\end_inset
+
+), it is 
+\emph on
+often
+\emph default
+ a 
 \emph on
 bad idea
 \emph default
- to restore a backup although there is no data loss.
+ to restore a backup although there is 
+\emph on
+no real
+\emph default
+ data loss.
  This would likely overwrite your newest application data with an elder
  version, likely leading to 
 \emph on
 data loss
 \emph default
 .
- Therefore, restore is 
+ Therefore, classical restore is a 
 \series bold
 potentially dangerous operation
 \series default
@@ -1561,6 +1678,7 @@ potentially dangerous operation
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 3
 status open
 
