@@ -2127,9 +2127,45 @@ ion backup onto a different filesystem type, thus lowering systematical
 \end_inset
 
  to replication.
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+Typical Advantages
+\end_layout
+
+\end_inset
+
+Typically, backup improves the 
+\emph on
+recoverability
+\emph default
+, while replication improves the 
+\emph on
+reliability
+\emph default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 Because of these typical differences, enterprise-critical data typically
  deserves 
 \emph on
@@ -2139,6 +2175,14 @@ both
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 3
 status open
 
