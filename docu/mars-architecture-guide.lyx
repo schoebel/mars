@@ -4205,6 +4205,390 @@ noprefix "false"
 .
 \end_layout
 
+\begin_layout Section
+What is an Object Store
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:What-is-Object-Store"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The following picture explains the typical 
+\series bold
+Abstract Functionality
+\series default
+ differences between contemporary object store 
+\emph on
+implementations
+\emph default
+ and contemporary filesystem 
+\emph on
+implementations
+\emph default
+.
+ 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/functionality-object-store-vs-filesystems.fig
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Caution: there exists a large bandwidth of object store implementations,
+ as well as filesystem implementations (e.g.
+ academic prototypes vs industrial).
+ The sizes of the above 
+\emph on
+typical
+\emph default
+ areas 
+\emph on
+cannot
+\emph default
+ tell you too much about 
+\emph on
+implementation efforts
+\emph default
+ as well as 
+\emph on
+maintenance efforts
+\emph default
+ and other efforts, because other factors like 
+\series bold
+strongly coupled vs loosely coupled
+\series default
+ implementations / 
+\emph on
+ease
+\emph default
+ of caching e.g.
+ in 
+\series bold
+Cache Coherence
+\series default
+ problems / other architectural differences / 
+\series bold
+Consistency Models
+\series default
+ / experiences of protagonists / 
+\series bold
+maturity
+\series default
+ at multiple layers and on subsystems / size of the 
+\series bold
+developer community
+\series default
+ e.g.
+ in small vs big projects like the Linux kernel / common code e.g.
+ among multiple Linux filesystem implementions / etc are 
+\emph on
+typically
+\emph default
+ much more important.
+ While well-known classical filesystems are mature technology on tightly
+ coupled local
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+For 
+\begin_inset Quotes eld
+\end_inset
+
+Distributed Systems
+\begin_inset Quotes erd
+\end_inset
+
+, we don't count low-level 
+\begin_inset Quotes eld
+\end_inset
+
+local
+\begin_inset Quotes erd
+\end_inset
+
+ connections like 
+\series bold
+short-distance
+\series default
+ SAS cables between disk enclosures and servers.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Attention: some evangelists are wrongly claiming that local storage would
+ be 
+\begin_inset Quotes eld
+\end_inset
+
+too small
+\begin_inset Quotes erd
+\end_inset
+
+ and/or 
+\begin_inset Quotes eld
+\end_inset
+
+unmanagle
+\begin_inset Quotes erd
+\end_inset
+
+ / etc for too many use cases.
+ Notice: contemporary 
+\begin_inset Quotes eld
+\end_inset
+
+local
+\begin_inset Quotes erd
+\end_inset
+
+ hardware RAID networks can easily scale up to 1 petabytes or more, and
+ can provide competitive IOPS rates.
+\end_layout
+
+\end_inset
+
+ servers, object stores often try to be 
+\begin_inset Quotes eld
+\end_inset
+
+sexy
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+more intelligent
+\begin_inset Quotes erd
+\end_inset
+
+ by 
+\begin_inset Quotes eld
+\end_inset
+
+less functionality at the surface
+\begin_inset Quotes erd
+\end_inset
+
+ on loosely coupled BigCluster designs.
+ In reality, the latter are typically 
+\series bold
+more cumbersome
+\series default
+ due to 
+\series bold
+less controllable
+\series default
+ concepts like 
+\begin_inset Quotes eld
+\end_inset
+
+eventually consistent
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\series bold
+high complexity
+\series default
+, e.g.
+ in Distributed Systems / at 
+\emph on
+hidden
+\emph default
+ parts / less visible subsystems, leading to various problems in practice.
+\end_layout
+
+\begin_layout Standard
+More details can be found in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Negative-Example:-object"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+\emph on
+Real
+\emph default
+ Functionality and TCO behind typical Object Stores
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ 
+\emph on
+Typical
+\emph default
+ object store implementations are approximately nothing else but 
+\series bold
+special cases
+\series default
+ of classical fileystems, when looking at the 
+\emph on
+abstract
+\emph default
+ functionality.
+ In reality, their 
+\begin_inset Quotes eld
+\end_inset
+
+additional
+\begin_inset Quotes erd
+\end_inset
+
+ functionality is close to neglectible.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ In many cases, roughly comparable classical filesystems are 
+\series bold
+more mature
+\series default
+, and/or 
+\series bold
+more reliable
+\series default
+, and/or 
+\series bold
+cheaper
+\series default
+ in terms of TCO = Total Cost of Ownership.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Don't let 
+\series bold
+fool
+\series default
+ you from contrary generalized claims.
+ 
+\series bold
+Always check
+\series default
+ such claims in detail, and by 
+\emph on
+real experts
+\emph default
+ who really know and can not only explain the differences both in terms
+ of 
+\series bold
+Abstract Functionality
+\series default
+, but also by knowledge and by enough 
+\emph on
+first-hand
+\emph default
+ experience on 
+\emph on
+implementation details
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ When unsure, read the details from section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Negative-Example:-object"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Chapter
 Architectural Principles and Properties
 \begin_inset CommandInset label
@@ -9170,9 +9554,12 @@ separate
 
 \end_inset
 
- In comparison, creating a different interface for an already existing sub-funct
-ionality, and optionally adding some metadata harvesters and filters, is
- requiring much lower
+ In comparison, creating a different interface for an 
+\emph on
+already existing
+\emph default
+ sub-functionality, and optionally adding some metadata harvesters and filters,
+ is requiring  lower
 \begin_inset Foot
 status open
 
@@ -11165,8 +11552,8 @@ risk
 \emph on
 known
 \emph default
- to filesystem and database implementers and their architects, provided
- they also know the 
+ to filesystem and database implementers and their experienced architects,
+ provided they also know the 
 \series bold
 Theory of Databases
 \series default
@@ -11198,8 +11585,17 @@ extremely big
 \series bold
 eventually consistent
 \series default
- object stores, independently from local vs distributed types of object
- stores.
+ object stores (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Object-Store"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), independently from local vs distributed types of object stores.
 \end_layout
 
 \begin_layout Standard
@@ -11555,7 +11951,7 @@ Referential Integrity
 wrong
 \emph default
  objects, potentially belonging to other customers, thus breaching privacy
- / security / etc).
+ / security / isolation / etc).
 \end_layout
 
 \begin_layout Itemize
