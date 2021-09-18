@@ -4589,6 +4589,178 @@ noprefix "false"
 
 \end_layout
 
+\begin_layout Section
+What is Sharding
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:What-is-Sharding"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+Sharding is an architecture addressing 
+\series bold
+Distributed System
+\series default
+s with a certain 
+\series bold
+horizontal scaling
+\series default
+ strategy (aka known as 
+\emph on
+scale-out
+\emph default
+), which has interesting properties for enterprise-critical workloads (provided
+ that the method is 
+\emph on
+applicable
+\emph default
+ for your use case):
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Minimization
+\series default
+ of 
+\series bold
+distastrous incidents
+\series default
+ and good 
+\series bold
+reliability
+\series default
+ by avoidance of 
+\emph on
+spreading risks
+\emph default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Optimum-Reliability-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Itemize
+Well-suited for 
+\series bold
+geo-redundancy
+\series default
+.
+\end_layout
+
+\begin_layout Itemize
+High 
+\series bold
+scalability
+\series default
+.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Minimization
+\series default
+ of 
+\series bold
+TCO
+\series default
+ = Total Cost of Ownership.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+
+\emph on
+Example
+\emph default
+ picture, intended for use cases like DropBox & co, typically for use by
+ 
+\emph on
+masses
+\emph default
+ of end users for copies and/or backup of their private filesystem data:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/sharded-object-store-or-filesystem.fig
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+An example for another use case (Shared Hosting Linux), productive since
+ years with an SLA of 99.98% end-to-end for currently ~6 millions of customers
+ on ~6 petabytes of filesystem data on ~10 billions of files (inodes) can
+ be found in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Positive-Example:-ShaHoLin"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+A definiton of Sharding (for the context of 
+\emph on
+datacenters
+\emph default
+ e.g.
+ in cloud / hosting / storage systems & co) can be found in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Distributed-vs-Local:"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and its subsection 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Definition-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
 \begin_layout Chapter
 Architectural Principles and Properties
 \begin_inset CommandInset label
@@ -15542,7 +15714,7 @@ two
 
  than RAID-10, and can also provide some striping with respect to (random)
  reads.
- However, random writes are much slower.
+ However, random writes are slower.
  For read-intensive workloads, the striping behaviour of RAID-6 is often
  sufficient.
  A tool for comparsion of different RAID setup alternatives can be found
@@ -15579,18 +15751,20 @@ architecture
 \emph default
  (cf section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
-) is very important, because it can seriously limit your business.
- Overcoming architectural ill-designs can grow extremely cumbersome and
- costly.
+) is important, because it can seriously limit your business.
+ Architectural ill-designs can grow extremely cumbersome and costly.
 \end_layout
 
 \begin_layout Standard
-Many enterprise system architects are starting with a particular architecture
+Some enterprise system architects are starting with a particular architecture
  in mind, called 
 \begin_inset Quotes eld
 \end_inset
@@ -15629,7 +15803,7 @@ The crucial point is the
 \series bold
 storage network
 \series default
- here: 
+: 
 \begin_inset Formula $n$
 \end_inset
 
@@ -15637,12 +15811,21 @@ storage network
 \begin_inset Formula $m=O(n)$
 \end_inset
 
- frontend servers, in order to achieve properties like scalability, failure
- tolerance, etc.
+ frontend servers.
+ The argument of BigCluster advocates is that this 
+\emph on
+would
+\emph default
+ be 
+\emph on
+advantagous
+\emph default
+ for achieving desired properties like scalability, failure tolerance, etc.
+ We will check this argument.
 \end_layout
 
 \begin_layout Standard
-Since 
+According to the idea behind BigCluster, 
 \emph on
 any
 \emph default
@@ -15650,7 +15833,7 @@ any
 \begin_inset Formula $m$
 \end_inset
 
- frontends must be able to access 
+ frontends needs to access 
 \emph on
 any
 \emph default
@@ -15658,11 +15841,20 @@ any
 \begin_inset Formula $n$
 \end_inset
 
- storages in realtime, the storage network must be dimensioned for 
+ storages in realtime.
+ Thus the storage network must be 
+\emph on
+dimensioned
+\emph default
+ for 
 \begin_inset Formula $O(n\cdot m)=O(n^{2})$
 \end_inset
 
- network connections running in parallel.
+ network connections, 
+\emph on
+potentially
+\emph default
+ running in parallel.
  Even if the total network throughput is scaling only with 
 \begin_inset Formula $O(n)$
 \end_inset
@@ -15671,9 +15863,17 @@ any
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
- network connections have to be maintained at connection oriented protocols
- and at various layers of the operating software.
- The network has to 
+ network connections have to be 
+\emph on
+maintained
+\emph default
+ at connection oriented protocols and at various layers of the operating
+ software.
+ The network must be 
+\emph on
+able
+\emph default
+ to 
 \emph on
 switch
 \emph default
@@ -15709,7 +15909,11 @@ cross-bar functionality
 \series bold
 realtime
 \series default
- makes the storage network complicated and 
+ makes the storage network 
+\series bold
+complicated
+\series default
+ and 
 \series bold
 expensive
 \series default
@@ -15740,12 +15944,15 @@ noprefix "false"
 status open
 
 \begin_layout Plain Layout
-Some further factors are increasing the cost of storage networks:
+Factors increasing the risk and cost of storage networks:
 \end_layout
 
 \begin_layout Itemize
-In order to limit error propagation from other networks, the storage network
- is often built as a 
+In order to limit 
+\series bold
+error propagation
+\series default
+ from other networks, the storage network is often built as a 
 \emph on
 physically separate
 \emph default
@@ -15772,16 +15979,24 @@ noprefix "false"
 \series bold
 worst case
 \series default
- (load peaks, packet storms, etc), needing one of the best = typically most
- expensive components for reducing latency and increasing throughput.
+ (load peaks, 
+\series bold
+packet storms
+\series default
+, etc), needing one of the best = typically most expensive components for
+ reducing latency and increasing throughput.
  Dimensioning to the worst case instead of an average case plus some safety
- margins is nothing but an expensive 
+ margins is an expensive 
 \series bold
 overdimensioning
 \series default
  / 
 \series bold
 over-engineering
+\series default
+ which has their own 
+\series bold
+pitfalls
 \series default
 .
 \end_layout
@@ -15796,7 +16011,7 @@ multipathing
 \emph on
 double
 \emph default
-.
+, and induce further pitfalls.
 \end_layout
 
 \begin_layout Itemize
@@ -15814,9 +16029,79 @@ noprefix "false"
 
 \end_inset
 
-), the total effort may easily double another time because in cases of disasters
+), and when it is 
+\emph on
+possible
+\emph default
+ with a certain BigCluster implementation 
+\emph on
+at all
+\emph default
+, the total effort may easily double another time because in cases of disasters
  like terrorist attacks the backup datacenter must be prepared for taking
  over for multiple days or weeks.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ A wide-spread pitfall is 
+\emph on
+incorrect belief
+\emph default
+ about section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and its 
+\series bold
+fundamental requirements
+\series default
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ There are certain products 
+\emph on
+marketed
+\emph default
+ as 
+\begin_inset Quotes eld
+\end_inset
+
+geo-redundancy is 
+\emph on
+possible
+\emph default
+
+\begin_inset Quotes erd
+\end_inset
+
+ while actually not matching the 
+\emph on
+requirements
+\emph default
+ for true geo-redundancy.
 \end_layout
 
 \end_inset
@@ -15825,6 +16110,7 @@ noprefix "false"
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -15832,8 +16118,19 @@ noprefix "false"
 
 \end_inset
 
- In general, storage networks won't work over long distances.
- Even it would be possible, 
+ In general, storage networks won't work over long distances (see section
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Kirchhoff-Suitability-of-Storage-Networks"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ Even it would be possible for a certain use case, 
 \series bold
 asymmetry problems
 \series default
@@ -15861,7 +16158,7 @@ noprefix "false"
 
 \end_inset
 
- are much more difficult to achieve.
+ are much more difficult to achieve, if possible at all.
 \end_layout
 
 \begin_layout Standard
@@ -15999,7 +16296,7 @@ User / customer data is
 partitioned
 \series default
 .
- This is very similar to database sharding.
+ This is similar to database sharding.
  However, the original database term also allows 
 \emph on
 some
@@ -16014,7 +16311,7 @@ system data,
 \emph on
 replicated
 \emph default
- from a central 
+ to thousands of nodes from a central 
 \begin_inset Quotes eld
 \end_inset
 
@@ -16035,6 +16332,20 @@ rsync
  Typically, it comprises only of few gigabytes per instance and is mostly
  read-only with a slow change rate, while total customer data is typically
  in the range of some petabytes with a higher total change rate.
+ For smaller 
+\begin_inset Formula $n$
+\end_inset
+
+ in the range of a few hundreds of shards, sysadmins are typically prefering
+ more convenient tools like 
+\family typewriter
+Chef
+\family default
+ or 
+\family typewriter
+puppet
+\family default
+ & co.
 \end_layout
 
 \begin_layout Enumerate
@@ -16043,9 +16354,12 @@ The system has (almost
 status open
 
 \begin_layout Plain Layout
-In general, there are some more natural single points of contention, such
- as the physical space of a datacenter, which might be destroyed by an explosion
-, for example.
+In general, there are some more 
+\emph on
+natural
+\emph default
+ single points of contention, such as the physical space of a datacenter,
+ which might be destroyed by an explosion, for example.
 \end_layout
 
 \end_inset
@@ -16206,7 +16520,7 @@ BigCluster
 \end_layout
 
 \begin_layout Standard
-Our sharding model does not need a dedicated storage network in general,
+The sharding architecture does not need a dedicated storage network in general,
  at least when built and dimensioned properly.
  Instead, it 
 \emph on
@@ -16218,6 +16532,10 @@ replication network
 \series default
  which can, when present, be dimensioned much smaller because it does neither
  need realtime operations nor scalabiliy to 
+\begin_inset Formula $O(k\cdot n)$
+\end_inset
+
+ or 
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
@@ -16242,16 +16560,27 @@ replication network
 
 \begin_layout Standard
 \noindent
-Sharding architectures are extremely well suited when both the input traffic
- and the data is 
+Sharding architectures are extremely well suited when 
+\emph on
+both
+\emph default
+ the input traffic 
+\emph on
+and
+\emph default
+ the data is 
 \series bold
 already partitioned
 \series default
 .
  For example, when several thousands or even millions of customers are operating
- on disjoint data sets, like in web hosting where each webspace is residing
- in its own home directory, or when each of millions of mySQL database instances
- has to be isolated from its neighbour.
+ on 
+\emph on
+disjoint
+\emph default
+ data sets, like in web hosting where each webspace is residing in its own
+ home directory, or when each of millions of mySQL database instances has
+ to be isolated from its neighbour.
  Masses of customers are also appearing at cloud storage applications like
  Cloud Filesystems (e.g.
  Dropbox or similar).
@@ -16270,10 +16599,22 @@ Even in cases when any customer may potentially access any of the data items
 Only when partitioning of input traffic plus data is not possible in a reasonabl
 e way, big cluster architectures as implemented for example in Ceph or Swift
  (and partly even possible with MARS when restricted to the block layer)
- may have a use case.
+ 
+\emph on
+may
+\emph default
+ have a use case.
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 3
 status open
 
@@ -16288,6 +16629,7 @@ When sharding is possible, it is the preferred model due to reliability
 \end_layout
 
 \begin_layout Standard
+\noindent
 Another good explanation can be found at 
 \begin_inset Flex URL
 status open
@@ -16301,6 +16643,39 @@ e/
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Standard
+Here is a 
+\series bold
+simple example architecture
+\series default
+ for internet-based object stores / filesystems (differences explained in
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Object-Store"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), here intended for similar use cases like DropBox & co (which are typically
+ used by masses of end users for copies and/or backup of their private filesyste
+m data):
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/sharded-object-store-or-filesystem.fig
+	width 100col%
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -16356,7 +16731,7 @@ small-sized
 \end_layout
 
 \begin_layout Enumerate
-Less that 1 permille of all customers have > 250 GB (up to 2TB) per home
+Less than 1 permille of all customers have > 250 GB (up to 2TB) per home
  directory.
  For these few customers we are using another dimensioning variant of the
  same architecture: 4U servers with 48 high-capacity spindles on 3 RAID
@@ -16931,6 +17306,14 @@ and
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 3
 status open
 
@@ -19600,13 +19983,13 @@ name "subsec:Optimum-Reliability-from"
 \end_layout
 
 \begin_layout Standard
-Another argument could be: don't distribute the BigCluster objects to exactly
- 
+Another potential argument from influencers could be: don't distribute the
+ BigCluster objects to exactly 
 \begin_inset Formula $n$
 \end_inset
 
  nodes, but to less nodes.
- Would the result be better than DRBDorMARS LocalSharding?
+ Would the result be better than DRBDorMARS-like LocalSharding?
 \end_layout
 
 \begin_layout Standard
@@ -19615,9 +19998,19 @@ Actually, several BigCluster implementations are doing similar measures,
 \emph on
 workaround
 \emph default
- the problems analyzed here.
+ problems analyzed in the previous subsections of 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
  There are various terms for suchalike measures, like placement groups (Ceph),
- copysets (Facebook), buckets (generic), etc.
+ copysets (Facebook), buckets (generic object stores), etc.
 \end_layout
 
 \begin_layout Standard
@@ -19644,9 +20037,9 @@ any
 
  nodes is 
 \series bold
-always
+always worse
 \series default
- worse than of LocalSharding on exactly 
+ than the reliability of LocalSharding on exactly 
 \begin_inset Formula $k$
 \end_inset
 
@@ -19662,10 +20055,17 @@ always
 
 \series bold
 \size large
-The LocalSharding model is the optimum model for reliability of operation,
- compared to any other model truly distributing its data and operations
- over truly more nodes, like RemoteSharding or BigClusterSharding or BigCluster
- does.
+The LocalSharding model is the 
+\emph on
+optimum model
+\emph default
+ for reliability of operation, compared to any other model truly distributing
+ its data 
+\emph on
+and
+\emph default
+ operations over truly more nodes, like RemoteSharding or BigClusterSharding
+ or BigCluster does.
 \end_layout
 
 \begin_layout Standard
@@ -19677,7 +20077,7 @@ There exists no better model because shards consisting of exactly
 \begin_inset Formula $k$
 \end_inset
 
- is the redundancy degree are already the 
+ is the redundancy degree, are already the 
 \emph on
 smallest possible shards
 \emph default
@@ -19694,10 +20094,10 @@ reference "sub:Detailed-explanation"
 \end_inset
 
  nodes for distribution of objects at any shard is 
-\series bold
-always
-\series default
- worse in the dimension of reliability.
+\emph on
+always worse
+\emph default
+ in the dimension of reliability.
  Thus the above sentence follows by induction.
 \end_layout
 
@@ -19843,6 +20243,7 @@ permutation
 opposite
 \emph default
  of this, by its very nature.
+ Thus:
 \end_layout
 
 \begin_layout Standard
@@ -19852,7 +20253,7 @@ status open
 
 \begin_layout Plain Layout
 \noindent
-Thus the 
+The 
 \emph on
 concept
 \emph default
@@ -19932,7 +20333,11 @@ noprefix "false"
 bearable
 \emph default
  in practice.
- They cannot fix the 
+ They cannot 
+\emph on
+fix
+\emph default
+ the 
 \series bold
 Dijkstra regression overhead
 \series default
@@ -19947,7 +20352,7 @@ noprefix "false"
 \end_inset
 
 .
- The above plot explains why even the workarounds are 
+ The above plot explains why even workarounds are 
 \series bold
 far from optimal
 \series default
@@ -20045,8 +20450,7 @@ inducing OPEX cost
 
 \begin_layout Plain Layout
 So an original BigCluster USP = Unique Selling Point does not really work
- as originally expected, due to fundamental laws of storage systems which
- are as hard as Einstein's laws are.
+ as originally expected, due to fundamental laws of storage systems.
 \end_layout
 
 \end_inset
@@ -20141,7 +20545,11 @@ object pools
 \series bold
 mounted
 \series default
- in parallel at 
+ 
+\emph on
+in parallel
+\emph default
+ at 
 \begin_inset Formula $O(n)$
 \end_inset
 
@@ -20182,8 +20590,16 @@ noprefix "false"
 \end_layout
 
 \begin_layout Standard
-In such a scenario, any problem / incident inside of your storage pool for
- the filesystem instances will be spread to 
+In such a scenario, any problem / incident 
+\emph on
+inside
+\emph default
+ of your 
+\emph on
+storage pool 
+\emph default
+and/or their the storage-side filesystem instances (e.g.
+ exported via NFS & co) will be spread to 
 \begin_inset Formula $O(n)$
 \end_inset
 
@@ -20196,7 +20612,7 @@ In such a scenario, any problem / incident inside of your storage pool for
 number of affected mountpoints
 \series default
 .
- Notice that this is different from the number of clients.
+ Notice that this may be different from the number of clients.
 \end_layout
 
 \begin_layout Standard
@@ -20264,7 +20680,7 @@ If you like, please create another mathematical model in terms of number
 
 \end_inset
 
- The problem is much worse than explained in section 
+ The problem is worse than explained in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "subsec:Explanations-from-DSM"
@@ -20302,13 +20718,131 @@ hazardous
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not believe that the problem can be fixed by 
+\begin_inset Formula $O(k)$
+\end_inset
+
+ spreading mounts in place of 
+\begin_inset Formula $O(n)$
+\end_inset
+
+, when 
+\begin_inset Formula $k$
+\end_inset
+
+ is assumed as a 
+\begin_inset Quotes eld
+\end_inset
+
+small
+\begin_inset Quotes erd
+\end_inset
+
+ constant 
+\begin_inset Formula $>1$
+\end_inset
+
+.
+ It 
+\emph on
+may
+\emph default
+ be possible to 
+\emph on
+reduce
+\emph default
+ the 
+\emph on
+size
+\emph default
+ of the problem space.
+ But it 
+\emph on
+cannot remove
+\emph default
+ the fundamental law of storage systems.
+ Even 
+\begin_inset Formula $k=2$
+\end_inset
+
+ is typically an unnecessary factor for the 
+\series bold
+incident expectance value
+\series default
+.
+ Do not 
+\emph on
+plan
+\emph default
+ unnecessary spreading, whether some more or less 
+\begin_inset Quotes eld
+\end_inset
+
+constant
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset Formula $k$
+\end_inset
+
+ or some 
+\begin_inset Quotes eld
+\end_inset
+
+unbounded
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset Formula $n$
+\end_inset
+
+.
+ Just do not play with the fire when HA is important for enterprise-critical
+ use cases.
+\end_layout
+
+\begin_layout Standard
 Notice: DRBD or MARS are traditionally used for running the application
  on the same box as the storage.
- Thus they are not vulnerable to these kinds of failure propagation over
- network.
- Even with traditional iSCSI exports over DRBD or MARS, you won't have suchalike
- problems.
- Your only chance to increase the error propagation are 
+ Thus they are not vulnerable to these kinds of 
+\series bold
+failure propagation over network
+\series default
+.
+ Even with 
+\emph on
+traditional
+\emph default
+ iSCSI exports over DRBD or MARS, you won't have suchalike problems, because
+ the traditional iSCSI model disallows multiple mounts of the same filesystem
+ 
+\emph on
+in parallel
+\emph default
+.
+ Your only chance to 
+\emph on
+increase
+\emph default
+ the error propagation over 
+\emph on
+multiple
+\emph default
+ clients are 
+\begin_inset Formula $O(k)$
+\end_inset
+
+ or 
 \begin_inset Formula $O(n)$
 \end_inset
 
@@ -20316,11 +20850,23 @@ Notice: DRBD or MARS are traditionally used for running the application
 \family typewriter
 glusterfs
 \family default
- exports to 
+ & co exports to 
+\begin_inset Formula $O(k)$
+\end_inset
+
+ or 
 \begin_inset Formula $O(n)$
 \end_inset
 
- clients leading to a total number of 
+ clients 
+\emph on
+each
+\emph default
+, leading to a total number of 
+\begin_inset Formula $O(k\cdot n)$
+\end_inset
+
+ or 
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
@@ -20343,12 +20889,16 @@ Clear advice
 
 \end_inset
 
- Don't use 
+ Do not plan 
+\begin_inset Formula $O(k\cdot n)$
+\end_inset
+
+ or 
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
  mountpoints in total.
- It's a very bad idea.
+ It is a bad idea.
 \end_layout
 
 \end_inset
