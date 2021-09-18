@@ -705,7 +705,7 @@ name "chap:Important-Concepts"
 \begin_layout Standard
 This chapter is 
 \emph on
-very short
+short
 \emph default
 .
  Recommended reading for 
@@ -800,7 +800,82 @@ name "sec:What-is-Architecture"
 \end_layout
 
 \begin_layout Standard
-From 
+Architecture is important for achievement of 
+\series bold
+management goals
+\series default
+ in companies when they want to control their own long-term IT stategy.
+ Bad architectures can cause you miss your management goals, typically in
+ long term, and/or can increase several 
+\series bold
+fundamental risks
+\series default
+ for you and your company.
+ Therefore, you need 
+\emph on
+good architecture
+\emph default
+, and you need some sort of 
+\series bold
+quality assurance for architecture
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+There exist multiple definitions of architecture, and there are several
+ related terms like 
+\begin_inset Quotes eld
+\end_inset
+
+computer architecture
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+hardware architecture
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+software architecture
+\begin_inset Quotes erd
+\end_inset
+
+ etc etc.
+ Some versions are attributed to unrelated fields like 
+\begin_inset Quotes eld
+\end_inset
+
+landscape architecture
+\begin_inset Quotes erd
+\end_inset
+
+ and many others.
+ We need to hit your real needs as best as possible.
+\end_layout
+
+\begin_layout Standard
+We start with 
+\begin_inset Quotes eld
+\end_inset
+
+architecture of anything
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+When narrowing down to Software Architecture, we 
+\emph on
+may
+\emph default
+ take a more specific version from 
 \begin_inset Flex URL
 status open
 
@@ -811,7 +886,7 @@ https://en.wikipedia.org/wiki/Software_architecture
 
 \end_inset
 
-:
+, but this might foster more misunderstanding under less-trained staff:
 \end_layout
 
 \begin_layout Quote
@@ -826,8 +901,655 @@ discipline
  of creating such structures and systems.
 \end_layout
 
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Caution: when certain software architectures (even 
+\emph on
+theoretically good
+\emph default
+ ones) are 
+\series bold
+\emph on
+too abstract
+\series default
+\emph default
+ such they are not fully understood by other people, and/or when they are
+ missing important points for achieving your goals and/or for detection
+ of 
+\emph on
+hidden problems
+\emph default
+, and/or when introducing 
+\series bold
+unnecessary overhead
+\series default
+, they may work even 
+\series bold
+counter-productive
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Important IT-related variants can be found in 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://www.iso-architecture.org/42010/defining-architecture.html
+\end_layout
+
+\end_inset
+
+.
+ We select a short comprehensive definition, focusing on three main bullet
+ points:
+\end_layout
+
+\begin_layout Itemize
+its 
+\series bold
+elements
+\series default
+: the constituents that make up the system; 
+\end_layout
+
+\begin_layout Itemize
+the 
+\series bold
+relationships
+\series default
+: both internal and external to the system; and 
+\end_layout
+
+\begin_layout Itemize
+the 
+\series bold
+principles
+\series default
+ of its design and evolution.
+\end_layout
+
 \begin_layout Standard
-Throughout this document, the term 
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ The order of these bullet points is important: (1) Make clear (with 
+\emph on
+as less ambiguity as possible
+\emph default
+) about 
+\emph on
+which elements
+\emph default
+ you want to talk.
+ (2) Only after having a clear notion of your elements, you can start talking
+ on 
+\emph on
+relationships
+\emph default
+.
+ (3) Once the relationships of your elements are clear, both internal and
+ external ones, only then you can start talking on 
+\emph on
+architectural principles
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Consequence: you should 
+\series bold
+\emph on
+define
+\emph default
+ the terms
+\series default
+ you are using for (1) elements, and (2) relationships, and (3) principles.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Avoid talking about unclear ideas.
+ Invest some effort into making things clear.
+ Otherwise, the 
+\emph on
+quality of your architecture
+\emph default
+ may lead to confusion or other bad effects, up to millions of € or $.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ It is practically impossible to denote and to define 
+\emph on
+all existing
+\emph default
+ elements / relationships / principles.
+ Tell only the 
+\series bold
+relevant
+\series default
+ ones.
+ Conversely, do 
+\series bold
+not forget
+\series default
+ important ones, at least for your IT environment and for your 
+\emph on
+company culture
+\emph default
+.
+ 
+\series bold
+Omissions are
+\series default
+ potentially 
+\series bold
+dangerous
+\series default
+!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Important: 
+\series bold
+soundness
+\series default
+ and 
+\series bold
+freeness of contradictions
+\series default
+ are similarly crucial than in 
+\begin_inset Quotes eld
+\end_inset
+
+wrong mathematical theories
+\begin_inset Quotes erd
+\end_inset
+
+.
+ But this isn't enough.
+ Otherwise this section would be unnecessary.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Example: Distributed System
+\end_layout
+
+\end_inset
+
+Typical pictures of Distributed Systems are depicted in the following way:
+\end_layout
+
+\begin_layout Enumerate
+Elements are 
+\series bold
+boxes
+\series default
+, typically depicting 
+\emph on
+server classes
+\emph default
+ or a 
+\emph on
+class of servers
+\emph default
+ (as deployed into a datacenter), sometimes also 
+\emph on
+singletons
+\emph default
+ (each by each), augmented with their (class) names.
+\end_layout
+
+\begin_layout Enumerate
+Relationships are lines, typically depicting (bundles of) 
+\series bold
+network cables
+\series default
+, or other (multiplexed) 
+\emph on
+communication channels
+\emph default
+.
+ When necessary, they may also get (class) names, but typically such detail
+ is not always needed for understanding.
+\end_layout
+
+\begin_layout Enumerate
+Principles are communicated as subsequent 
+\series bold
+explanation text
+\series default
+, typically in English.
+ Do not skip important explanations!
+\end_layout
+
+\begin_layout Plain Layout
+Here is a simple example graphics as used in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Definition-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, depicting the architectural bullet points (1) and (2), while the explanation
+ text (3) can be found in the referenced section:
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+´
+\begin_inset Graphics
+	filename images/sharded-object-store-or-filesystem.fig
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+In this example architecture of a certain class of Distributed System, the
+ environment of the system is depicted as 
+\begin_inset Quotes eld
+\end_inset
+
+Internet
+\begin_inset Quotes erd
+\end_inset
+
+ without a box.
+ The system elements consist of boxes, denoted by their inside text, and
+ potentially also named by footers.
+ The relationships are simple lines, denoting the 
+\emph on
+regular mass communication
+\emph default
+.
+ Less relevant details like 
+\family typewriter
+ssh
+\family default
+ access for sysadmins is omitted.
+ The dashed separators are used for optional internal grouping.
+ When important for a certain use case, some 
+\series bold
+numbers depicting quantities
+\series default
+ (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://de.wikipedia.org/wiki/Mengenger%C3%BCst
+\end_layout
+
+\end_inset
+
+) need to be 
+\emph on
+added
+\emph default
+ (which is unfortunately not possible in this paper because we don't talk
+ about 
+\emph on
+concrete instances
+\emph default
+ here).
+ The only abstract number here is 
+\begin_inset Formula $n$
+\end_inset
+
+, while others in units like Petabytes or GiB/s or similar should be added
+ for quality assurance.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Intuitively, the reader can imagine that this communication structure features
+ the main property of Sharding as explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Definition-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+: there is no communication / cross traffic 
+\emph on
+between
+\emph default
+ different shards.
+ There is no SPOC = Single Point Of Contention.
+ The shards cannot influence each other.
+ Thus the 
+\series bold
+risk of catastrophic incidents
+\series default
+ is 
+\emph on
+reduced
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\series bold
+Unnecessary structural complexity
+\series default
+ would be an indicator for 
+\emph on
+low quality
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Do not 
+\emph on
+miss the chance
+\emph default
+ for 
+\series bold
+comparing
+\series default
+ multiple 
+\series bold
+architectural alternatives
+\series default
+ for 
+\series bold
+quality
+\series default
+!
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Important: do not unnecessarily mix boxes or lines depicted in the same
+ graphics style, when they are 
+\emph on
+not easily comparable
+\emph default
+ to each other.
+ For example, so not 
+\emph on
+mix up
+\emph default
+ less distinguishable items from 
+\emph on
+different
+\emph default
+ architecture 
+\emph on
+topics
+\emph default
+ like 
+\emph on
+Distributed Systems
+\emph default
+ (involving relationships at network level) with ones from OO = Object Orientati
+on (involving completely uncomparable relationships like inheritance lines).
+ Another example: mixup of hardware boxes with software boxes (except when
+ you can 
+\emph on
+clearly
+\emph default
+ express the 
+\emph on
+types
+\emph default
+ of boxes as well as the types of relationships – but beware of the 
+\emph on
+complexity
+\emph default
+ of suchalike diagrams).
+ Suchalike mix-ups are indicators for 
+\emph on
+low quality
+\emph default
+, and can easily provoke various misunderstandings
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Here is a hypothetical example of a misunderstandable variant of the first
+ graphics.
+ For illustration, the bad parts are coloured in 
+\color brown
+dark red
+\color inherit
+:
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+´
+\begin_inset Graphics
+	filename images/example-bad-architecture.fig
+	width 50col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+What is bad here? This is not only violating the 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Definition-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ because the bottom box is a SPOC = Single Point of Contention, because
+ multiple shards 
+\emph on
+must not
+\emph default
+ share an unnecessary common SPOC [
+\size footnotesize
+notice that the Internet can also have SPOCs but this is outside your system,
+ and we cannot influence much of it
+\size default
+].
+ Another problem is that the 
+\emph on
+whole picture
+\emph default
+ wants to explain a 
+\emph on
+Distributed System
+\emph default
+.
+ However, the dark red box contains 
+\series bold
+another
+\series default
+ 
+\emph on
+very complex 
+\series bold
+Distributed System
+\series default
+\emph default
+ which is much more 
+\series bold
+structurally complicated
+\series default
+ than the original sharding model, but the reader 
+\emph on
+cannot see this
+\emph default
+.
+ There is a 
+\series bold
+\emph on
+confusion of the abstraction level
+\series default
+\emph default
+.
+ When characterizations like 
+\begin_inset Quotes eld
+\end_inset
+
+BigCluster
+\begin_inset Quotes erd
+\end_inset
+
+ are omitted, readers can easily become mis-guided by believing that the
+ Object Store would be a 
+\begin_inset Quotes eld
+\end_inset
+
+simple
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+more easy box
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Throughout this document, the term 
 \begin_inset Quotes eld
 \end_inset
 
@@ -839,15 +1561,7 @@ architecture
 \begin_inset Quotes erd
 \end_inset
 
- (without preceding 
-\begin_inset Quotes eld
-\end_inset
-
-software
-\begin_inset Quotes erd
-\end_inset
-
-) is strictly separated from 
+ is strictly separated from 
 \begin_inset Quotes eld
 \end_inset
 
@@ -859,15 +1573,7 @@ implementation
 \begin_inset Quotes erd
 \end_inset
 
- (without preceding 
-\begin_inset Quotes eld
-\end_inset
-
-software
-\begin_inset Quotes erd
-\end_inset
-
-).
+.
  Any of 
 \begin_inset Quotes eld
 \end_inset
@@ -884,7 +1590,8 @@ implementation
 \begin_inset Quotes erd
 \end_inset
 
- can relate to both hard- and software.
+ can relate to Distributed Systems and/or to both hard- and software, and
+ may need inclusion of further infrastructure like networking.
 \end_layout
 
 \begin_layout Standard
@@ -896,7 +1603,73 @@ implementation
 
 \end_inset
 
- A certain architecture may have multiple implementations.
+ A certain architecture may have 
+\emph on
+multiple
+\emph default
+ implementations.
+ Good architectures are allowing this.
+ 
+\series bold
+Ability for multiple implementations
+\series default
+ may be a 
+\emph on
+competitive advantage
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Omission of important implementation considerations, or single-binding
+ to a certain 
+\emph on
+fixed enviroment
+\emph default
+, or even confusion of 
+\begin_inset Quotes eld
+\end_inset
+
+architecture
+\begin_inset Quotes erd
+\end_inset
+
+ with 
+\begin_inset Quotes eld
+\end_inset
+
+implementation
+\begin_inset Quotes erd
+\end_inset
+
+ (aka classes vs instances / confusion with 
+\emph on
+singletons
+\emph default
+) is an indicator for 
+\emph on
+low quality
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
  An implementation is based on a 
 \emph on
 set
@@ -943,7 +1716,7 @@ exceptionally
 
 \end_inset
 
-.
+
 \end_layout
 
 \begin_layout Standard
@@ -987,6 +1760,13 @@ as early as possible
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
 \noindent
 \begin_inset Flex Custom Color Box 3
 status open
@@ -1018,15 +1798,117 @@ potential for good solutions
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Important for 
+\series bold
+quality and usability
+\series default
+ of 
+\series bold
+software developments
+\series default
+: a certain implementation of software, even when intended as 
+\emph on
+part
+\emph default
+ of a certain architecture, should be able for 
+\series bold
+multiple instances
+\series default
+.
+ Good implementations are 
+\emph on
+constructed
+\emph default
+ for this.
+ 
+\series bold
+Ability for multiple instances
+\series default
+ may be a 
+\emph on
+competitive advantage
+\emph default
+ for development teams, provided they are professional enough for doing
+ this 
+\emph on
+really
+\emph default
+ and in proved good quality.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
 	scale 17
 
 \end_inset
 
- Starting with a particular implementation and/or with a particular technology
- in mind, and not sufficiently reasoning abouts its fundamental architecture,
- and/or 
+ Do not plan software developments as 
+\series bold
+\emph on
+singletons
+\series default
+\emph default
+.
+ Even worse: do not plan suchalike at architecture level.
+ This would be an indicator for 
+\emph on
+worse quality
+\emph default
+ of a certain architecture.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\series bold
+\emph on
+Long-term
+\emph default
+ success killers
+\series default
+: never start an architecture with a particular implementation and/or with
+ a particular technology in mind.
+ Even worse, never start with a particular product from a particular 
+\emph on
+vendor
+\emph default
+ (danger of so-called 
+\series bold
+Vendor-Lock-In
+\series default
+).
+ Insufficient reasoning about fundamental architecture and 
+\series bold
+fundamental laws
+\series default
+ (e.g.
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Optimum-Reliability-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), and/or 
 \series bold
 not seriously considering alternative architectures
 \series default
@@ -1035,7 +1917,7 @@ not seriously considering alternative architectures
 costly ill-designs
 \series default
 .
- An example may be found in section 
+ Some failure examples may be found in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "subsec:Example-Failures-of"
@@ -1057,7 +1939,7 @@ noprefix "false"
 
 \end_inset
 
- Confusion of 
+ Needed skills: confusion of 
 \begin_inset Quotes eld
 \end_inset
 
@@ -1083,7 +1965,11 @@ technology
 
  is another major source of ill-designs, which then often cause major product
  flaws and/or operational problems.
- Be sure to understand the differences.
+ Be sure to 
+\emph on
+really
+\emph default
+ understand the differences.
 \end_layout
 
 \begin_layout Standard
@@ -1117,6 +2003,13 @@ mappings
 complexity
 \emph default
  of such a mapping is a first hint.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -1174,7 +2067,7 @@ quality check
 concept
 \emph default
  level.
- Often, this review will disguise some problems / limitations etc, which
+ Often, such a review will disguise some problems / limitations etc, which
  should be treated by further iterations, restarting top-down again.
 \end_layout
 
@@ -1233,13 +2126,164 @@ set of
 \begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Such a comparison needs to be 
+\series bold
+fair
+\series default
+, and 
+\series bold
+no biases
+\series default
+.
+ For new developments, this can easily result in killers.
+ Notice that typical 
+\emph on
+software projects
+\emph default
+ have a failure rate about 70%, as can be read in text books from software
+ engineering.
+ 
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not believe that other areas like Distributed Systems are generally
+ much better.
+ There exists a 
+\emph on
+plethora
+\emph default
+ of more or less 
+\emph on
+failed
+\emph default
+ academic projects from the 
+\emph on
+viewpoint
+\emph default
+ of industry, depending on important concepts and 
+\series bold
+fundamental laws
+\series default
+ like 
+\series bold
+Consistency Models
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ A classical killer, but widely 
+\emph on
+unknown
+\emph default
+, is the failed MIT project which tried to re-implement the semaphore at
+ Distributed System level.
+ Do 
+\emph on
+not
+\emph default
+ believe that other distributed re-implementations of other models working
+ well on SMP or NUMA boxes (e.g.
+ filesystems or object stores) have a much better chance.
+ Not not ignore the 
+\series bold
+plethora of
+\series default
+ (more or less) 
+\series bold
+failed projects
+\series default
+, whether academic or industrial.
+ Distributed Systems can easily turn into 
+\series bold
+unexpected snake pits
+\series default
+.
+ Otherwise the professors for Distributed Systems would be overpaid or useless!
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Another killer when 
+\emph on
+updating
+\emph default
+ or 
+\emph on
+re-factoring
+\emph default
+ an 
+\series bold
+enterprise-critical productive system
+\series default
+: Never try this via too big and too less architectural changes.
+ Always do this 
+\series bold
+incrementally
+\series default
+ and via relatively 
+\series bold
+small architectural changes
+\series default
+, whose impact is 
+\series bold
+\emph on
+revertable
+\series default
+\emph default
+ (analogously to Change Management best practices, e.g.
+ similar to ITIL).
+ It would be foolish to apply ITIL-like practices only to the 
+\emph on
+rollout phase
+\emph default
+ after the final implementation of a certain architecture had been completed.
+ Some parts of ITIL & co are very helpful for analogous transfer to 
+\emph on
+incremental
+\emph default
+ architecture work.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 9
 	scale 5
 
 \end_inset
 
- Nevertheless, don't think in waterfall models.
+ Do not think in waterfall models.
  Always work 
 \series bold
 iteratively
@@ -1290,7 +2334,11 @@ https://en.wikipedia.org/wiki/Spiral_model
 
 \end_inset
 
- Be cautious when transferring 
+ Be 
+\emph on
+extremely cautious
+\emph default
+ when transferring 
 \emph on
 software
 \emph default
@@ -1321,7 +2369,7 @@ lead into a dead end
 \series bold
 early deliverables
 \series default
-., which can be counter-productive.
+, which can be counter-productive.
  Example: it is clearly a bad idea to plan for an early deliverable for
  some petabytes of storage.
  Thus architects and managers are tempted to 
@@ -1449,6 +2497,399 @@ noprefix "false"
 reach
 \series default
 .
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Howto QA = Quality Assurance of Architecture Work
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ It is a bad idea to delegate quality checks onto 
+\emph on
+big teams
+\emph default
+ and/or to 
+\emph on
+treat
+\emph default
+ (unofficially) some people as 
+\emph on
+responsible for quality
+\emph default
+, but in reality 
+\emph on
+some
+\emph default
+ of them having 
+\emph on
+insufficient skills
+\emph default
+ and/or 
+\emph on
+insufficient experiences
+\emph default
+ on certain classes / parts of architectural work (e.g.
+ 
+\emph on
+mixup
+\emph default
+ of management experiences with technical or architectural experiences).
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ In place of meetings with more than 3 participants, the following is recommende
+d:
+\end_layout
+
+\begin_layout Enumerate
+Identify the 
+\emph on
+right
+\emph default
+ people with the best possible skills and experiences, not only in the important
+ tasks, but more importantly at 
+\emph on
+architectural work
+\emph default
+ in the application area.
+ When necessary, include external 
+\emph on
+technical
+\emph default
+ and 
+\emph on
+architectural
+\emph default
+ consultants.
+\end_layout
+
+\begin_layout Enumerate
+Instead of few 
+\begin_inset Quotes eld
+\end_inset
+
+quality assurance session(s)
+\begin_inset Quotes erd
+\end_inset
+
+ in a format where true discussion and 
+\series bold
+deep dive
+\series default
+ into risks etc is unlikely (e.g.
+ for carreer or opportunity or 
+\emph on
+perceptional
+\emph default
+ or 
+\emph on
+political(!)
+\emph default
+ reasons) or hard (e.g.
+ due to incompatible skill levels), notice that 
+\series bold
+QA discussion formats
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Discussions in 
+\emph on
+big groups
+\emph default
+ about 
+\emph on
+truth of claims
+\emph default
+ or even about 
+\emph on
+facts
+\emph default
+ are similar to 
+\emph on
+public
+\emph default
+ discussions about the truth of Einstein's law.
+ There is a German saying: 
+\end_layout
+
+\begin_layout Plain Layout
+
+\family sans
+\size large
+Shit is excellent, because 
+\series bold
+\emph on
+millions
+\series default
+\emph default
+ of flies cannot be wrong
+\family default
+\size default
+.
+\end_layout
+
+\end_inset
+
+
+\series default
+ are 
+\series bold
+even harder than development
+\series default
+.
+ Thus discussions make 
+\emph on
+only
+\emph default
+ sense when 
+\emph on
+at least
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+private 
+\series bold
+preferences
+\series default
+ or so-called 
+\series bold
+hidden agendas
+\series default
+ have been counter-acted 
+\emph on
+in advance
+\emph default
+ at HR level, and
+\end_layout
+
+\begin_layout Enumerate
+multiple 
+\emph on
+direct
+\emph default
+ 
+\series bold
+personal discussions
+\series default
+ between the 
+\emph on
+right
+\emph default
+ persons in a 
+\series bold
+friendly culture
+\series default
+ but on 
+\series bold
+risks
+\series default
+ / 
+\series bold
+reliability
+\series default
+ / 
+\series bold
+scalability
+\series default
+ / 
+\series bold
+architectural flaws
+\series default
+ / 
+\series bold
+cost
+\series default
+ / etc are possible from at least 
+\emph on
+company-level scope
+\emph default
+, and
+\end_layout
+
+\begin_layout Enumerate
+there are 
+\emph on
+enough
+\emph default
+ but not 
+\emph on
+too much
+\emph default
+ and not 
+\emph on
+too big
+\emph default
+ (= well balanced) 
+\series bold
+understandable documents
+\series default
+ on sufficient 
+\emph on
+architectural alternatives
+\emph default
+, which had been 
+\series bold
+reviewed
+\series default
+ like recommended in 
+\emph on
+Software Engineering
+\emph default
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ A (single) slide, reducing a complex matter down to 1 page (or too less
+ pages) with 
+\emph on
+unclear
+\emph default
+ or 
+\emph on
+non-checkable
+\emph default
+ terms and claims 
+\begin_inset Formula $\Longrightarrow$
+\end_inset
+
+ then you have a 
+\series bold
+\emph on
+serious risk
+\series default
+\emph default
+ you typically know as a manager.
+\end_layout
+
+\begin_layout Enumerate
+for enterprise-critical work: QA of the QA, e.g.
+ involving 
+\emph on
+external
+\emph default
+ experts in architecture and important relatives like Software Engineering.
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+
+\series bold
+\emph on
+Selection
+\series default
+\emph default
+ among 
+\emph on
+multiple
+\emph default
+ architectural and/or implementation alternatives should be (1) checked
+ for sufficient QA and (2) 
+\series bold
+risk approved
+\series default
+, then (3) 
+\series bold
+decided
+\series default
+, and (4) 
+\series bold
+backed
+\series default
+ by (upper) management.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ A leadership style like 
+\begin_inset Quotes eld
+\end_inset
+
+the 
+\emph on
+team
+\emph default
+ is posponsible for the (single / best / etc) solution
+\begin_inset Quotes erd
+\end_inset
+
+ is a 
+\series bold
+risk
+\series default
+ (or almost a 
+\emph on
+guarantee
+\emph default
+) for 
+\series bold
+non-optimum
+\series default
+ or even bad 
+\series bold
+long-term decisions
+\series default
+ (recall that architectures have typically a lifetime of 
+\emph on
+decades
+\emph default
+ and are often cumbersome to fix).
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section
@@ -12354,7 +13795,11 @@ name "subsec:Granularities-for-Strict"
 \end_layout
 
 \begin_layout Standard
-End users are 
+
+\emph on
+End users
+\emph default
+ are 
 \emph on
 always
 \emph default
@@ -12418,8 +13863,64 @@ newest
 \end_layout
 
 \begin_layout Standard
-Here are the most important architectural differences between object-based
- storages and LV-based (Logical Volume) storages, provided that you 
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Anyone who claims that 
+\begin_inset Quotes eld
+\end_inset
+
+eventually consistent
+\begin_inset Quotes erd
+\end_inset
+
+ & co would be sufficient for 
+\emph on
+end users
+\emph default
+: beware of 
+\series bold
+reputation problems
+\series default
+, e.g.
+ articles in 
+\series bold
+test magazines
+\series default
+ / postings in 
+\series bold
+social media
+\series default
+ / 
+\series bold
+shitstorms
+\series default
+ / etc.
+ We are talking about 
+\emph on
+expectations
+\emph default
+ from 
+\emph on
+end-user customers
+\emph default
+.
+ The 
+\series bold
+customer is king
+\series default
+ and thus decides on your success!
+\end_layout
+
+\begin_layout Standard
+Consequences at technical level: here are the most important architectural
+ differences between object-based storages and LV-based (Logical Volume)
+ storages, provided that you 
 \emph on
 want to cover comparable use cases
 \emph default
@@ -12856,7 +14357,24 @@ yes
 
 \begin_layout Standard
 \noindent
-As indicated in sections 
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ As explained in sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Negative-Example:-directory structures over eventually consistent objects"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "sec:Reliability-Arguments-from"
@@ -12876,7 +14394,11 @@ noprefix "false"
 
 \end_inset
 
-, there are problems with object storage's 
+, there are 
+\emph on
+known problems
+\emph default
+ with object storage's 
 \series bold
 consistency model
 \series default
@@ -12911,7 +14433,7 @@ This section is
 \emph on
 not
 \emph default
- about expectations from users.
+ about expectations from end users.
  It is about implementation-specific 
 \series bold
 weak consistency models
@@ -12920,7 +14442,7 @@ weak consistency models
 \series bold
 eventually consistent
 \series default
-., see 
+, see 
 \begin_inset Flex URL
 status open
 
@@ -12944,7 +14466,11 @@ native
 \end_inset
 
  object storage, where eventually consistent (or similar) is sufficient,
- or at least claimed to be sufficient:
+ or at least 
+\emph on
+claimed
+\emph default
+ to be sufficient:
 \end_layout
 
 \begin_layout Standard
@@ -16276,8 +17802,12 @@ sharding
 
 \end_inset
 
-, and can be certainly transferred to some more application areas.
- Our more specific use of the term 
+, and can be certainly transferred to more application areas.
+ 
+\end_layout
+
+\begin_layout Standard
+Our more specific use of the term 
 \begin_inset Quotes eld
 \end_inset
 
