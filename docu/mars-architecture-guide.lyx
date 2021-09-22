@@ -3807,6 +3807,14 @@ There are numerous examples where this fundamental principle is obeyed.
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 1
 status open
 
@@ -3917,6 +3925,13 @@ https://en.wikipedia.org/wiki/Location_transparency
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
 \noindent
 \begin_inset Flex Custom Color Box 3
 status open
@@ -3973,6 +3988,13 @@ best practice
  resources for implementing certain kinds of location transparency.
  Although in many cases this is not really true, there might be some corner
  cases where it sometimes is true, or close to true.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -4156,6 +4178,13 @@ several
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
 \noindent
 \begin_inset Flex Custom Color Box 3
 status open
@@ -4321,6 +4350,13 @@ compensated
 core business
 \series default
  from another geo-location within some reasonable timeframe.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -4588,6 +4624,13 @@ almost anything
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
 \noindent
 \begin_inset Flex Custom Color Box 1
 status open
@@ -4714,6 +4757,14 @@ wild-growing jungle
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 2
 status open
 
@@ -4758,6 +4809,14 @@ You cannot see the forest because there are too many trees in front of it.
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 3
 status open
 
