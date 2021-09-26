@@ -6493,12 +6493,23 @@ partial
 \end_layout
 
 \begin_layout Standard
-Notice: nobody can know in advance whether (parts of) datacenter B will
- be 
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Nobody can know 
+\emph on
+in advance
+\emph default
+ whether (parts of) datacenter B will be 
 \emph on
 lost
 \emph default
-, or whether it will be A.
+ during an unpredictable geo disaster, or whether it will be A.
 \end_layout
 
 \begin_layout Standard
@@ -6624,7 +6635,11 @@ Later recovery within a reasonable timeframe.
 \end_layout
 
 \begin_layout Standard
-These are hard requirements.
+These are 
+\series bold
+hard requirements
+\series default
+.
  Recommended soft requirements like Ability for Butterfly are described
  in section 
 \begin_inset CommandInset ref
@@ -6668,9 +6683,13 @@ noprefix "false"
 \end_layout
 
 \begin_layout Standard
-\begin_inset VSpace vfill
+\begin_inset VSpace defskip
 \end_inset
 
+
+\end_layout
+
+\begin_layout Standard
 
 \end_layout
 
