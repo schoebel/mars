@@ -151,6 +151,11 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable132
+	* Major doc update of architecture guide.
+	  More improvements like splits for various interests are certainly
+	  needed, but currently not in focus due to limited time.
+
 mars0.1astable131
 	* Major fix: long-standing race condition on aspect {de,}allocation.
 	  Was triggering extremely rarely and was very hard to
