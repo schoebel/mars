@@ -6787,6 +6787,642 @@ name "sec:Requirements-for-Cloud"
 \end_layout
 
 \begin_layout Standard
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Pitfall: Use Cases for Cloud Storage
+\end_layout
+
+\end_inset
+
+The following 
+\series bold
+compatibility table
+\series default
+ is important for understanding the 
+\emph on
+consequences
+\emph default
+ from combinations of requirements with solutions:
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="3" columns="3">
+<features tabularvalignment="bottom">
+<column alignment="center" valignment="top" width="0pt">
+<column alignment="center" valignment="top" width="0pt">
+<column alignment="center" valignment="top" width="0pt">
+<row>
+<cell multirow="3" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20text%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+\noindent
+\align center
+Solution 
+\emph on
+is
+\series bold
+\emph default
+
+\begin_inset Newline newline
+\end_inset
+
+Eventually Consistent
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20text%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+\noindent
+\align center
+Solution 
+\emph on
+is
+\series bold
+\emph default
+
+\begin_inset Newline newline
+\end_inset
+
+Strictly Consistent
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20text%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+\noindent
+\align center
+Task
+\begin_inset Newline newline
+\end_inset
+
+
+\emph on
+permits
+\series bold
+\emph default
+
+\begin_inset Newline newline
+\end_inset
+
+Eventually Consistent
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20text%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+OK
+\series bold
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20text%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+OK
+\series bold
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20text%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+\noindent
+\align center
+Task
+\begin_inset Newline newline
+\end_inset
+
+
+\emph on
+requires
+\series bold
+\emph default
+
+\begin_inset Newline newline
+\end_inset
+
+Strictly Consistent
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20text%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 25
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20text%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+OK
+\series bold
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Important: from customer view, Eventually Consistent has 
+\series bold
+\emph on
+worse
+\series default
+ functional properties
+\emph default
+ than Strictly Consistent.
+ Do not believe any propaganda claiming the opposite.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do 
+\series bold
+not
+\series default
+ place the following business tasks on top of Eventually Consistent cloud
+ storages:
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Email
+\series default
+ or 
+\series bold
+important documents.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Financial
+\series default
+ data, 
+\series bold
+Invoices
+\series default
+, 
+\series bold
+Payment
+\series default
+ records, etc.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Contracts
+\series default
+ / 
+\series bold
+legal
+\series default
+ / etc.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Security
+\series default
+ critical / 
+\series bold
+secret
+\series default
+ data.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Enterprise-critical
+\series default
+ data.
+\end_layout
+
+\begin_layout Itemize
+Any other 
+\series bold
+\emph on
+risky
+\series default
+\emph default
+ data.
+\end_layout
+
+\begin_layout Plain Layout
+Read the following explanation 
+\emph on
+why
+\emph default
+ Cloud Storage 
+\emph on
+allows
+\emph default
+ Eventually Consistent solutions 
+\series bold
+\emph on
+by definition
+\series default
+\emph default
+ and thus conforms to the 
+\emph on
+left
+\emph default
+ column and its skull symbol:
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 Brief recall from section 
 \begin_inset CommandInset ref
 LatexCommand nameref
@@ -6845,11 +7481,146 @@ durable
 \series bold
 eventually consistent
 \series default
- with regard to data replicas.
+ with regard to 
+\emph on
+data replicas
+\emph default
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Several cloud storage solutions are eventually consistent with respect
+ to 
+\series bold
+data access 
+\emph on
+during
+\emph default
+ 
+\size large
+ordinary operations
+\series default
+\size default
+ 
+\begin_inset Formula $\Longrightarrow$
+\end_inset
+
+ although claimed by advocates, such solutions are actually 
+\emph on
+missing(!)
+\emph default
+ the above definition 
+\begin_inset Formula $\Longrightarrow$
+\end_inset
+
+ they are 
+\series bold
+actually not
+\series default
+ cloud storage.
+ Due to 
+\emph on
+implementation policies
+\emph default
+ and/or due to the famous 
+\emph on
+CAP theorem
+\emph default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) they may be even 
+\emph on
+missing
+\emph default
+ the 
+\emph on
+standard
+\emph default
+ storage semantics as explained in academic textbooks / literature on 
+\emph on
+Formal Semantics
+\emph default
+ (outside the scope of this paper 
+\begin_inset Formula $\Longrightarrow$
+\end_inset
+
+ ask the 
+\emph on
+real
+\emph default
+ experts).
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Regularly missing the standard storage semantics 
+\begin_inset Formula $\Longrightarrow$
+\end_inset
+
+ such a solution is not even a 
+\begin_inset Quotes eld
+\end_inset
+
+storage
+\begin_inset Quotes erd
+\end_inset
+
+ at all.
+ For example, it may deliver 
+\emph on
+mathematically wrong data
+\emph default
+ at any 
+\emph on
+unpredictable
+\emph default
+ time 
+\emph on
+without notice
+\emph default
+.
 \end_layout
 
 \begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+What the Definition of Cloud Storage means
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -6863,8 +7634,19 @@ eventually consistent
 carefully
 \emph default
 .
- For example, requirement (4) is clearly stating that replicas need not
- have realtime consistency properties.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+Requirement (4) is clearly stating that replicas 
+\emph on
+need not
+\emph default
+ have 
+\emph on
+realtime
+\emph default
+ consistency properties.
  Unfortunately, some advocates are incorrectly claiming that replicas would
  need to be updated and/or usable for failover in 
 \emph on
@@ -6888,7 +7670,11 @@ strictly consistent
 not
 \emph default
  requested.
- Requiring suchalike in addition would lead to a 
+ Requiring suchalike 
+\emph on
+in addition
+\emph default
+ would lead to a 
 \emph on
 contradiction
 \emph default
@@ -6898,7 +7684,17 @@ contradiction
 eventually consistent
 \emph default
 .
- Even when respecting the CAP theorem by prefering A in front of C, 
+ Even when respecting the CAP theorem (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) by prefering A in front of C, 
 \emph on
 realtime
 \emph default
@@ -6977,7 +7773,7 @@ noprefix "false"
 .
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -7011,7 +7807,7 @@ noprefix "false"
 ).
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -7039,7 +7835,7 @@ noprefix "false"
  decisions about this.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -7072,7 +7868,7 @@ some(!)
  kind of network.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -7131,7 +7927,7 @@ noprefix "false"
 .
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -7194,7 +7990,7 @@ noprefix "false"
 .
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
@@ -7263,6 +8059,11 @@ residual risk
  = Single Points Of Failure.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
 \begin_inset VSpace defskip
 \end_inset
@@ -7283,7 +8084,53 @@ status open
 \begin_layout Plain Layout
 
 \series bold
-Replication
+In-Datacenter 
+\emph on
+storage
+\emph default
+
+\begin_inset space ~
+\end_inset
+
+network
+\begin_inset space ~
+\end_inset
+
+failures
+\end_layout
+
+\end_inset
+
+ It is clear that a failure of a classical storage network will halt all
+ services depending on it.
+ Some people believe that realtime storage networks cannot be avoided, in
+ order to react at varying load situations, and are running much faster
+ due to load distribution.
+ This is not the full picture:
+\end_layout
+
+\begin_layout Enumerate
+Football plus FlexibleSharding can achieve a similar level of elasticity.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Long-distance 
+\emph on
+replication
+\emph default
+
 \begin_inset space ~
 \end_inset
 
@@ -7307,51 +8154,6 @@ failures
 \end_inset
 
 
-\end_layout
-
-\begin_layout Standard
-\begin_inset VSpace defskip
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Flex Custom Color Box 1
-status open
-
-\begin_layout Plain Layout
-\noindent
-\begin_inset Argument 1
-status open
-
-\begin_layout Plain Layout
-
-\series bold
-Storage
-\begin_inset space ~
-\end_inset
-
-network
-\begin_inset space ~
-\end_inset
-
-failures
-\end_layout
-
-\end_inset
-
- It is clear that a failure of a classical storage network will halt all
- services depending on it.
- Some people believe that realtime storage networks cannot be avoided, in
- order to react at varying load situations, and are running much faster
- due to load distribution.
- This is not the full picture:
-\end_layout
-
-\begin_layout Enumerate
-Football plus FlexibleSharding can achieve a similar level of elasticity.
 \end_layout
 
 \begin_layout Enumerate
@@ -7607,11 +8409,19 @@ distances
 \series default
 \emph default
  between your storage spindles and the corresponding data processing.
- When background data migration is automated properly, real-time storage
+ 
+\end_layout
+
+\begin_layout Plain Layout
+When background data migration is automated properly, real-time storage
  networks can become superfluous, or at least the corresponding realtime
  IO traffic can be drastically reduced.
- When minimization is well dimensioned, a pair of storage + application
- server residing in the same geo-location can be 
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+When minimization is well dimensioned, a pair of storage + application server
+ residing in the same geo-location can be 
 \series bold
 collapsed into a single box
 \series default
@@ -7658,8 +8468,15 @@ status open
 missed
 \emph default
  if both system architects and responsible managers are just requiring only
- DR = Disaster Recovery over long distances, instead of requiring the ability
- for butterfly (see section 
+ DR = Disaster Recovery over long distances, instead of 
+\series bold
+requiring
+\series default
+ the 
+\series bold
+ability for butterfly
+\series default
+ (see section 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "subsec:Flexibility-of-Failover"
@@ -8033,7 +8850,7 @@ status open
 
  The famous CAP theorem (see section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Explanation-via-CAP"
 plural "false"
 caps "false"
@@ -8060,8 +8877,21 @@ reason
 hard
 \emph default
  requirement.
- Strict consistency is not needed for many applications running on top of
- cloud storage.
+ 
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+Strict consistency is not needed for 
+\emph on
+some
+\emph default
+ applications running on top of cloud storage, e.g.
+ 
+\emph on
+less crucial
+\emph default
+ application data.
  In addition, the CAP theorem and some other theorems cited at 
 \begin_inset Flex URL
 status open
@@ -8077,8 +8907,29 @@ https://en.wikipedia.org/wiki/CAP_theorem
 \series bold
  difficult and expensive
 \series default
- to achieve at global level in a bigger Distributed System, and at the cost
- of other properties.
+ to achieve at 
+\emph on
+global
+\emph default
+ level in a 
+\emph on
+big
+\emph default
+ and/or 
+\emph on
+long-distance
+\emph default
+ Distributed System, and at the cost of other properties.
+ However, classical 
+\emph on
+local
+\emph default
+ Unix or Linux filesystems have already implemented Strict Consistency (aka
+ POSIX semantics), more of less 
+\series bold
+for free
+\series default
+.
  More detailed explanations are in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
@@ -8474,8 +9325,11 @@ between
 
 The CAP theorem (see section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -8529,7 +9383,7 @@ y during such a network incident by simply
 \emph on
 not
 \emph default
- doing a failover action.
+ executing a failover action.
  Just wait until the network outage is gone, and MARS will automatically
  resume
 \begin_inset Foot
