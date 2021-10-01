@@ -6690,10 +6690,6 @@ noprefix "false"
 \end_layout
 
 \begin_layout Standard
-
-\end_layout
-
-\begin_layout Standard
 \noindent
 \begin_inset Flex Custom Color Box 3
 status open
@@ -6742,12 +6738,13 @@ must
 \end_layout
 
 \begin_layout Plain Layout
-Any error in the answer will become 
+Any error in the requirement will become 
 \series bold
 extremely expensive
 \series default
  with respect to a close-to-optimal solution, typically factor 2 or more
- for TCO; when selecting an inappropriate storage+application 
+ for TCO.
+ When selecting an inappropriate storage+application 
 \emph on
 fundamental architecture
 \emph default
