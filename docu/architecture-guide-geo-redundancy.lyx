@@ -83,7 +83,7 @@ tcolorbox
 \rightmargin 2.8cm
 \bottommargin 2.3cm
 \secnumdepth 3
-\tocdepth 3
+\tocdepth 4
 \paragraph_separation indent
 \paragraph_indentation default
 \is_math_indent 0
@@ -481,7 +481,8 @@ Jens Clever and Jörg Mann, external freelancers working at 1&1
 \end_layout
 
 \begin_layout Itemize
-Anders Henke and Christian Albert and Kai Müller from 1&1 Ionos
+Anders Henke and Christian Albert and Kai Müller and David Meder-Marouelli
+ from 1&1 Ionos
 \end_layout
 
 \begin_layout Itemize
@@ -492,8 +493,15 @@ Olof Sandström-Herrera from Arsys
 Please report any omissions in case I forgot somebody.
 \end_layout
 
-\begin_layout Chapter*
+\begin_layout Addchap
 Preface
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Preface"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section*
@@ -511,7 +519,7 @@ filename "architecture-guide-introduction.lyx"
 
 \end_layout
 
-\begin_layout Section*
+\begin_layout Addsec
 Purpose
 \end_layout
 
@@ -588,7 +596,7 @@ Finally, it helps checking for use cases where MARS will be a good solution,
  cluster managers are selected for long-distance replication.
 \end_layout
 
-\begin_layout Section*
+\begin_layout Addsec
 Scope
 \end_layout
 
@@ -640,7 +648,7 @@ MARS vs DRBD
 Architecture and pitfalls of Cluster Managers
 \end_layout
 
-\begin_layout Section*
+\begin_layout Addsec
 Audience
 \end_layout
 
@@ -667,7 +675,7 @@ reliability
  and the appendix, by providing mathematical models of reliability.
 \end_layout
 
-\begin_layout Section*
+\begin_layout Addsec
 How to use this document
 \end_layout
 
@@ -787,7 +795,7 @@ This document is no scientific work in a strong sense.
 
 \end_layout
 
-\begin_layout Section*
+\begin_layout Addsec
 Related documents
 \end_layout
 
@@ -815,6 +823,10 @@ mars-for-kernel-developers.pdf
 : some infos for kernel developers.
 \end_layout
 
+\begin_layout Addsec
+Table of Contents
+\end_layout
+
 \begin_layout Standard
 \begin_inset CommandInset toc
 LatexCommand tableofcontents
@@ -822,6 +834,17 @@ LatexCommand tableofcontents
 \end_inset
 
 
+\end_layout
+
+\begin_layout Part
+Geo-Redundancy for Managers and Consultants
+\begin_inset Newline newline
+\end_inset
+
+
+\size small
+Plus Background for Responsibles / Architects / Project Members / Sysadmins
+ / etc
 \end_layout
 
 \begin_layout Chapter
@@ -35412,6 +35435,17 @@ In any case, a MARS-based geo-redundant sharding pool with a reasonable
  more expensive by their nature.
 \end_layout
 
+\begin_layout Part
+MARS for Consultants and Architects
+\begin_inset Newline newline
+\end_inset
+
+
+\size footnotesize
+Plus Background for Interested Managers / Responsibles / Project Members
+ / Sysadmins / etc
+\end_layout
+
 \begin_layout Chapter
 Use Cases for MARS
 \begin_inset CommandInset label
@@ -47389,8 +47423,12 @@ architectural
  problem in reality, and belongs to the previous item, not to this one.
 \end_layout
 
-\begin_layout Chapter
+\begin_layout Part
 \start_of_appendix
+Appendices
+\end_layout
+
+\begin_layout Chapter
 Mathematical Model of Architectural Reliability
 \begin_inset CommandInset label
 LatexCommand label
