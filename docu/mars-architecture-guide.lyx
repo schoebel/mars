@@ -646,6 +646,36 @@ Cloud Storage
 \end_layout
 
 \begin_layout Itemize
+
+\series bold
+Distributed Systems
+\series default
+ (aka 
+\emph on
+loosely coupled systems
+\emph default
+) are 
+\series bold
+much more complicated to program and operate
+\series default
+ than 
+\emph on
+tightly coupled systems
+\emph default
+ (aka SMP or NUMA).
+ You will unnecessarily loose TCO = Total Cost of Ownership and TTM = 
+\series bold
+Time To Market
+\series default
+ by 
+\emph on
+unappropriate selection of coupling architectures
+\emph default
+ for a certain use case class.
+ This guide will explain.
+\end_layout
+
+\begin_layout Itemize
 You will learn 
 \series bold
 why OpenSource component-based storage systems
@@ -11567,7 +11597,7 @@ lost
  This sounds very simple.
  However, on a closer look, there are numerous violations of these rules
  in modern system designs.
- Some examples will follow.
+ Some examples will follow in the next subsections.
 \end_layout
 
 \begin_layout Standard
@@ -11647,9 +11677,9 @@ interfaces
 .
  Thus a different interface does 
 \emph on
-not
+not imply
 \emph default
- imply that functionality is (fundamentally) different.
+ that functionality is (fundamentally) different.
 \end_layout
 
 \begin_layout Standard
@@ -11677,6 +11707,28 @@ status open
 
 \begin_layout Plain Layout
 \noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Pitfalls from Confusion of 
+\begin_inset Quotes eld
+\end_inset
+
+Excellent Slides
+\begin_inset Quotes erd
+\end_inset
+
+ with 
+\emph on
+Reality
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -11684,8 +11736,12 @@ status open
 
 \end_inset
 
- Confusion of interfaces with functionality is exploited by so-called marketing
- drones and other types of advertising (e.g.
+ Confusion of interfaces with functionality can be exploited by so-called
+ 
+\emph on
+marketing drones
+\emph default
+ and other types of advertising (e.g.
  aquisition of 
 \series bold
 venture capital
@@ -11695,6 +11751,17 @@ venture capital
 open your money pocket
 \series default
 .
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
  As a responsible manager, you should always check the 
 \emph on
 functionality
@@ -11704,6 +11771,51 @@ functionality
 really
 \emph default
  behind the scenes?
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ For enterprise-critical 
+\begin_inset Quotes eld
+\end_inset
+
+marketing slides
+\begin_inset Quotes erd
+\end_inset
+
+ & co: checks of 
+\emph on
+abstract
+\emph default
+ functionality aren't enough in many cases.
+ Find the 
+\emph on
+right
+\emph default
+ experts for 
+\emph on
+additional
+\emph default
+ checks of the 
+\emph on
+real
+\emph default
+ functionality (for 
+\emph on
+existing
+\emph default
+ and/or 
+\emph on
+future
+\emph default
+ implementations / hardware / etc).
 \end_layout
 
 \end_inset
@@ -11724,8 +11836,80 @@ name "par:Negative-Example:-object"
 \end_layout
 
 \begin_layout Standard
-Several object store implementations are following the client-server paradigm,
- where servers and clients are interconnected via some 
+Several object store implementations have two or more high-level layers,
+ each possibly decomposable into several sub-layers.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Pitfalls from Disregarding 
+\emph on
+Nested
+\emph default
+ Sub-Layers
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Simple slides can be produced when the top layers are small and look 
+\begin_inset Quotes eld
+\end_inset
+
+easy
+\begin_inset Quotes erd
+\end_inset
+
+, but the 
+\emph on
+real
+\emph default
+ functionality is 
+\emph on
+hidden
+\emph default
+ in 
+\series bold
+nested sub-layers
+\series default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+At least the high-level layers of object stores are typically following
+ the client-server paradigm, where servers and clients are interconnected
+ via some 
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
@@ -11819,7 +12003,7 @@ OSD implementation strategies
 
 \end_inset
 
-For implementors, this seems to be a very tempting
+For implementors, filesystems seem to be a tempting
 \begin_inset Foot
 status open
 
@@ -11834,6 +12018,7 @@ mature
 \end_inset
 
  enough for mass production on billions of inodes.
+ Search the internet for remarks from Linus Torvalds.
 \end_layout
 
 \end_inset
@@ -12023,8 +12208,8 @@ open()
 \emph on
 directly
 \emph default
- referring to the relevant kernel objects, without need to search for a
- filename again.
+ referring to the relevant kernel objects in RAM, without need to search
+ for a filename again.
  Extreme example: consider the total runtime overhead by repeatedly appending
  1 byte to an object in a loop.
 \end_layout
@@ -12115,10 +12300,11 @@ sparse files
 .
  Filesystem implementors need to spend a considerable fraction of their
  total effort on this.
- Concurrency on shared memory, together with SMP scalability to a contemporary
- degree, is what makes implementation really hard, and why there are only
- relatively few people in the world mastering this art.
- As a manager, please compare with Dijkstra's remarks on required 
+ Concurrency on shared memory, together with SMP plus NUMA scalability to
+ a contemporary degree, is what makes implementation really hard, and why
+ there are only relatively few people in the world mastering this art.
+ As a responsible manager, please compare with Dijkstra's remarks on required
+ 
 \series bold
 skill levels
 \series default
@@ -12331,6 +12517,33 @@ special case
 
 \begin_layout Standard
 \noindent
+Here is the picture from section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Object-Store"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ once again:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/functionality-object-store-vs-filesystems.fig
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 Now let us look at some 
 \emph on
 active
@@ -12340,7 +12553,11 @@ active
 rich metadata
 \series default
 , or filtering functionality on top of them: are suchalike functionalities
- really specific for object stores?
+ 
+\emph on
+really specific
+\emph default
+ for object stores?
 \end_layout
 
 \begin_layout Standard
@@ -12361,6 +12578,22 @@ status open
 
 \begin_layout Plain Layout
 \noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Active Functionality in Linux 
+\emph on
+on top of
+\emph default
+ Filesystems
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 9
@@ -12426,16 +12659,24 @@ separate layers
 , such as the distinction between passive filesystems and active metadata
  indexing.
  When some object advocates are merging these separate layers into one,
- this is 
+ and/or 
+\series bold
+presenting
+\series default
+ some 
+\series bold
+impressive slides
+\series default
+, this is 
 \emph on
 not
 \emph default
  an advantage.
  In contrary, there are disadvantages like 
 \emph on
-hidden cartesian products
+hidden cartesian product multiplications
 \emph default
- occurring at architecture level, and possibly also in implementations.
+ occurring at (nested) architecture level, and possibly also in implementations.
 \end_layout
 
 \begin_layout Standard
@@ -12628,7 +12869,7 @@ damage
 \end_layout
 
 \begin_layout Standard
-We now look at a 
+We now look at a certain 
 \emph on
 mis-use
 \emph default
@@ -12637,7 +12878,7 @@ mis-use
  Some advocates appear to have learned from bad experiences with suchalike
  setups (see examples in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "subsec:Explanations-from-DSM"
 plural "false"
 caps "false"
@@ -12654,13 +12895,23 @@ native
 \end_layout
 
 \begin_layout Standard
-We continue by looking at the client part of distributed block devices /
- distributed filesystems on top of OSDs.
- 
+We continue by looking at the 
+\emph on
+client part
+\emph default
+ of distributed block devices / distributed filesystems 
+\emph on
+on top of
+\emph default
+ OSDs, and/or on top of distributed object stores, or similar.
 \end_layout
 
 \begin_layout Standard
-In general, POSIX-like semantics are 
+
+\emph on
+In general
+\emph default
+, POSIX-like semantics are 
 \emph on
 not necessarily
 \emph default
@@ -12669,7 +12920,57 @@ not necessarily
 each and every
 \emph default
  use case.
- Filesystem-like functionality needs at least some 
+ See section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Requirements-for-Cloud"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ for some examples where POSIX or transactional databases are typically
+ 
+\emph on
+really needed
+\emph default
+.
+ Examples for 
+\emph on
+unneeded
+\emph default
+ POSIX are 
+\begin_inset Quotes eld
+\end_inset
+
+simpler
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+less critical
+\begin_inset Quotes eld
+\end_inset
+
+ use cases, like (
+\emph on
+parts of
+\emph default
+ and/or 
+\emph on
+native
+\emph default
+) Docker / Kubernetes applications etc, e.g.
+ for developers or similar customers.
+\end_layout
+
+\begin_layout Standard
+Filesystem-like functionality typically needed by developers (and their
+ users) are for example 
 \begin_inset Quotes eld
 \end_inset
 
@@ -12690,7 +12991,11 @@ file names
 object names
 \series default
 , or similar.
- POSIX is typically only required when a certain 
+ 
+\emph on
+Full
+\emph default
+ POSIX semantics is typically only required when a certain 
 \series bold
 parallelism degree
 \series default
@@ -12702,14 +13007,76 @@ race conditions
 \emph on
 hidden
 \emph default
- from the end-user.
+ from the end user.
 \end_layout
 
 \begin_layout Standard
-We will see some index functionality examples later.
- First, we start with a more elaborate filesystem semantics on top of pure
- object stores.
- The following example requires POSIX compliance
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\series bold
+Strict Consistency
+\series default
+ is only a 
+\emph on
+subset
+\emph default
+ of POSIX, and may 
+\series bold
+remain critical
+\series default
+ even by some 
+\emph on
+weaker
+\emph default
+ use cases like backends for DropBox & co, or even by some non-POSIX-like
+ use cases e.g.
+ like 
+\series bold
+banking
+\series default
+ or stock exchange 
+\series bold
+marketplaces
+\series default
+ etc.
+ Do 
+\emph on
+not misinterpret
+\emph default
+ the following picture where 
+\family typewriter
+(POSIX-like)
+\family default
+ is written in parentheses.
+ The parantheses do 
+\emph on
+not imply
+\emph default
+ that Strict Consistency can be dropped.
+ See section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Requirements-for-Cloud"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+We start the next example picture with a more elaborate filesystem semantics
+ on top of pure object stores.
+ The following example would require POSIX compliance
 \begin_inset Foot
 status open
 
@@ -12728,11 +13095,11 @@ not fully
 
 \end_inset
 
- for toplevel application Apache webhosting with 
+ for some top-level applications like Apache webhosting with 
 \family typewriter
 ssh
 \family default
- access:
+ access, while some other applications would't require it necessarily: 
 \end_layout
 
 \begin_layout Standard
@@ -12775,9 +13142,9 @@ distributed
  filesystems in place of local ones.
  This does 
 \emph on
-not
+not imply
 \emph default
- imply that a 
+ that a 
 \family typewriter
 BigCluster
 \family default
@@ -12823,7 +13190,8 @@ noprefix "false"
 
 \end_inset
 
- There is another (fourth) Dijkstra regression.
+ There is another (fourth) Dijkstra regression in further sub-layers, not
+ depicted here.
  Distributed block devices are typically storing 4k sectors or similar
 \begin_inset Foot
 status open
@@ -12904,6 +13272,60 @@ xfs
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ As explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Requirements-for-Cloud"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, do not place Strictly Consistent filesystems and/or object stores on top
+ of Eventually Consistent object stores.
+ Suchalike is very 
+\series bold
+dangerous
+\series default
+ at 
+\series bold
+risk
+\series default
+ level.
+ Even when you would have the time (measured in 
+\emph on
+decades
+\emph default
+) and the money and the top-grade developer skills to get this implemented
+ and tested for enterprise grade and rolled out to operations, you could
+ be investing into a 
+\emph on
+Dijkstra regression
+\emph default
+.
+ Other aspects are in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Negative-Example:-directory structures over eventually consistent objects"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
 \begin_inset VSpace defskip
 \end_inset
 
@@ -12921,6 +13343,23 @@ Some damages caused (or at least
 supported
 \emph default
 ) by Dijkstra regressions:
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Risk
+\series default
+ from ill-belief that Eventually Consistent would be sufficient for a certain
+ use case, and/or 
+\series bold
+risk
+\series default
+ from stacking Strictly Consistent (hidden) sub-systems 
+\emph on
+on top of
+\emph default
+ other Eventually Consistent (hidden) sub-systems.
 \end_layout
 
 \begin_layout Itemize
@@ -13067,13 +13506,17 @@ root
 \family default
 .
  Notice that this has some influence at the architecture.
- In general, unmanaged products need to be constructed somewhat differently.
+ In general, layers dealing with 
+\emph on
+unmanaged products
+\emph default
+ need to be constructed somewhat differently.
 \end_layout
 
 \begin_layout Standard
 ShaHoLin's architecture does not suffer from Dijkstra regressions, since
- each layer is adding new functionality, which is also available at, or
- at least functionally influences, any of the higher layers.
+ each layer is adding new functionality, which is also available at higher
+ layers, or at least provides functionality.
 \end_layout
 
 \begin_layout Standard
@@ -13106,6 +13549,14 @@ close to optimal
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 \begin_inset Flex Custom Color Box 2
 status open
 
@@ -13114,7 +13565,11 @@ status open
 status open
 
 \begin_layout Plain Layout
+
+\series bold
 ShaHoLin Layering
+\series default
+
 \begin_inset CommandInset label
 LatexCommand label
 name "ShaHoLin-Layering"
@@ -13244,7 +13699,39 @@ football-user-manual.pdf
 
 \end_deeper
 \begin_layout Enumerate
-Replication layer, using MARS.
+Replication layer for achieving geo-redundancy (see sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Requirements-for-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) using the OpenSource project MARS (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://github.com/schoebel/mars/docu/mars-manual.pdf
+\end_layout
+
+\end_inset
+
+).
+ MARS is the base for planned handover, and for unplanned failover.
  Each LV can be switched over individually (ability for butterfly, see 
 \begin_inset CommandInset ref
 LatexCommand nameref
@@ -13256,8 +13743,25 @@ noprefix "false"
 \end_inset
 
 ).
- In addition to geo-redundancy, MARS provides the base for Football.
- LV sizes / granularities are not modified by MARS.
+ In addition to geo-redundancy, MARS provides the base for 
+\series bold
+LV migration during operations 
+\series default
+via Football (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://github.com/schoebel/mars/docu/football-user-manual.pdf
+\end_layout
+
+\end_inset
+
+).
+ The number of replicas is typically between 2 and 4, where higher replication
+ degrees are only used temporarily, or for compensation of near-defective
+ / unreliable hardware instances.
 \end_layout
 
 \begin_layout Enumerate
@@ -13435,75 +13939,40 @@ name "subsec:Inappropriate-Replication-Layering"
 
 \begin_layout Standard
 Several people have independently tried to use MARS within VMs.
- This may look like a reasonable idea, but has a number of disadvantages,
- and it ignores the operational recommendations for MARS, and it contradicts
- to Dijkstra’s layering rules.
- Please be aware that this kind of layering is not a restriction of MARS,
- but a fundamental issue for any kind of replication mechanism.
+ This may look like a reasonable idea, but has a number of disadvantages:
+\end_layout
+
+\begin_layout Enumerate
+It contradicts to Dijkstra’s layering rules.
+\end_layout
+
+\begin_layout Enumerate
+It ignores the operational recommendations for MARS.
+\end_layout
+
+\begin_layout Paragraph
+VM replication and Dijkstra.
 \end_layout
 
 \begin_layout Standard
-Instead, creation of a 
+Please be aware Dijkstra's layering is not a restriction of MARS, but a
+ fundamental issue for 
+\emph on
+any
+\emph default
+ kind of replication mechanism.
+\end_layout
+
+\begin_layout Standard
+In general, creation of a 
 \series bold
 separate replication layer at bare metal
 \series default
- is the strongly recommended solution, e.g.
+ is the strongly recommended solution by Dijkstra, e.g.
  using dedicated storage boxes, or directly replicating at hypervisor hardware
- when using local storage (as is the case at ShaHoLin).
- Not only for performance reasons and for resource allocation reasons, MARS
- is explicitly constructed for running on 
-\series bold
-bare metal
-\series default
+ when using local storage (e.g.
+ at ShaHoLin).
  
-\emph on
-solely
-\emph default
-
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-A minor exception is 
-\emph on
-functional component testing
-\emph default
- (as opposed to end-to-end system testing, aka integration testing, and
- as opposed to non-functional testing).
- This can be done under KVM, provided that 
-\family typewriter
-/dev/mars/mydata
-\family default
- is never used for further sub-virtualization, and only for non-critical
- test loads.
-\end_layout
-
-\end_inset
-
-.
- A single storage-level or hypervisor-level MARS instance can 
-\emph on
-share
-\emph default
- a single 
-\family typewriter
-/mars
-\family default
- filesystem instance for multiple resources, while a multitude of per-VM
- 
-\family typewriter
-/mars
-\family default
- instances would induce a waste of storage space by 
-\emph on
-factors
-\emph default
-.
- See also description of hardware requirements in 
-\family typewriter
-mars-user-manual.pdf
-\family default
-.
 \end_layout
 
 \begin_layout Standard
@@ -13666,6 +14135,86 @@ right
  layer of the Dijkstra hierarchy.
 \end_layout
 
+\begin_layout Paragraph
+Operational environment conditions for MARS.
+\end_layout
+
+\begin_layout Standard
+With respect to MARS: not only for performance reasons and for resource
+ allocation reasons, MARS is 
+\emph on
+explicitly
+\emph default
+ constructed for running on 
+\series bold
+bare metal
+\series default
+ 
+\emph on
+solely
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+A minor exception is 
+\emph on
+functional component testing
+\emph default
+ inside of KVM (as opposed to end-to-end system testing, aka integration
+ testing, and as opposed to non-functional testing).
+ This can be done 
+\emph on
+inside
+\emph default
+ of KVM, provided that 
+\family typewriter
+/dev/mars/mydata
+\family default
+ is not used for further sub-virtualization (except 
+\emph on
+lightweight
+\emph default
+ containers like Docker & co), and only for non-critical 
+\emph on
+test loads
+\emph default
+.
+\end_layout
+
+\end_inset
+
+.
+ A single storage-level or hypervisor-level MARS instance can 
+\emph on
+share
+\emph default
+ a single 
+\family typewriter
+/mars
+\family default
+ filesystem instance for multiple resources, while a multitude of per-VM
+ 
+\family typewriter
+/mars
+\family default
+ instances would induce a waste of storage space by 
+\emph on
+factors
+\emph default
+.
+ See also description of hardware requirements in 
+\family typewriter
+mars-user-manual.pdf
+\family default
+.
+\end_layout
+
+\begin_layout Paragraph
+Sysadmin Perspective.
+\end_layout
+
 \begin_layout Standard
 \noindent
 \begin_inset Flex Custom Color Box 1
@@ -13673,6 +14222,21 @@ status open
 
 \begin_layout Plain Layout
 \noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Why Replication inside of VMs is a 
+\emph on
+Bad Idea
+\emph default
+™
+\end_layout
+
+\end_inset
+
 I never heard of anyone who tried to use DRBD 
 \emph on
 productively
@@ -13780,13 +14344,32 @@ Standard problem: missed interrupts, or interrupts not delivered in-time.
 
 \end_inset
 
- For unknown reasons, a few people seem to expect that MARS would be able
- to work miracles there.
+ For unknown reasons, a few people seem to 
+\emph on
+expect
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+From a management perspective, this looks like a 
+\emph on
+broken expectation management.
 \end_layout
 
 \end_inset
 
 
+\emph default
+ that MARS would be able to work miracles there.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
+User Perspective.
 \end_layout
 
 \begin_layout Standard
@@ -13918,9 +14501,24 @@ massive cost increase
  for routing changes, when his VM is suddenly running on a different hypervisor,
  just because another customer used some more RAM, or because some hardware
  went defective.
- For unknown reasons, a few people are however expecting a similar effort
- and similar skills from their (internal or external) VM customers as soon
- as geo-redundancy comes into play.
+ For unknown reasons, a few people are however 
+\emph on
+expecting
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+From a management perspective, this looks like a 
+\emph on
+broken expectation management.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ a similar effort and similar skills from their (internal or external) VM
+ customers as soon as geo-redundancy comes into play.
 \end_layout
 
 \begin_layout Standard
@@ -13979,6 +14577,10 @@ trigger
 \emph default
  automatic handover of the geo-location with a single click (provided that
  both locations are healthy).
+\end_layout
+
+\begin_layout Paragraph
+Management Perspective.
 \end_layout
 
 \begin_layout Standard
@@ -14120,12 +14722,16 @@ The following example is about a
 \emph on
 potentially planned
 \emph default
- system, which could be deducable from Dijkstra and/or contemporary belief.
- It is 
+ system, which 
 \emph on
-not
+could
 \emph default
- about direct violations
+ be deducable from Dijkstra and/or contemporary belief.
+ We are 
+\emph on
+not discussing
+\emph default
+ direct violations
 \begin_inset Foot
 status open
 
@@ -14150,11 +14756,27 @@ noprefix "false"
 \end_inset
 
 .
+ Important: Distributed Systems (aka loosely coupled systems) are 
+\series bold
+much more complicated to program and operate
+\series default
+ than tightly coupled systems.
 \end_layout
 
 \end_inset
 
- of Disjtra's rules, but about a 
+ of Disjtra's rules (which are discussed e.g.
+ in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Negative-Example:-object"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), but here we discuss a 
 \emph on
 potential misinterpretation
 \emph default
@@ -14175,11 +14797,11 @@ billions of objects
 \series bold
 risk
 \series default
- of fundamental problems which are 
+ from fundamental problems which are 
 \emph on
 known
 \emph default
- to filesystem and database implementers and their experienced architects,
+ by filesystem and database implementers and their experienced architects,
  provided they also know the 
 \series bold
 Theory of Databases
@@ -14206,7 +14828,7 @@ VLDB
 \begin_layout Standard
 The following explanation is referring to 
 \emph on
-extremely big
+very big
 \emph default
  
 \series bold
@@ -14324,6 +14946,17 @@ Why
 status open
 
 \begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Hints for Risk Reduction
+\end_layout
+
+\end_inset
+
 (a) Traditional databases are following the well-known 
 \series bold
 ACID
@@ -14411,7 +15044,7 @@ traditionally
 both
 \emph default
  communities in the good old times).
- More details can be found in the literature.
+ More details can be found in the old literature.
 \end_layout
 
 \end_inset
@@ -14498,7 +15131,11 @@ fsync()
 \family typewriter
 msync()
 \family default
-, at least locally (which is often equivalent to 
+, at least for each 
+\emph on
+client instance
+\emph default
+ (which is often equivalent to 
 \begin_inset Quotes eld
 \end_inset
 
@@ -14530,8 +15167,13 @@ status open
 status open
 
 \begin_layout Plain Layout
-Required Skills for Projects, using References on top of Eventually Consistent
- Object Stores
+
+\series bold
+Required Skills for Projects
+\series default
+ 
+\size footnotesize
+using References on top of Eventually Consistent Object Stores
 \end_layout
 
 \end_inset
@@ -14708,7 +15350,7 @@ might
 \series bold
 proven skills
 \series default
- of 
+ 
 \emph on
 and
 \emph default
