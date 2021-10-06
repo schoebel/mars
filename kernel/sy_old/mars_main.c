@@ -474,6 +474,19 @@ void get_alivelink_stamp(const char *name, const char *peer,
 	brick_string_free(peer_time_path2);
 }
 
+static
+bool is_alive(const char *peer)
+{
+	struct lamport_time now;
+	struct lamport_time peer_time = {};
+
+	get_real_lamport(&now);
+	now.tv_sec -= 30;
+	get_alivelink_stamp("alive", peer, &peer_time);
+	return peer_time.tv_sec &&
+		lamport_time_compare(&now, &peer_time) < 0;
+}
+
 /* for safety, consider both the old and new alivelink path */
 static
 const char *get_alivelink(const char *name, const char *peer)
@@ -921,6 +934,16 @@ struct mars_rotate {
 
 static struct rw_semaphore rot_sem = __RWSEM_INITIALIZER(rot_sem);
 static LIST_HEAD(rot_anchor);
+
+static
+const char *get_primary_host(struct mars_rotate *rot)
+{
+	char  *tmp = path_make("%s/primary", rot->parent_path);
+	const char *primary = ordered_readlink(tmp, NULL);
+
+	brick_string_free(tmp);
+	return primary;
+}
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -4773,10 +4796,8 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	 */
 	if (rot->want_sync && !rot->todo_primary && rot->parent_path) {
 		loff_t min_pos = -1;
-		char  *tmp = path_make("%s/primary", rot->parent_path);
-		const char *primary = ordered_readlink(tmp, NULL);
+		const char *primary = get_primary_host(rot);
 
-		brick_string_free(tmp);
 		if (likely(primary && primary[0]) && strcmp(primary, "(none)")) {
 			int cmp = compare_replaylinks(rot, primary, my_id(), &min_pos, NULL);
 
@@ -4969,6 +4990,21 @@ int _make_logging_status(struct mars_rotate *rot)
 							       replay_tolerance,
 							       skip_new);
 
+				/* Check whether secondary should wait.
+				 * Crashed primary might look like "OK", as if they
+				 * had no load.
+				 */
+				if (possible &&
+				    !rot->todo_primary && !rot->is_primary &&
+				    next_relevant_log->new_stat.size <= 0) {
+					const char *primary = get_primary_host(rot);
+
+					if (primary && primary[0] && primary[0] != '(' &&
+					    !is_alive(primary)) {
+						possible = false;
+					}
+					brick_string_free(primary);
+				}
 				if (possible) {
 					MARS_INF_TO(rot->log_say,
 						    "start switchover from transaction log '%s' to '%s'\n",
