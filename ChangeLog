@@ -151,6 +151,20 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable133
+	* Major fix: certain types of primary crashes could lead to
+	  unnecessary replication hangs at the secondaries (but no problems
+	  at the primary side), when just waiting for reboot and running
+	  _no_ failover.
+	  As always, "marsadm invalidate" could workaround it.
+	  Now there is some automatic self-repair of versionlinks,
+	  correcting both primary and secondary sides.
+	  This bug was extremely hard to reproduce; ordinary "standard"
+	  crashes could not trigger it.
+	* Further doc update: the architecture guide is now called
+	  architecture-guide-geo-redundancy.{lyx,pdf} (but the old name
+	  remains accessible via symlink).
+
 mars0.1astable132
 	* Major doc update of architecture guide.
 	  More improvements like splits for various interests are certainly
