@@ -1451,7 +1451,10 @@ int compare_replaylinks(struct mars_rotate *rot,
 // status display
 
 static
-int _update_link_when_necessary(struct mars_rotate *rot, const char *type, const char *old, const char *new)
+int _update_link_when_necessary(struct mars_rotate *rot,
+				const char *type,
+				const char *old, const char *new,
+				bool do_force)
 {
 	char *check = NULL;
 	struct lamport_time limit;
@@ -1461,6 +1464,8 @@ int _update_link_when_necessary(struct mars_rotate *rot, const char *type, const
 
 	if (unlikely(!old || !new))
 		goto out;
+	if (do_force)
+		goto force;
 
 	get_real_lamport(&limit);
 
@@ -1480,6 +1485,7 @@ int _update_link_when_necessary(struct mars_rotate *rot, const char *type, const
 		goto out;
 	}
 
+ force:
 	status = ordered_symlink(old, new, NULL);
 	if (unlikely(status < 0)) {
 		MARS_ERR_TO(rot->log_say, "cannot create %s symlink '%s' -> '%s' status = %d\n", type, old, new, status);
@@ -1511,7 +1517,7 @@ int _update_replay_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 
 	_crashme(1, true);
 
-	res = _update_link_when_necessary(rot, "replay", old, new);
+	res = _update_link_when_necessary(rot, "replay", old, new, false);
 
 out:
 	brick_string_free(new);
@@ -1522,7 +1528,8 @@ out:
 static
 int _update_version_link(struct mars_rotate *rot,
 			 struct trans_logger_info *inf,
-			 bool do_check)
+			 bool do_check,
+			 bool do_force)
 {
 	char *data = brick_string_alloc(0);
 	char *old = brick_string_alloc(0);
@@ -1615,7 +1622,7 @@ int _update_version_link(struct mars_rotate *rot,
 
 	_crashme(2, true);
 
-	res = _update_link_when_necessary(rot , "version", old, new);
+	res = _update_link_when_necessary(rot , "version", old, new, do_force);
 
 out:
 	brick_string_free(new);
@@ -1732,7 +1739,8 @@ void write_info_links(struct mars_rotate *rot)
 
 	if (rot->current_inf.inf_is_logging | rot->current_inf.inf_is_replaying) {
 		count += _update_replay_link(rot, &rot->current_inf);
-		count += _update_version_link(rot, &rot->current_inf, true);
+		count += _update_version_link(rot, &rot->current_inf,
+					      true, false);
 		if (min > rot->inf_old_sequence) {
 			mars_sync();
 			rot->inf_old_sequence = min;
@@ -1749,7 +1757,8 @@ void write_info_links(struct mars_rotate *rot)
 static
 void _recover_versionlink(struct mars_rotate *rot,
 			  const char *host,
-			  int sequence, loff_t end_pos)
+			  int sequence,
+			  loff_t end_pos)
 {
 	struct trans_logger_info inf = {
 		.inf_private = rot,
@@ -1764,7 +1773,10 @@ void _recover_versionlink(struct mars_rotate *rot,
 	MARS_DBG("sequence = %d end_pos = %lld\n",
 		 sequence, end_pos);
 
-	_update_version_link(rot, &inf, false);
+	/* Here we force an update, even when nothing changes.
+	 * So the effect of repair can be seen via timestamp.
+	 */
+	_update_version_link(rot, &inf, false, true);
 }
 
 static
@@ -1785,7 +1797,7 @@ void _make_new_replaylink(struct mars_rotate *rot, char *new_host, int new_seque
 	MARS_DBG("new_host = '%s' new_sequence = %d end_pos = %lld\n", new_host, new_sequence, end_pos);
 
 	_update_replay_link(rot, &inf);
-	_update_version_link(rot, &inf, false);
+	_update_version_link(rot, &inf, false, false);
 
 	if (rot->todo_primary | rot->is_primary | rot->old_is_primary)
 		code |= MARS_TRIGGER_TO_REMOTE;
@@ -6163,7 +6175,7 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 
 		_crashme(3, true);
 
-		status = _update_link_when_necessary(rot, "syncpos", peer_replay_link, syncpos_path);
+		status = _update_link_when_necessary(rot, "syncpos", peer_replay_link, syncpos_path, false);
 		/* Sync is only marked as finished when the syncpos
 		 * production was successful and timestamps are recent enough.
 		 */
@@ -6185,7 +6197,7 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 
 	_crashme(4, true);
 
-	status = _update_link_when_necessary(rot, "syncstatus", src, dst);
+	status = _update_link_when_necessary(rot, "syncstatus", src, dst, false);
 	if (!status)
 		rot->sync_copy_last = copy_last;
 
@@ -6196,7 +6208,7 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 
 	_crashme(5, true);
 
-	(void)_update_link_when_necessary(rot, "verifystatus", src, dst);
+	(void)_update_link_when_necessary(rot, "verifystatus", src, dst, false);
 
 	memset(&rot->sync_finish_stamp, 0, sizeof(rot->sync_finish_stamp));
 done:
