@@ -906,6 +906,8 @@ struct mars_rotate {
 	bool checked_reboot;
 	bool is_primary;
 	bool old_is_primary;
+	bool was_primary_before;
+	bool had_primary_crash;
 	bool created_hole;
 	bool is_log_damaged;
 	bool has_emergency;
@@ -3989,6 +3991,31 @@ const char *get_versionlink(const char *parent_path, int seq, const char *host, 
 	return __get_link_path(_linkpath, linkpath);
 }
 
+static
+long long versionlink_loglen(const char *linkval)
+{
+	long long res = 0;
+	const char *test = linkval;
+	int arg_nr;
+	int count;
+
+	/* get the third comma-separated arg */
+	for (arg_nr = 1; arg_nr < 3; arg_nr++) {
+		test = strchr(test, MARS_DELIM);
+		if (unlikely(!test) || !*(++test)) {
+			MARS_ERR("replay link '%s' has only %d args\n",
+				 linkval, arg_nr - 1);
+			return res;
+		}
+	}
+	count = sscanf(test, "%lld", &res);
+	if (unlikely(count < 1)) {
+		MARS_ERR("replay link '%s': no recognizable logfile size\n",
+			 linkval);
+	}
+	return res;
+}
+
 static inline
 int _get_tolerance(struct mars_rotate *rot)
 {
@@ -4885,10 +4912,48 @@ int _make_logging_status(struct mars_rotate *rot)
 		 */
 		next_relevant_log = rot->next_relevant_log;
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
+			/* Check whether we had a primary crash.
+			 */
+			if (rot->todo_primary && !rot->is_primary) {
+				rot->was_primary_before =
+					rot->aio_dent &&
+					rot->aio_dent->d_rest &&
+					!strcmp(rot->aio_dent->d_rest, my_id());
+			} else {
+				rot->was_primary_before = false;
+			}
+			if (rot->was_primary_before) {
+				const char *own_versionlink_path = NULL;
+				const char *own_versionlink = NULL;
+
+				own_versionlink = get_versionlink(rot->parent_path,
+								  log_nr,
+								  my_id(),
+								  &own_versionlink_path);
+				if (own_versionlink) {
+					long long vers_loglen = versionlink_loglen(own_versionlink);
+
+					rot->had_primary_crash =
+						vers_loglen > end_pos ||
+						vers_loglen > rot->aio_dent->new_stat.size;
+				} else {
+					rot->had_primary_crash = true;
+				}
+				brick_string_free(own_versionlink_path);
+				brick_string_free(own_versionlink);
+				_recover_versionlink(rot, my_id(), log_nr, end_pos);
+			} else {
+				rot->had_primary_crash = false;
+			}
+			/* Only rotate when appropriate.
+			 */
 			if (next_relevant_log && !rot->log_is_really_damaged) {
 				int replay_tolerance = _get_tolerance(rot);
 				bool skip_new = !!rot->todo_primary;
 				bool possible;
+
+				if (rot->had_primary_crash)
+					replay_tolerance = 0;
 
 				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, skip_new = %d, replay_tolerance = %d)\n",
 					 dent->d_path,
