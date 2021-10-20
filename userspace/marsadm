@@ -2861,7 +2861,10 @@ sub check_id {
   if (defined($must_exist) && $must_exist) {
     my $ip_path = "$mars/ips/ip-$str";
     unless (get_link($ip_path, 1)) {
-      ldie "host '$str' does not exist in $mars/ips/\n" if !$force;
+      if (!$force) {
+	lwarn "Host '$str' does not exist in $mars/ips/\n";
+	ldie "When you know what you are doing, you may fix any typos and then use --force\n";
+      }
       lwarn "host '$str' does not exist in $mars/ips/ - hopefully you know what you are doing via --force\n";
     }
   }
@@ -9826,6 +9829,8 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
 
 my @args;
 
+my @check_ids;
+
 foreach my $arg (@ARGV) {
   if ($arg eq "--force" || $arg eq "-f") {
     $force++;
@@ -9896,7 +9901,7 @@ foreach my $arg (@ARGV) {
     $cm3_checked = 1;
     next;
   } elsif ($arg =~ s/--host\s*=\s*([-_A-Za-z0-9]+)/$1/) {
-    check_id($arg, 1);
+    push @check_ids, $arg;
     if ($arg ne $host) {
       lprint "ATTENTION: acting as if I were host '$arg'\n";
       lwarn "some commands require local knowledge not available here.\n";
@@ -9943,6 +9948,11 @@ foreach my $arg (@ARGV) {
     $force++;
   }
   push @args, $arg;
+}
+
+# some postponed checks
+foreach my $check_arg (@check_ids) {
+  check_id($check_arg, 1);
 }
 
 my $cmd = shift @args || helplist "command argument is missing\n";
