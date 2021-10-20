@@ -2472,6 +2472,10 @@ sub get_alive_links {
     foreach my $peer (keys(%peers)) {
       my $stamp = get_alive_link("time", $peer, 2);
       next if (!$stamp || $stamp !~ m/^\s*[0-9.]/ || is_recent($stamp));
+      my $ip_path = "$mars/ips/ip-$peer";
+      unless (get_link($ip_path, 1)) {
+	lwarn "Host '$peer' does not exist in $mars/ips/ - check your cluster configuration\n";
+      }
       my $common = 0;
       my @peer_resources = get_any_resources($peer);
       foreach my $tmp_res (@peer_resources) {
