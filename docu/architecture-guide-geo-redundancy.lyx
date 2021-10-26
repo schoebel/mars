@@ -187,7 +187,6 @@ reference "chap:GNU-FDL"
 \end_layout
 
 \begin_layout New Color Box Type
-
 \begin_inset Argument 2
 status open
 
@@ -236,7 +235,6 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
-
 \begin_inset Argument 2
 status open
 
@@ -285,7 +283,6 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
-
 \begin_inset Argument 2
 status open
 
@@ -334,7 +331,6 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
-
 \begin_inset Argument 2
 status open
 
@@ -4828,6 +4824,281 @@ noprefix "false"
 
 \end_inset
 
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Loss of Datacenters
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+Here is the basic idea of geo-redundancy between two datacenters A and B
+ during 
+\emph on
+ordinary operations
+\emph default
+:
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename images/example-geo-datacenters.fig
+	width 70line%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+Here are 
+\series bold
+two possible geo-disaster scenarios
+\series default
+ which can be compensated by well-implemented geo-redundancy:
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename images/example-geo-disaster-1.fig
+	width 70line%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+
+\series bold
+\size largest
+OR 
+\emph on
+not predictable
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename images/example-geo-disaster-2.fig
+	width 70line%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+On top of these example geo-disasters, which may last several days / weeks
+ / months / or 
+\series bold
+forever
+\series default
+, 
+\emph on
+ordinary indicents
+\emph default
+ may 
+\emph on
+additionally
+\emph default
+ occur at the surviving datacenter.
+\end_layout
+
+\begin_layout Plain Layout
+Real geo disasters have happened several times in history.
+ For example, the 2021 flood in the German Ahrtal (Ahr valley) has destroyed
+ several local datacenters, even governmental ones e.g.
+ from local tax authorities.
+ Some of these datacenters have been 
+\series bold
+physically lost forever
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Scientists are predicting that the climate change will 
+\series bold
+increase the risk
+\series default
+ of big floods.
+ The so-called 
+\emph on
+jet streams
+\emph default
+ are weakening, such that low-pressure zones are typically moving only slowly,
+ or even can stay resident at the same geo-position for 
+\emph on
+weeks
+\emph default
+.
+ This has happened in the Ahrtal.
+ If a similar weather scenario would have rained down its 
+\emph on
+hundreds
+\emph default
+ of liters per square meter south of Stuttgart, around the Neckar valley,
+ just a few hundred kilometers away from the Ahr valley disaster, relevant
+ parts of the German industry could have been lost, including relevant parts
+ of international companies like Daimler-Chrysler.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ This risk increase is not limited to Europe, but a 
+\series bold
+global risk
+\series default
+.
+ Around 2021, many US citicens have noticed that they are also affected
+ from increased weather risks.
+ President Biden reacts differently from president Trump.
+ Large parts of the industry, as well as stock exchange markets are also
+ adapting strategies.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Other geo-disasters like devastating high-magnitude earth quakes can for
+ example happen in the Rhine valley, which is known for a history of suchalike
+ events around once per century.
+ The last one in Basel is now ~100 years ago.
+ The next bigger one looks 
+\emph on
+overdue
+\emph default
+ in statistical average (depending on expected magnitude), and may potentially
+ happen anywhere in the long rift valley, even near Cologne, or in the Netherlan
+ds.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ There is no doubt that Japan and many other areas in the Pacific are active
+ earth quake zones.
+ Even the US has geo disaster zones (e.g.
+ around Yellowstone).
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Implementation of 
+\emph on
+real
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Some advocates are trying to sell their so-called 
+\begin_inset Quotes eld
+\end_inset
+
+geo-redundant
+\begin_inset Quotes erd
+\end_inset
+
+ solutions or strategies although they cannot actually cope with true geo
+ disasters.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ geo-redundancy has 
+\series bold
+pitfalls
+\series default
+ and needs high-grade methods and skills.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+This guide hints you on technical 
+\series bold
+prevention strategies
+\series default
+ against (partly or full) datacenter losses, provided you are investing
+ the time to read it 
+\emph on
+carefully
+\emph default
 .
 \end_layout
 
