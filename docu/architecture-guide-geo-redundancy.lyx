@@ -187,6 +187,7 @@ reference "chap:GNU-FDL"
 \end_layout
 
 \begin_layout New Color Box Type
+
 \begin_inset Argument 2
 status open
 
@@ -235,6 +236,7 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
+
 \begin_inset Argument 2
 status open
 
@@ -283,6 +285,7 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
+
 \begin_inset Argument 2
 status open
 
@@ -331,6 +334,7 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
+
 \begin_inset Argument 2
 status open
 
@@ -1716,7 +1720,11 @@ noprefix "false"
 between
 \emph default
  different shards.
- There is no SPOC = Single Point Of Contention.
+ There is 
+\series bold
+no SPOC = Single Point Of Contention
+\series default
+.
  The shards cannot influence each other.
  Thus the 
 \series bold
@@ -1777,6 +1785,37 @@ quality
 !
 \end_layout
 
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Pitfall: only compare 
+\emph on
+pictures
+\emph default
+ of architectures when they are 
+\emph on
+really comparable
+\emph default
+.
+ The boxes need to refer to 
+\emph on
+comparable items
+\emph default
+.
+ You cannot check this in 10 seconds! You will need to invest more time
+ and/or 
+\emph on
+more
+\emph default
+ capable people.
+\end_layout
+
 \end_inset
 
 
@@ -1791,13 +1830,13 @@ quality
 
 \end_inset
 
- Important: do not unnecessarily mix boxes or lines depicted in the same
- graphics style, when they are 
+ Important for creators of diagrams: do not unnecessarily mix boxes or lines
+ depicted in the same graphics style, when they are 
 \emph on
 not easily comparable
 \emph default
  to each other.
- For example, so not 
+ For example, do not 
 \emph on
 mix up
 \emph default
@@ -1833,11 +1872,40 @@ complexity
 \emph on
 low quality
 \emph default
-, and can easily provoke various misunderstandings
-\begin_inset Foot
+, and can easily provoke various 
+\series bold
+misunderstandings
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset VSpace defskip
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 1
 status open
 
 \begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Hypothetical Example of a Misunderstanding
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
 Here is a hypothetical example of a misunderstandable variant of the first
  graphics.
  For illustration, the bad parts are coloured in 
@@ -1862,7 +1930,11 @@ dark red
 
 \begin_layout Plain Layout
 \noindent
-What is bad here? This is not only violating the 
+What is bad here?
+\end_layout
+
+\begin_layout Plain Layout
+This is not only violating the 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "par:Definition-of-Sharding"
@@ -1872,18 +1944,65 @@ noprefix "false"
 
 \end_inset
 
- because the bottom box is a SPOC = Single Point of Contention, because
- multiple shards 
+ because the bottom box is a SPOC = Single Point of Contention, since multiple
+ shards 
 \emph on
-must not
+must not share
 \emph default
- share an unnecessary common SPOC [
+ an unnecessary
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice: some sort of 
+\begin_inset Quotes eld
+\end_inset
+
+Shard Gateway
+\begin_inset Quotes erd
+\end_inset
+
+ is unavoidable 
+\emph on
+in general
+\emph default
+, because it actually belongs to the networking infrastructure, which is
+ always needed in order to communicate with the 
+\begin_inset Quotes eld
+\end_inset
+
+Internet
+\begin_inset Quotes erd
+\end_inset
+
+.
+ However, a good 
+\emph on
+implementation
+\emph default
+ of a Sharding Architecture needs to 
+\emph on
+invest
+\emph default
+ some 
+\series bold
+brain power
+\series default
+ how to make this actual SPOC as good as possible for the actual use case.
+\end_layout
+
+\end_inset
+
+ common SPOC [
 \size footnotesize
 notice that the Internet can also have SPOCs but this is outside your system,
  and we cannot influence much of it
 \size default
 ].
- Another problem is that the 
+\end_layout
+
+\begin_layout Plain Layout
+Another problem is that the 
 \emph on
 whole picture
 \emph default
@@ -1919,7 +2038,10 @@ confusion of the abstraction level
 \series default
 \emph default
 .
- When characterizations like 
+\end_layout
+
+\begin_layout Plain Layout
+When characterizations like 
 \begin_inset Quotes eld
 \end_inset
 
@@ -1927,8 +2049,11 @@ BigCluster
 \begin_inset Quotes erd
 \end_inset
 
- are omitted, readers can easily become mis-guided by believing that the
- Object Store would be a 
+ are omitted, readers can easily become 
+\series bold
+mis-guided
+\series default
+ by believing that the Object Store would be a 
 \begin_inset Quotes eld
 \end_inset
 
@@ -1949,7 +2074,7 @@ more easy box
 
 \end_inset
 
-.
+
 \end_layout
 
 \begin_layout Standard
