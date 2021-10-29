@@ -4711,6 +4711,45 @@ minimum percentage of uptime
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not confuse uptime / downtime with service times or similar.
+ For example, internet services typically can require some seconds until
+ web pages are appearing on a smartphone.
+ Thus it does not make sense to define a 
+\begin_inset Quotes eld
+\end_inset
+
+downtime
+\begin_inset Quotes erd
+\end_inset
+
+ or an 
+\begin_inset Quotes eld
+\end_inset
+
+availability
+\begin_inset Quotes erd
+\end_inset
+
+ or even a 
+\begin_inset Quotes eld
+\end_inset
+
+reaction time
+\begin_inset Quotes erd
+\end_inset
+
+ in units of milliseconds.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 9
 	scale 5
@@ -4779,7 +4818,31 @@ factors
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
 \noindent
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Expensive Over-Engineering Pitfalls
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -4799,7 +4862,7 @@ any
 \emph on
 need
 \emph default
- to be built up by 
+ to be built by 
 \emph on
 hardware redundancy.
  
@@ -4814,7 +4877,7 @@ Some people even believe that redundancy would be needed at
  cannot guarantee a certain overall hard+software HA percentage in general,
  for example when certain components such as failover software are not reliable
  enough.
- See also section 
+ See section 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "sub:Detailed-explanation"
@@ -4824,7 +4887,8 @@ noprefix "false"
 
 \end_inset
 
- for a counter-example, where addition of more redundancy 
+ for another counter-example, where addition of more hardware redundancy
+ 
 \begin_inset Formula $>k$
 \end_inset
 
@@ -4833,8 +4897,8 @@ noprefix "false"
 \emph on
 typically(!)
 \emph default
- built using certain types and degrees of redundancy, including variants
- like geo-redundancy.
+ built using certain types and degrees of hardware redundancy, including
+ variants like geo-redundancy.
  In general, however, there might be other means for achieving HA, like
  extremely quick automatic repair methods, self-healing
 \begin_inset Foot
@@ -4851,6 +4915,11 @@ This is no joke.
 \end_inset
 
  systems, etc.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section
