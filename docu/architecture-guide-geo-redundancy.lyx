@@ -3656,6 +3656,13 @@ potentially dangerous operation
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
 \noindent
 \begin_inset Flex Custom Color Box 3
 status open
@@ -4067,10 +4074,20 @@ opposite
  Notice that logical copies are residing at higher layers, e.g.
  filesystems or database records, while pure replication is easier done
  at block layer.
- See also section 
+ See also sections 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Layering-Rules"
 plural "false"
 caps "false"
 noprefix "false"
@@ -4100,6 +4117,13 @@ noprefix "false"
  cannot provide the same protection level as a classical per-inode multi-generat
 ion backup onto a different filesystem type, thus lowering systematical
  risks from software bugs in filesystem code.
+ In general, there always remains a 
+\series bold
+residual risk
+\series default
+ of data loss.
+ The classical solution is simple: just have two or more different counter-measu
+res in parallel, and spread them over distinct datacenters.
 \end_layout
 
 \end_inset
