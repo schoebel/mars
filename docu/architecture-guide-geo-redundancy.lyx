@@ -4423,9 +4423,10 @@ not fully
 \emph on
 service provider
 \emph default
- and/or the network technology (D-net vs E-net etc) may be also be encoded
+ and/or the network technology (D-net vs E-net etc) may be also encoded
  in cellphone numbers, e.g.
- somewhere as an infix, so changing the provider may have some restrictions.
+ somewhere as an infix.
+ Changing the provider may have some restrictions.
  However, for 
 \emph on
 most practical purposes
@@ -4545,8 +4546,8 @@ best practice
 
 \end_inset
 
- It may happen that somebody thinks there would bot be enough time and/or
- resources for implementing certain kinds of location transparency.
+ It may happen that somebody thinks there would not be enough time and/or
+ resources for implemention of certain kinds of location transparency.
  Although in many cases this is not really true, there might be some corner
  cases where it sometimes is true, or close to true.
 \end_layout
