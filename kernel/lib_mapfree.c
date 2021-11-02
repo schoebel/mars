@@ -44,6 +44,15 @@ EXPORT_SYMBOL_GPL(mapfree_period_sec);
 int mapfree_grace_keep_mb = 16;
 EXPORT_SYMBOL_GPL(mapfree_grace_keep_mb);
 
+/* Internal reaction time.
+ * Not critical, except when waiting for rmmod ;)
+ */
+#define MAPFREE_SLEEP_JIFFIES (HZ / 10 + 1)
+
+int mapfree_sleep_jiffies = MAPFREE_SLEEP_JIFFIES;
+
+static DECLARE_WAIT_QUEUE_HEAD(mapfree_event);
+
 struct mf_hash_anchor {
 	struct rw_semaphore hash_mutex;
 	struct list_head    hash_anchor;
@@ -343,25 +352,30 @@ int mapfree_thread(void *data)
 {
 	struct mf_hash_anchor *mha = data;
 
-	while (!brick_thread_should_stop()) {
+	for (;;) {
 		struct mapfree_info *mf = NULL;
 		struct list_head *tmp;
 		long long eldest = 0;
+		bool is_empty = true;
 
-		brick_msleep(500);
+		wait_event_interruptible_timeout(mapfree_event,
+						 !mapfree_period_sec,
+						 mapfree_sleep_jiffies);
 
-		if (mapfree_period_sec <= 0)
-			continue;
-		
 		down_read(&mha->hash_mutex);
 
 		for (tmp = mha->hash_anchor.next;
 		     tmp != &mha->hash_anchor;
 		     tmp = tmp->next) {
 			struct mapfree_info *_mf = container_of(tmp, struct mapfree_info, mf_head);
+
+			if (_mf->mf_finished)
+				continue;
+			is_empty = false;
 			if (unlikely(!_mf->mf_jiffies)) {
 				_mf->mf_jiffies = jiffies;
-				continue;
+				if (mapfree_period_sec > 0)
+					continue;
 			}
 			if ((long long)jiffies - _mf->mf_jiffies > mapfree_period_sec * HZ &&
 			    (!mf || _mf->mf_jiffies < eldest)) {
@@ -375,11 +389,18 @@ int mapfree_thread(void *data)
 		up_read(&mha->hash_mutex);
 
 		if (!mf) {
+			if (!is_empty)
+				continue;
+			if (brick_thread_should_stop())
+				break;
+			brick_msleep(1);
 			continue;
 		}
 
 		mapfree_pages(mf, mapfree_grace_keep_mb);
 
+		if (brick_thread_should_stop())
+			mf->mf_finished = true;
 		mf->mf_jiffies = jiffies;
 		mapfree_put(mf);
 	}
@@ -496,6 +517,7 @@ int __init init_mars_mapfree(void)
 	int i;
 
 	MARS_DBG("init_mapfree()\n");
+	mapfree_sleep_jiffies = MAPFREE_SLEEP_JIFFIES;
 	for (i = 0; i < MAPFREE_HASH; i++) {
 		struct task_struct *thread;
 
@@ -518,10 +540,16 @@ void exit_mars_mapfree(void)
 	int i;
 
 	MARS_DBG("exit_mapfree()\n");
+	mapfree_period_sec = -1;
+	mapfree_sleep_jiffies = 1;
+	wake_up_interruptible_all(&mapfree_event);
+
 	for (i = 0; i < MAPFREE_HASH; i++) {
-		if (likely(mf_table[i].hash_thread)) {
-			brick_thread_stop(mf_table[i].hash_thread);
+		struct task_struct *thread = mf_table[i].hash_thread;
+
+		if (thread) {
 			mf_table[i].hash_thread = NULL;
+			brick_thread_stop(thread);
 		}
 		CHECK_HEAD_EMPTY(&mf_table[i].hash_anchor);
 	}

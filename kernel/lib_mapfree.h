@@ -76,6 +76,7 @@ struct mapfree_info {
 	loff_t           mf_max;
 	long long        mf_jiffies;
 	unsigned int     mf_hash;
+	bool             mf_finished;
 	struct dirty_length mf_length[DIRTY_MAX];
 };
 
