@@ -519,15 +519,19 @@ int __init init_mars_mapfree(void)
 	MARS_DBG("init_mapfree()\n");
 	mapfree_sleep_jiffies = MAPFREE_SLEEP_JIFFIES;
 	for (i = 0; i < MAPFREE_HASH; i++) {
-		struct task_struct *thread;
-
 		init_rwsem(&mf_table[i].hash_mutex);
 		INIT_LIST_HEAD(&mf_table[i].hash_anchor);
+		mf_table[i].hash_thread = NULL;
+	}
+	for (i = 0; i < MAPFREE_HASH; i++) {
+		struct task_struct *thread;
+
 		thread = brick_thread_create(mapfree_thread,
 					     &mf_table[i],
 					     "mars_mf%d", i);
 		if (unlikely(!thread)) {
 			MARS_ERR("could not create mapfree thread %d\n", i);
+			exit_mars_mapfree();
 			return -ENOMEM;
 		}
 		mf_table[i].hash_thread = thread;
