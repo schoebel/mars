@@ -154,13 +154,20 @@ void _mapfree_put(struct mapfree_info *mf)
 
 void mapfree_put(struct mapfree_info *mf)
 {
-	if (likely(mf && mf->mf_hash < MAPFREE_HASH)) {
-		unsigned int hash = mf->mf_hash;
+	unsigned int hash;
 
-		down_write(&mf_table[hash].hash_mutex);
-		_mapfree_put(mf);
-		up_write(&mf_table[hash].hash_mutex);
+	if (unlikely(!mf))
+		return;
+
+	hash = mf->mf_hash;
+	if (unlikely(hash >= MAPFREE_HASH)) {
+		MARS_ERR("Bad mapfree hash %d\n", hash);
+		return;
 	}
+
+	down_write(&mf_table[hash].hash_mutex);
+	_mapfree_put(mf);
+	up_write(&mf_table[hash].hash_mutex);
 }
 EXPORT_SYMBOL_GPL(mapfree_put);
 
@@ -334,16 +341,26 @@ EXPORT_SYMBOL_GPL(mapfree_get);
 
 void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max)
 {
-	if (likely(mf && mf->mf_hash < MAPFREE_HASH)) {
-		struct mf_hash_anchor *mha = &mf_table[mf->mf_hash];
+	struct mf_hash_anchor *mha;
+	unsigned int hash;
 
-		down_write(&mha->hash_mutex);
-		if (!mf->mf_min[0] || mf->mf_min[0] > min)
-			mf->mf_min[0] = min;
-		if (max >= 0 && mf->mf_max < max)
-			mf->mf_max = max;
-		up_write(&mha->hash_mutex);
+	if (unlikely(!mf))
+		return;
+
+	hash = mf->mf_hash;
+	if (unlikely(hash >= MAPFREE_HASH)) {
+		MARS_ERR("Bad mapfree hash %d\n", hash);
+		return;
 	}
+
+	mha = &mf_table[hash];
+
+	down_write(&mha->hash_mutex);
+	if (!mf->mf_min[0] || mf->mf_min[0] > min)
+		mf->mf_min[0] = min;
+	if (max >= 0 && mf->mf_max < max)
+		mf->mf_max = max;
+	up_write(&mha->hash_mutex);
 }
 EXPORT_SYMBOL_GPL(mapfree_set);
 
