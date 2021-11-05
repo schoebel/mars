@@ -151,6 +151,13 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable135
+	* Minor fix: extremely scarce race on rmmod, was
+	  practically impossible to reproduce.
+	* Minor improvement: speedup rmmod.
+	* Doc: updates of architecture-guide-geo-redundancy.pdf
+	* Doc: update user manual appendix B.
+
 mars0.1astable134
 	* Minor fix: the marsadm --force argument was not fully independent
 	  from other arguments.
