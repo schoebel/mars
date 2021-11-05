@@ -31968,7 +31968,6 @@ Dec 24 17:00:58 c1 systemd[1]: Failed to mount MARS TESTING local mount
 \end_layout
 
 \begin_layout Standard
-
 This failure report was wrong, because the mount had actually succeeded
  in reality, but systemd wrongly assumed the opposite.
  Neither 
@@ -31987,14 +31986,12 @@ systemctl reset-failed
 \end_layout
 
 \begin_layout Standard
-
 Possibly this may be a bug, which could be fixed.
  However, HA systems are expected to even work in the presence of bugs,
  as best as possible.
 \end_layout
 
 \begin_layout Standard
-
 If you ever encounter a similar problem, you may get stuck in a dead end,
  at least for a while.
  Apparently, systemd is repairing the state of failed mount units after
@@ -32003,18 +32000,15 @@ If you ever encounter a similar problem, you may get stuck in a dead end,
 \end_layout
 
 \begin_layout Standard
-
 What is the reason for this behaviour?
 \end_layout
 
 \begin_layout Standard
-
 The author is no systemd expert
 \begin_inset Foot
 status open
 
 \begin_layout Plain Layout
-
 The author might have overlooked further possibilities for solutions.
  This rises the question how the 
 \series bold
@@ -32037,7 +32031,6 @@ concept level
 \end_layout
 
 \begin_layout Standard
-
 The following may be of interest for systemd developers, and for very advanced
  users of systemd.
  All others may skip the rest of this paragraph, and just use the 
@@ -32048,7 +32041,6 @@ The following may be of interest for systemd developers, and for very advanced
 \end_layout
 
 \begin_layout Standard
-
 From observation, and from 
 \family typewriter
 man systemctl
@@ -32096,7 +32088,6 @@ disturb
 \end_layout
 
 \begin_layout Standard
-
 In worst case, the conflicting unit may fail 
 \begin_inset Quotes eld
 \end_inset
@@ -32121,7 +32112,6 @@ Exec=
 \end_layout
 
 \begin_layout Standard
-
 Conclusions: there appear multiple non-trivial HA problems with the current
  version of systemd.
  While some of them may be bugs which could be fixed, others appear to reside
@@ -32133,7 +32123,6 @@ concept level
 \end_layout
 
 \begin_layout Enumerate
-
 Jobs seem to be 
 \emph on
 uniquely identified
@@ -32244,7 +32233,6 @@ undefined application state
 status open
 
 \begin_layout Plain Layout
-
 Possibly, a new directive 
 \family typewriter
 ExecCleanup=
@@ -32300,7 +32288,6 @@ Possibly (the author has checked
 status open
 
 \begin_layout Plain Layout
-
 The documentation 
 \family typewriter
 man systemd
@@ -32376,7 +32363,6 @@ itself
 \end_layout
 
 \begin_layout Enumerate
-
 Not only in the presence of multiple jobs for the same unit (possibly submitted
  in parallel to each other), query operations like 
 \family typewriter
@@ -32400,7 +32386,6 @@ is-failed
 \end_layout
 
 \begin_layout Enumerate
-
 Systemd lacks an important property called Idempotence.
  Idempotence is a very common feature in big industry plants, where hundreds
  of human workers may act on controlling hundrets of facilities.
@@ -32491,12 +32476,10 @@ somehow
 \end_layout
 
 \begin_layout Standard
-
 A future Idempotence feature of systemd could be implemented as follows:
 \end_layout
 
 \begin_layout Enumerate
-
 In the unit file, an option for declaration of the Idempotence property
  could be added.
  Backwards compatibility: the semantics of conventional non-idempotent units
@@ -32504,7 +32487,6 @@ In the unit file, an option for declaration of the Idempotence property
 \end_layout
 
 \begin_layout Enumerate
-
 When Idempotence is declared, 
 \family typewriter
 systemctl start
@@ -32536,7 +32518,6 @@ controlled abortion
 \end_layout
 
 \begin_layout Enumerate
-
 When 
 \family typewriter
 ExecStart=
@@ -32564,7 +32545,6 @@ target state
 \end_layout
 
 \begin_layout Enumerate
-
 A very helpful addition to 
 \emph on
 any
@@ -32602,7 +32582,6 @@ ExecStartOrStop=
 \end_layout
 
 \begin_layout Standard
-
 In ideal case, 
 \family typewriter
 ExecCheck=
@@ -38669,7 +38648,7 @@ maximum 100 logfiles per resource
 \end_layout
 
 \begin_layout Chapter
-Handout for Midnight Problem Solving
+Guide for Midnight Problem Solving
 \begin_inset CommandInset label
 LatexCommand label
 name "chap:Handout-for-Midnight"
@@ -38680,12 +38659,43 @@ name "chap:Handout-for-Midnight"
 \end_layout
 
 \begin_layout Standard
-Here are generic instructions for the generic 
+Here is 
+\emph on
+generic
+\emph default
+ 
+\emph on
+guide
+\emph default
+ (not to be treated as instructions) for the generic 
 \family typewriter
 marsadm
 \family default
- and commandline level.
- Other levels (e.g.
+ and command\SpecialChar softhyphen
+line level.
+ 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ This is 
+\series bold
+\emph on
+not
+\emph default
+ an operational documentation
+\series default
+.
+ There are too many other application-dependent components in a real production
+ system.
+ Any other levels / layers (e.g.
  different types of cluster managers, PaceMaker, control scripts / 
 \family typewriter
 rc
@@ -38694,7 +38704,45 @@ rc
 \family typewriter
 upstart
 \family default
- scripts, etc should be described elsewhere.
+ or 
+\family typewriter
+systemd
+\family default
+ scripts, etc) 
+\emph on
+need
+\emph default
+ to be described elsewhere.
+ Midnight problem solving means to engage sysadmins familiar with (1) 
+\emph on
+all
+\emph default
+ of these components, and (2) with any 
+\emph on
+potential interferences
+\emph default
+ between them.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+Aristoteles taught us that a system is more than the sum of its components.
+ You need your own 
+\emph on
+maintained
+\emph default
+ handout for problem solving at 
+\emph on
+full-system
+\emph default
+ level.
 \end_layout
 
 \begin_layout Section
@@ -38712,15 +38760,6 @@ marsadm view-1and1 all
 \family default
 .
  It shows more appropriate / detailed information.
-\end_layout
-
-\begin_layout Standard
-Hint: this might change in future when somebody will program better marcros
- for the 
-\family typewriter
-view-1and1
-\family default
- variant, or create even better other macros.
 \end_layout
 
 \begin_layout Quotation
@@ -38762,38 +38801,142 @@ status open
 \end_layout
 
 \begin_layout Standard
-Meaning of the port numbers (as currently configured into the kernel module,
- may change in future):
+Meaning of the port numbers (current default as configured into the kernel
+ module, may change in future):
 \end_layout
 
 \begin_layout Itemize
-7777 = metadata / symlink propagation
+7776 = prosumer device traffic (realtime requirements, only at new MARS
+ versions)
 \end_layout
 
 \begin_layout Itemize
-7778 = transfer of transaction logfiles
+7777 = metadata / symlink propagation (low traffic)
 \end_layout
 
 \begin_layout Itemize
-7779 = transfer of sync traffic
+7778 = transfer of transaction logfiles (load dependent)
+\end_layout
+
+\begin_layout Itemize
+7779 = transfer of fast-fullsync traffic (only when fast-fullsync is running)
 \end_layout
 
 \begin_layout Standard
 7777 must be always active on a healthy cluster.
- 7778 and 7779 will appear only on demand, when some data is transferred.
+ All others will appear only on demand, when resources are configured accordingl
+y and/or when some data is transferred.
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
 Hint: when one of the columns Send-Q or Recv-Q are constantly at high values,
  you might have a network bottleneck.
 \end_layout
 
-\begin_layout Section
-Replication is Stuck
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+When unsure or desperate: check that at least the 
+\emph on
+server-part
+\emph default
+ sockets 7777 to 7779 are 
+\emph on
+always
+\emph default
+ present after modprobe mars and in state LISTEN, e.g.
+ via
+\family typewriter
+
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+# netstat -lp --tcp | grep 777
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-Indications for a stuck: 
+Hint: I have seen strange incidents where somebody else had 
+\emph on
+occupied
+\emph default
+ some of these server sockets via some bugs in some userspace scripts.
+ There might be other network-level problems, e.g.
+ network hardware has firmware bugs, or when network devices are misconfigured,
+ or when some strange firewalling rules are kicking in, etc.
+ Or even 
+\emph on
+trivial
+\emph default
+ problems, like electrical problems, faulty cables or contacts, bad temperatures
+, humidity, etc.
+\end_layout
+
+\begin_layout Section
+Replication is unexpectedly Stuck
+\end_layout
+
+\begin_layout Standard
+Indications for a stuck:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+marsadm view all
+\family default
+ displays some human-readable 
+\emph on
+warnings
+\emph default
+ containing the keywords 
+\family typewriter
+age
+\family default
+ or 
+\family typewriter
+hint
+\family default
+ and some hours:minutes:seconds numbers.
+\end_layout
+
+\begin_layout Itemize
+Other warnings containing the keyword error and some errno code / text (see
+ 
+\family typewriter
+man errno
+\family default
+ but notice that the Linux kernel uses negative numbers in place of positives).
+ You need to read and understand the meaning of these 
+\family typewriter
+errno
+\family default
+ numbers in the context of you Linux version and 
+\family typewriter
+mars.ko
+\family default
+.
 \end_layout
 
 \begin_layout Itemize
@@ -38857,7 +39000,7 @@ up
 \begin_layout Itemize
 
 \family typewriter
-netstat --tcp | grep 7777
+netstat --tcp | grep 777
 \family default
  does not show anything.
  Please check the following:
@@ -38891,6 +39034,11 @@ ifconfig
 ethtool
 \family default
  and friends, and fix it when necessary.
+ Use 
+\family typewriter
+journalctl -k
+\family default
+ to detect any potential kernel messages, such as network driver problems.
 \end_layout
 
 \begin_layout Itemize
@@ -38916,7 +39064,7 @@ telnet
 .
  But don't type anything, just abort the connection immediately when it
  works! Typing anything will almost certainly throw a harsh error message
- at the other server, which could unnecessarily alarm other people.
+ at the other server, which could unnecessarily alert other people.
 \end_layout
 
 \end_deeper
@@ -38985,8 +39133,12 @@ marsadm up all
  again.
  If it doesn't help, check and repair the network.
  If even this does not help, check the hardware for any IO hangups, or kernel
- hangups.
- First, check the RAID controllers.
+ hangups via 
+\family typewriter
+journalctl
+\family default
+ and sisters.
+ Check the RAID controllers.
  Often (but not certainly), a stuck kernel can be recognized when many processes
  are 
 \emph on
@@ -39005,7 +39157,7 @@ really
  Discrimination is not easy, and requires experience (as with any other
  system; not limited to MARS).
  A truly stuck kernel can only be resurrected by rebooting.
- The same holds for any hardware problems.
+ The same holds for many hardware problems.
 \end_layout
 
 \begin_layout Itemize
@@ -39074,8 +39226,16 @@ reference "sec:Resolution-of-Emergency"
 .
 \end_layout
 
+\begin_layout Itemize
+Check 
+\family typewriter
+journalctl -k
+\family default
+ specifically for any kernel-level problems.
+\end_layout
+
 \begin_layout Section
-Resolution of Emergency Mode
+Standard Resolution of Emergency Mode and Split Brain
 \begin_inset CommandInset label
 LatexCommand label
 name "sec:Resolution-of-Emergency"
@@ -39157,7 +39317,7 @@ fsck
 \end_layout
 
 \begin_layout Standard
-A currently existing Emergency mode can be detected by 
+A currently existing emergency mode can be detected by
 \begin_inset listings
 inline false
 status open
@@ -39178,35 +39338,20 @@ secondary:~# marsadm view-is-emergency all
 \end_layout
 
 \begin_layout Standard
-Currently, emergency mode will also show something like 
+Emergency mode 
+\emph on
+may
+\emph default
+ also show something like 
 \family typewriter
 WARNING: SPLIT BRAIN at '' detected
 \family default
-.
- This ambiguity will be resolved in a future MARS release.
- It is however not crucial: the resolution methods for both cases are very
- similar.
- If in doubt, start emergency resolution first, and only proceed to split
- brain resoultion if it did not help.
+ because both problems may sometimes appear in combination.
+ Anyway, the standard resolution process is equal.
 \end_layout
 
 \begin_layout Standard
 Preconditions:
-\end_layout
-
-\begin_layout Itemize
-Only current version of MARS: the space at the primary side should have
- been already released, and the emergency mode should have been already
- left.
- Otherwise, you might need the split-brain resolution method from section
- 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Resolution-of-Split"
-
-\end_inset
-
-.
 \end_layout
 
 \begin_layout Itemize
@@ -39230,8 +39375,69 @@ primary:~# netstat --tcp | grep 7777
 When necessary, fix the network first (see instructions above).
 \end_layout
 
+\begin_layout Itemize
+The hardware must be healthy, and any RAID subsystems 
+\emph on
+should not
+\emph default
+ be in any degraded state
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+It is your 
+\emph on
+operational decision
+\emph default
+ whether to prefer relatively fast RAID rebuild after handover of any primary
+ to some secondary and/or pausing some secondary-side IO for some time,
+ or whether you drastically increase the TTR = Time To Repair by loading
+ your RAID 
+\emph on
+unnecessarily
+\emph default
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+MARS is constructed for working 
+\begin_inset Quotes eld
+\end_inset
+
+almost as best as possible
+\begin_inset Quotes erd
+\end_inset
+
+ even on slow IO systems and over slow networks, but 
+\emph on
+do not expect miracles
+\emph default
+.
+ The laws of physics are stronger than any human expectations!
+\end_layout
+
 \begin_layout Standard
-Emergency mode should now be resolved via the following instructions: 
+Emergency mode should now be resolved, e.g.
+ by checking 
+\family typewriter
+marsadm view all
+\family default
+, and/or via commands like 
 \begin_inset listings
 inline false
 status open
@@ -39248,24 +39454,114 @@ primary:~# du -s /mars/resource-* | sort -n
 
 \end_inset
 
-Remember the affected resources.
- Best practice is to do the following, starting with the 
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Remember the affected resource names and their 
+\emph on
+logfile storage s
+\emph default
+ize.
+ Do 
+\emph on
+not
+\emph default
+ invalidate on 
+\emph on
+any
+\emph default
+ non-SPLIT_BRAIN or non-Emergency resources.
+ Do 
+\emph on
+not
+\emph default
+ invalidate at the target where you 
+\series bold
+might need to failover
+\series default
+ somewhen in the next time! It is your 
+\emph on
+responsible operational decision
+\emph default
+ which resource on which secondary host you want to repair via 
+\family typewriter
+invalidate
+\family default
+ at a certain point in time!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Be aware of the 
+\emph on
+officially documented fact
+\emph default
+ that 
+\family typewriter
+marsadm invalidate
+\family default
+ (similarly to 
+\family typewriter
+drbdadm invalidate
+\family default
+) will make your secondary replica 
+\family typewriter
+Inconsistent
+\family default
+ until the following fast-fullsync has successfully finished!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+Depending on operational strategies for certain use cases and/or hardware
+ defects and/or load situations etc, it 
+\emph on
+might
+\emph default
+ be better to wait some (relatively short) time to start 
+\family typewriter
+marsadm invalidate
+\family default
+ 
+\emph on
+later
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Once you have decided to use 
+\family typewriter
+invalidate
+\family default
+ on certain resources, best practice is to start with the 
 \emph on
 biggest
 \emph default
- resource as shown by the 
+ resource as shown by 
 \family typewriter
-du | sort
+du -s /mars/resource-* | sort -n
 \family default
- output in reverse order, but 
-\emph on
-starting
-\emph default
- the following only with the 
-\emph on
-affected
-\emph default
- resources in the first place: 
+ in reverse order: 
 \begin_inset listings
 inline false
 status open
@@ -39277,29 +39573,50 @@ secondary1:~# marsadm invalidate <res1>
 
 \begin_layout Plain Layout
 
-secondary1:~# marsadm log-delete-all all
+secondary1:~# marsadm view <res1>
 \end_layout
 
 \begin_layout Plain Layout
 
-...
- dito with all resources showing emergency mode
-\end_layout
-
-\begin_layout Plain Layout
-
-...
- dito on all other secondaries
-\end_layout
-
-\begin_layout Plain Layout
-
-primary:~# marsadm log-delete-all all
+primary:~# marsadm cron
 \end_layout
 
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+Typical non-overloaded servers allow you to invalidate about 3 to 5 (or
+ 
+\emph on
+sometimes(!)
+\emph default
+ even tens of) resources in parallel, but highly overloaded machines may
+ require 
+\family typewriter
+marsadm pause-sync $some_resource
+\family default
+ for load reduction.
+ When more resources are affected by SPLIT BRAIN, regularly check whether
+ 
+\family typewriter
+df /mars/
+\family default
+ shows enough space to wait some time until you need to invalidate more
+ resources according to 
+\family typewriter
+du -s /mars/resource-* | sort -n
+\family default
+ .
 \end_layout
 
 \begin_layout Standard
@@ -39311,13 +39628,13 @@ Hint: during the resolution process, some other resources might have gone
 not yet
 \emph default
  entered emergency mode.
- Please repeat the steps in such a case, and look for emergency modes at
- secondaries additionally.
+ Please repeat the steps in such a case, and look for any emergency modes
+ at secondaries additionally.
  When necessary, extend your list of 
 \emph on
 affected
 \emph default
- resources.
+ resources and/or secondary hosts.
 \end_layout
 
 \begin_layout Standard
@@ -39325,34 +39642,61 @@ Hint: be patient.
  Deleting large bulks of logfile data may take a long time, at least on
  highly loaded systems.
  You should give the cleanup processes at least 5 minutes before concluding
- that an 
+ that 
 \family typewriter
-invalidate
+marsadm invalidate
 \family default
- followed by 
+ followed by primary-side 
 \family typewriter
-log-delete-all
+marsadm cron
 \family default
- had no effect! Don't forget to give the 
+ had no effect! When unsure, use 
 \family typewriter
-log-delete-all
+marsadm cron
 \family default
- at all cluster nodes, even when seemingly unaffected.
+ at 
+\emph on
+all
+\emph default
+ cluster nodes, even when seemingly unaffected.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Notice: neither a secondary-side 
+\family typewriter
+marsadm invalidate
+\family default
+ can be noticed by the current primary side, nor marsadm cron can work 
+\emph on
+fully
+\emph default
+ when the metadata update over port 7777 is extremely slow, or when it does
+ not work for whatever reason.
+ Check your replication speed!
 \end_layout
 
 \begin_layout Standard
 In very complex scenarios, when the primary roles of different resources
  are spread over diffent hosts (aka mixed operation), you may need to repeat
- the whole cycle iteratively for a few cycles until the jam is resolved.
+ the whole cycle iteratively for a few cycles until the complex jam is fully
+ resolved in the full Distributed System.
 \end_layout
 
 \begin_layout Standard
-If it does not go away, you have another chance by the following split-brain
- resolution process, which will also cleanup emergency mode as a side effect.
+If it does not disappear fully, you have another chance by the following
+ split-brain and emergency-mode resolution process:
 \end_layout
 
 \begin_layout Section
-Resolution of Split Brain and of Emergency Mode
+Alternative Resolution of Split Brain / Emergency Mode / Defective Hardware
 \begin_inset CommandInset label
 LatexCommand label
 name "sec:Resolution-of-Split"
@@ -39363,18 +39707,150 @@ name "sec:Resolution-of-Split"
 \end_layout
 
 \begin_layout Standard
-Hint: in many cases (but not guaranteed), the previous receipe for resolution
- of emergency mode will also cleanup split brain.
- Good chances are in case of 
-\begin_inset Formula $k=2$
-\end_inset
-
- total replicas.
- Please collect your own experiences which method works better for you!
+Hint: in most cases, the resolution of emergency mode and/or split brain
+ via 
+\family typewriter
+marsadm invalidate
+\family default
+ (plus some additional 
+\family typewriter
+marsadm cron
+\family default
+) should resolve practically almost everything, at least when done in the
+ right order and on the right hosts / their resources.
+ However, it cannot always work miracles on certain types of 
+\series bold
+defective hardware
+\series default
+.
 \end_layout
 
 \begin_layout Standard
-Precondition: the network must be working.
+Here is a more capable but more complex alternative, typically useful in
+ 
+\series bold
+complex failure scenarios
+\series default
+, e.g.
+ after 
+\series bold
+cascading disasters
+\series default
+ & co and after the hardware + software + network had been 
+\series bold
+repaired
+\series default
+ successfully.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ The following can only work when the 
+\emph on
+original content
+\emph default
+ of 
+\family typewriter
+/mars/
+\family default
+ has survived your incident.
+ Otherwise, you may need a 
+\emph on
+variant
+\emph default
+ of this method as explained later, and probably you should not do this
+ at midnight.
+ Read this 
+\emph on
+completely
+\emph default
+ and understand it, before starting any action!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Never run MARS inside of VMs, see 
+\family typewriter
+architecture-guide-geo-redundancy.pdf
+\family default
+.
+ If you do so anyway, or if you place MARS 
+\emph on
+on top of
+\emph default
+ some LV snapshot(s) or similar, you are running a 
+\series bold
+high risk
+\series default
+: any restore of an 
+\emph on
+old snapshot
+\emph default
+ affecting the content of 
+\family typewriter
+/mars/
+\family default
+ and/or of some underly resource disk / 
+\emph on
+underlying
+\emph default
+ LV and/or its content can 
+\series bold
+provoke a disaster!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+That said, the following method often works when the underlying resource
+ data had been somewhat damaged or even lost at 
+\emph on
+some(!)
+\emph default
+ of the replicas (due to the incident), but 
+\family typewriter
+/mars/
+\family default
+ has survived and the storage is operational again.
+ For exampley, any defective RAID disks have been already replaced and the
+ underlaying RAID is now 
+\emph on
+rebuilt
+\emph default
+ and 
+\emph on
+no longer
+\emph default
+ is in 
+\series bold
+degraded RAID
+\series default
+ mode – check your RAID first!
+\end_layout
+
+\begin_layout Standard
+Precondition: the hardware + software + network must be working, and any
+ RAID is no longer degraded.
  Check that the following gives an entry for each secondary:
 \begin_inset listings
 inline false
@@ -39388,6 +39864,7 @@ primary:~# netstat --tcp | grep 7777
 \end_inset
 
  When necessary, fix the network first (see instructions above).
+ Be sure the hardware and any RAID is fully operational.
 \end_layout
 
 \begin_layout Standard
@@ -39438,14 +39915,63 @@ status open
 secondary1:~# marsadm leave-resource $res1
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ ONLY WHEN some secondaries are FINALLY LOST FOREVER and WILL NEVER RE-APPEAR
+ like a 
+\begin_inset Quotes eld
+\end_inset
+
+zombie
+\begin_inset Quotes erd
+\end_inset
+
+, try the following instead:
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+\size small
+\begin_inset listings
+inline false
+status open
+
 \begin_layout Plain Layout
 
-secondary1:~# marsadm log-delete-all all
+\size small
+alternative-secondory-or-primary:~# marsadm leave-resource $res1 
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\size small
+                                    --force --host=$defective_secondary1
 \end_layout
 
 \end_inset
 
-Check whether the split brain has vanished everywhere.
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Check whether the split brain has vanished everywhere, and the replication
+ is actually working on any non-stucked secondary.
  Startover with other resources at their secondaries when necessary.
 \end_layout
 
@@ -39458,7 +39984,7 @@ status open
 
 \begin_layout Plain Layout
 
-primary:~# marsadm log-delete-all all
+primary:~# marsadm cron
 \end_layout
 
 \begin_layout Plain Layout
@@ -39473,8 +39999,8 @@ primary:~# marsadm view all
 
 \end_inset
 
- Now, the split brain should be gone even at the primary.
- If not, repeat this step.
+ Now, any split brain and/or emergency mode should be gone even at the primary.
+ If not, repeat this step (and some of the previous ones).
 \end_layout
 
 \begin_layout Standard
@@ -39491,8 +40017,103 @@ marsadm log-purge-all $res
 \end_layout
 
 \begin_layout Standard
-Finally, when the split brain is gone everywhere, rebuild the redundancy
- at every secondary via 
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ONLY WHEN some secondary had been FINALLY LOST FOREVER: before running 
+\family typewriter
+marsadm join-cluster
+\family default
+ on any new replacement hardware where
+\family typewriter
+ /mars/
+\family default
+ is initially empty, you should first remove the old hardware from the cluster:
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+alternative-secondary-or-primary:~# marsadm leave-cluster 
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+                        --force --host=$defective_secondary1
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ONLY WHEN a former primary had been LOST FOREVER: before you can forcibly
+ remove a defective primary as described above, you must first 
+\series bold
+decide
+\series default
+ which surving secondary will be the surviving new primary, and you 
+\emph on
+need
+\emph default
+ a 
+\series bold
+successful failover
+\series default
+ as described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Failover-Emergency-Switch"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Failover-Emergency-Switch"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Finally, when the split brain + emergency mode is gone everywhere, rebuild
+ the redundancy at every (newly deployed 
+\emph on
+fully
+\emph default
+, including 
+\family typewriter
+marsadm join-cluster
+\family default
+) secondary host via 
 \begin_inset listings
 inline false
 status open
@@ -39509,7 +40130,27 @@ secondary1:~# marsadm join-resource $res1 /dev/<lv-x>/$res1
 
 \begin_layout Standard
 \noindent
-If even this method does not help, setup the whole cluster afresh by 
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+Here is the LAST RESORT if you are 
+\emph on
+completely desperate
+\emph default
+, and if even the previous methods did not help after 
+\emph on
+multiple attempts
+\emph default
+, and when you are 
+\emph on
+sure
+\emph default
+ that a hardware / software / kernel / etc upgrade / downgrade cannot help:
+ setup the whole cluster afresh by 
 \family typewriter
 rmmod mars
 \family default
@@ -39518,7 +40159,7 @@ rmmod mars
 /mars/
 \family default
  filesystem everywhere, followed by the same procedure as installing MARS
- for the first time (which is outside the scope of this handout).
+ for the first time (which is outside the scope of this guide).
 \end_layout
 
 \begin_layout Section
@@ -39526,8 +40167,12 @@ Handover of Primary Role
 \end_layout
 
 \begin_layout Standard
-When there exists a method for primary handover in higher layers such as
- cluster managers, please prefer that method (e.g.
+When there exists a 
+\emph on
+reliable
+\emph default
+ method for primary handover in higher layers such as cluster managers,
+ please prefer that method (e.g.
  
 \family typewriter
 cm3
@@ -39544,7 +40189,18 @@ $res1
 \end_layout
 
 \begin_layout Itemize
-Stop the load / application corresponding to 
+Stop the any 
+\emph on
+customer
+\emph default
+ network traffic first.
+ This is important for overload prevention, and for security reasons, and
+ for minimization of any potential split brain data in case of any failures
+ (see also the famous CAP theorem).
+\end_layout
+
+\begin_layout Itemize
+Stop the load / application processes corresponding to 
 \family typewriter
 $res1
 \family default
@@ -39557,6 +40213,90 @@ $res1
 umount /dev/mars/$res1
 \family default
 , or otherwise close any openers such as iSCSI.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not skip this step: otherwise a 
+\emph on
+handover
+\emph default
+ (not to be confused with 
+\emph on
+failover
+\emph default
+) is 
+\emph on
+not possible
+\emph default
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ When 
+\family typewriter
+umount
+\family default
+ & co does not work for whatever reason: then it is your 
+\emph on
+responsible operational decision
+\emph default
+ whether you want to (a) restart the full application stack again at the
+ old primary side (via whatever method, including reboot), or (b) accept
+ a 
+\emph on
+potential
+\emph default
+ split brain and its potential redundancy loss, and proceed with section
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Failover-Emergency-Switch"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Failover-Emergency-Switch"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Informed operational decisions can be supported by familiarity with the
+ famous CAP theorem.
 \end_layout
 
 \begin_layout Itemize
@@ -39571,20 +40311,104 @@ Restart the application at the new site (in reverse order to above).
 \emph on
 all
 \emph default
- resources which are not yet at the new side, you may use 
+ resources which are not yet at the new side, you 
+\emph on
+cautiously may
+\emph default
+ use 
 \family typewriter
 marsadm primary all
 \family default
 .
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ When overload of the new primary side is possible, e.g.
+ when the 
+\series bold
+kernel caches are cold
+\series default
+, it is 
+\emph on
+your operational decision
+\emph default
+ whether to (a) handover all resources 
+\emph on
+in parallel
+\emph default
+ (which is a tested functionality of MARS), or (b) to avoid overload caused
+ by applications, initiate a 
+\emph on
+sequential
+\emph default
+ handover resource-by-resource, obeying that the new primary side often
+ needs to have 
+\series bold
+warmed its kernel caches
+\series default
+ sufficiently in order to meet your SLAs.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Important: by definition, 
+\emph on
+handover
+\emph default
+ is 
+\emph on
+not
+\emph default
+ an emergency operation like 
+\emph on
+failover
+\emph default
+ is.
+ It is 
+\emph on
+your operational decision
+\emph default
+ how many resources you want to handover from any location X to any other
+ location Y in whatever parallelism degree.
+ Do not blame MARS if doesn't run faster than a local reboot and its inevitable
+ cache warming phases.
+\end_layout
+
+\begin_layout Itemize
+Finally, check that the network is up again (e.g.
+ BGP) and that everything is running fine at the new location (from a customer's
+ perspective).
 \end_layout
 
 \begin_layout Section
-Emergency Switching of Primary Role
+Failover = Emergency Switch of Primary Role
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Failover-Emergency-Switch"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-Emergency switching is necessary when your primary is no longer reachable
- over the network for a 
+Failover = emergency switching is necessary when your primary is no longer
+ reachable over the network for a 
 \emph on
 longer
 \emph default
@@ -39592,12 +40416,63 @@ longer
 \end_layout
 
 \begin_layout Standard
-Emergency switching will very often lead to a split brain, which requires
- lots of manual actions to resolve (see above).
- Therefore, try to avoid emergency switching when possible!
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Do not blame MARS for anything which is outside its scope residing at kernel
+ level.
+ Wheter and when a failover is needed for whatever reason, and in which
+ parallelism degree, is clearly outside the scope of a 
+\emph on
+component
+\emph default
+ like MARS is.
+ The same would be true for DRBD in place of MARS.
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Failover = emergency switching will often lead to a split brain, see the
+ famous CAP theorem.
+ It 
+\emph on
+may
+\emph default
+ require manual actions to resolve (see above), depending on your type of
+ automation and its automation degree, and depending on the 
+\series bold
+management-level risks
+\series default
+ caused by improper automation and/or bugs / misinformation / influences
+ from the famous CAP theorem in whatever higher-level component.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Therefore, try to avoid failover = emergency switching when possible!
+\end_layout
+
+\begin_layout Standard
+\noindent
 Hint: MARS can automatically recover after a primary crash / reboot, as
  well as after secondary crashes, just by executing 
 \family typewriter
@@ -39608,13 +40483,16 @@ modprobe mars
 /mars/
 \family default
  had been mounted.
- Please consider to wait until your system comes up again, instead of risking
- a split brain.
+ Please 
+\emph on
+consider
+\emph default
+ to wait until your system comes up again, instead of risking a split brain.
 \end_layout
 
 \begin_layout Standard
-The decision between emergency switching and continuing operation at the
- same primary side is an operational one.
+The decision between failover = emergency switching and continuing operation
+ at the same primary side is an operational one.
  MARS can support your decision by the following information at the potentially
  new primary side (which was in secondary mode before): 
 \family typewriter
@@ -39679,8 +40557,21 @@ When your target is syncing (like in this example), you cannot switch to
 \emph on
 know
 \emph default
- that the primary is really damaged, or it is really impossible to the run
- the application there for some reason, emergency switching is desirable.
+ that the primary is 
+\emph on
+really
+\emph default
+ damaged, or it is 
+\emph on
+really
+\emph default
+ impossible to the run the application there for some reason, failover =
+ emergency switching is desirable for typical use cases like webhosting
+ or cloud computing (see 
+\family typewriter
+architecture-guide-geo-redundancy.pdf
+\family default
+).
 \end_layout
 
 \begin_layout Standard
@@ -39688,11 +40579,15 @@ Hint: in case the secondary is inconsistent for some reason, e.g.
  because of an incremental fast full-sync, you have a last chance to recover
  most data after forceful switching by using a filesystem check or suchalike.
  This might be even faster than restoring data from the backup.
- But use it only if you are 
+ But use suchalike only if you are 
 \emph on
 really
 \emph default
- desperate!
+ desperate and 
+\emph on
+have no other chance
+\emph default
+!
 \end_layout
 
 \begin_layout Standard
@@ -39700,12 +40595,32 @@ The amount of data which is
 \emph on
 known
 \emph default
- to be missing at your secondary is shown after the 
+ to be missing at your secondary is displayed by 
+\family typewriter
+marsadm view all
+\family default
+ after the 
 \family typewriter
 > fetch:
 \family default
  in human-readable form.
- However, in cases of networking problems this information may be outdated.
+ However, in cases of networking problems this information may be 
+\emph on
+outdated
+\emph default
+.
+ 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
  You 
 \emph on
 always
@@ -39714,9 +40629,9 @@ always
 \end_layout
 
 \begin_layout Standard
-When there exists a method for emergency switching of the primary in higher
- layers such as cluster managers, please prefer that method in front of
- the following one.
+When there exists a method for failover = emergency switching of the primary
+ in higher layers such as cluster managers, please prefer that method in
+ front of the following one.
 \end_layout
 
 \begin_layout Standard
@@ -39733,7 +40648,11 @@ $res1
 \end_layout
 
 \begin_layout Itemize
-When possible, stop the load / application corresponding to 
+When possible, stop the 
+\emph on
+customer
+\emph default
+ network traffic + application corresponding to 
 \family typewriter
 $res1
 \family default
@@ -39760,7 +40679,7 @@ fetch:
 \begin_layout Itemize
 At the new primary: 
 \family typewriter
-marsadm disconnect $res1; marsadm primary --force $res1
+marsadm pause-fetch $res1; marsadm primary --force $res1
 \end_layout
 
 \begin_layout Itemize
@@ -39768,12 +40687,18 @@ Restart the application at the new site (in reverse order to above).
 \end_layout
 
 \begin_layout Itemize
-After the application is known to run reliably, check for split brains and
- cleanup them when necessary.
+Check that everything is up again (e.g.
+ BGP and customer traffic etc) and that everything is running fine at the
+ new location (from a customer's perspective).
+\end_layout
+
+\begin_layout Itemize
+After the application is known to run reliably, check for split brains at
+ MARS level and cleanup them when necessary.
 \end_layout
 
 \begin_layout Chapter
-Alternative Methods for Split Brain Resolution
+HISTORICAL Methods for Split Brain Resolution
 \begin_inset CommandInset label
 LatexCommand label
 name "chap:Alternative-Methods-for"
@@ -39784,7 +40709,7 @@ name "chap:Alternative-Methods-for"
 \end_layout
 
 \begin_layout Standard
-Instead of 
+HISTORICAL / DO NOT USE ANYMORE: Instead of 
 \family typewriter
 marsadm invalidate
 \family default
