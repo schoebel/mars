@@ -702,17 +702,26 @@ typedef enum {
 	({								\
 		brick_thread_t *_thr = NULL;				\
 		int _max_retry = 3;					\
+		int _nr_retry = 0;					\
 									\
-		while (_max_retry-- > 0) {				\
+		for (;;) {						\
 			int _err;					\
 									\
 			flush_signals(current);				\
 			_thr = kthread_create(_thread_fn, _data, _fmt, ##_args); \
 			if (likely(!IS_ERR(_thr)))			\
 				break;					\
+			brick_yield();					\
 			_err = PTR_ERR(_thr);				\
-			if (_err == -EAGAIN || _err == -EINTR)		\
+			if (_err == -EAGAIN ||				\
+			    _err == -ENOMEM ||				\
+			    _err == -EINTR ||				\
+			    _max_retry-- > 0) {				\
+				brick_msleep(_nr_retry++);		\
+				if (_nr_retry > 1000)			\
+					_nr_retry = 1000;		\
 				continue;				\
+			}						\
 			BRICK_ERR("cannot create thread '%s', status = %d\n", _fmt, _err); \
 			_thr = NULL;					\
 			break;						\
