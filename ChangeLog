@@ -151,6 +151,16 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable136
+	* Major fix: upon kernel-level fork() limits, or OOM etc,
+	  it was possible that aio went into an endless loop
+	  consuming much CPU.
+	  Probably, the system survival rate of OOM-like problems is now
+	  also better, although miracles cannot be generally expected
+	  in suchalike operational states (independently from MARS).
+	  Simply try to prevent OOM via ordinary sysadmin measures /
+	  best practices like reasonable RLIMITS & co in userspace.
+
 mars0.1astable135
 	* Minor fix: extremely scarce race on rmmod, was
 	  practically impossible to reproduce.
