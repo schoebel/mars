@@ -7900,7 +7900,10 @@ static int __init init_main(void)
 
 	status = mars_stat("/mars/uuid", &dummy, true);
 	if (unlikely(status < 0)) {
-		printk(KERN_WARNING "Cluster UUID is missing. Mount /mars/, and/or say {create,join}-cluster afterwwards.\n");
+		printk(KERN_WARNING "Cluster UUID is missing on /mars/uuid.\n");
+		printk(KERN_WARNING "Maybe /mars is invalid, if it already should be initialized.\n");
+		printk(KERN_WARNING "You can initialize it via marsadm {create,join}-cluster.\n");
+		printk(KERN_WARNING "Please read mars-user-manual.pdf first.\n");
 	}
 
 	/* This must come first to be effective */
