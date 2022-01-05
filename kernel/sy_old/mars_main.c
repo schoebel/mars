@@ -7874,15 +7874,33 @@ static int __init init_main(void)
 	int new_limit = 4096;
 #endif
 	struct kstat dummy;
-	int status = mars_stat("/mars/uuid", &dummy, true);
+	int round = 0;
+	int status;
 
-	if (unlikely(status < 0)) {
-		printk(KERN_WARNING "Cluster UUID is missing. Mount /mars/, and/or say {create,join}-cluster afterwwards.\n");
-	}
-
-	if (unlikely(!mars_is_mountpoint("/mars/"))) {
+	/* Disallow /mars residing on the root filesystem.
+	 * Suchalike may cause a plethora of interferences
+	 * between the block layer and higher layers.
+	 * We insist on Dijkstra's layering rules as close as possible.
+	 * TODO in long term: try to avoid a filesystem at block layer.
+	 * However, this will induce a very high effort.
+	 */
+	for (;;) {
+		if (mars_is_mountpoint("/mars/"))
+			break;
+		/* MARS logging infrastructure is not yet available.
+		 */
+		if (++round <= 3) {
+			printk(KERN_WARNING "Waiting for mountpoint /mars to appear\n");
+			msleep(1000 * round);
+			continue;
+		}
 		printk(KERN_ERR "/mars is no mountpoint\n");
 		return -EINVAL;
+	}
+
+	status = mars_stat("/mars/uuid", &dummy, true);
+	if (unlikely(status < 0)) {
+		printk(KERN_WARNING "Cluster UUID is missing. Mount /mars/, and/or say {create,join}-cluster afterwwards.\n");
 	}
 
 	/* This must come first to be effective */
