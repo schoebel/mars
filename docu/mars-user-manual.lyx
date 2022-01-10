@@ -4027,8 +4027,8 @@ total_count
 \emph default
 ]
 \family default
- total number of replicas of this resource, out of total number of cluster
- members.
+ number of replicas of this resource (see join-resource & co), total number
+ of cluster peers (see join-cluster & co).
 \end_layout
 
 \begin_layout Labeling
@@ -4138,7 +4138,7 @@ resize
 
 \end_inset
 
-Customization via your own macros (see section 
+ Customization via your own macros (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "subsec:Creating-your-own"
@@ -4159,7 +4159,7 @@ reference "subsec:Creating-your-own"
 
 \end_inset
 
-Hint: in order to produce your own customized inspection / monitoring tools,
+ Hint: in order to produce your own customized inspection / monitoring tools,
  you may ask the author for an official reservation of a macro sub-namespace
  such as 
 \family typewriter
@@ -34590,7 +34590,19 @@ dynamic guest
 \family typewriter
 cluster-peers
 \family default
- Show a newline-separated list of all host names participating in the cluster.
+ Show a newline-separated list of all host names appearing in 
+\family typewriter
+/mars/ips/ip-$peername
+\family default
+.
+ Please prefer this macro in place of direct access to filesystem data:
+ future MARS features might need some changes in the low-level naming convention
+s, and/or in the hierarchical filesystem layout, or even the replacement
+ of the 
+\family typewriter
+/mars/
+\family default
+ filesystem by different data container formats, etc.
 \end_layout
 
 \begin_layout Labeling
@@ -34610,6 +34622,15 @@ resource-peers
 %cluster-peers{}
 \family default
 .
+\begin_inset Newline newline
+\end_inset
+
+Note: stray data, e.g.
+ as produced by forgotten / interrupted 
+\family typewriter
+leave-resource
+\family default
+ & co may lead to some mismatches.
 \end_layout
 
 \begin_layout Labeling
@@ -39951,7 +39972,6 @@ status open
 
 \begin_layout Plain Layout
 
-\size small
 alternative-secondory-or-primary:~# marsadm leave-resource $res1 
 \backslash
 
@@ -39959,7 +39979,6 @@ alternative-secondory-or-primary:~# marsadm leave-resource $res1
 
 \begin_layout Plain Layout
 
-\size small
                                     --force --host=$defective_secondary1
 \end_layout
 
