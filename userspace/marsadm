@@ -5956,11 +5956,15 @@ sub _autoclean_dir {
   my ($dir, $limit_stamp, $clean_full, $level) = @_;
   return if $level <= 0;
   get_protected_peers();
-  foreach my $path (glob("$dir/*")) {
+  my $dir_stamp = get_stamp($dir);
+  foreach my $path (raw_glob("$dir/*")) {
     # Some _global_ non-host-specific elements need to be protected _always_.
     # These can only deleted by filesystem destruction.
     next if $path =~ m:/(uuid|userspace|defaults|todo-global|ips)$:;
-    if (!$clean_full) {
+    if ($clean_full) {
+      next if $path =~ m:/resource-:;
+      next if $path =~ m:/lost\+found:;
+    } else {
       # Keep protected elements.
       # Some non-host-specific elements need to be protected _always_.
       next if $path =~ m:/(primary|size|)$:;
@@ -5975,10 +5979,45 @@ sub _autoclean_dir {
     my $stamp = get_link_stamp($path);
     if (-d $path) {
       _autoclean_dir($path, $limit_stamp, $clean_full, $level - 1);
-    } elsif (-l $path) {
+      if ($clean_full) {
+	lprint "AUTOCLEAN RMDIR '$path'\n";
+	unless ($dry_run) {
+	  my $status = rmdir($path);
+	  my $txt = $!;
+	  if (!$status) {
+	    # do not report any backup dirs, they may have a very long lifetime
+	    if ($path !~ m:backup:) {
+	      lwarn "rmdir('$path') failed with status $status ($txt)\n";
+	    }
+	    $dir_stamp = 0;
+	  }
+	}
+      }
+    } elsif ($clean_full || -l $path) {
       if ($stamp > 0 && $stamp < $limit_stamp) {
 	lprint "AUTOCLEANING '$path'\n";
-	unlink($path) unless $dry_run;
+	unless ($dry_run) {
+	  my $status = unlink($path);
+	  if (!$status) {
+	    my $txt = $!;
+	    lwarn "unlink('$path') failed with status $status ($txt)\n";
+	    $dir_stamp = 0;
+	  }
+	}
+      }
+    }
+  }
+  if ($dir_stamp) {
+    # Workaround a classical UNIX behaviour:
+    # Reset the old mtime after successful autoclean.
+    # Otherwise it could take another month until rmdir() can be successful.
+    lprint "Resetting dir '$dir' to old timestamp '$dir_stamp'\n" if $verbose > 1;
+    my $status = utime($dir_stamp, $dir_stamp, $dir);
+    my $err = $!;
+    if (1) {
+      my $new_dir_stamp = get_stamp($dir);
+      if ($new_dir_stamp != $dir_stamp) {
+	lwarn "FAILED '$dir' '$dir_stamp' => '$new_dir_stamp' ($status '$err')\n";
       }
     }
   }
@@ -6058,6 +6097,11 @@ sub autoclean_any {
       lprint "WOULD autoclean $resdir FULLY via rm -rf after $after_days days\n" if $verbose;
     }
   }
+  # Also autoclean very old / stone-aged directories from ancient MARS versions.
+  # Shame on you if you really would believe that you might need to downgrade to such obsolete versions.
+  # They should not have been updated over the network anyway, and thus they cannot
+  # contribute anything to current MARS.
+  _autoclean_dir($mars, $limit_stamp, 1, 4);
 }
 
 sub cron_phase4 {
