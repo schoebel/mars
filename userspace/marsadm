@@ -234,6 +234,7 @@ my $backup_dir = "$mars/backups-" . time();
 my $force = 0;
 my $ignore_sync = 0;
 my $cron_mode = 0;
+my $cron_autoclean_days = 0;
 my $timeout = 600;
 my $phase_nr = 0;
 my $ssh_port = 22;
@@ -5887,6 +5888,187 @@ sub cron_phase2 {
   return 0;
 }
 
+my %protected_peers;
+
+sub get_protected_peers {
+  my $ips_dir = "$mars/ips";
+  if (!scalar(keys(%protected_peers))) {
+    foreach my $path (raw_glob("$ips_dir/ip-*")) {
+      $path =~ m:/ip-(.*):;
+      my $peer = $1;
+      # do not protect any ill-formed peer names, by definition they need to be repaired.
+      if (!$peer || $peer =~ $match_reserved_id) {
+	lwarn "skipping invalid / illformed pathname '$path'\n";
+	next;
+      }
+      $protected_peers{$peer} = 1;
+    }
+    if (!scalar(keys(%protected_peers))) {
+      lwarn "VERY DANGEROUS: the directory '$ips_dir' is EMPTY!!!";
+    }
+    foreach my $peer (keys(%protected_peers)) {
+      lprint "REAL PEER '$peer'\n";
+    }
+  }
+  if (!scalar(keys(%protected_peers))) {
+    ldie "Cannot determine protected hostnames / peernames in $ips_dir - ABORTING for safety!";
+  } else {
+    # ADDITIONAL SAFETY: don't forget any further information sources.
+    if (!$protected_peers{$real_host}) {
+      lwarn "Hopefully, the _reported_ real hostname '$real_host' (as reported by 'uname -a', NOT to be confused with a virtual hostname on the commandline via --host=\$other_name parameter) is REALLY correct.\n";
+      lwarn "DOUBLE-CHECK or TRIPLE-CHECK whether your configured hostname as reported by 'uname -a' is REALLY CORRECT.\n";
+      lwarn "Like anywhere else (not limited to MARS), ANY ERROR in the hostname configuration can easily create a DISASTER, up to DATA LOSS.\n";
+      ldie "POTENTIAL DISASTER: reported real host '$real_host' is missing in $ips_dir - ABORTING FOR SAFETY\n";
+    }
+    if (!$protected_peers{$host}) {
+      lwarn "DANGEROUS: host '$host' was missing in $ips_dir - CHECK BY HAND whether this is correct.\n";
+      $protected_peers{$host} = 1;
+      lprint "ADD  PEER '$host'\n";
+    }
+  }
+  # Finally, add _potentially_ _relevant_ peernames (not to be confused with _reported_ peernames).
+  my @relevant_resources = get_member_resources($real_host);
+  foreach my $relevant_res (@relevant_resources) {
+    foreach my $path (raw_glob("$mars/resource-$relevant_res/replay-*")) {
+      $path =~ m:/replay-(.*):;
+      my $peer = $1;
+      unless ($protected_peers{$peer}) {
+	lwarn "PLEASE CHECK whether peer '$peer' or resource '$relevant_res' is SOMEHOW misconfigured.\n";
+	# CHECK: should this be added?
+	# Some people might forget stray replaylinks in alive resources.
+	# If I add this, some stray data might be kept forever, and sysadmins might be mis-informed
+	# about its severity.
+	# By _not_ activating this at the moment, the sysadmins will be responsible for checking
+	# where the real problem is.
+	# I cannot know this, for example when stone-aged hosts have been physically decommissioned forever.
+	# OTOH the --autoclean option is expected to clean up anything which is "stray" and may be
+	# "irritating".
+	if (0) {
+	  $protected_peers{$peer} = 1;
+	  lprint "ADD  PEER '$peer'\n";
+	}
+      }
+    }
+  }
+}
+
+sub _autoclean_dir {
+  my ($dir, $limit_stamp, $clean_full, $level) = @_;
+  return if $level <= 0;
+  get_protected_peers();
+  foreach my $path (glob("$dir/*")) {
+    # Some _global_ non-host-specific elements need to be protected _always_.
+    # These can only deleted by filesystem destruction.
+    next if $path =~ m:/(uuid|userspace|defaults|todo-global|ips)$:;
+    if (!$clean_full) {
+      # Keep protected elements.
+      # Some non-host-specific elements need to be protected _always_.
+      next if $path =~ m:/(primary|size|)$:;
+      next if $path =~ m:/(log-|systemd):;
+      # host-specific protections.
+      my $found = 0;
+      foreach my $peer (keys(%protected_peers)) {
+	$found++ if $path =~ m:-$peer\Z:;
+      }
+      next if $found;
+    }
+    my $stamp = get_link_stamp($path);
+    if (-d $path) {
+      _autoclean_dir($path, $limit_stamp, $clean_full, $level - 1);
+    } elsif (-l $path) {
+      if ($stamp > 0 && $stamp < $limit_stamp) {
+	lprint "AUTOCLEANING '$path'\n";
+	unlink($path) unless $dry_run;
+      }
+    }
+  }
+}
+
+sub autoclean_res {
+  my ($cmd, $res, $after_days) = @_;
+  if ($after_days <= 0) {
+    lwarn "cannot $cmd: age $after_days days is lower than 1 day\n";
+    return;
+  }
+  my $resdir = "$mars/resource-$res";
+  return unless -d $resdir;
+  lprint "autocleaning $res remains after $after_days days...\n" if $verbose;
+  my $start_time = mars_time();
+  my $limit_stamp = $start_time - $after_days * 3600 * 24;
+  get_protected_peers();
+  _autoclean_dir($resdir, $limit_stamp, 0, 3);
+  lprint "autoclean $res done.\n" if $verbose;
+}
+
+sub cron_phase3 {
+  my ($cmd, $res) = @_;
+  return 0 unless $cron_autoclean_days > 0;
+  autoclean_res($cmd, $res, $cron_autoclean_days);
+  return 0;
+}
+
+sub autoclean_any {
+  my ($cmd, $res, $after_days) = @_;
+  if ($after_days <= 0) {
+    lwarn "cannot $cmd: age $after_days days is lower than 1 day\n";
+    return;
+  }
+  # hard coded: at least 1 month ;)
+  my $min_after_days = 30;
+  $after_days = $min_after_days if $after_days = $min_after_days;
+  my $start_time = mars_time();
+  my $limit_stamp = $start_time - $after_days * 3600 * 24;
+  get_protected_peers();
+  foreach my $resdir (raw_glob("$mars/resource-*")) {
+    my $protect_this = 0;
+    my $protected_peer_list = "";
+    foreach my $peer (keys(%protected_peers)) {
+      my $is_protected = scalar(raw_glob("$resdir/*-$peer"));
+      if ($is_protected) {
+	$protect_this = 1;
+	$protected_peer_list .= "," if $protected_peer_list;
+	$protected_peer_list .= $peer;
+      }
+    }
+    if ($protect_this) {
+      lprint "SKIPPING '$resdir' due to peers '$protected_peer_list'\n" if $verbose;
+      next;
+    }
+    # Also check that everything is stone-aged ;)
+    my $newest_stamp = 0;
+    my $newest_element = "";
+    foreach my $path (raw_glob("$resdir/*")) {
+      my $age = get_stamp($path);
+      if ($age >= $limit_stamp) {
+	$protect_this = 1;
+	if ($age > $newest_stamp) {
+	  $newest_stamp = $age;
+	  $newest_element = $path;
+	}
+      }
+    }
+    if ($protect_this) {
+      lprint "SKIPPING '$resdir' due to newest element '$newest_element' having age '$newest_stamp' (since the UNIX epoch)\n" if $verbose;
+      next;
+    }
+    if ($force && !$dry_run) {
+      lprint "FULLY AUTOCLEANING $resdir remains after $after_days days...\n";
+      system("rm -rf $resdir") unless $dry_run;
+    } else {
+      lprint "WOULD autoclean $resdir FULLY via rm -rf after $after_days days\n" if $verbose;
+    }
+  }
+}
+
+sub cron_phase4 {
+  my ($cmd, $res) = @_;
+  return 0 unless $cron_autoclean_days > 0;
+  lprint "======== EXTRA PHASE: GLOBAL AUTOCLEAN\n";
+  autoclean_any($cmd, "*", $cron_autoclean_days);
+  lprint "GLOBAL AUTOCLEAN finished.\n";
+  return 0;
+}
+
 sub attach_res_phase0 {
   my ($cmd, $res) = @_;
   return 0 if $force;
@@ -9051,6 +9233,14 @@ my %cmd_table =
        "SLEEP",
        \&cron_phase2,
        "delete old logfiles",
+       \&cron_phase3,
+       "autoclean gone peers (when enabled via --autoclean)",
+       "CHANGE_RESOURCES",
+       "ANY",
+       [
+	\&cron_phase4,
+	"autoclean gone resources (when enabled via --autoclean)",
+       ],
       ],
    "log-purge-all"
    => [
@@ -9903,6 +10093,9 @@ foreach my $arg (@ARGV) {
   } elsif ($arg =~ s/--logger\s*=\s*(.*)/$1/) {
     $logger = $arg;
     next;
+  } elsif ($arg =~ s/--autoclean\s*=\s*([0-9]+)/$1/) {
+    $cron_autoclean_days = $arg;
+    next;
   } elsif ($arg =~ s/--timeout\s*=\s*([0-9]+)/$1/) {
     $timeout = $arg;
     next;
@@ -10346,6 +10539,10 @@ if (ref($func) eq "ARRAY") {
       } elsif ($memb_func eq "SLEEP") {
 	$memb_func = shift @list;
 	sleep(7);
+      } elsif ($memb_func eq "CHANGE_RESOURCES") {
+	$res = shift @list;
+	next;
+	#$memb_func = shift @list;
       }
     }
     # nested arrays may be used for _global_ workers
