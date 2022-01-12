@@ -2746,6 +2746,18 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		}
 	}
 
+	/* Skip unwanted directories */
+	if (S_ISDIR(remote_dent->new_stat.mode) &&
+	    remote_dent->d_rest &&
+	    remote_path &&
+	    strncmp(remote_path, "/mars/", 6) &&
+	    !find_peer_dent(remote_dent->d_rest)) {
+		MARS_DBG("skipping remote dir '%s' for unknown peer '%s'\n",
+			 remote_path,
+			 remote_dent->d_rest);
+		goto done;
+	}
+
 	status = mars_stat(remote_path, &local_stat, true);
 	stat_ok = (status >= 0);
 
