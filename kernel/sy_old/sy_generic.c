@@ -1091,6 +1091,7 @@ int ordered_symlink(const char *oldpath,
 {
 	char *dir_path = NULL;
 	int dir_len;
+	int nr_retry = 0;
 	int status;
 
  retry:
@@ -1118,7 +1119,9 @@ int ordered_symlink(const char *oldpath,
 		if (check >= 0) {
 			brick_string_free(dir_path);
 			dir_path = NULL;
-			goto retry;
+			if (nr_retry++ < 3)
+				goto retry;
+			break;
 		}
 	}
 	brick_string_free(dir_path);
