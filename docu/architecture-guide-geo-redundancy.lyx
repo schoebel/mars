@@ -13960,7 +13960,7 @@ hidden
 \series bold
 Strict Consistency
 \series default
- is only a 
+ is a 
 \emph on
 subset
 \emph default
@@ -13968,12 +13968,12 @@ subset
 \series bold
 remain critical
 \series default
- even by some 
+ by some 
 \emph on
 weaker
 \emph default
- use cases like backends for DropBox & co, or even by some non-POSIX-like
- use cases e.g.
+ use cases like backends for DropBox & co, or by some non-POSIX-like use
+ cases e.g.
  like 
 \series bold
 banking
@@ -14192,11 +14192,7 @@ xfs
  filesystem consuming 1 inode, there is not only noticable space overhead.
  In addition, random access by large application workingsets will need at
  least two seeks in total (inode + sector content).
- Disregarding caching effects
-\end_layout
-
-\begin_layout Plain Layout
-, this just doubles the needed worst-case IOPS.
+ Disregarding caching effects, this just doubles the needed worst-case IOPS.
  When taking the lookup fuctionality into account, the picture will worsen
  once again.
 \end_layout
@@ -14662,7 +14658,7 @@ status open
 
 \begin_layout Plain Layout
 
-https://github.com/schoebel/mars/docu/mars-manual.pdf
+https://github.com/schoebel/mars/docu/mars-user-manual.pdf
 \end_layout
 
 \end_inset
@@ -14697,8 +14693,9 @@ https://github.com/schoebel/mars/docu/football-user-manual.pdf
 
 ).
  The number of replicas is typically between 2 and 4, where higher replication
- degrees are only used temporarily, or for compensation of near-defective
- / unreliable hardware instances.
+ degrees are only used temporarily, e.g.
+ during a migration, or for compensation of near-defective / unreliable
+ hardware instances.
 \end_layout
 
 \begin_layout Enumerate
@@ -14892,8 +14889,8 @@ VM replication and Dijkstra.
 \end_layout
 
 \begin_layout Standard
-Please be aware Dijkstra's layering is not a restriction of MARS, but a
- fundamental issue for 
+Please be aware that Dijkstra's layering is not a restriction of MARS, but
+ a fundamental issue for 
 \emph on
 any
 \emph default
