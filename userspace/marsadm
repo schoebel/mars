@@ -2821,8 +2821,19 @@ sub _activate_resource {
       _push_check($peer, "", $resdir);
       _push_check($peer, "", $active_path);
     }
-    lprint "Resource '$res' was already activated at '$peer'\n";
-    return;
+    # check end-to-end
+    my $lnk = "$mars/resource-$res/actual-$peer/if-on";
+    my $val = get_link($lnk);
+    if ($val ne "") {
+      my $stamp = get_link_stamp($lnk, 2);
+      my $end_to_end = is_recent($stamp);
+      if ($end_to_end) {
+	lprint "Resource '$res' was already activated at '$peer'\n";
+	return;
+      }
+      lwarn "Link '$lnk' has value '$val' as seen by '$real_host'\n";
+    }
+    lwarn "Resource '$res' at '$peer' appears as non-activated from the viewpoint of '$real_host'\n";
   }
   lprint "ENABLING resource '$res' at '$peer'\n";
   # Ensure guest communication: a faked device-$peer must exist
