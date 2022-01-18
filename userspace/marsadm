@@ -2881,7 +2881,7 @@ sub activate_guest {
     _create_delete($guest_path);
     return;
   }
-  _activate_resource($cmd, $res);
+  _activate_resource($cmd, $res, $peer);
   ldie "Could not get resource name '$res'\n" unless -d $resdir;
 }
 
