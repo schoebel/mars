@@ -5126,10 +5126,12 @@ sub _fetch_transitive_peers {
     @old_peers = @peers;
     foreach my $peer (@peers) {
       next if $peer eq $real_host;
+      next if $peer =~ $match_reserved_id;
       _get_probe($probe_dir, $peer);
     }
     foreach my $peer (@peers) {
       next if $peer eq $real_host;
+      next if $peer =~ $match_reserved_id;
       _wait_probe($probe_dir, $peer);
     }
     _reset_resources();
