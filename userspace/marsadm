@@ -2400,6 +2400,7 @@ sub get_global_versions {
   }
   # compute the mimimum of kernel features capabilities
   foreach my $peer (get_any_peers()) {
+    next if $peer =~ $match_reserved_id;
     my $features = get_alive_link("features", $peer, 1);
     next unless (defined($features) && $features);
     next unless $features =~ m/^([0-9]+),?([0-9]*),?([x0-9a-f]*)/;
