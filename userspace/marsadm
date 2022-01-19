@@ -796,6 +796,7 @@ sub reverse_cmp {
 
 sub get_total_resources {
   my $peer = shift;
+  $peer = "" if $peer =~ $match_reserved_id;
   _scan_caches() unless %total_peers;
   if ($peer) {
     my $projection = $total_peers{$peer};
@@ -807,6 +808,7 @@ sub get_total_resources {
 
 sub get_member_resources {
   my $peer = shift;
+  $peer = "" if $peer =~ $match_reserved_id;
   _scan_caches() unless %total_peers;
   if ($peer) {
     my $projection = $member_peers{$peer};
@@ -818,6 +820,7 @@ sub get_member_resources {
 
 sub get_guest_resources {
   my $peer = shift;
+  $peer = "" if $peer =~ $match_reserved_id;
   _scan_caches() unless %total_peers;
   if ($peer) {
     my $projection = $guest_peers{$peer};
@@ -829,6 +832,7 @@ sub get_guest_resources {
 
 sub get_any_resources {
   my $peer = shift;
+  $peer = "" if $peer =~ $match_reserved_id;
   _scan_caches() unless %total_peers;
   if ($peer) {
     my $projection = $any_peers{$peer};
