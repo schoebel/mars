@@ -4251,6 +4251,13 @@ sub lowlevel_ls_host_ips {
   for my $path (lamport_glob("$mars/ips/ip-*")) {
     $path =~ m:/ip-(.*):;
     my $peer = $1;
+    if ($peer =~ $match_reserved_id) {
+      lwarn "IMPORTANT: for whatever reason, you have configured a syntactically invalid peer name '$peer' in /mars/ips/ .\n";
+      lwarn "IMPORTANT: 'none' or '(none)' is a reserved name with a special meaning.\n";
+      lwarn "IMPORTANT: please fix this by hand. I cannot know how this has happened, and the reasons.\n";
+      lwarn "IMPORTANT: please search mars-user-manual.pdf for cluster-wide deletions, and consult \"marsadm --help\" for commands like \"marsadm delete-file\" and sibligs.\n";
+      lwarn "IMPORTANT: I am now continuing at YOUR risk, but expect some SERIOUS PROBLEMS.\n";
+    }
     my $ip = get_link($path, 1);
     lprint "$peer $ip\n";
   }
@@ -10049,6 +10056,10 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Override the default ssh commandline options. Also used for rsync.
   --macro=<text>
     Handy for testing short macro evaluations at the command line.
+
+<hostname> =
+  [a-z][-a-z0-9]*
+  with the exception of reserved names: $reserved_names
 
 <command> =
 ";
