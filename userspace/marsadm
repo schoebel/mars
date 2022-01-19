@@ -1444,6 +1444,7 @@ sub set_systemd_want_phase2 {
     my $fail = 0;
     my $touch = 0;
     foreach my $peer (get_any_peers($res)) {
+      next if $peer =~ $match_reserved_id;
       my $open_count_path = "$mars/resource-$res/actual-$peer/open-count";
       my $device_in_use = get_link($open_count_path, 1);
       if ($device_in_use) {
