@@ -687,6 +687,12 @@ sub _scan_caches {
   foreach my $path (lamport_glob($ips_glob)) {
     $path =~ m:/ip-(.*):;
     my $this_peer = $1;
+    if ($this_peer =~ $match_reserved_id) {
+      lwarn "IMPORTANT: for whatever reason, you have configured a syntactically invalid peer name '$this_peer' in /mars/ips/.\n";
+      lwarn "IMPORTANT: 'none' or '(none)' is a reserved name with a special meaning.\n";
+      lwarn "IMPORTANT: please fix this by hand. I cannot know how this has happened, and the reasons.\n";
+      lwarn "IMPORTANT: I am now continuing at YOUR risk, but expect some SERIOUS PROBLEMS.\n";
+    }
     $total_peers{$this_peer} = {};
   }
   # Add all known resources to %total_resources but _not_ to %any_resources.
@@ -694,6 +700,12 @@ sub _scan_caches {
   foreach my $path (lamport_glob($resource_glob)) {
     $path =~ m:/resource-(.*):;
     my $this_res = $1;
+    if ($this_res =~ $match_reserved_id) {
+      lwarn "IMPORTANT: for whatever reason, you have configured a syntactically invalid resource name '$this_res' in directory '/mars'.\n";
+      lwarn "IMPORTANT: 'none' or '(none)' is a reserved name with a special meaning.\n";
+      lwarn "IMPORTANT: please fix this by hand. I cannot know how this has happened, and the reasons.\n";
+      lwarn "IMPORTANT: I am now continuing at YOUR risk, but expect some SERIOUS PROBLEMS.\n";
+    }
     $total_resources{$this_res} = {};
   }
   # Now we look at all relevant combinations between resources and hosts
@@ -707,7 +719,22 @@ sub _scan_caches {
   foreach my $path (@total_paths) {
     next unless $path =~ m:/resource-([^/]+?)/[a-z]+-(.+):;
     my $this_res = $1;
+    if ($this_res =~ $match_reserved_id) {
+      lwarn "IMPORTANT: for whatever reason, you have configured a syntactically invalid resource name '$this_res' in directory '$probe_dir'.\n";
+      lwarn "IMPORTANT: this is from a (remote) probe, and there might be very strange reasons like network communication problems or whatever.\n";
+      lwarn "IMPORTANT: 'none' or '(none)' is a reserved name with a special meaning.\n";
+      lwarn "IMPORTANT: please fix this by hand. I cannot know how this has happened, and the reasons.\n";
+      lwarn "IMPORTANT: I am now continuing at YOUR risk, but expect some SERIOUS PROBLEMS.\n";
+    }
     my $this_peer = $2;
+    if ($this_peer =~ $match_reserved_id) {
+      lwarn "IMPORTANT: for whatever reason, you have configured a syntactically invalid peer name '$this_peer' in resource '$this_res'.\n";
+      lwarn "IMPORTANT: this is from a (remote) probe in directory '$probe_dir'.\n";
+      lwarn "IMPORTANT: there might be very strange reasons like network communication problems or defective filesystems or whatever.\n";
+      lwarn "IMPORTANT: 'none' or '(none)' is a reserved name with a special meaning.\n";
+      lwarn "IMPORTANT: please fix this by hand. I cannot know how this has happened, and the reasons.\n";
+      lwarn "IMPORTANT: I am now continuing at YOUR risk, but expect some SERIOUS PROBLEMS.\n";
+    }
     # dynamic programming
     next if $total_resources{$this_res}{$this_peer};
     # remember result combinations
