@@ -2459,6 +2459,7 @@ sub get_alive_links {
   my %peers;
   foreach my $peer (@peer_list) {
     next if ($peer eq $host && $hosts ne $host);
+    next if $peer =~ $match_reserved_id;
     # After join-cluster & co, links may take a while to appear
     $peers{$peer} = 1 if $non_participating;
     # peer must be a candiate matching the hosts spec
