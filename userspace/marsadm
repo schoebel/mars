@@ -2781,6 +2781,7 @@ sub recent_cluster {
 sub _activate_resource {
   my ($cmd, $res, $peer) = @_;
   $peer = $host unless $peer;
+  return if $peer =~ $match_reserved_id;
   finish_links();
   if (!$res || $res eq "*" || $res eq "all") {
     lwarn "no usable resource to activate ($res).\n";
