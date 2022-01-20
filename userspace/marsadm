@@ -2869,6 +2869,7 @@ sub check_id {
   ldie "identifier '$str' is empty" unless defined($str) && $str;
   ldie "identifier '$str' has disallowed characters" unless $str =~ m/^[A-Za-z0-9_][-A-Za-z0-9_]*$/;
   ldie "identifier '$str' is too long (only 63 chars supported according to RFC 1123)" if length($str) > 63;
+  ldie "identifier '$str' is a RESERVED special name: forbidden here.\n" if $str =~ $match_reserved_id;
   if (defined($must_exist) && $must_exist) {
     my $ip_path = "$mars/ips/ip-$str";
     unless (get_link($ip_path, 1)) {
