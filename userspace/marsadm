@@ -27,6 +27,13 @@ use warnings;
 
 umask 0077;
 
+# regexes for scanning of reserved terminal symbol classes
+
+use v5.10;
+
+my $match_reserved_substr = qr'\(?(none|local|localhost)\)?';
+my $match_reserved_id = qr{^$match_reserved_substr$};
+
 ##################################################################
 
 # global defaults
