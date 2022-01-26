@@ -3124,7 +3124,7 @@ marsadm cron
 
 \end_inset
 
-Best practice is to run 
+ Best practice is to run 
 \family typewriter
 marsadm cron
 \family default
@@ -3142,6 +3142,31 @@ cron
 userspace/cron.d/
 \family default
  subdirectory of the git repo.
+
+\color gray
+ Of course, alternatives to 
+\family typewriter
+crontab
+\family default
+ may be also used, but please ensure that 
+\family typewriter
+marsadm cron
+\family default
+ processes aren't invoked in high parallelism to each other on the 
+\emph on
+same
+\emph default
+ cluster host.
+ On 
+\emph on
+different
+\emph default
+ hosts / distributed systems, parallelism is of course fully OK.
+ Just avoid any 
+\emph on
+unnecessary
+\emph default
+ local parallelism.
 \end_layout
 
 \begin_layout Standard
@@ -3153,7 +3178,7 @@ userspace/cron.d/
 
 \end_inset
 
-In addition, you should establish some regular monitoring of the free space
+ In addition, you should establish some regular monitoring of the free space
  present in the 
 \family typewriter
 /mars/
@@ -3326,6 +3351,54 @@ marsadm log-delete-all all
 .
  The short form is not only easier to remember, but also future-proof in
  case some new MARS features should be added.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Optional, only when running 
+\emph on
+masses
+\emph default
+ of 
+\family typewriter
+marsadm leave-cluster
+\family default
+ or 
+\family typewriter
+leave-resource
+\family default
+ or 
+\family typewriter
+split-cluster
+\family default
+ in 
+\emph on
+huge
+\emph default
+ masses (e.g.
+ when running 
+\family typewriter
+Football
+\family default
+ for hardware lifecyle or for long-term load balancing over a very long
+ time): newer versions of 
+\family typewriter
+marsadm
+\family default
+ can also delete some very old remains, which could accumulate over a very
+ long time (typically years).
+ Just run 
+\family typewriter
+marsadm cron --autoclean
+\family default
+ everywhere once per month, or once per year.
 \end_layout
 
 \begin_layout Section
@@ -8399,7 +8472,6 @@ marsadm log-rotate all
 marsadm log-delete-all all
 \family default
 ).
- You have to implement that yourself in sysadmin space.
 \end_layout
 
 \begin_layout Enumerate
@@ -9529,19 +9601,19 @@ Cmp
 \end_layout
 
 \begin_layout Standard
-The following table documents common options which work with (almost) any
- 
+The following table documents common options, typically working in combination
+ with (almost) any 
 \family typewriter
 marsadm
 \family default
- command:
+ command (unless documented differently):
 \end_layout
 
 \begin_layout Standard
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="16" columns="3">
+<lyxtabular version="3" rows="17" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -10563,11 +10635,122 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Only relevant for cron and link-purge-all.
+Only relevant for 
+\family typewriter
+cron
+\family default
+ and 
+\family typewriter
+link-purge-all
+\family default
+.
  Old remains from dead / unreachable machines, and some backup data produced
  by join-cluster and split-cluster (potentially useful for experts), will
  be purged after this age.
  Default is 24 * 7 hours.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+--autoclean
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Only relevant for 
+\family typewriter
+cron
+\family default
+.
+ Very old 
+\emph on
+historic
+\emph default
+ remains from 
+\emph on
+decommissioned
+\emph default
+ machines will be purged after this age.
+ Default is an age of the remains of more than 1 month.
 \end_layout
 
 \end_inset
@@ -26849,7 +27032,11 @@ all
 \family typewriter
 delete-resource --force
 \family default
- and friends.
+ and friends, and/or 
+\family typewriter
+marsadm cron --autoclean
+\family default
+ after a retention period of 1 month or more.
 \end_layout
 
 \begin_layout Plain Layout
@@ -39695,7 +39882,11 @@ all
 \family typewriter
 marsadm invalidate
 \family default
- can be noticed by the current primary side, nor marsadm cron can work 
+ can be noticed by the current primary side, nor 
+\family typewriter
+marsadm cron
+\family default
+ can work 
 \emph on
 fully
 \emph default
