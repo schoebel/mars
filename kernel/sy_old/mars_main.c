@@ -3259,19 +3259,22 @@ int peer_thread(void *data)
 		mutex_unlock(&peer->peer_lock);
 
 		while (status >= 0 && !list_empty(&tmp_push_list)) {
+			struct mars_cmd cmd_push = {
+				.cmd_int1 = peer->maxdepth,
+			};
 			struct push_info *push;
 
 			push = container_of(tmp_push_list.next, struct push_info, push_head);
-			cmd.cmd_code = push->cmd_code;
-			cmd.cmd_str1 = push->src;
-			cmd.cmd_str2 = push->dst;
-			status = mars_send_cmd(&peer->socket, &cmd, false);
+			cmd_push.cmd_code = push->cmd_code;
+			cmd_push.cmd_str1 = brick_strdup(push->src);
+			cmd_push.cmd_str2 = brick_strdup(push->dst);
+			status = mars_send_cmd(&peer->socket, &cmd_push, false);
 			MARS_INF("PUSH_LINK '%s' '%s' status=%d\n",
-				 cmd.cmd_str1,
-				 cmd.cmd_str2,
+				 cmd_push.cmd_str1,
+				 cmd_push.cmd_str2,
 				 status);
-			cmd.cmd_str1 = NULL;
-			cmd.cmd_str2 = NULL;
+			brick_string_free(cmd_push.cmd_str1);
+			brick_string_free(cmd_push.cmd_str2);
 			if (status < 0)
 				break;
 			list_del_init(&push->push_head);
