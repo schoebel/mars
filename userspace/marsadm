@@ -4372,12 +4372,18 @@ sub is_module_loaded {
 
 sub set_connect_pref_list {
   my ($cmd, $res, $list) = @_;
+  lwarn "This command '$cmd' is deprecated. Please try to avoid it.\n";
   check_res_member($cmd, $res);
   my $dst = "$mars/resource-$res/connect-$host";
   if ($cmd =~ m/^get-/) {
     my $value = get_link($dst);
     lprint "$value\n";
     return;
+  }
+  if (!defined($list) || $list eq "") {
+    lprint_stderr "info: as requested, I am deleting '$dst'\n";
+    _create_delete($dst);
+    return 0;
   }
   check_id_list($list, 1, 1);
   set_link($list, $dst);
@@ -9268,6 +9274,7 @@ my %cmd_table =
    "get-connect-pref-list"
    => [
        "verbose 2",
+       "usage: get-connect-pref-list <resource_name>",
        "Provisionary command for internal use at 1&1. Will be replaced by",
        "a better concept somewhen.",
        "Shows the outcome of set-connect-pref-list.",

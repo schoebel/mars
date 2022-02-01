@@ -6643,6 +6643,7 @@ bool remember_peer(struct mars_rotate *rot, struct mars_peerinfo *peer)
 	return true;
 }
 
+/* Deprecated, to disappear */
 static
 int make_connect(struct mars_dent *dent)
 {
@@ -7211,6 +7212,7 @@ static const struct main_class main_classes[] = {
 		.cl_backward = kill_any,
 	},
 	/* Symlink for connection preferences
+	 * (deprectated, to disappear)
 	 */
 	[CL_CONNECT] = {
 		.cl_name = "connect-",
