@@ -4436,6 +4436,9 @@ sub set_link_cmd {
 
 sub set_sync_limit_value {
   my ($cmd, $value) = @_;
+  if ($cmd !~ /-global-/) {
+    lwarn "The old syntax '$cmd' is deprecated - please use the new syntax {get,set}-global-*\n";
+  }
   my $todo_dir = "$mars/defaults-$host";
   ldie "directory '$todo_dir' does not exist\n" unless -d $todo_dir;
   my $dst = "$todo_dir/sync-limit";
@@ -9432,17 +9435,31 @@ my %cmd_table =
        "Only for experts.",
        \&set_link_cmd,
       ],
-   "set-sync-limit-value"
+   "set-global-sync-limit-value"
    => [
        "usage: set-sync-limit-value <new_value>",
        "Set the maximum number of resources which should by syncing",
        "concurrently.",
        \&set_sync_limit_value,
       ],
-   "get-sync-limit-value"
+   "get-global-sync-limit-value"
    => [
        "usage: get-sync-limit-value (no parameters)",
-       "For retrieval of the value set by set-sync-limit-value.",
+       "For retrieval of the value set by set-global-sync-limit-value.",
+       \&set_sync_limit_value,
+      ],
+   "set-sync-limit-value"
+   => [
+       "verbose 3",
+       "Deprecated.",
+       "Please use set-global-sync-limit-value instead.",
+       \&set_sync_limit_value,
+      ],
+   "get-sync-limit-value"
+   => [
+       "verbose 3",
+       "Deprecated.",
+       "Please use get-global-sync-limit-value instead.",
        \&set_sync_limit_value,
       ],
    "delete-file"
@@ -10388,9 +10405,12 @@ if ($cmd =~ "show|cron") {
 } elsif ($cmd =~ m/^set-.*-list$/) {
   $res = shift @args || helplist "comma-separated list argument is missing\n";
 } elsif ($cmd =~ m/^set-.*-value$/) {
-  $res = shift @args || helplist "numeric argument is missing\n";
+  $res = shift @args;
+  if (!defined($res) || $res eq "") {
+    helplist "numeric argument for '$cmd' is missing\n";
+  }
   ldie "argument '$res' isn't numeric\n" unless $res =~ m/^[0-9.]+$/;
-} elsif ($cmd =~ m/^set-global-/) {
+} elsif ($cmd =~ m/^(set|get)-global-/) {
   $res = "";
 } elsif ($cmd =~ m/^set-/) {
   $res = shift @args || helplist "resource argument is missing\n";
@@ -10413,7 +10433,7 @@ sub do_one_res {
   if ($inject_phase && $phase_nr == $inject_phase) {
     ldie "ERROR INJECTION cmd='$cmd' res='$res' phase='$phase_nr'\n";
   }
-  if ($cmd =~ m/^cat|^set-global-|-file$|-list$|-link$|-value$/) { # no resource argument
+  if ($cmd =~ m/^cat|^(set|get)-global-|-file$|-list$|-link$|-value$/) { # no resource argument
   } elsif (!$checked_res{"$cmd$res"}) {
     $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|merge|leave|wait)-cluster|(create|join)-resource|show/);
     check_res_member($cmd, $res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(merge|leave|wait)-cluster|activate-guest|-purge-|^show|^view/);

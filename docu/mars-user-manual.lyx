@@ -24133,7 +24133,7 @@ status open
 
 \family typewriter
 \size scriptsize
-set-sync-limit-value 
+set-global-sync-limit-value 
 \emph on
 n
 \end_layout
@@ -24225,7 +24225,7 @@ status open
 
 \family typewriter
 \size scriptsize
-get-sync-limit-value
+get-global-sync-limit-value
 \end_layout
 
 \end_inset
