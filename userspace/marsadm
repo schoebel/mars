@@ -6097,6 +6097,21 @@ sub autoclean_any {
       lprint "WOULD autoclean $resdir FULLY via rm -rf after $after_days days\n" if $verbose;
     }
   }
+  # Also autoclean very old self-probe directories.
+  # Why do I not clean them earlier?
+  # They may function as a very old _emergency_ backup after some hardware went defective.
+  # Only usable for _manual_ repair by _experts_.
+  # In future, better usages might be possible.
+  my $probe_dir = "$mars/probe-$real_host";
+  my $probe_dir_old = "$probe_dir.old";
+  if (-d $probe_dir_old) {
+    system("rm -rf $probe_dir_old");
+  } elsif (-d $probe_dir) {
+    my $age = get_stamp($probe_dir);
+    if ($age < $limit_stamp) {
+      rename($probe_dir, $probe_dir_old);
+    }
+  }
   # Also autoclean very old / stone-aged directories from ancient MARS versions.
   # Shame on you if you really would believe that you might need to downgrade to such obsolete versions.
   # They should not have been updated over the network anyway, and thus they cannot
