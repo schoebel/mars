@@ -4133,7 +4133,7 @@ sub _get_ip {
   }
   # Try the backups in reverse order
   my $backup_glob = "$mars/backups-*/ips-backup/ip-$peer";
-  foreach my $backup (sort reverse_cmp glob($backup_glob)) {
+  foreach my $backup (sort reverse_cmp lamport_glob($backup_glob)) {
     my $check = get_link($backup, 2);
     if ($check) {
       lprint_stderr "Using BACKUP IP '$check' from '$backup'\n" if $verbose;
