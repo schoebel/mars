@@ -662,7 +662,8 @@ sub _scan_caches {
   my $resource_glob = "$mars/resource-*";
   my $active_glob = "$mars/resource-*/{device,data,replay}-*";
   my $probe_dir = "$mars/probe-$real_host";
-  if (-d $probe_dir) {
+  # do not include too much outdated information
+  if (-d $probe_dir && is_link_recent($probe_dir)) {
     $ips_glob      .= " $probe_dir$ips_glob";
     $resource_glob .= " $probe_dir$resource_glob";
     $active_glob   .= " $probe_dir$active_glob";
