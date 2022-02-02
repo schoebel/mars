@@ -134,6 +134,12 @@ sub lwarn {
 
 # basic helpers
 
+sub raw_glob {
+  my $expr = shift;
+  my @raw_glob = glob($expr);
+  return @raw_glob;
+}
+
 sub lamport_glob {
   my $expr = shift;
   my @result =();
@@ -5585,7 +5591,7 @@ sub delete_file_cmd {
 
 sub _purge_del_glob {
   my ($clean_glob, $min_time) = @_;
-  foreach my $path (glob($clean_glob)) {
+  foreach my $path (raw_glob($clean_glob)) {
     next unless -l $path;
     my $val = readlink($path);
     next unless $val eq ".deleted";
@@ -5723,7 +5729,7 @@ sub link_purge_global {
   }
   # remove any left-over probe dirs
   my $probe_glob = "$mars/probe-*";
-  foreach my $path (glob($probe_glob)) {
+  foreach my $path (raw_glob($probe_glob)) {
     my $age = get_link_stamp($path);
     next unless ($age < $min_time);
     system("rm -rf $path");
@@ -5732,7 +5738,7 @@ sub link_purge_global {
   my $script_dir = "$etc_marsadm/$generated_scripts_subdir";
   foreach my $dir ($systemd_target_dir, $script_dir) {
     my $glob = "$dir/.{pre,tmp}.*.tmp";
-    foreach my $leftlink (glob($glob)) {
+    foreach my $leftlink (raw_glob($glob)) {
       my $mtime = get_link_stamp($leftlink);
       if ($mtime) {
 	system("touch -h -d \@0 \"$leftlink\"");
