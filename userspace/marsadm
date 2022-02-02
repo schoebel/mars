@@ -10384,7 +10384,10 @@ if ($perms != 0700) {
 # lowlevel tools
 if ($cmd =~ m/^lowlevel-/) {
   my $func = $cmd_table{$cmd};
-  if ($func && ref($func) eq "ARRAY") {
+  if (!defined($func) || !$func) {
+    ldie "Syntax error: lowlevel command '$cmd' not found\n";
+  }
+  if (ref($func) eq "ARRAY") {
     lwarn "EXPERTS ONLY -- risky lowlevel command '$cmd'\n";
     my @list = @$func;
     while (@list) {
