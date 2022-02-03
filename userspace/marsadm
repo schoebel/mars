@@ -332,6 +332,13 @@ sub device_exists {
     if ($peer eq $real_host) {
       lwarn "Unexpected fallback to local device detection $name for $peer\n";
       $val = (-b $name) ? 1 : 0;
+      my $pre_txt = "Unexpected fallback result: device '$name' is";
+      if ($val) {
+	my $ls = `ls -ld $name`;
+	lwarn "$pre_txt present as $ls\n";
+      } else {
+	lwarn "$pre_txt NOT locally present\n";
+      }
     } else {
       lwarn "Cannot determine device presence for $peer\n";
     }
