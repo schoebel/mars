@@ -2693,11 +2693,19 @@ sub wait_cluster {
   foreach my $peer (keys(%old_status)) {
     $progress{$peer} = $non_participating ? 1 : 0;
   }
+  my $res_txt = "";
+  if ($non_participating) {
+    $res_txt = "any known or unknown";
+  } elsif ($res eq "all") {
+    $res_txt = "locally mentioned";
+  } else {
+    $res_txt = "resource '$res'";
+  }
   my $count = scalar(keys(%old_status));
   if ($count && $count < 10) {
-    lprint "Wait for answers from " . join(",", sort alphanum_cmp keys(%old_status)) . "\n";
+    lprint "Wait for answers from $res_txt peer(s) " . join(",", sort alphanum_cmp keys(%old_status)) . "\n";
   } else {
-    lprint "Wait for answers from $count peers\n";
+    lprint "Wait for answers from $count  peer(s) ($res_txt)\n";
   }
   my $delta = $window > 0 ? $window / 2 : 30;
   while (1) {
