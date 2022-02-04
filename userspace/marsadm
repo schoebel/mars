@@ -2232,6 +2232,12 @@ sub correct_path {
 my @link_list = ();
 my %link_hash;
 
+sub get_raw_link {
+  my ($path) = @_;
+  my $result = readlink($path);
+  return $result;
+}
+
 sub get_link {
   my ($path, $unchecked) = @_;
   my $result = readlink($path);
@@ -2555,10 +2561,14 @@ sub get_alive_links {
 	}
       }
       if (!$got_ip_link) {
+	my $link_state = "does not exist";
+	if (get_raw_link($ip_path)) {
+	  $link_state = "exists but marked as .deleted";
+	}
 	if ($common) {
-	  lwarn "Common peer '$peer' does not exist in $mars/ips/ - check your cluster configuration\n";
+	  lwarn "Common peer '$peer' $link_state in $mars/ips/ - check your cluster configuration\n";
 	} elsif ($verbose || $non_participating_peers || $non_participating_resources) {
-	  lwarn "Foreign peer '$peer' does not exist in $mars/ips/ - check your cluster configuration\n";
+	  lwarn "Foreign peer '$peer' $link_state in $mars/ips/ - check your cluster configuration\n";
 	}
       }
       my $age = seconds2human($now - $stamp);
