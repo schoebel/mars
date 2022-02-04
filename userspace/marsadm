@@ -2479,14 +2479,15 @@ sub get_alive_links {
   my $alive = shift || "alive";
   my $hosts = shift || "*";
   my $warn = shift || 0;
-  my $non_participating = shift || 0;
+  my $non_participating_peers = shift || 0;
+  my $non_participating_resources = shift || 0;
   $res = "*" if (!$res || $res eq "all" || $res =~ m/,/);
   my $use_remote_stamp = $alive =~ s/^\^// ? 1 : 0;
   my @peer_list;
   if ($hosts eq $real_host) {
     # needed at join-cluster when nothing is known about others
     @peer_list = ($real_host);
-  } elsif ($non_participating) {
+  } elsif ($non_participating_peers) {
     @peer_list = get_total_peers();
   } else {
     @peer_list = get_any_peers($res ne "*" ? $res : undef);
@@ -2496,7 +2497,7 @@ sub get_alive_links {
     next if ($peer eq $host && $hosts ne $host);
     next if $peer =~ $match_reserved_id;
     # After join-cluster & co, links may take a while to appear
-    $peers{$peer} = 1 if $non_participating;
+    $peers{$peer} = 1 if $non_participating_peers;
     # peer must be a candiate matching the hosts spec
     if ($hosts && $hosts ne "*") {
       next unless $peer =~ m/(^|[+,{}])$hosts($|[+,{}])/;
@@ -2529,24 +2530,36 @@ sub get_alive_links {
     }
     $links{$peer} = $val;
   }
-  my $projection = $any_peers{$host};
-  if ($projection && $warn) {
+  if ($warn) {
+    my $any_projection = $any_peers{$host};
+    my $member_projection = $member_peers{$host};
+    my $guest_projection = $guest_peers{$host};
+    my %any_resources = defined($any_projection) ? %$any_projection : ();
+    my %member_resources = defined($member_projection) ? %$member_projection : ();
+    my %guest_resources = defined($guest_projection) ? %$guest_projection : ();
     my $now = mars_time();
     my $extra_count = 0;
-    my %own_resources = %$projection;
     foreach my $peer (keys(%peers)) {
       my $stamp = get_alive_link("time", $peer, 2);
       next if (!$stamp || $stamp !~ m/^\s*[0-9.]/ || is_recent($stamp));
       my $ip_path = "$mars/ips/ip-$peer";
-      unless (get_link($ip_path, 1)) {
-	lwarn "Host '$peer' does not exist in $mars/ips/ - check your cluster configuration\n";
-      }
+      my $got_ip_link = get_link($ip_path, 1);
       my $common = 0;
       my @peer_resources = get_any_resources($peer);
       foreach my $tmp_res (@peer_resources) {
-	next unless $own_resources{$tmp_res};
-	$common++;
-	last;
+	# check for foreign resources
+	if ($member_resources{$tmp_res} ||
+	    $guest_resources{$tmp_res}) {
+	  $common++;
+	  last;
+	}
+      }
+      if (!$got_ip_link) {
+	if ($common) {
+	  lwarn "Common peer '$peer' does not exist in $mars/ips/ - check your cluster configuration\n";
+	} elsif ($verbose || $non_participating_peers || $non_participating_resources) {
+	  lwarn "Foreign peer '$peer' does not exist in $mars/ips/ - check your cluster configuration\n";
+	}
       }
       my $age = seconds2human($now - $stamp);
       if (!$common) {
@@ -2554,8 +2567,8 @@ sub get_alive_links {
 	# thus we need a much larger time window.
 	if (!is_recent($stamp, 3600)) {
 	  $extra_count++;
-	  if ($verbose) {
-	    lwarn "nonmember peer '$peer' not reachable for $age\n";
+	  if ($non_participating_resources || $verbose) {
+	    lwarn "Foreign / nonmember peer '$peer' not reachable for $age\n";
 	  }
 	}
 	next;
@@ -2564,8 +2577,9 @@ sub get_alive_links {
       $msg .=  " => check your network setup" if is_module_loaded();
       lwarn "$msg\n";
     }
-    if ($extra_count) {
-      lwarn "$extra_count non-member peers are NOT REACHABLE for >= 1 hour\n";
+    if ($extra_count &&
+	($verbose || $non_participating_peers || $non_participating_resources)) {
+      lwarn "$extra_count foreign / non-member peers are NOT REACHABLE for >= 1 hour\n";
     }
   }
   return %links;
@@ -10617,7 +10631,8 @@ if ($cmd =~ m/^(view|pretty)/) {
   }
   finish_links();
   # report any dead peers
-  get_alive_links("all", "alive", "*", 1, 1);
+  my $report_foreign = ($ignore_deleted_peers > 1);
+  get_alive_links("all", "alive", "*", $report_foreign, 0);
   exit($error_count);
 }
 
