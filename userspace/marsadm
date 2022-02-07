@@ -5718,7 +5718,7 @@ sub delete_file_cmd {
   }
 }
 
-sub _purge_del_glob {
+sub _purge_dot_deleted {
   my ($clean_glob, $min_time) = @_;
   foreach my $path (raw_glob($clean_glob)) {
     next unless -l $path;
@@ -5812,7 +5812,7 @@ sub link_purge_global {
   my $min_time = _get_min_time($start_time, "*");
   # new deletion method
   my $clean_glob = "$mars/{,*/}{.*,*}";
-  _purge_del_glob($clean_glob, $min_time);
+  _purge_dot_deleted($clean_glob, $min_time);
   # old deletion method
   my $del_glob = "$mars/{,*/}{.tmp,.deleted,delete,work}-*";
   my $msg_glob = "$mars/actual-*/msg-*";
@@ -5889,7 +5889,7 @@ sub link_purge_res {
   my $min_time = _get_min_time($start_time, $res);
   # new deletion method
   my $clean_glob = "$mars/resource-$res/{,*/}{.*,*}";
-  _purge_del_glob($clean_glob, $min_time);
+  _purge_dot_deleted($clean_glob, $min_time);
   # old deletion method
   my $del_glob = "$mars/resource-$res/{,*/}{.tmp,.deleted,delete,work}-*";
   my $msg_glob = "$mars/resource-$res/actual-*/msg-*";
