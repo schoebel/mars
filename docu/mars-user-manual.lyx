@@ -10975,7 +10975,7 @@ status open
 
 \family typewriter
 \size scriptsize
---keep-backups=$hours
+--keep-backup-hours=$hours
 \end_layout
 
 \end_inset
