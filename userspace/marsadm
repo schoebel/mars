@@ -5888,10 +5888,34 @@ sub link_purge_global {
   return if $purged_globally++;
   my $start_time = mars_time();
   my $min_time = _get_min_time($start_time, "*");
+
   # new deletion method
   my $clean_glob = "$mars/{,*/}{.*,*}";
   _purge_dot_deleted($clean_glob, $min_time);
+
+  # SAFEGUARD, careful: /mars/ips/ does not depend on resources.
+  # It belongs to cluster level, not to resource level.
+  # However, even at cluster level, there are subtle distinctions:
+  # I cannot assume that removal of a peer is a "temporary" removal.
+  # At least, the current version of MARS does not support a "temporary"
+  # removal, because this would induce a _plethora_ of further changes to
+  # many reports / commands / interfaces / etc etc.
+  # Thus we _cannot_ use the _get_min_time() protection  against dead / decommissioned
+  # peers here, UNFORTUNATLY :(
+  # Reason: this protection can only protect at more fine-grained layers, but it
+  # cannot protect the _base_ of all of this.
+  # Example: if you destroy the _foundation_ of a building, you have agreed to
+  # destruction of the _whole_ building.
+  # For _some_ heuristic safety against _accidental_ destruction of the foundations
+  # of the Distributed System: solely rely on $keep_backup_hours here,
+  # but I cannot rely on non-brokenness == aliveness of connections (otherwise the
+  # logically destroyed symlinks would NEVER disappear fully).
+  my $safe_clean_glob = "/mars/ips/ip-*";
+  my $safe_purge_time = $start_time - 3600 * $keep_backup_hours;
+  _purge_dot_deleted($safe_clean_glob, $safe_purge_time);
+
   # old deletion method
+  # DEPRECATED, to DISAPPEAR (hopefully in a few years)
   my $del_glob = "$mars/{,*/}{.tmp,.deleted,delete,work}-*";
   my $msg_glob = "$mars/actual-*/msg-*";
   _compat_purge_deleted($del_glob, $msg_glob);
