@@ -6174,6 +6174,7 @@ sub autoclean_res {
 sub cron_phase3 {
   my ($cmd, $res) = @_;
   return 0 unless $cron_autoclean_days > 0;
+  _reset_resources();
   autoclean_res($cmd, $res, $cron_autoclean_days);
   return 0;
 }
@@ -6255,7 +6256,9 @@ sub cron_phase4 {
   my ($cmd, $res) = @_;
   return 0 unless $cron_autoclean_days > 0;
   lprint "======== EXTRA PHASE: GLOBAL AUTOCLEAN\n";
+  _reset_resources();
   autoclean_any($cmd, "*", $cron_autoclean_days);
+  _reset_resources();
   lprint "GLOBAL AUTOCLEAN finished.\n";
   return 0;
 }
