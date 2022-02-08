@@ -750,6 +750,22 @@ sub _scan_caches {
       lwarn "IMPORTANT: please fix this by hand. I cannot know how this has happened, and the reasons.\n";
       lwarn "IMPORTANT: I am now continuing at YOUR risk, but expect some SERIOUS PROBLEMS.\n";
     }
+    if ($ignore_deleted_peers > 1) {
+      # Important: deleted peers NEED to be kept out of some games.
+      # Silently setting this to 2 can be dangerous.
+      # Reason: when --ignore-deleted-peers is at the default ==1, we report some "greenwashed" picture to the users.
+      # Non-experts might crash into some non-visible pitfalls.
+      # For example, there are some exceptions where "deleted" peers are appearing
+      # _regulalry_ although they are _not_ _really_ deleted,
+      # like currently running split-cluster & co.
+      my $is_peer_acceptable =
+	!$is_deleted_peer{$this_peer} ||
+	  is_link_recent($path, $window);
+      if (!$is_peer_acceptable) {
+	lwarn "Your risk as requested by --ignore-deleted-peers=$ignore_deleted_peers: skipping deleted peer '$this_peer'\n";
+	next;
+      }
+    }
     # All has been checked now: rember this peer.
     $total_peers{$this_peer} = {};
   }
@@ -792,6 +808,10 @@ sub _scan_caches {
       lwarn "IMPORTANT: 'none' or '(none)' is a reserved name with a special meaning.\n";
       lwarn "IMPORTANT: please fix this by hand. I cannot know how this has happened, and the reasons.\n";
       lwarn "IMPORTANT: I am now continuing at YOUR risk, but expect some SERIOUS PROBLEMS.\n";
+    }
+    if ($ignore_deleted_peers > 1 && $is_deleted_peer{$this_peer}) {
+      lwarn "Your risk as requested by --ignore-deleted-peers=$ignore_deleted_peers: skipping deleted peer '$this_peer'\n";
+      next;
     }
     # dynamic programming
     next if $total_resources{$this_res}{$this_peer};
