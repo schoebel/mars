@@ -587,17 +587,30 @@ my %member_peers;
 my %guest_peers;
 my %any_peers;
 
+# classical 1-dimensional caches
+
 my %file_info;
+my %is_deleted_peer;
 
 my $cache_dir = "$mars/cache-$real_host";
 
 sub __read_cache {
-  my ($filename, $hash) = @_;
+  my ($filename, $hash, $dimensions) = @_;
+  $dimensions = 2 unless $dimensions;
   open(my $fh, "<", $filename) or return 0;
   while (my $line = <$fh>) {
     chomp $line;
-    my ($key1, $key2, $val) = split(" ", $line, 3);
-    $$hash{$key1}{$key2} = $val;
+    # start with the highest number of dimensions
+    if ($dimensions == 2) {
+      my ($key1, $key2, $val) = split(" ", $line, 3);
+      $$hash{$key1}{$key2} = $val;
+    } elsif ($dimensions == 1) {
+      my ($key, $val) = split(" ", $line, 2);
+      $$hash{$key} = $val;
+    } else {
+      lwarn "read_cache internal: bad #dimensions '$dimensions'\n";
+      return 0;
+    }
   }
   close($fh);
   lprint "READ CACHE $filename\n" if $verbose >= 2;
@@ -619,7 +632,8 @@ sub _read_cache {
   __read_cache("$cache_dir/total_peers.cache", \%total_peers) &&
   __read_cache("$cache_dir/member_peers.cache", \%member_peers) &&
   __read_cache("$cache_dir/guest_peers.cache", \%guest_peers) &&
-  __read_cache("$cache_dir/any_peers.cache", \%any_peers);
+  __read_cache("$cache_dir/any_peers.cache", \%any_peers) &&
+  __read_cache("$cache_dir/is_deleted_peer.cache", \%is_deleted_peer, 1);
   if (!$ok) {
     _reset_resources();
   }
@@ -627,19 +641,33 @@ sub _read_cache {
 }
 
 sub __write_cache {
-  my ($filename, $hash) = @_;
+  my ($filename, $hash, $dimensions) = @_;
+  $dimensions = 2 unless $dimensions;
   my $tmpname = "$filename.tmp.$$";
   local $OFS = " ";
   local $ORS = "\n";
   open(my $fh, ">", $tmpname) or return 0;
   foreach my $key1 (keys(%$hash)) {
-    my $sub_hash = $$hash{$key1};
-    foreach my $key2 (keys(%$sub_hash)) {
-      my $val = $$sub_hash{$key2};
-      if (!print $fh ($key1, $key2, $val)) {
+    # start with the highest number of dimensions
+    if ($dimensions == 2) {
+      my $sub_hash = $$hash{$key1};
+      foreach my $key2 (keys(%$sub_hash)) {
+	my $val = $$sub_hash{$key2};
+	if (!print $fh ($key1, $key2, $val)) {
+	  unlink($tmpname);
+	  return 0;
+	}
+      }
+    } elsif ($dimensions == 1) {
+      my $val = $$hash{$key1};
+      if (!print $fh ($key1, $val)) {
 	unlink($tmpname);
 	return 0;
       }
+    } else {
+      lwarn "write_cache internal: bad #dimensions '$dimensions'\n";
+      unlink($tmpname);
+      return 0;
     }
   }
   if (!close($fh)) {
@@ -660,7 +688,8 @@ sub _write_cache {
   __write_cache("$cache_dir/total_peers.cache", \%total_peers) &&
   __write_cache("$cache_dir/member_peers.cache", \%member_peers) &&
   __write_cache("$cache_dir/guest_peers.cache", \%guest_peers) &&
-  __write_cache("$cache_dir/any_peers.cache", \%any_peers);
+  __write_cache("$cache_dir/any_peers.cache", \%any_peers) &&
+  __write_cache("$cache_dir/is_deleted_peers.cache", \%is_deleted_peer, 1);
   if (!$ok) {
     _reset_resources();
   }
@@ -679,6 +708,8 @@ sub _scan_caches {
   %member_peers = ();
   %guest_peers = ();
   %any_peers = ();
+  # Reset 1-dimensional hashes
+  %is_deleted_peer = ();
   my $ips_glob = "$mars/ips/ip-*";
   my $resource_glob = "$mars/resource-*";
   my $active_glob = "$mars/resource-*/{device,data,replay}-*";
@@ -691,9 +722,27 @@ sub _scan_caches {
   }
   # Add all known hosts to %total_peers but _not_ to %any_peers.
   # Reason: some hosts might not be member/guest of any resource
-  foreach my $path (lamport_glob($ips_glob)) {
+  foreach my $path (raw_glob($ips_glob)) {
     $path =~ m:/ip-(.*):;
     my $this_peer = $1;
+    my $peer_ip = get_raw_link($path);
+    my $deleted_peer = defined($peer_ip) && $peer_ip eq ".deleted";
+    if ($deleted_peer) {
+      # ABOLUTE NOGO: the currently running host CANNOT be deleted
+      if ($this_peer eq $real_host) {
+	lwarn "IMPORTANT: this script is running under the REAL hostname '$real_host'\n";
+	lwarn "IMPORTANT: but my own entry '$path' is marked as '.deleted'\n";
+	lwarn "IMPORTANT: this is a NOGO and it CANNOT WORK!\n";
+	lwarn "IMPORTANT: the machine name (uname -a or /etc/hostname) must NEVER be changed!!!!!!!!\n";
+	lwarn "IMPORTANT: Either you are trying to revive a ZOMBIE MACHINE (maybe under a bad name),\n";
+	lwarn "IMPORTANT: OR you have a MISCONFIGURED hostname '$real_host' which can potentially DESTROY YOUR DATA,\n";
+	lwarn "IMPORTANT: OR you need a MANUAL REPAIR right now,\n";
+	lwarn "IMPORTANT: OR some other SERIOUS PROBLEM I cannot know.\n";
+	lwarn "IMPORTANT: only when 100% sure and CHECKED that nothing can go wrong (RTFM = Read The Fucking Manual, Luke!), you are _responsible_ for commands like 'marsadm lowlevel-set-host-ip' and friends\n";
+      } else {
+	$is_deleted_peer{$this_peer} = 1;
+      }
+    }
     if ($this_peer =~ $match_reserved_id) {
       lwarn "IMPORTANT: for whatever reason, you have configured a syntactically invalid peer name '$this_peer' in /mars/ips/.\n";
       lwarn "IMPORTANT: 'none' or '(none)' is a reserved name with a special meaning.\n";
