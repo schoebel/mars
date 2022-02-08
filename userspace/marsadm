@@ -5720,6 +5720,7 @@ sub delete_file_cmd {
 
 sub _purge_dot_deleted {
   my ($clean_glob, $min_time) = @_;
+  my $nr_unlink = 0;
   foreach my $path (raw_glob($clean_glob)) {
     next unless -l $path;
     my $val = readlink($path);
@@ -5727,6 +5728,7 @@ sub _purge_dot_deleted {
     my $age = get_link_stamp($path);
     next unless $age;
     if ($age < $min_time) {
+      $nr_unlink++;
       if ($dry_run) {
 	lprint "DRY_RUN: would unlink '$path' (currently '$val')\n";
 	next;
@@ -5734,6 +5736,9 @@ sub _purge_dot_deleted {
       lprint "  remove deleted '$path'\n" if $verbose;
       unlink($path);
     }
+  }
+  if ($nr_unlink) {
+    _reset_resources();
   }
 }
 
