@@ -240,6 +240,7 @@ my $real_host = $host;
 my $backup_dir = "$mars/backups-" . time();
 my $force = 0;
 my $ignore_sync = 0;
+my $ignore_deleted_peers = 1; # 0 = off, 1 = only for certain reports, 2 = BEWARE: ONLY FOR EXPERTS
 my $cron_mode = 0;
 my $cron_autoclean_days = 0;
 my $timeout = 600;
@@ -749,6 +750,7 @@ sub _scan_caches {
       lwarn "IMPORTANT: please fix this by hand. I cannot know how this has happened, and the reasons.\n";
       lwarn "IMPORTANT: I am now continuing at YOUR risk, but expect some SERIOUS PROBLEMS.\n";
     }
+    # All has been checked now: rember this peer.
     $total_peers{$this_peer} = {};
   }
   # Add all known resources to %total_resources but _not_ to %any_resources.
@@ -7529,7 +7531,17 @@ sub eval_fn {
       } else {
 	@peers = get_member_peers($$env{"res"});
       }
-      return scalar(@peers) if defined($do_count);
+      if (defined($do_count)) {
+	my $result = scalar(@peers);
+	if ($ignore_deleted_peers && %is_deleted_peer) {
+	  $result = 0;
+	  foreach my $this_peer (@peers) {
+	    next if $is_deleted_peer{$this_peer};
+	    $result++;
+	  }
+	}
+	return $result;
+      }
       my $list = "";
       foreach my $peer (@peers) {
 	$list .= "$peer\n";
@@ -10125,6 +10137,12 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Allow primary handover even when some sync is running somewhere.
     This is less rude than --force because it checks for all else
     preconditions.
+  --ignore-deleted-peers=<number>
+    0 = off
+    1 = only ignore deleted peers at reports (default)
+    2 = Only for EXPERTS. This may be dangerous.
+    Ignorance about the existence of a peer may be very harmful
+    in a Distributed System.
   --dry-run
     Don't modify the symlink tree, but tell what would be done.
     Use this before starting potentially harmful actions such as
@@ -10314,6 +10332,9 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg eq "--ignore-sync") {
     $ignore_sync++;
+    next;
+  } elsif ($arg =~ m/--ignore-deleted-peers\s*=\s*(-?[0-9]+)/) {
+    $ignore_deleted_peers = $1;
     next;
   } elsif ($arg eq "--dry-run" || $arg eq "-d") {
     $dry_run++;
