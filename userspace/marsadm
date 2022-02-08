@@ -5599,6 +5599,10 @@ sub _purge_del_glob {
     my $age = get_link_stamp($path);
     next unless $age;
     if ($age < $min_time) {
+      if ($dry_run) {
+	lprint "DRY_RUN: would unlink '$path' (currently '$val')\n";
+	next;
+      }
       lprint "  remove deleted '$path'\n" if $verbose;
       unlink($path);
     }
