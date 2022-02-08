@@ -758,6 +758,7 @@ sub _scan_caches {
       # For example, there are some exceptions where "deleted" peers are appearing
       # _regulalry_ although they are _not_ _really_ deleted,
       # like currently running split-cluster & co.
+      # NOTICE: split-cluster is an exception by itself. It is deprecated anyway.
       my $is_peer_acceptable =
 	!$is_deleted_peer{$this_peer} ||
 	  is_link_recent($path, $window);
@@ -5288,6 +5289,7 @@ sub _fetch_transitive_peers {
 
 sub split_cluster {
   my ($cmd) = @_;
+  llog "DEPRECATED: $cmd\n";
   # start_deprecated_CODE
   foreach my $peer (get_total_peers()) {
     next unless $ssh_port;
@@ -9267,6 +9269,7 @@ my %cmd_table =
    "split-cluster"
    => [
        "usage: split-cluster (no parameters)",
+       "DEPRECATED",
        "NOT OFFICIALLY SUPPORTED - ONLY FOR EXPERTS.",
        "RTFS = Read The Fucking Sourcecode.",
        "Use this only if you know what you are doing.",
