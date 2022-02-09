@@ -9535,6 +9535,7 @@ my %cmd_table =
        "This is equivalent to log-rotate all; sleep 7; log-delete-all all.",
        [
 	\&link_purge_global,
+	"purge global links",
        ],
        \&cron_phase1,
        "purge links and rotate logfiles",
@@ -9567,8 +9568,10 @@ my %cmd_table =
        "Remove any .deleted links.",
        [
 	\&link_purge_global,
+	"purge global links",
        ],
        \&link_purge_res,
+	"purge per-resource links",
       ],
    "fake-sync"
    => [
@@ -10890,9 +10893,23 @@ if (ref($func) eq "ARRAY") {
     }
     # nested arrays may be used for _global_ workers
     if (ref($memb_func) eq "ARRAY") {
+      my $global_msg = "";
       my @sub_list = @$memb_func;
-      foreach my $sub_func (@sub_list) {
-	next unless ref($sub_func) eq "CODE";
+      while (my $sub_func = shift @sub_list) {
+	my $ref_type = ref($sub_func);
+	if ($ref_type eq "" && $sub_func) {
+	  $global_msg .= $sub_func;
+	  next;
+	}
+	next unless $ref_type eq "CODE";
+	while ($sub_list[0] && ref($sub_list[0]) eq "") {
+	  $global_msg .= shift @sub_list;
+	}
+	if ($global_msg) {
+	  $phase_nr++;
+	  lprint "-------- GLOBAL PHASE $phase_nr -------- $global_msg:\n";
+	  $global_msg = "";
+	}
 	&{$sub_func}($cmd, $res, @args);
       }
     }
