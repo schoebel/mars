@@ -187,6 +187,7 @@ reference "chap:GNU-FDL"
 \end_layout
 
 \begin_layout New Color Box Type
+
 \begin_inset Argument 2
 status open
 
@@ -235,6 +236,7 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
+
 \begin_inset Argument 2
 status open
 
@@ -283,6 +285,7 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
+
 \begin_inset Argument 2
 status open
 
@@ -331,6 +334,7 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
+
 \begin_inset Argument 2
 status open
 
@@ -4743,6 +4747,17 @@ reaction time
  in units of milliseconds.
 \end_layout
 
+\begin_layout Paragraph*
+Requirements vs Solutions
+\begin_inset CommandInset label
+LatexCommand label
+name "par:Requirements-vs-Solutions"
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
@@ -5852,6 +5867,26 @@ name "sec:What-is-Scalability"
 \end_layout
 
 \begin_layout Standard
+The term 
+\begin_inset Quotes eld
+\end_inset
+
+scalability
+\begin_inset Quotes erd
+\end_inset
+
+ is 
+\series bold
+\emph on
+dangerous
+\emph default
+ for your business
+\series default
+.
+ Why?
+\end_layout
+
+\begin_layout Standard
 Many technical people know that 
 \emph on
 tightly coupled
@@ -5859,7 +5894,7 @@ tightly coupled
  computers like SMP = Symmetric Multi Processing systems or NUMA = Non-Uniform
  Memory Access systems have some 
 \series bold
-scalabily limit
+scalability limit
 \series default
 , also called 
 \emph on
@@ -5998,6 +6033,243 @@ much more expensive
 \end_layout
 
 \begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Horizontal vs Vertical Scaling, alias scale-out vs scale-up
+\end_layout
+
+\end_inset
+
+ Some presentations are arguing with questionable claims about 
+\begin_inset Quotes eld
+\end_inset
+
+horizontal scalability
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset Formula $\cong$
+\end_inset
+
+ 
+\begin_inset Quotes erd
+\end_inset
+
+scale-out
+\begin_inset Quotes erd
+\end_inset
+
+ vs 
+\begin_inset Quotes eld
+\end_inset
+
+vertical scalability
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset Formula $\cong$
+\end_inset
+
+ 
+\begin_inset Quotes erd
+\end_inset
+
+scale-up
+\begin_inset Quotes erd
+\end_inset
+
+.
+ These compound notions belong to a 
+\emph on
+taxonomy
+\emph default
+.
+ Their origin is from 
+\emph on
+scaling methods
+\emph default
+, which is not the same as 
+\begin_inset Quotes eld
+\end_inset
+
+scalability
+\begin_inset Quotes erd
+\end_inset
+
+ (notice the grammatical suffixes -ing vs -ability).
+ A rough explanation can be found in 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Scalability#Horizontal_(scale_out)_and_vertical_scal
+ing_(scale_up)
+\end_layout
+
+\end_inset
+
+ (retrieved in Feb 2022).
+ Essentially, these notions refer to 
+\begin_inset Quotes eld
+\end_inset
+
+loosely coupled
+\begin_inset Quotes erd
+\end_inset
+
+ vs 
+\begin_inset Quotes eld
+\end_inset
+
+tightly coupled
+\begin_inset Quotes erd
+\end_inset
+
+, and thus they belong to the 
+\series bold
+solution space
+\series default
+, 
+\emph on
+not
+\emph default
+ to requirements.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ As explained in paragraph 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "par:Requirements-vs-Solutions"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and several sections like 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Requirements-for-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, mix-up of requirements with solutions can have 
+\series bold
+adverse effects
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ In practice, scale-up by addition of 
+\begin_inset Quotes eld
+\end_inset
+
+more disks
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+more RAM
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+more CPUs
+\begin_inset Quotes erd
+\end_inset
+
+ depends on the already deployed hardware.
+ HDD or SSD addition is possible during operations, provided you have bought
+ some enclosures with hot-swappable free slots.
+ RAM or CPU power requires more preparations.
+ While Intel- oder AMD-based standard servers are inducing an effort similar
+ to a repair, there exists 
+\emph on
+specialized hardware
+\emph default
+ like IBM mainframes which are 
+\emph on
+constructed
+\emph default
+ for scale-up during 24/7/365 operations.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not mix up different hardware classes like mainframes vs contemporary
+ servers.
+\end_layout
+
+\begin_layout Plain Layout
+Following are more adverse effects, by incorrect usage of the term 
+\begin_inset Quotes eld
+\end_inset
+
+scalability
+\begin_inset Quotes erd
+\end_inset
+
+:
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -6027,7 +6299,7 @@ there are no limits
 \end_inset
 
 .
- Such a belief is not only wrong, it is 
+ Such a belief is not only fundamentally wrong, it is 
 \series bold
 dangerous
 \series default
@@ -6105,7 +6377,15 @@ storage systems
 \emph on
 application classes
 \emph default
-, the term can easily 
+, the term 
+\begin_inset Quotes eld
+\end_inset
+
+scalability
+\begin_inset Quotes erd
+\end_inset
+
+ can easily 
 \series bold
 mislead
 \series default
@@ -6133,7 +6413,7 @@ evangelists
 \begin_inset Quotes erd
 \end_inset
 
- or advocates, this creates an 
+ or advocates / influencers, this creates an 
 \emph on
 opportunity
 \emph default
@@ -6151,9 +6431,28 @@ noprefix "false"
 
 \end_inset
 
-), and for 
+).
+ Internal projects can be argued 
+\begin_inset Quotes eld
+\end_inset
+
+more convincing
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+more promising
+\begin_inset Quotes erd
+\end_inset
+
+.
+ External products or solutions can be sold more easily.
+ This may 
 \series bold
-tearing out money from your pocket
+tear out money from your pocket
 \series default
 .
  It may imply further bad effects, e.g.
@@ -6161,7 +6460,7 @@ tearing out money from your pocket
 \series bold
 creation of impressions
 \series default
- (or even un-proved claims) about
+ (or un-proved or un-provable claims) about
 \end_layout
 
 \begin_layout Itemize
@@ -6173,7 +6472,29 @@ arbitrary(!) scalability
 \end_layout
 
 \begin_layout Itemize
-several further mis-guidings, some of them looking like 
+
+\series bold
+marketing buzzwords
+\series default
+, e.g.
+ like 
+\begin_inset Quotes eld
+\end_inset
+
+planet scale
+\begin_inset Quotes erd
+\end_inset
+
+ (e.g.
+ avoiding the -ing or -ability so you cannot check or disprove it), and/or
+\end_layout
+
+\begin_layout Itemize
+several further 
+\series bold
+mis-guidings
+\series default
+, some of them looking like 
 \emph on
 deliberately not corrected
 \emph default
@@ -6432,7 +6753,17 @@ f.
 conservative communication strategy
 \emph default
 , not intended for marketing.
- Further 
+ Since MARS is a software component, other factors like hardware properties
+ cannot be documented in 
+\family typewriter
+mars-user-guide.pdf
+\family default
+, but only 
+\emph on
+estimated from experiences
+\emph default
+.
+ Some 
 \emph on
 practical experiences
 \emph default
@@ -6559,11 +6890,11 @@ checkable
 \series bold
 certain workload
 \series default
- and/or 
+ and/or for a 
 \series bold
 workload class
 \series default
- and/or 
+ and/or for an 
 \series bold
 application class
 \series default
@@ -6649,7 +6980,7 @@ loss of a product line
 \series bold
 out of business
 \series default
-.
+ when your competition can bypass you dramatically.
 \end_layout
 
 \end_inset
