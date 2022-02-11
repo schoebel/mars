@@ -151,6 +151,19 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable137
+	* Major fix: scarce race with network problems could
+	  have led to a memory leak.
+	* Minor fix: an externally produced race between modprobe
+	  and mount /mars could cause strange problems.
+	  Improved reporting.
+	* Minor improvement: new option --autoclean removing
+	  some historical remains via cron.
+	* Some more minor fixes and improvements, e.g. better
+	  checking of illegal marsadm commandline arguments.
+	* Doc the new --autoclean feature.
+	* Improve architecture guide on "scalability".
+
 mars0.1astable136
 	* Major fix: upon kernel-level fork() limits, or OOM etc,
 	  it was possible that aio went into an endless loop
