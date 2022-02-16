@@ -3688,10 +3688,14 @@ sub detect_splitbrain {
   my %involved_hosts;
   my $is_likely_false_positive = 0;
   my $i_am_primary = 0;
+  my $is_likely_outdated = 0;
   my @list = lamport_glob("$mars/resource-$res/replay-*");
   my @hosts = map { $_ =~ s:.*/replay-::; $_ } @list;
   foreach my $host1 (@hosts) {
     $alive_host_stamps{$host1} = get_alive_link("time", $host1, 1);
+    if (!is_recent($alive_host_stamps{$host1}, $window)) {
+      $is_likely_outdated++;
+    }
     foreach my $host2 (@hosts) {
       # reduce O(k^2) by some factor
       next if $host1 ge $host2;
@@ -3756,6 +3760,23 @@ sub detect_splitbrain {
   }
   # report any relevant logfile split-points
   if (%involved_logfiles) {
+    # check whether kernel module is loaded
+    my $stamp = $alive_host_stamps{$real_host};
+    $stamp = 0 unless defined($stamp);
+    if (!$stamp) {
+      lhint "   the following warnings may result from defective hardware / network.\n";
+    } elsif (!is_recent($stamp, $window)) {
+      lhint "   the following warnings are likely OUTDATED by ~" .
+	seconds2human(mars_time() - $stamp) . "\n";
+    } elsif ($is_likely_outdated) {
+      my $cnt;
+      if ($is_likely_outdated == 1) {
+	$cnt = "1 host is";
+      } else {
+	$cnt = "$is_likely_outdated host infos are";
+      }
+      lhint "   $cnt likely OUTDATED and MIGHT be FALSE POSITIVE\n";
+    }
     foreach my $point (sort alphanum_cmp keys(%involved_logfiles)) {
       my $stamp = $involved_logfiles{$point};
       my $age = "";
