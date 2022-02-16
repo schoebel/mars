@@ -3686,6 +3686,8 @@ sub detect_splitbrain {
   my %alive_host_stamps;
   my %involved_logfiles;
   my %involved_hosts;
+  my $is_likely_false_positive = 0;
+  my $i_am_primary = 0;
   my @list = lamport_glob("$mars/resource-$res/replay-*");
   my @hosts = map { $_ =~ s:.*/replay-::; $_ } @list;
   foreach my $host1 (@hosts) {
@@ -3736,6 +3738,19 @@ sub detect_splitbrain {
 	  ($point, $split, $size2, $size1) = get_common_ancestor($basedir, $host2, $host1);
 	  goto re_check;
 	}
+      } elsif ($host1 eq $real_host || $host2 eq $real_host) {
+	# try to filter out false positives
+	foreach my $other ($host1, $host2) {
+	  my $lnk = "$mars/resource-$res/actual-$other/is-primary";
+	  my $is_primary = get_link($lnk, 2);
+	  if ($is_primary && is_link_recent($lnk, $window)) {
+	    if ($other eq $real_host) {
+	      $i_am_primary++;
+	    } else {
+	      $is_likely_false_positive++;
+	    }
+	  }
+	}
       }
     }
   }
@@ -3776,6 +3791,14 @@ sub detect_splitbrain {
 	$txt .= " unreachable";
       } elsif (!is_recent($stamp, $window)) {
 	$txt .= " interrupted ~" . seconds2human(mars_time() - $stamp);
+      }
+      if ($peer eq $real_host) {
+	if ($i_am_primary) {
+	  lhint "   host$nr = '$peer'$txt, my PRIMARY logfile is always UPTODATE by definition.\n";
+	  next;
+	} elsif ($is_likely_false_positive) {
+	  lhint "   the following warning MAY be a FALSE POSITIVE (but I cannot determine the truth over network)\n";
+	}
       }
       if (defined($size) && $size > 0) {
 	lwarn "   host$nr = '$peer'$txt logfile_amount='$size' (" . number2human($size) . ")\n";
