@@ -3691,7 +3691,9 @@ sub detect_splitbrain {
   foreach my $host1 (@hosts) {
     $alive_host_stamps{$host1} = get_alive_link("time", $host1, 1);
     foreach my $host2 (@hosts) {
+      # reduce O(k^2) by some factor
       next if $host1 ge $host2;
+      my $re_checked = 0;
       my ($point, $split, $size1, $size2);
       for (my $retry = 2; $retry > 0; $retry--) {
 	($point, $split, $size1, $size2) = get_common_ancestor($basedir, $host1, $host2);
@@ -3699,6 +3701,7 @@ sub detect_splitbrain {
 	# Workaround races.
 	sleep(0);
       }
+    re_check:
       if ($split) {
 	$ok = 0;
 	if ($do_report) {
@@ -3725,6 +3728,13 @@ sub detect_splitbrain {
 	  if (!defined($involved_hosts{$host2}) || $size2 > $involved_hosts{$host2}) {
 	    $involved_hosts{$host2} = $size2;
 	  }
+	}
+	if (!$re_checked++) {
+	  # Safeguard against unknown roles (primary vs secondary)
+	  # Also try the same pair in reverse roles, the result _might_ be different
+	  # due to some mathematical reasons ;)
+	  ($point, $split, $size2, $size1) = get_common_ancestor($basedir, $host2, $host1);
+	  goto re_check;
 	}
       }
     }
