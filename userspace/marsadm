@@ -3180,6 +3180,19 @@ sub _sync_finished {
 sub check_sync_finished {
   my ($res, $peer, $do_force) = @_;
   check_sizes(@_);
+  my $lnk = "$mars/resource-$res/actual-$peer/is-primary";
+  my $is_recent = is_link_recent($lnk, $window);
+  my $is_primary = get_link($lnk, 1);
+  if (defined($is_primary) && $is_primary) {
+    # By definition, a primary does not need to sync
+    if ($is_recent) {
+      return;
+    }
+  }
+  if (!$is_recent) {
+    lwarn "Cannot _reliably_ determine the current role of '$peer'\n";
+    lwarn "Apparently, '$peer' _seems_ to be in primary role.\n" if $is_primary;
+  }
   if (!_sync_finished($res, $peer)) {
     lwarn "Sync has not yet finished on host '$peer'\n";
     if ($peer eq $host) {
@@ -6713,7 +6726,13 @@ sub primary_phase0 {
 	  $name =~ m:/data-(.+):;
 	  my $peer = $1;
 	  next if ($peer eq $old || $peer eq $host);
-	  check_sync_finished($res, $peer, $allow_anyway);
+	  # Only abort when peer is known to be alive.
+	  # Otherwise any problem should spit warnings like hell.
+	  my $alive_stamp = get_alive_link("time", $peer);
+	  my $allow_this = (!defined($alive_stamp) ||
+			    $alive_stamp eq "" ||
+			    !is_recent($alive_stamp));
+	  check_sync_finished($res, $peer, $allow_anyway || $allow_this);
 	}
       }
     }
