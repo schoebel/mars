@@ -3683,9 +3683,13 @@ sub detect_splitbrain {
   return $detected_splits{$res} if defined($detected_splits{$res});
   my $basedir = "$mars/resource-$res";
   my $ok = 1;
+  my %alive_host_stamps;
+  my %involved_logfiles;
+  my %involved_hosts;
   my @list = lamport_glob("$mars/resource-$res/replay-*");
   my @hosts = map { $_ =~ s:.*/replay-::; $_ } @list;
   foreach my $host1 (@hosts) {
+    $alive_host_stamps{$host1} = get_alive_link("time", $host1, 1);
     foreach my $host2 (@hosts) {
       next if $host1 ge $host2;
       my ($point, $split, $size1, $size2);
@@ -3698,7 +3702,6 @@ sub detect_splitbrain {
       if ($split) {
 	$ok = 0;
 	if ($do_report) {
-	  my $age = "";
 	  if ($point) {
 	    my $log = "$basedir/$point";
 	    $log =~ s:,.+::;
@@ -3708,16 +3711,66 @@ sub detect_splitbrain {
 	    my $stamp2 = get_link_stamp($vers);
 	    # take the minimum
 	    $stamp = $stamp2 if !$stamp || ($stamp2 && $stamp2 < $stamp);
-	    $age = " age ~" . seconds2human(mars_time() - $stamp) if $stamp;
+	    # for safety, report the eldest timestamp
+	    if (!$involved_logfiles{$point} || $stamp < $involved_logfiles{$point}) {
+	      $involved_logfiles{$point} = $stamp;
+	    }
+	  } elsif (!defined($involved_logfiles{$point})) {
+	    $involved_logfiles{$point} = 0;
 	  }
-	  lwarn "SPLIT BRAIN of resource '$res' after logfile '$point'$age\n";
-	  if ($point) {
-	    lwarn "   hostA = '$host1' logfile_amount='$size1' (" . number2human($size1) . ")\n";
-	    lwarn "   hostB = '$host2' logfile_amount='$size2' (" . number2human($size2) . ")\n";
+	  # for safety, report the biggest size
+	  if (!defined($involved_hosts{$host1}) || $size1 > $involved_hosts{$host1}) {
+	    $involved_hosts{$host1} = $size1;
 	  }
-	} else {
-	  return $ok;
+	  if (!defined($involved_hosts{$host2}) || $size2 > $involved_hosts{$host2}) {
+	    $involved_hosts{$host2} = $size2;
+	  }
 	}
+      }
+    }
+  }
+  # report any relevant logfile split-points
+  if (%involved_logfiles) {
+    foreach my $point (sort alphanum_cmp keys(%involved_logfiles)) {
+      my $stamp = $involved_logfiles{$point};
+      my $age = "";
+      if ($stamp) {
+	$age = " age ~" . seconds2human(mars_time() - $stamp);
+      }
+      lwarn "SPLIT BRAIN of resource '$res' after logfile '$point'$age\n";
+    }
+  }
+  # report involved peer status (as far as known)
+  if (%involved_hosts) {
+    my $nr = 0;
+    foreach my $peer (sort alphanum_cmp keys(%involved_hosts)) {
+      $nr++;
+      my $size = $involved_hosts{$peer};
+      my $txt = "";
+      my $lnk = "$mars/resource-$res/actual-$peer/is-primary";
+      my $is_primary = get_link($lnk, 1);
+      if ($is_primary) {
+	if ($peer eq $real_host) {
+	  $txt = " primary";
+	} else {
+	  $txt = " reported-primary";
+	}
+      } elsif (!defined($is_primary) || $is_primary eq "") {
+	  $txt = " unknown-role";
+      }
+      my $peer_ip = get_link("$mars/ips/ip-$peer", 1);
+      my $stamp = $alive_host_stamps{$peer};
+      if (!defined($peer_ip) || $peer_ip eq "") {
+	$txt .= " unconfigured IP";
+      } elsif (!defined($stamp) || $stamp eq "") {
+	$txt .= " unreachable";
+      } elsif (!is_recent($stamp, $window)) {
+	$txt .= " interrupted ~" . seconds2human(mars_time() - $stamp);
+      }
+      if (defined($size) && $size > 0) {
+	lwarn "   host$nr = '$peer'$txt logfile_amount='$size' (" . number2human($size) . ")\n";
+      } else {
+	lwarn "   host$nr = '$peer'$txt (unknown logfile size and age)\n";
       }
     }
   }
@@ -3730,9 +3783,9 @@ sub detect_splitbrain {
       if ($nr == $oldnr) {
 	$ok = 0;
 	lwarn "SPLIT BRAIN at resource '$res' detected: duplicate logfile number $nr\n";
-	lwarn "hint: first resolve split brain by 'leave-resource' or 'invalidate'\n";
-	lwarn "hint: if this does not help, try cleanup via 'log-purge-all'\n";
-	lwarn "hint: if this does not help, try 'log-purge-all --force'\n";
+	lhint "first resolve split brain by 'leave-resource' or 'invalidate'\n";
+	lhint "if this does not help, try cleanup via 'log-purge-all'\n";
+	lhint "if this does not help, try 'log-purge-all --force'\n";
 	last;
       }
       $oldnr = $nr;
