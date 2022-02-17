@@ -63,10 +63,12 @@ void _do_resubmit(struct client_channel *ch)
 
 	mutex_lock(&output->mutex);
 	if (!list_empty(&ch->wait_list)) {
-		struct list_head *first = ch->wait_list.next;
-		struct list_head *last = ch->wait_list.prev;
-		struct list_head *old_start = output->mref_list.next;
+		struct list_head *first = READ_ONCE(ch->wait_list.next);
+		struct list_head *last = READ_ONCE(ch->wait_list.prev);
+		struct list_head *old_start = READ_ONCE(output->mref_list.next);
+
 #define list_connect __list_del // the original routine has a misleading name: in reality it is more general
+
 		list_connect(&output->mref_list, first);
 		list_connect(last, old_start);
 		INIT_LIST_HEAD(&ch->wait_list);
@@ -804,7 +806,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 		struct client_mref_aspect *mref_a;
 		struct mref_object *mref;
 		
-		tmp = tmp_list.next;
+		tmp = READ_ONCE(tmp_list.next);
 		list_del_init(tmp);
 		mref_a = container_of(tmp, struct client_mref_aspect, tmp_head);
 		mref = mref_a->object;
@@ -915,7 +917,7 @@ static int sender_thread(void *data)
 		/* Grab the next mref from the queue
 		 */
 		mutex_lock(&output->mutex);
-		tmp = output->mref_list.next;
+		tmp = READ_ONCE(output->mref_list.next);
 		if (tmp == &output->mref_list) {
 			mutex_unlock(&output->mutex);
 			MARS_DBG("empty %d %d\n", output->get_info, brick_thread_should_stop());
