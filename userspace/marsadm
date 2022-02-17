@@ -7402,7 +7402,14 @@ sub eval_fn {
       # prefix *crement operators
       if ($arg1 =~ m/^([-+]{2})$/) {
 	my $op = $arg1;
-	$varname = parse_macro(shift, $env);
+	my $arg1 = shift;
+	$varname = parse_macro($arg1, $env);
+	if (!defined($varname)) {
+	  lwarn "macro processor: prefix operator '$op': varname '$arg1' sub-expansion yields 'undef'\n";
+	  $varname = "";
+	} elsif ($varname eq "") {
+	  lwarn "macro processor: prefix operator '$op': varname sub-expanded from argument '$arg1' is empty\n";
+	}
 	if ($op =~ m/^\+/) {
 	  $$env{$varname}++;
 	} else {
@@ -7410,6 +7417,12 @@ sub eval_fn {
 	}
       } else {
 	$varname = parse_macro($arg1, $env);
+	if (!defined($varname)) {
+	  lwarn "macro processor: varname argument '$arg1' sub-expansion yields 'undef'\n";
+	  $varname = "";
+	} elsif ($varname eq "") {
+	  lwarn "macro processor: varname sub-expanded from argument '$arg1' is empty\n";
+	}
       }
       my $result = "";
       if (defined($$env{$varname})) {
@@ -7432,6 +7445,9 @@ sub eval_fn {
 	# get last element when denoted
 	$index = scalar(@list) - 1 if ($index eq "" || $index eq "*");
 	$result = $list[$index];
+      }
+      if (!defined($result)) {
+	lwarn "macro processor: expansion of variable '$varname' yields 'undef'\n";
       }
       return $result;
     }
