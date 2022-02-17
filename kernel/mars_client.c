@@ -782,7 +782,9 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 	io_timeout *= HZ;
 	
 	mutex_lock(&output->mutex);
-	for (tmp = anchor->prev, prev = tmp->prev; tmp != anchor; tmp = prev, prev = tmp->prev) {
+	for (tmp = READ_ONCE(anchor->prev), prev = READ_ONCE(tmp->prev);
+	     tmp != anchor;
+	     tmp = prev, prev = READ_ONCE(tmp->prev)) {
 		struct client_mref_aspect *mref_a;
 
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
