@@ -46,6 +46,7 @@ my $compat_deletions = 1;
 my $compat_alivelinks = 1;
 my $threshold = 10 * 1024 * 1024;
 my $window = 60;
+my $stuck_seconds = 3600;
 my $keep_backup_hours = 24 * 7;
 my $verbose = 0;
 my $max_deletions = 512;
@@ -8585,6 +8586,9 @@ sub make_env {
      "timeout"   => $timeout,
      "threshold" => $threshold,
      "window"    => $window,
+     "stuck-seconds"          => $stuck_seconds,
+     "keep-backup-hours"      => $keep_backup_hours,
+     "keep-backup-seconds"    => $keep_backup_hours * 3600,
      "force"     => $force,
      "dry-run"   => $dry_run,
      "verbose"   => $verbose,
@@ -8981,7 +8985,14 @@ my %complex_macros =
    => "%let{amount}{%human-numbers{}{}{}{%fetch-rest{}}}"
    .  "%let{rate}{%human-numbers{}{}{}{%fetch-rate{}}}"
    .  "%let{remain}{%human-seconds{%fetch-remain{}}}"
-   .  "%let{age}{%if{%and{%fetch-remain{}}{%>={%fetch-age{}}{%{window}}}}{ age: %human-seconds{%fetch-age{}}}}"
+   .  "%let{my-age}{%fetch-age{}}"
+   .  "%let{has-age}{%and{%fetch-remain{}}{%>={%{my-age}}{%{window}}}}"
+   .  "%let{stuck-age}{%{stuck-seconds}}"
+   .  "%let{has-stuck-age}{%and{%{has-age}}{%is-module-loaded{}}{%>{%{my-age}}{%{stuck-age}}}}"
+   .  "%if{%{has-stuck-age}}{"
+   .    "%warn{replay of %{res} appears to be stuck for ~%human-seconds{%{my-age}}\n}"
+   .  "}"
+   .  "%let{age}{%if{%{has-age}}{ age: %human-seconds{%{my-age}}}}"
    .  "%let{lag}{%if{%and{%fetch-remain{}}{%>={%fetch-lag{}}{%{window}}}}{ lag: %human-seconds{%fetch-lag{}}}}"
    .  "       > fetch: %{amount}%{age}%{lag} rate: %{rate}/s remaining: %{remain}\n",
 
@@ -10399,6 +10410,10 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Current default: $window
     Treat other cluster nodes as healthy when some communcation has
     occured during the given time window.
+  --stuck-seconds=<seconds>
+    Current default: $stuck_seconds
+    Some warnings, like stucking fetch or replay, will appear in
+    \"marsadm view\" after this silence period.
   --keep-backup-hours=<hours>
   --keep-backups=<hours>
     link-purge-all and cron will delete old backup files and old
@@ -10591,6 +10606,9 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg =~ s/--window\s*=\s*([0-9]+)/$1/) {
     $window = $arg;
+    next;
+  } elsif ($arg =~ s/--stuck-seconds\s*=\s*([0-9]+)/$1/) {
+    $stuck_seconds = $arg;
     next;
   } elsif ($arg =~ s/--keep-backup(?:-hour)?s\s*=\s*([0-9]+)/$1/) {
     $keep_backup_hours = $arg;
