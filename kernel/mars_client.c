@@ -564,7 +564,6 @@ int receiver_thread(void *data)
 	atomic_inc(&brick->receiver_count);
         while (brick->power.button && !brick_thread_should_stop()) {
 		struct mars_cmd cmd = {};
-		struct list_head *tmp;
 
 		if (ch->recv_error) {
 			/* The protocol may be out of sync.
@@ -606,6 +605,9 @@ int receiver_thread(void *data)
 			break;
 		case CMD_CB:
 		{
+			struct list_head *anchor;
+			struct list_head *tmp;
+			struct list_head *tmp_next;
 			struct mref_object *mref = NULL;
 			struct client_mref_aspect *mref_a = NULL;
 			unsigned long id = READ_ONCE(cmd.cmd_int1);
@@ -613,7 +615,10 @@ int receiver_thread(void *data)
 			bool had_completed = false;
 
 			mutex_lock(&output->mutex);
-			for (tmp = output->hash_table[hash_index].next; tmp != &output->hash_table[hash_index]; tmp = tmp->next) {
+			anchor = &output->hash_table[hash_index];
+			for (tmp = READ_ONCE(anchor->next), tmp_next = READ_ONCE(tmp->next);
+			     tmp != anchor;
+			     tmp = tmp_next, tmp_next = READ_ONCE(tmp_next->next)) {
 				struct mref_object *tmp_mref;
 				struct client_mref_aspect *tmp_mref_a;
 
