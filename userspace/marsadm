@@ -7537,14 +7537,23 @@ sub eval_fn {
       $op = "&&" if $op eq "and";
       $op = "||" if $op eq "or";
       my $number = parse_macro($arg1, $env);
-      while (defined(my $next = shift)) {
-	$_ = $op;
-	if (/^&&$/)   { return 0 if !$number; }
-	if (/^\|\|$/) { return 1 if $number;  }
-	my $operand = parse_macro($next, $env);
-	$_ = $op;
-	if (/^&&$/)   { $number &= $operand; next; }
-	if (/^\|\|$/) { $number |= $operand; next; }
+      while (my $next_arg = shift) {
+	last unless defined($next_arg);
+	if ($op eq "&&") {
+	  return 0 if !$number;
+	}
+	if ($op eq "||") {
+	  return 1 if $number;
+	}
+	my $operand = parse_macro($next_arg, $env);
+	if ($op eq "&&") {
+	  $number &&= $operand;
+	  next;
+	}
+	if ($op eq "||") {
+	  $number ||= $operand;
+	  next;
+	}
 	ldie "bad shortcut operator '$op'";
       }
       return $number;
