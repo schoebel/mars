@@ -10001,7 +10001,7 @@ marsadm
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="17" columns="3">
+<lyxtabular version="3" rows="18" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -10643,6 +10643,95 @@ Careful when using this on extremely huge LVs where the sync may take serveral
  days, or weeks.
  It is your sysadmin decision what you want to prefer: restarting the sync,
  or planned handover.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+--ignore-deleted-peers=$number
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Only for experts - usually not needed - may be harmful - read the sourcecode!
 \end_layout
 
 \end_inset
