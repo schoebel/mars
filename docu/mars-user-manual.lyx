@@ -2668,6 +2668,390 @@ In the following sections, we assume that two RAID sets are already built,
 .
 \end_layout
 
+\begin_layout Section
+Setup / Install OS
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Setup-OS"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Installing a Linux distribution is outside the scope of this manual.
+ There are dozens of methods, each of them working differently in detail.
+ Here are only some rough hints for avoidance of problems with MARS:
+\end_layout
+
+\begin_layout Itemize
+Hostnames need to be entered into typical installers, e.g.
+ as used by major Linux distros.
+ In case you have selected a bad name, you can typically change it later,
+ e.g.
+ via your favourite tool like 
+\family typewriter
+yast
+\family default
+ or 
+\family typewriter
+zypper
+\family default
+ or 
+\family typewriter
+yum
+\family default
+ or the equivalent Debian / Ubuntu tools, and os on, or manally like 
+\family typewriter
+vi /etc/hostname
+\family default
+ followed by reboot, or similar.
+ However, do this only 
+\emph on
+before
+\emph default
+ MARS is configured.
+ Here are some 
+\series bold
+pitfalls you should know
+\series default
+:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ As is best practice since decades: only use 
+\emph on
+plain
+\emph default
+ hostnames, separated from domain names.
+ This means: the shell command 
+\family typewriter
+hostname
+\family default
+ should deliver exactly 1 word, without any dot.
+ Only use this name in later marsadm commands.
+\end_layout
+
+\begin_layout Enumerate
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Of course, you may also set a domain name as is typically reported by the
+ shell command 
+\family typewriter
+domainname
+\family default
+.
+ 
+\emph on
+Never
+\emph default
+ use domain names in later 
+\family typewriter
+marsadm
+\family default
+ commands! This will pay off, because then you can easily change the domainname(
+s) later, e.g.
+ when your machine is expedited to a different location (like moves of whole
+ datacenters), or you may configure 
+\emph on
+multiple
+\emph default
+ domainnames under certain circumstances.
+ Only the 
+\emph on
+hostname
+\emph default
+ has to be treated as an 
+\series bold
+immutable ID of your machine
+\series default
+.
+ Other hardware or software configurations like MAC addresses or IP addresses
+ or DNS zones etc will be typically reconfigurable (when done properly).
+\end_layout
+
+\begin_layout Enumerate
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Best practice: start your immutable hostname with a lowercase letter from
+ 
+\family typewriter
+a
+\family default
+ to 
+\family typewriter
+z
+\family default
+, and avoid uppercase letters completely.
+ Avoid non-English letters from other languages.
+ Avoid utf-8 etc.
+ You may include some numbers, and the 
+\family typewriter
+marsadm
+\family default
+ tool will later automatically sort these parts numerically, even when the
+ number of digits is varying.
+ Do not use the underscore symbol 
+\family typewriter
+_
+\family default
+ but simply replace it with an 
+\emph on
+infix
+\emph default
+ dash.
+\end_layout
+
+\begin_layout Enumerate
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Hint: use 
+\emph on
+short
+\emph default
+ but 
+\emph on
+recognizable
+\emph default
+ hostnames according to the Unix Philosophy.
+ You will likely type these names very often in the following years! In
+ a huge company, prefer a 
+\emph on
+systematic
+\emph default
+ naming + numbering scheme which is easy usable by a bigger sysadmin team.
+\end_layout
+
+\begin_layout Enumerate
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Hint: for long-distance replication, you should encode the 
+\emph on
+datacenter name
+\emph default
+ resp the 
+\emph on
+datacenter region
+\emph default
+ (or similar) with 2 or 3 lowercase letters.
+ This makes it 
+\series bold
+less risky
+\series default
+ for humans during midnight incidents to get caught by 
+\series bold
+typos
+\series default
+!
+\begin_inset Newline newline
+\end_inset
+
+Example: pair the hostname 
+\family typewriter
+cpu-wc1234
+\family default
+ with 
+\family typewriter
+cpu-me1234
+\family default
+ where cpu denotes the machine class, 
+\family typewriter
+wc
+\family default
+ means the 
+\begin_inset Quotes eld
+\end_inset
+
+west coast
+\begin_inset Quotes erd
+\end_inset
+
+ datacenter while 
+\family typewriter
+me
+\family default
+ means the 
+\begin_inset Quotes eld
+\end_inset
+
+middle east
+\begin_inset Quotes erd
+\end_inset
+
+ datacenter, and 1234 is the 
+\emph on
+cluster
+\emph default
+ number, not a sequential machine number.
+ Thus you don't need to lookup partner machine names or numbers from some
+ database, even when you just woke up from your sleep at midnight.
+\end_layout
+
+\begin_layout Enumerate
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Avoid some silly hostnames like 
+\family typewriter
+none
+\family default
+ / 
+\family typewriter
+all
+\family default
+ / 
+\family typewriter
+any
+\family default
+ / 
+\family typewriter
+local
+\family default
+ / 
+\family typewriter
+localhost
+\family default
+ which are reserved specifiers for 
+\family typewriter
+marsadm
+\family default
+.
+ When unsure, consult 
+\family typewriter
+marsadm --help
+\family default
+.
+\end_layout
+
+\begin_layout Enumerate
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ NEVER EVER modify the hostname 
+\emph on
+after
+\emph default
+ MARS is already installed, or is even already running!
+\end_layout
+
+\begin_layout Enumerate
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ If you 
+\emph on
+really
+\emph default
+ need to change the hostname, first stop all your applications, then decommissio
+n MARS via 
+\family typewriter
+marsadm leave-resource
+\family default
+ and 
+\family typewriter
+marsadm leave-cluster
+\family default
+ commands (see later descriptions), and unload the MARS kernel module via
+ 
+\family typewriter
+rmmod mars
+\family default
+.
+ After decommisioning and deconfiguration of the stack parts 
+\emph on
+above
+\emph default
+ of 
+\family typewriter
+/dev/lv/mydata
+\family default
+ (see the following sections), you can change the hostname, and finally
+ you can re-configure the formerly deconfigured parts under the new hostname,
+ as described in the following sections.
+\end_layout
+
+\begin_layout Enumerate
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Hint: by not decommissionig your disks 
+\family typewriter
+/dev/lv/mydata
+\family default
+, you can keep your valuable data.
+\end_layout
+
+\end_deeper
 \begin_layout Subsection
 Setup LVM
 \begin_inset CommandInset label
@@ -2689,7 +3073,11 @@ name "subsec:Setup-LVM"
 \end_inset
 
  Execute the following instructions only once after bare metal hardware
- deployment, or if you want to re-install your server.
+ deployment, or if you want to 
+\emph on
+fully
+\emph default
+ re-install your server.
  Otherwise, you may delete existing data.
 \end_layout
 
