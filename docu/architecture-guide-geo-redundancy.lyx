@@ -1119,12 +1119,7 @@ name "chap:Important-Concepts"
 \end_layout
 
 \begin_layout Standard
-This chapter is 
-\emph on
-short
-\emph default
-.
- Recommended reading for 
+Recommended reading for 
 \emph on
 everyone
 \emph default
@@ -1197,11 +1192,11 @@ Second-order ignorance
 enterprise-critical
 \series default
  areas.
- You can also risk your 
+ You may also put your 
 \series bold
 carreer
 \series default
-.
+ in risk.
 \end_layout
 
 \begin_layout Section
@@ -5867,6 +5862,37 @@ name "sec:What-is-Scalability"
 \end_layout
 
 \begin_layout Standard
+If you know the zones from the following picture, you may skip this section:
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/principle-scalability.fig
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 The term 
 \begin_inset Quotes eld
 \end_inset
@@ -5875,7 +5901,7 @@ scalability
 \begin_inset Quotes erd
 \end_inset
 
- is 
+ can be 
 \series bold
 \emph on
 dangerous
@@ -6223,7 +6249,7 @@ more CPUs
 \begin_inset Quotes erd
 \end_inset
 
- depends on the already deployed hardware.
+ depends on already deployed hardware.
  HDD or SSD addition is possible during operations, provided you have bought
  some enclosures with hot-swappable free slots.
  RAM or CPU power requires more preparations.
@@ -6340,6 +6366,48 @@ scalability
 \end_inset
 
 
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\series bold
+Scalability isn't for free.
+
+\series default
+ Mixup of terms and their meaning can easily endanger your company.
+ We will see an example later.
+ So: what does 
+\begin_inset Quotes eld
+\end_inset
+
+scalability
+\begin_inset Quotes erd
+\end_inset
+
+ or their fuzzy marketing descendants like 
+\begin_inset Quotes eld
+\end_inset
+
+planet scalability
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\emph on
+really
+\emph default
+ mean?
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -6737,6 +6805,344 @@ status open
 status open
 
 \begin_layout Plain Layout
+
+\series bold
+Example: Fork Bombs and OOM Killer
+\end_layout
+
+\end_inset
+
+When 
+\begin_inset Quotes eld
+\end_inset
+
+unlimited scalability
+\begin_inset Quotes erd
+\end_inset
+
+ would be possible, then it 
+\emph on
+must
+\emph default
+ be possible to literally 
+\begin_inset Quotes eld
+\end_inset
+
+run a fork bomb
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Besides classical attacks via fork bombs, there may exist 
+\emph on
+valid use cases
+\emph default
+ for your customers or websurfers for running an 
+\emph on
+application
+\emph default
+ which behaves 
+\emph on
+similar to
+\emph default
+ a fork bomb.
+ Details are out of scope here.
+ By ruling out such-alike 
+\begin_inset Quotes eld
+\end_inset
+
+applications
+\begin_inset Quotes erd
+\end_inset
+
+ e.g.
+ via customer contract, you can avoid much of the adverse effects.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+ on your system, whether it runs at a NUMA box providing 
+\begin_inset Quotes eld
+\end_inset
+
+vertical scalability
+\begin_inset Quotes erd
+\end_inset
+
+, or on a BigCluster providing 
+\begin_inset Quotes eld
+\end_inset
+
+horizontal scalability
+\begin_inset Quotes erd
+\end_inset
+
+, or any combination, or whatever else.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\series bold
+Infiniteness
+\series default
+ or 
+\series bold
+
+\begin_inset Quotes eld
+\end_inset
+
+unlimited
+\begin_inset Quotes erd
+\end_inset
+
+
+\series default
+ is a 
+\emph on
+very bold claim
+\emph default
+.
+ Do not promise suchalike.
+ Otherwise, you may need to explain why something does not work as expected,
+ e.g.
+ 
+\end_layout
+
+\begin_layout Itemize
+when your 
+\series bold
+Linux kernel
+\series default
+ reacts with customer-visible major slowdown, or with OOM Killer = Out Of
+ Memory Killer), and/or
+\end_layout
+
+\begin_layout Itemize
+when your 
+\series bold
+BigCluster
+\series default
+ is very quickly running out of capacity, and/or
+\end_layout
+
+\begin_layout Itemize
+when your 
+\series bold
+network
+\series default
+ is running out of capacity, and/or
+\end_layout
+
+\begin_layout Itemize
+when your 
+\series bold
+budget
+\series default
+ is running out of capacity, and/or
+\end_layout
+
+\begin_layout Itemize
+when your customers can 
+\series bold
+sue
+\series default
+ you for unmet contracts, and/or
+\end_layout
+
+\begin_layout Itemize
+other 
+\series bold
+relevant topics
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+Consequence: you might be forced to admit that 
+\begin_inset Quotes eld
+\end_inset
+
+arbitrary scalability
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+planet scalability
+\begin_inset Quotes erd
+\end_inset
+
+ (or whatever you name it) 
+\emph on
+cannot exist
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Another type of boldness: do not argue at 
+\emph on
+architectural layer
+\emph default
+ that one of the above 
+\emph on
+examples
+\emph default
+ (e.g.
+ an OOM killer) would 
+\begin_inset Quotes eld
+\end_inset
+
+show
+\begin_inset Quotes erd
+\end_inset
+
+ that 
+\begin_inset Quotes eld
+\end_inset
+
+horizontal scaling
+\begin_inset Quotes erd
+\end_inset
+
+ would be better than 
+\begin_inset Quotes eld
+\end_inset
+
+vertical scaling
+\begin_inset Quotes erd
+\end_inset
+
+, or would even 
+\begin_inset Quotes eld
+\end_inset
+
+prove
+\begin_inset Quotes erd
+\end_inset
+
+ the opposite, etc.
+ It is simply 
+\emph on
+unfair
+\emph default
+ to compare 
+\emph on
+incomparable
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Even some more or less 
+\begin_inset Quotes eld
+\end_inset
+
+comparable
+\begin_inset Quotes erd
+\end_inset
+
+ solutions like 
+\family typewriter
+nginx
+\family default
+ vs 
+\family typewriter
+Apache
+\family default
+, or mismatches like solutions vs solution 
+\emph on
+classes
+\emph default
+ like Docker-based 
+\family typewriter
+AppEngine
+\family default
+s vs 
+\emph on
+whatever
+\emph default
+, should not be used for an 
+\emph on
+architectural
+\emph default
+ argumentation.
+\end_layout
+
+\end_inset
+
+ solutions
+\emph default
+ with each other, e.g.
+ by presenting 
+\emph on
+examples
+\emph default
+ of some operational incidents, or similar.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Always take 
+\series bold
+important given context
+\series default
+ (like the use case, your workload, etc) into account, as well as 
+\series bold
+all relevant parameters
+\series default
+ like TCO etc.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
 Example: Scalability of MARS
 \end_layout
 
@@ -6796,7 +7202,7 @@ generic information
 
 \begin_layout Standard
 \noindent
-Here is a picture of the important 
+Once again, here is the picture of the important 
 \series bold
 Zones of Scalability
 \series default
