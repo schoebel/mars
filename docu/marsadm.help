@@ -17,6 +17,12 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Allow primary handover even when some sync is running somewhere.
     This is less rude than --force because it checks for all else
     preconditions.
+  --ignore-deleted-peers=<number>
+    0 = off
+    1 = only ignore deleted peers at reports (default)
+    2 = Only for EXPERTS. This may be dangerous.
+    Ignorance about the existence of a peer may be very harmful
+    in a Distributed System.
   --dry-run
     Don't modify the symlink tree, but tell what would be done.
     Use this before starting potentially harmful actions such as
@@ -72,6 +78,11 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Current default: 60
     Treat other cluster nodes as healthy when some communcation has
     occured during the given time window.
+  --stuck-seconds=<seconds>
+    Current default: 3600
+    Some warnings, like stucking fetch or replay, will appear in
+    "marsadm view" after this silence period.
+  --keep-backup-hours=<hours>
   --keep-backups=<hours>
     link-purge-all and cron will delete old backup files and old
     symlinks after this number of hours.
@@ -118,6 +129,10 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Override the default ssh commandline options. Also used for rsync.
   --macro=<text>
     Handy for testing short macro evaluations at the command line.
+
+<hostname> =
+  [a-z][-a-z0-9]*
+  with the exception of reserved names: none|all|any|local|localhost
 
 <command> =
   activate-guest
@@ -235,9 +250,9 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     usage: get-emergency-limit <resource_name>
     Counterpart of set-emergency-limit (per-resource emergency limit)
 
-  get-sync-limit-value
+  get-global-sync-limit-value
     usage: get-sync-limit-value (no parameters)
-    For retrieval of the value set by set-sync-limit-value.
+    For retrieval of the value set by set-global-sync-limit-value.
 
   get-systemd-unit
     usage: get-systemd-unit <resource_name>
@@ -569,7 +584,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     "marsadm --help" for a list of compression feature names,
     which must be separated by | symbols.
 
-  set-sync-limit-value
+  set-global-sync-limit-value
     usage: set-sync-limit-value <new_value>
     Set the maximum number of resources which should by syncing
     concurrently.
