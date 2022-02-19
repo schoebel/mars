@@ -151,6 +151,17 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable138
+	* Critical fix: scarce list corruption could lead to
+	  kernel stacktraces, requiring a reboot.
+	  It was not reproducible, only observed at certain hardware
+	  classes and after tenthousands of operating hours under
+	  certain load conditions.
+	  Please update when running mixed-role clusters.
+	* Various marsadm improvements and fixes.
+	* Corresponding doc updates.
+	* Architecture guide: more scalability examples.
+
 mars0.1astable137
 	* Major fix: scarce race with network problems could
 	  have led to a memory leak.
