@@ -4561,7 +4561,15 @@ sub lowlevel_set_host_ip {
 
 sub lowlevel_delete_host {
   my ($cmd, $peer) = @_;
-  check_id($peer, 1);
+  if ($force) {
+    eval {
+      check_id($peer, 1);
+      1;
+    } or
+      lwarn "ATTENTION - you said --force, thus I will continue AT YOUR RISK\n";
+  } else {
+    check_id($peer, 1);
+  }
   my $path = "$mars/ips/ip-$peer";
   my $old = get_link($path);
   lprint "Removing host '$peer' old IP '$old'\n";
