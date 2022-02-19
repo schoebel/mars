@@ -130,6 +130,12 @@ sub lwarn {
   llog("WARNING: $text");
 }
 
+sub lhint {
+  my ($text) = @_;
+  lprint_stderr "   HINT: $text";
+  llog("HINT: $text");
+}
+
 ##################################################################
 
 # basic helpers
@@ -2873,11 +2879,27 @@ sub activate_guest {
 # (also check for existence)
 
 sub check_id {
-  my ($str, $must_exist) = @_;
+  my ($str, $must_exist, $abort_reserved, $allow_specs) = @_;
   ldie "identifier '$str' is empty" unless defined($str) && $str;
   ldie "identifier '$str' has disallowed characters" unless $str =~ m/^[A-Za-z0-9_][-A-Za-z0-9_]*$/;
   ldie "identifier '$str' is too long (only 63 chars supported according to RFC 1123)" if length($str) > 63;
-  ldie "identifier '$str' is a RESERVED special name: forbidden here.\n" if $str =~ $match_reserved_id;
+  if ($str =~ $match_reserved_id) {
+    if ($allow_specs &&
+	$str eq "all") {
+      lhint "using specifier '$str'\n" if $verbose > 2;
+    } elsif (!$abort_reserved) {
+      lwarn "identifier '$str' is a RESERVED special name.\n";
+    } elsif ($abort_reserved < 0) {
+      lhint "using reserved name '$str'\n" if $verbose > 2;
+    } else {
+      lwarn "identifier '$str' is a RESERVED special name: forbidden here.\n";
+      if (!$force) {
+	ldie "reserved names are dangerous.\n";
+      } else {
+	lwarn "due to --force, I continue with reserved name '$str' AT YOUR RISK.\n";
+      }
+    }
+  }
   if (defined($must_exist) && $must_exist) {
     my $ip_path = "$mars/ips/ip-$str";
     unless (get_link($ip_path, 1)) {
@@ -2891,10 +2913,10 @@ sub check_id {
 }
 
 sub check_id_list {
-  my ($str, $must_exist) = @_;
+  my ($str, $must_exist, $abort_reserved, $allow_specs) = @_;
   ldie "comma-separated list '$str' has disallowed characters" unless $str =~ m/^[A-Za-z0-9_][-A-Za-z0-9_,]*$/;
   foreach my $id (split(",", $str)) {
-    check_id($id, $must_exist);
+    check_id($id, $must_exist, $abort_reserved, $allow_specs);
   }
 }
 
@@ -4235,7 +4257,7 @@ sub lowlevel_ls_host_ips {
 
 sub lowlevel_set_host_ip {
   my ($cmd, $peer, $ip) = @_;
-  check_id($peer);
+  check_id($peer, 0, 1);
   if (!$ip) {
     $ip = _get_ip($peer);
   }
@@ -4301,7 +4323,7 @@ sub set_connect_pref_list {
     lprint "$value\n";
     return;
   }
-  check_id_list($list, 1);
+  check_id_list($list, 1, 1);
   set_link($list, $dst);
 }
 
@@ -4744,7 +4766,7 @@ sub create_res {
 
   ldie "undefined device or size argument\n" unless $dev;
   $appear = $res if !$appear;
-  check_id($appear) if $appear;
+  check_id($appear, 0, 1) if $appear;
 
   my $resdir = "$mars/resource-$res";
   if ($create) {
@@ -10227,7 +10249,7 @@ foreach my $arg (@ARGV) {
 
 # some postponed checks
 foreach my $check_arg (@check_ids) {
-  check_id($check_arg, 1);
+  check_id($check_arg, 1, 1);
 }
 
 my $cmd = shift @args || helplist "command argument is missing\n";
@@ -10310,12 +10332,12 @@ if ($cmd =~ "show|cron") {
   $res = "";
 } elsif ($cmd =~ m/^set-/) {
   $res = shift @args || helplist "resource argument is missing\n";
-  check_id_list($res);
+  check_id_list($res, 0, 1, 1);
 } elsif ($cmd =~ m/^(join|merge)-cluster$/) {
   $res = shift @args || helplist "peer argument is missing\n";
 } elsif (!($cmd =~ m/^(create|split|leave|wait|update)-cluster|merge-cluster-list|create-uuid|cat|[a-z]+-file/)) {
   $res = shift @args || helplist "resource argument is missing\n";
-  check_id_list($res);
+  check_id_list($res, 0, 1, 1);
 }
 
 
