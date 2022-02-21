@@ -434,8 +434,8 @@ int _next_state(struct copy_brick *brick, unsigned index, loff_t pos)
 	struct mref_object *mref0;
 	struct mref_object *mref1;
 	struct copy_state *st;
-	char state;
-	char next_state;
+	enum _copy_state state;
+	enum _copy_state next_state;
 	bool do_restart = false;
 	int progress = 0;
 	int status;

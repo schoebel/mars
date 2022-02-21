@@ -41,7 +41,7 @@ extern int mars_copy_write_max_fly;
 extern atomic_t global_copy_read_flight;
 extern atomic_t global_copy_write_flight;
 
-enum {
+enum _copy_state {
 	COPY_STATE_RESET    = -1,
 	COPY_STATE_START    = 0, // don't change this, it _must_ be zero
 	COPY_STATE_START2,
@@ -52,12 +52,12 @@ enum {
 	COPY_STATE_WRITTEN,
 	COPY_STATE_CLEANUP,
 	COPY_STATE_FINISHED,
-};
+} __packed;
 
 struct copy_state {
 	struct mref_object *table[2];
 	bool active[2];
-	char state;
+	enum _copy_state state;
 	bool writeout;
 	short prev;
 	unsigned short len;
