@@ -87,29 +87,32 @@ atomic_t global_copy_write_flight;
 
 ///////////////////////// own helper functions ////////////////////////
 
-/* TODO:
+/* Historic. Now in production for years. Here my old ideas:
+ *
  * The clash logic is untested / alpha stage (Feb. 2011).
  *
  * For now, the output is never used, so this cannot do harm.
- *
- * In order to get the output really working / enterprise grade,
- * some larger test effort should be invested.
  */
 static inline
-void _clash(struct copy_brick *brick)
+void notify_clash(struct copy_brick *brick, bool do_wake)
 {
-	set_bit(0, &brick->clash);
+	WRITE_ONCE(brick->clash, true);
+	smp_mb();
 	atomic_inc(&brick->total_clash_count);
+	if (!do_wake)
+		return;
 	WRITE_ONCE(brick->trigger, true);
 	brick_wake_smp(&brick->event);
 }
 
 static inline
-int _clear_clash(struct copy_brick *brick)
+bool clear_clash(struct copy_brick *brick)
 {
-	int old;
-	old = test_and_clear_bit(0, &brick->clash);
-	return old;
+	bool cleared;
+
+	cleared = cmpxchg(&brick->clash, true, false);
+	smp_mb();
+	return cleared;
 }
 
 /* Current semantics (NOT REALLY IMPLEMENTED because OUTPUT IS NOT IN USE)
@@ -315,7 +318,7 @@ void copy_endio(struct generic_callback *cb)
 exit:
 	if (unlikely(error < 0)) {
 		WRITE_ONCE(st->error, error);
-		_clash(brick);
+		notify_clash(brick, false);
 	}
 	WRITE_ONCE(st->active[queue], false);
 	if (mref->ref_flags & MREF_WRITE) {
@@ -357,7 +360,7 @@ int _make_mref(struct copy_brick *brick,
 	int status = -EAGAIN;
 
 	/* Does it make sense to create a new mref right here? */
-	if (brick->clash)
+	if (READ_ONCE(brick->clash))
 		goto done;
 	status = -EINVAL;
 	if (current_pos < 0 || end_pos <= 0)
@@ -834,7 +837,6 @@ restart:
 	default:
 		MARS_ERR("illegal state %d at index %u\n",
 			 state, index);
-		_clash(brick);
 		progress = -EILSEQ;
 	}
 
@@ -846,7 +848,7 @@ idle:
 			WRITE_ONCE(st->error, progress);
 		MARS_DBG("progress = %d\n", progress);
 		progress = 0;
-		_clash(brick);
+		notify_clash(brick, false);
 	} else if (do_restart) {
 		goto restart;
 	} else if (st->state != next_state) {
@@ -872,6 +874,27 @@ idle:
 }
 
 static
+bool wait_reset_clash(struct copy_brick *brick, bool do_reset)
+{
+	if (!READ_ONCE(brick->clash))
+		return false;
+
+	if (atomic_read(&brick->copy_read_flight) + atomic_read(&brick->copy_write_flight) > 0) {
+		/* wait until all pending copy IO has finished
+		 */
+		return true;
+	}
+
+	if (do_reset) {
+		MARS_DBG("clash\n");
+		_clear_all_mref(brick);
+		_clear_state_table(brick);
+		clear_clash(brick);
+	}
+	return false;
+}
+
+static
 int _run_copy(struct copy_brick *brick, loff_t this_start)
 {
 	int all_max;
@@ -880,19 +903,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 	int progress;
 	bool is_first;
 
-	if (unlikely(_clear_clash(brick))) {
-		MARS_DBG("clash\n");
-		if (atomic_read(&brick->copy_read_flight) + atomic_read(&brick->copy_write_flight) > 0) {
-			/* wait until all pending copy IO has finished
-			 */
-			_clash(brick);
-			MARS_DBG("re-clash\n");
-			brick_msleep(100);
-			return 0;
-		}
-		_clear_all_mref(brick);
-		_clear_state_table(brick);
-	}
+	if (READ_ONCE(brick->clash) &&
+	    wait_reset_clash(brick, false))
+		return 0;
 
 	if (this_start < brick->copy_last)
 		this_start = brick->copy_last;
@@ -941,7 +954,8 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 	}
 
 	// check the resulting state: can we advance the copy_last pointer?
-	if (this_start == brick->copy_last && progress && !brick->clash) {
+	if (progress &&
+	    this_start == brick->copy_last) {
 		int count = 0;
 		int error;
 
@@ -1017,6 +1031,12 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			MARS_IO("new copy_last += %d => %lld\n", count, brick->copy_last);
 			_update_percent(brick, false);
 		}
+	}
+	/* when necessary, reset and allow restart */
+	if (READ_ONCE(brick->clash) &&
+	    wait_reset_clash(brick, true)) {
+		brick_msleep(100);
+		notify_clash(brick, true);
 	}
 	return progress;
 }
@@ -1257,7 +1277,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 "verify_error_count = %d "
 		 "low_dirty = %d "
 		 "is_aborting = %d "
-		 "clash = %lu | "
+		 "clash = %d | "
 		 "total clash_count = %d | "
 		 "io_flight = %d "
 		 "copy_read_flight = %d "

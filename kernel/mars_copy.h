@@ -105,7 +105,7 @@ struct copy_brick {
 	bool terminated;
 	loff_t stable_copy_start;
 	loff_t stable_copy_end;
-	unsigned long clash;
+	bool clash;
 	atomic_t total_clash_count;
 	atomic_t io_flight;
 	atomic_t copy_read_flight;
