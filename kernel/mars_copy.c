@@ -190,6 +190,9 @@ void _clear_mref(struct copy_brick *brick, unsigned index, unsigned queue)
 				 index, queue);
 		}
 		__clear_mref(brick, mref, queue);
+		/* For safety, we had kept the reference across the INPUT_CALL().
+		 * Now we should be safe to clean it.
+		 */
 		WRITE_ONCE(st->table[queue], NULL);
 	}
 }
@@ -206,6 +209,10 @@ void _clear_all_mref(struct copy_brick *brick)
 		_clear_mref(brick, i, 0);
 		_clear_mref(brick, i, 1);
 	}
+	/* Just for safety. Although _clear_mref() already used WRITE_ONCE().
+	 * Sometimes, we mistrust the hardware ;)
+	 */
+	smp_mb();
 }
 
 static
@@ -218,7 +225,8 @@ void _clear_state_table(struct copy_brick *brick)
 
 		memset(sub_table, 0, PAGE_SIZE);
 	}
-	mb();
+	/* just for safety. */
+	smp_mb();
 }
 
 static
@@ -557,7 +565,7 @@ int _next_state(struct copy_brick *brick, unsigned index, loff_t pos,
 	int status;
 
 	st = _GET_STATE(brick, index);
-	next_state = st->state;
+	next_state = READ_ONCE(st->state);
 
 restart:
 	state = next_state;
@@ -633,7 +641,7 @@ restart:
 			goto idle;
 		}
 
-		st->writeout = false;
+		WRITE_ONCE(st->writeout, false);
 		WRITE_ONCE(st->error, 0);
 
 		if (brick->is_aborting ||
@@ -833,7 +841,7 @@ restart:
 			MARS_IO("irrelevant\n");
 			goto idle;
 		}
-		st->writeout = true;
+		WRITE_ONCE(st->writeout, true);
 		/* rechecking means to start over again.
 		 * ATTENTIION! this may lead to infinite request
 		 * submission loops, intentionally.
@@ -869,6 +877,12 @@ restart:
 
 idle:
 	if (unlikely(progress < 0)) {
+		/* Subtle race here:
+		 * We don't lock or use atomics or cmpxchg or sisters,
+		 * because (a) the reason for any error does not really matter,
+		 * and (b) the progress should be regarded as a _hint_
+		 * (not contributing to the logic).
+		 */
 		if (READ_ONCE(st->error) >= 0)
 			WRITE_ONCE(st->error, progress);
 		MARS_DBG("progress = %d\n", progress);
@@ -876,7 +890,7 @@ idle:
 		notify_clash(brick);
 	} else if (do_restart) {
 		goto restart;
-	} else if (st->state != next_state) {
+	} else if (READ_ONCE(st->state) != next_state) {
 		progress++;
 	}
 
@@ -894,7 +908,7 @@ idle:
 		progress);
 
 	// save the resulting state
-	st->state = next_state;
+	WRITE_ONCE(st->state, next_state);
 	return progress;
 }
 
@@ -983,7 +997,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			struct copy_state *st = _GET_STATE(brick, index);
 			bool is_active;
 
-			if (st->state != COPY_STATE_FINISHED) {
+			if (READ_ONCE(st->state) != COPY_STATE_FINISHED) {
 				break;
 			}
 			if (max-- <= 0) {
@@ -1017,8 +1031,8 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 				break;
 			}
 			// rollover
-			st->state = COPY_STATE_START;
-			len = st->len;
+			WRITE_ONCE(st->state, COPY_STATE_START);
+			len = READ_ONCE(st->len);
 			count += len;
 			// check contiguity
 			if (unlikely(GET_OFFSET(pos) + len != COPY_CHUNK)) {
