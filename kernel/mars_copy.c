@@ -77,10 +77,10 @@
 
 #include "mars_copy.h"
 
-int mars_copy_overlap = 1;
-EXPORT_SYMBOL_GPL(mars_copy_overlap);
-
-/* Always leave at 1, disable only for throughput _testing_ */
+/* Always leave at 1, disable only for throughput _testing_.
+ * 0 = ONLY FOR EXPERTS => may lead to INCONSISTENCIES
+ * 1 = only obey the start order, but not the completion order
+ */
 int mars_copy_strict_write_order = 1;
 
 int mars_copy_timeout = 180;
@@ -795,6 +795,17 @@ restart:
 		if (READ_ONCE(st->active[1])) {
 			goto idle;
 		}
+		/* Attention! overlapped IO behind EOF could
+		 * lead to temporary inconsistent state of the
+		 * file, because the write order may be different from
+		 * strict O_APPEND behaviour.
+		 *
+		 * Notice: temporary inconsistencies _behind_ EOF
+		 * cannot be compensated by the page cache.
+		 * If the machine crashes right during such a
+		 * temporary inconsistency, unnecessary DefectiveLog
+		 * (or similar) is likely to appear.
+		 */
 		/* start writeout */
 		status = _make_mref(brick, index, 1, mref0->ref_data,
 				    pos, pos + mref0->ref_len,
@@ -805,13 +816,13 @@ restart:
 			next_state = COPY_STATE_RESET;
 			break;
 		}
-		/* Attention! overlapped IO behind EOF could
-		 * lead to temporary inconsistent state of the
-		 * file, because the write order may be different from
-		 * strict O_APPEND behaviour.
+		/*
+		 * Attention: set the writeout flag _after_ actual
+		 * IO had been started.
 		 */
-		if (mars_copy_overlap)
-			st->writeout = true;
+		if (mars_copy_strict_write_order)
+			WRITE_ONCE(st->writeout, true);
+
 		next_state = COPY_STATE_WRITTEN;
 		/* fallthrough */
 		goto label_COPY_STATE_WRITTEN;

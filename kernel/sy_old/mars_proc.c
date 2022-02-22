@@ -655,7 +655,6 @@ struct ctl_table mars_table[] = {
 	VEC_INT_ENTRY("mem_alloc_max",    brick_mem_alloc_count,  0600, BRICK_MAX_ORDER+1),
 #endif
 	INT_ENTRY("io_flying_count",      mars_global_io_flying,  0400),
-	INT_ENTRY("copy_overlap",         mars_copy_overlap,      0600),
 	INT_ENTRY("copy_strict_write_order", mars_copy_strict_write_order, 0600),
 	INT_ENTRY("copy_timeout",         mars_copy_timeout,      0600),
 	INT_ENTRY("copy_read_prio",       mars_copy_read_prio,    0600),
