@@ -49,9 +49,6 @@
 #define STATES_PER_PAGE    (PAGE_SIZE / sizeof(struct copy_state))
 #define MAX_SUB_TABLES     (NR_COPY_REQUESTS / STATES_PER_PAGE + (NR_COPY_REQUESTS % STATES_PER_PAGE ? 1 : 0))
 
-#define GET_STATE(brick,index)						\
-	((brick)->st[(__u64)(index) / STATES_PER_PAGE][(__u64)(index) % STATES_PER_PAGE])
-
 /* Hint: MARS prefers safety, not maximum performance.
  * For safety against compiler mischief, we use *_ONCE() on state fields
  * (almost anywhere), at least for now.
@@ -66,7 +63,13 @@
  * no relevant memory deref to high-frequency updated mem.
  */
 #define _GET_STATE(brick,index)						\
-	(&GET_STATE(brick,index))
+({									\
+	register __u64 __index = (index);				\
+	register __u64 __page_index  = __index / STATES_PER_PAGE;	\
+	register __u64 __state_index = __index % STATES_PER_PAGE;	\
+									\
+	&((brick)->st[__page_index][__state_index]);			\
+})
 
 ///////////////////////// own type definitions ////////////////////////
 
