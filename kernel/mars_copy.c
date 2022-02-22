@@ -52,6 +52,22 @@
 #define GET_STATE(brick,index)						\
 	((brick)->st[(__u64)(index) / STATES_PER_PAGE][(__u64)(index) % STATES_PER_PAGE])
 
+/* Hint: MARS prefers safety, not maximum performance.
+ * For safety against compiler mischief, we use *_ONCE() on state fields
+ * (almost anywhere), at least for now.
+ * For example, ->len might be shortened by short reads etc, and this might
+ * might be driven by interrupts or similar frequencies.
+ * Full SMP memory barriers are currently not (yet) in scope, because the
+ * ordinary SMP delays / bottlenecks _should_ not make harm.
+ * Therefore, we try to avoid smp_*() for now (except low-frequency
+ * initializations & co).
+ *
+ * Note: _GET_STATE() should be equivalent to pure address calculations, but
+ * no relevant memory deref to high-frequency updated mem.
+ */
+#define _GET_STATE(brick,index)						\
+	(&GET_STATE(brick,index))
+
 ///////////////////////// own type definitions ////////////////////////
 
 #include "mars_copy.h"
@@ -158,7 +174,7 @@ void __clear_mref(struct copy_brick *brick, struct mref_object *mref, unsigned q
 static
 void _clear_mref(struct copy_brick *brick, unsigned index, unsigned queue)
 {
-	struct copy_state *st = &GET_STATE(brick, index);
+	struct copy_state *st = _GET_STATE(brick, index);
 	struct mref_object *mref = READ_ONCE(st->table[queue]);
 
 	if (mref) {
@@ -179,7 +195,8 @@ void _clear_all_mref(struct copy_brick *brick)
 	unsigned i;
 
 	for (i = 0; i < NR_COPY_REQUESTS; i++) {
-		struct copy_state *st = &GET_STATE(brick, i);
+		struct copy_state *st = _GET_STATE(brick, i);
+
 		st->state = COPY_STATE_START;
 		_clear_mref(brick, i, 0);
 		_clear_mref(brick, i, 1);
@@ -267,7 +284,7 @@ void copy_endio(struct generic_callback *cb)
 	}
 #endif
 
-	st = &GET_STATE(brick, index);
+	st = _GET_STATE(brick, index);
 
 	MARS_IO("queue=%u index=%u pos=%lld state=%d err=%d\n",
 		queue, index,
@@ -375,7 +392,7 @@ int _make_mref(struct copy_brick *brick,
 	}
 
 	/* Check the state table */
-	st = &GET_STATE(brick, index);
+	st = _GET_STATE(brick, index);
 	old_mref = READ_ONCE(st->table[queue]);
 	if (unlikely(old_mref)) {
 		MARS_ERR("cannot override old_mref=%p at index=%u queue=%d pos=%lld+%lld flags=%d\n",
@@ -534,7 +551,7 @@ int _next_state(struct copy_brick *brick, unsigned index, loff_t pos,
 	int progress = 0;
 	int status;
 
-	st = &GET_STATE(brick, index);
+	st = _GET_STATE(brick, index);
 	next_state = st->state;
 
 restart:
@@ -747,7 +764,7 @@ restart:
 			unsigned prev_index =  (index + (wrap - 1)) % wrap;
 			struct copy_state *prev_st;
 
-			prev_st = &GET_STATE(brick, prev_index);
+			prev_st = _GET_STATE(brick, prev_index);
 			if (!READ_ONCE(prev_st->writeout))
 				goto idle;
 		}
@@ -915,7 +932,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 		     pos < brick->copy_last + MAX_ACTIVE_AREA;
 	     pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 		unsigned index = GET_INDEX(pos);
-		struct copy_state *st = &GET_STATE(brick, index);
+		struct copy_state *st = _GET_STATE(brick, index);
 		int this_progress;
 
 		if (max-- <= 0) {
@@ -947,7 +964,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 		     pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 			unsigned len;
 			unsigned index = GET_INDEX(pos);
-			struct copy_state *st = &GET_STATE(brick, index);
+			struct copy_state *st = _GET_STATE(brick, index);
 			bool is_active;
 
 			if (st->state != COPY_STATE_FINISHED) {
