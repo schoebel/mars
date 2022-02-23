@@ -113,7 +113,7 @@ struct copy_brick {
 	long long last_jiffies;
 	wait_queue_head_t event;
 	struct task_struct *thread;
-	struct copy_state **st;
+	void *const *st;
 };
 
 struct copy_input {

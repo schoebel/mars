@@ -67,8 +67,10 @@
 	register __u64 __index = (index);				\
 	register __u64 __page_index  = __index / STATES_PER_PAGE;	\
 	register __u64 __state_index = __index % STATES_PER_PAGE;	\
+	void *const *___st = (brick)->st;				\
+	struct copy_state *__st = ___st[__page_index];			\
 									\
-	&((brick)->st[__page_index][__state_index]);			\
+	&__st[__state_index];						\
 })
 
 ///////////////////////// own type definitions ////////////////////////
@@ -1346,10 +1348,16 @@ MARS_MAKE_STATICS(copy);
 static
 void _free_pages(struct copy_brick *brick)
 {
+	void **st;
 	unsigned i;
 
+	st = (void **)brick->st;
+	if (!st)
+		return;
+	brick->st = NULL;
+
 	for (i = 0; i < MAX_SUB_TABLES; i++) {
-		struct copy_state *sub_table = brick->st[i];
+		void *sub_table = st[i];
 
 		if (!sub_table) {
 			continue;
@@ -1357,15 +1365,16 @@ void _free_pages(struct copy_brick *brick)
 
 		brick_block_free(sub_table, PAGE_SIZE);
 	}
-	brick_block_free(brick->st, PAGE_SIZE);
+	brick_block_free(st, PAGE_SIZE);
 }
 
 static int copy_brick_construct(struct copy_brick *brick)
 {
+	void **st;
 	unsigned i;
 
-	brick->st = brick_block_alloc(0, PAGE_SIZE);
-	memset(brick->st, 0, PAGE_SIZE);
+	st = brick_block_alloc(0, PAGE_SIZE);
+	memset(st, 0, PAGE_SIZE);
 
 	for (i = 0; i < MAX_SUB_TABLES; i++) {
 		struct copy_state *sub_table;
@@ -1378,11 +1387,12 @@ static int copy_brick_construct(struct copy_brick *brick)
 		}
 
 		sub_table = brick_block_alloc(0, PAGE_SIZE);
-		brick->st[i] = sub_table;
 		memset(sub_table, 0, PAGE_SIZE);
+		st[i] = sub_table;
 	}
 
 	init_waitqueue_head(&brick->event);
+	brick->st = st;
 	return 0;
 }
 
