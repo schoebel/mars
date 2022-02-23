@@ -1373,6 +1373,9 @@ static int copy_brick_construct(struct copy_brick *brick)
 	void **st;
 	unsigned i;
 
+	if (unlikely(brick->st)) {
+		MARS_ERR("Re-initialize state table\n");
+	}
 	st = brick_block_alloc(0, PAGE_SIZE);
 	memset(st, 0, PAGE_SIZE);
 
