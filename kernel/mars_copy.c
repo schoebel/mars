@@ -1351,10 +1351,15 @@ void _free_pages(struct copy_brick *brick)
 	void **st;
 	unsigned i;
 
+	/* For maximum safety against any potentially defective hardware.
+	 * Anyway, allocs / frees are not performance critical.
+	 */
+	smp_mb();
 	st = (void **)brick->st;
 	if (!st)
 		return;
 	brick->st = NULL;
+	smp_mb();
 
 	for (i = 0; i < MAX_SUB_TABLES; i++) {
 		void *sub_table = st[i];
@@ -1373,6 +1378,7 @@ static int copy_brick_construct(struct copy_brick *brick)
 	void **st;
 	unsigned i;
 
+	smp_mb();
 	if (unlikely(brick->st)) {
 		MARS_ERR("Re-initialize state table\n");
 	}
@@ -1396,6 +1402,7 @@ static int copy_brick_construct(struct copy_brick *brick)
 
 	init_waitqueue_head(&brick->event);
 	brick->st = st;
+	smp_mb();
 	return 0;
 }
 
