@@ -199,11 +199,11 @@ struct mars_sdesc {
  * in this version.
  */
 static
-void md5_old_digest(void *digest, const void *data, int len)
+long md5_old_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(md5_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
-	int status;
+	long status;
 
 	sdesc->shash.tfm = md5_tfm;
 #ifdef MARS_HAS_SHASH_DESC_FLAGS
@@ -213,17 +213,21 @@ void md5_old_digest(void *digest, const void *data, int len)
 	memset(digest, 0, MARS_DIGEST_SIZE);
 	status = crypto_shash_digest(&sdesc->shash, data, len, digest);
 	if (unlikely(status < 0)) {
-		MARS_ERR("cannot calculate md5 chksum on %p len=%d, status=%d\n",
+		MARS_ERR("cannot calculate md5 chksum on %p len=%d, status=%ld\n",
 			 data, len,
 			 status);
 		memset(digest, 0, MARS_DIGEST_SIZE);
 	}
 
 	brick_mem_free(sdesc);
+
+	if (status >= 0)
+		status = MREF_CHKSUM_MD5_OLD;
+	return status;
 }
 
 static
-void md5_digest(void *digest, const void *data, int len)
+long md5_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(md5_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
@@ -232,7 +236,7 @@ void md5_digest(void *digest, const void *data, int len)
 	int offset = 0;
 	int done_len = len;
 	int i;
-	int status;
+	long status = -EINVAL;
 
 	sdesc->shash.tfm = md5_tfm;
 #ifdef MARS_HAS_SHASH_DESC_FLAGS
@@ -249,7 +253,7 @@ void md5_digest(void *digest, const void *data, int len)
 					     chunksize,
 					     this_digest);
 		if (unlikely(status < 0)) {
-			MARS_ERR("cannot calculate md5 chksum on %p len=%d, status=%d\n",
+			MARS_ERR("cannot calculate md5 chksum on %p len=%d, status=%ld\n",
 				 data,
 				 chunksize,
 				 status);
@@ -261,15 +265,20 @@ void md5_digest(void *digest, const void *data, int len)
 		offset += chunksize;
 		done_len -= chunksize;
 	}
-	if (unlikely(done_len))
+	if (unlikely(done_len)) {
 		MARS_ERR("md5 chksum remain %d\n", done_len);
-
+		status = -EINVAL;
+	}
 	brick_mem_free(sdesc);
+
+	if (status >= 0)
+		status = MREF_CHKSUM_MD5;
+	return status;
 }
 
 #ifdef HAS_CRC32C
 static
-void crc32c_digest(void *digest, const void *data, int len)
+long crc32c_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(crc32c_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
@@ -279,6 +288,7 @@ void crc32c_digest(void *digest, const void *data, int len)
 	int done_len = len;
 	int i;
 	int status;
+	long res = 0;
 
 	sdesc->shash.tfm = crc32c_tfm;
 #ifdef MARS_HAS_SHASH_DESC_FLAGS
@@ -300,22 +310,29 @@ void crc32c_digest(void *digest, const void *data, int len)
 			MARS_ERR("cannot calculate crc32c chksum on %p len=%d, status=%d\n",
 				 data, chunksize,
 				 status);
+			res = status;
 			continue;
 		}
 		memcpy(digest + i * CRC32C_DIGEST_SIZE, this_digest, CRC32C_DIGEST_SIZE);
 		offset += chunksize;
 		done_len -= chunksize;
 	}
-	if (unlikely(done_len))
+	if (unlikely(done_len)) {
 		MARS_ERR("crc32c chksum remain %d\n", done_len);
+		res = -EINVAL;
+	} else if (!res) {
+		res = MREF_CHKSUM_CRC32C;
+	}
 
 	brick_mem_free(sdesc);
+
+	return res;
 }
 #endif
 
 #ifdef HAS_CRC32
 static
-void crc32_digest(void *digest, const void *data, int len)
+long crc32_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(crc32_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
@@ -325,6 +342,7 @@ void crc32_digest(void *digest, const void *data, int len)
 	int done_len = len;
 	int i;
 	int status;
+	long res = 0;
 
 	sdesc->shash.tfm = crc32_tfm;
 #ifdef MARS_HAS_SHASH_DESC_FLAGS
@@ -346,27 +364,34 @@ void crc32_digest(void *digest, const void *data, int len)
 			MARS_ERR("cannot calculate crc32 chksum on %p len=%d, status=%d\n",
 				 data, chunksize,
 				 status);
+			res = status;
 			continue;
 		}
 		memcpy(digest + i * CRC32_DIGEST_SIZE, this_digest, CRC32_DIGEST_SIZE);
 		offset += chunksize;
 		done_len -= chunksize;
 	}
-	if (unlikely(done_len))
+	if (!done_len) {
+		res = MREF_CHKSUM_CRC32;
+	} else if (!res) {
 		MARS_ERR("crc32 chksum remain %d\n", done_len);
+		res = -EINVAL;
+	}
 
 	brick_mem_free(sdesc);
+
+	return res;
 }
 #endif
 
 #ifdef HAS_SHA1
 static
-void sha1_digest(void *digest, const void *data, int len)
+long sha1_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(sha1_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
 	unsigned char tmp[SHA1_DIGEST_SIZE] = {};
-	int status;
+	long status;
 
 	sdesc->shash.tfm = sha1_tfm;
 #ifdef MARS_HAS_SHASH_DESC_FLAGS
@@ -375,7 +400,7 @@ void sha1_digest(void *digest, const void *data, int len)
 
 	status = crypto_shash_digest(&sdesc->shash, data, len, tmp);
 	if (unlikely(status < 0)) {
-		MARS_ERR("cannot calculate sha1 chksum on %p len=%d, status=%d\n",
+		MARS_ERR("cannot calculate sha1 chksum on %p len=%d, status=%ld\n",
 			 data, len,
 			 status);
 		memset(digest, 0, MARS_DIGEST_SIZE);
@@ -383,9 +408,12 @@ void sha1_digest(void *digest, const void *data, int len)
 		memcpy(digest, tmp, SHA1_DIGEST_SIZE);
 		memset(digest + SHA1_DIGEST_SIZE, 0, 
 		       MARS_DIGEST_SIZE - SHA1_DIGEST_SIZE);
+		status = MREF_CHKSUM_SHA1;
 	}
 
 	brick_mem_free(sdesc);
+
+	return status;
 }
 #endif
 
@@ -394,45 +422,56 @@ long mars_digest(__u32 digest_flags,
 		  void *digest,
 		  const void *data, int len)
 {
+	long res;
+
 	/* The order defines the preference:
 	 * place the most performant algorithms first.
 	 */
 #ifdef HAS_CRC32C
 	if (digest_flags & MREF_CHKSUM_CRC32C && crc32c_tfm) {
-		crc32c_digest(digest, data, len);
-		if (used_flags)
-			*used_flags = MREF_CHKSUM_CRC32C;
-		return MREF_CHKSUM_CRC32C;
+		res = crc32c_digest(digest, data, len);
+		if (res >= 0) {
+			if (used_flags)
+				*used_flags = (__u32)res;
+		}
+		goto done;
 	}
 #endif
 #ifdef HAS_CRC32
 	if (digest_flags & MREF_CHKSUM_CRC32 && crc32_tfm) {
-		crc32_digest(digest, data, len);
-		if (used_flags)
-			*used_flags = MREF_CHKSUM_CRC32;
-		return MREF_CHKSUM_CRC32;
+		res = crc32_digest(digest, data, len);
+		if (res >= 0) {
+			if (used_flags)
+				*used_flags = MREF_CHKSUM_CRC32;
+		}
+		goto done;
 	}
 #endif
 	if (digest_flags & MREF_CHKSUM_MD5 && md5_tfm) {
-		md5_digest(digest, data, len);
-		if (used_flags)
-			*used_flags = MREF_CHKSUM_MD5;
-		return MREF_CHKSUM_MD5;
+		res = md5_digest(digest, data, len);
+		if (res >= 0) {
+			if (used_flags)
+				*used_flags = MREF_CHKSUM_MD5;
+		}
+		goto done;
 	}
 #ifdef HAS_SHA1
 	if (digest_flags & MREF_CHKSUM_SHA1 && sha1_tfm) {
-		sha1_digest(digest, data, len);
-		if (used_flags)
-			*used_flags = MREF_CHKSUM_SHA1;
-		return MREF_CHKSUM_SHA1;
+		res = sha1_digest(digest, data, len);
+		if (res >= 0) {
+			if (used_flags)
+				*used_flags = MREF_CHKSUM_SHA1;
+		}
+		goto done;
 	}
 #endif
 
 	/* always fallback to old md5 regardless of digest_flags */
-	md5_old_digest(digest, data, len);
+	res = md5_old_digest(digest, data, len);
 	if (used_flags)
 		*used_flags = MREF_CHKSUM_MD5_OLD;
-	return MREF_CHKSUM_MD5_OLD;
+ done:
+	return res;
 }
 
 #ifdef CONFIG_MARS_BENCHMARK
