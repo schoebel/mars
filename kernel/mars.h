@@ -545,7 +545,7 @@ extern __u32 used_net_digest;
 extern __u32 disabled_log_digests;
 extern __u32 disabled_net_digests;
 
-extern __u32 mars_digest(__u32 digest_flags,
+extern long  mars_digest(__u32 digest_flags,
 			 __u32 *used_flags,
 			 void *digest,
 			 const void *data, int len);

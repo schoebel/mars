@@ -389,7 +389,7 @@ void sha1_digest(void *digest, const void *data, int len)
 }
 #endif
 
-__u32 mars_digest(__u32 digest_flags,
+long mars_digest(__u32 digest_flags,
 		  __u32 *used_flags,
 		  void *digest,
 		  const void *data, int len)
@@ -444,6 +444,7 @@ void benchmark_digest(char *name, __u32 flags)
 	unsigned char old_test[MARS_DIGEST_SIZE] = {};
 	unsigned char new_test[MARS_DIGEST_SIZE];
 	long long delta;
+	long res_val;
 	__u32 res_flags;
 	unsigned char bit;
 	int i;
@@ -455,14 +456,15 @@ void benchmark_digest(char *name, __u32 flags)
 			  for (bit = 1; bit; bit <<= 1) {
 				  for (i = 0; i < PAGE_SIZE; i++) {
 					  testpage[i] ^= bit;
-					  res_flags = mars_digest(flags,
+					  res_val = mars_digest(flags,
 								  NULL,
 								  new_test,
 								  testpage,
 								  PAGE_SIZE);
-					  if (unlikely(!(res_flags & flags))) {
-						  MARS_ERR("digest %s failed\n",
-							   name);
+					  res_flags = (__u32)res_val;
+					  if (unlikely(res_val < 0 || !(res_flags & flags))) {
+						  MARS_ERR("digest %s failed code=%ld\n",
+							   name, res_val);
 						  goto err;
 					  }
 					  if (unlikely(!memcmp(old_test, new_test, MARS_DIGEST_SIZE))) {
@@ -600,7 +602,7 @@ void exit_mars_digest(void)
 static struct crypto_hash *mars_tfm[OBSOLETE_TFM_MAX];
 static struct semaphore tfm_sem[OBSOLETE_TFM_MAX];
 
-__u32 mars_digest(__u32 digest_flags,
+long mars_digest(__u32 digest_flags,
 		  __u32 *used_flags,
 		  void *digest,
 		  void *data, int len)
