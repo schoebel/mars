@@ -664,6 +664,8 @@ int _check_crc(struct log_header *lh,
 	       int crc_len,
 	       __u32 check_flags)
 {
+	__u32 invalid_check_flags;
+	bool is_invalid = false;
 	int res;
 
 	res = -EBADMSG;
@@ -691,6 +693,13 @@ int _check_crc(struct log_header *lh,
 		old_crc = *(int*)checksum;
 		if (old_crc == lh->l_crc_old)
 			res = 0;
+	} else {
+		invalid_check_flags = check_flags;
+		is_invalid = true;
+	}
+	if (is_invalid) {
+		MARS_ERR("Found invalid crc flags=0x%x\n",
+			 invalid_check_flags);
 	}
 	return res;
 }
