@@ -423,10 +423,12 @@ long mars_digest(__u32 digest_flags,
 		  const void *data, int len)
 {
 	long res;
+	bool did_retry = false;
 
 	/* The order defines the preference:
 	 * place the most performant algorithms first.
 	 */
+ retry:
 #ifdef HAS_CRC32C
 	if (digest_flags & MREF_CHKSUM_CRC32C && crc32c_tfm) {
 		res = crc32c_digest(digest, data, len);
@@ -474,6 +476,20 @@ long mars_digest(__u32 digest_flags,
 	res = md5_old_digest(digest, data, len);
 	if (used_flags)
 		*used_flags = MREF_CHKSUM_MD5_OLD;
+	/* retry any error, provided the flags can be extended */
+	if (res < 0 && !did_retry) {
+		__u32 retry_flags =  (usable_digest_mask & ~digest_flags);
+
+		if (!retry_flags)
+			goto done;
+		did_retry = true;
+		MARS_WRN("RETRY digest after error=%ld flags: 0x%x &= ~0x%x = 0x%x\n",
+			 res, 
+			 usable_digest_mask, digest_flags, retry_flags);
+		digest_flags = retry_flags;
+		cond_resched();
+		goto retry;
+	}
  done:
 	return res;
 }
