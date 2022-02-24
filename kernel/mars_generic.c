@@ -481,7 +481,7 @@ long mars_digest(__u32 digest_flags,
 #ifdef CONFIG_MARS_BENCHMARK
 
 static
-void benchmark_digest(char *name, __u32 flags)
+__u32 benchmark_digest(char *name, __u32 flags)
 {
 	unsigned char*testpage = kzalloc(PAGE_SIZE, GFP_KERNEL);
 	unsigned char old_test[MARS_DIGEST_SIZE] = {};
@@ -489,10 +489,10 @@ void benchmark_digest(char *name, __u32 flags)
 	long long delta;
 	long res_val;
 	__u32 res_flags;
+	__u32 test_flags = flags;
 	unsigned char bit;
+	bool report_once = false;
 	int i;
-
-	usable_digest_mask = MREF_CHKSUM_ANY;
 
 	delta =
 		TIME_THIS(
@@ -508,22 +508,36 @@ void benchmark_digest(char *name, __u32 flags)
 					  if (unlikely(res_val < 0 || !(res_flags & flags))) {
 						  MARS_ERR("digest %s failed code=%ld\n",
 							   name, res_val);
+						  res_flags &= flags;
 						  goto err;
+					  }
+					  if (unlikely(!report_once &&
+						       res_flags & ~test_flags)) {
+						  report_once = true;
+						  MARS_INF("digest %s was superseded 0x%x => 0x%x\n",
+							   name, test_flags, res_flags);
+						  test_flags |= res_flags;
 					  }
 					  if (unlikely(!memcmp(old_test, new_test, MARS_DIGEST_SIZE))) {
-						  MARS_ERR("digest %s is not good enough\n",
-							   name);
+						  MARS_ERR("digest %s is not good enough, flags=0x%x\n",
+							   name, res_flags);
 						  goto err;
 					  }
+					  test_flags &= res_flags;
 					  memcpy(old_test, new_test, MARS_DIGEST_SIZE);
 				  }
 			  }
 			  );
 	printk(KERN_INFO "%-10s digest duration = %12lld ns\n",
 	       name, delta);
+
+	res_flags |= test_flags;
+
  err:
 	kfree(testpage);
-	usable_digest_mask = MREF_CHKSUM_MD5_OLD;
+	res_flags |= MREF_CHKSUM_MD5_OLD;
+	cond_resched();
+	return res_flags;
 }
 
 #endif
@@ -531,6 +545,7 @@ void benchmark_digest(char *name, __u32 flags)
 static
 int init_mars_digest(void)
 {
+	__u32 checked_digests;
 	int status;
 
 	md5_tfm = crypto_alloc_shash("md5", 0, 0);
@@ -594,19 +609,55 @@ int init_mars_digest(void)
 	}
 #endif
 
+	checked_digests = MREF_CHKSUM_MD5_OLD;
 #ifdef CONFIG_MARS_BENCHMARK
+	/* Side effect of benchmarks:
+	 * Check that configured digests are actually working.
+	 */
 #ifdef HAS_CRC32C
-	benchmark_digest("crc32c", MREF_CHKSUM_CRC32C);
+	if (crc32c_tfm)
+		checked_digests |=
+			benchmark_digest("crc32c", MREF_CHKSUM_CRC32C);
 #endif
 #ifdef HAS_CRC32
-	benchmark_digest("crc32",  MREF_CHKSUM_CRC32);
+	if (crc32_tfm)
+		checked_digests |=
+			benchmark_digest("crc32",  MREF_CHKSUM_CRC32);
 #endif
 #ifdef HAS_SHA1
-	benchmark_digest("sha1",   MREF_CHKSUM_SHA1);
+	if (sha1_tfm)
+		checked_digests |=
+			benchmark_digest("sha1",   MREF_CHKSUM_SHA1);
 #endif
-	benchmark_digest("md5old", MREF_CHKSUM_MD5_OLD);
-	benchmark_digest("md5",    MREF_CHKSUM_MD5);
+	checked_digests |=
+		benchmark_digest("md5old", MREF_CHKSUM_MD5_OLD);
+
+	if (md5_tfm)
+		checked_digests |=
+			benchmark_digest("md5",    MREF_CHKSUM_MD5);
+
+#else
+	/* Without any benchmark results, we need
+	 * to enable all _initialized_ digests for safety.
+	 * If they don't actually work for whatever reason,
+	 * runtime spits may occur ;)
+	 */
+#ifdef HAS_CRC32C
+	if (crc32c_tfm)
+		checked_digests |= MREF_CHKSUM_CRC32C;
 #endif
+#ifdef HAS_CRC32
+	if (crc32_tfm)
+		checked_digests |= MREF_CHKSUM_CRC32;
+#endif
+#ifdef HAS_SHA1
+	if (sha1_tfm)
+		checked_digests |= MREF_CHKSUM_SHA1;
+#endif
+	if (md5_tfm)
+		checked_digests |= MREF_CHKSUM_MD5;
+#endif
+	usable_digest_mask = checked_digests;
 	return 0;
 }
 
