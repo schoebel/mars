@@ -147,7 +147,6 @@ struct log_status {
 	int chunk_size;   // must be at least 8K (better 64k)
 	int max_size;     // max payload length
 	int io_prio;
-	bool do_crc;
 	bool do_compress;
 	// informational
 	atomic_t mref_flying;

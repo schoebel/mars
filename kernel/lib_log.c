@@ -413,7 +413,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	check_flags = 0;
 
 	/* Run the CRC on the _original_ data, before compression */
-	if (logst->do_crc | logst->do_compress) {
+	{
 		unsigned char checksum[MARS_DIGEST_SIZE];
 
 		check_flags |=

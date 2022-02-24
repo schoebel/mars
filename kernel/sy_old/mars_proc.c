@@ -448,7 +448,6 @@ struct ctl_table mars_table[] = {
 	LIMITER_ENTRIES(&bio_throttle_write, "debug_bio_throttle_write", "kb"),
 #endif
 	INT_ENTRY("logger_completion_semantics", trans_logger_completion_semantics, 0600),
-	INT_ENTRY("logger_do_crc",        trans_logger_do_crc,    0600),
 	INT_ENTRY("logger_allow_compress", trans_logger_allow_compress, 0600),
 	INT_ENTRY("zlib_compress_level",  mars_zlib_compression_level, 0600),
 	INT_ENTRY("syslog_min_class",     brick_say_syslog_min,   0600),

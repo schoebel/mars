@@ -48,7 +48,6 @@
  * 2 = late completion
  */
 extern int trans_logger_completion_semantics;
-extern int trans_logger_do_crc;
 extern int trans_logger_allow_compress;
 extern int trans_logger_mem_usage; // in KB
 extern int trans_logger_pressure_limit;
