@@ -657,6 +657,44 @@ done_free:
 
 }
 
+static
+int _check_crc(struct log_header *lh,
+	       void *crc,
+	       void *crc_buf,
+	       int crc_len,
+	       __u32 check_flags)
+{
+	int res;
+
+	res = -EBADMSG;
+	if (check_flags & (MREF_CHKSUM_ANY - MREF_CHKSUM_MD5_OLD)) {
+		unsigned char checksum[MARS_DIGEST_SIZE];
+		unsigned char check_crc[LOG_CHKSUM_SIZE];
+
+		mars_digest(check_flags,
+			    &used_log_digest,
+			    checksum,
+			    crc_buf, crc_len);
+
+		fold_crc(checksum, check_crc);
+		if (!memcmp(crc, check_crc, LOG_CHKSUM_SIZE))
+			res = 0;
+	} else if (lh->l_crc_old) {
+		unsigned char checksum[MARS_DIGEST_SIZE];
+		__u32 old_crc;
+
+		mars_digest(check_flags,
+			    &used_log_digest,
+			    checksum,
+			    crc_buf, crc_len);
+
+		old_crc = *(int*)checksum;
+		if (old_crc == lh->l_crc_old)
+			res = 0;
+	}
+	return res;
+}
+
 int log_scan(void *buf,
 	     int len,
 	     loff_t file_pos,
@@ -687,6 +725,7 @@ int log_scan(void *buf,
 		int crc_len;
 		int decompr_len;
 		int found_offset;
+		int crc_status;
 		void *new_buf = NULL;
 		void *crc_buf;
 
@@ -823,36 +862,20 @@ int log_scan(void *buf,
 			}
 		}
 
-		if (check_flags & (MREF_CHKSUM_ANY - MREF_CHKSUM_MD5_OLD)) {
-			unsigned char checksum[MARS_DIGEST_SIZE];
-			unsigned char check_crc[LOG_CHKSUM_SIZE];
-
-			mars_digest(check_flags,
-				    &used_log_digest,
-				    checksum,
-				    crc_buf, crc_len);
-
-			fold_crc(checksum, check_crc);
-			if (unlikely(memcmp(crc, check_crc, LOG_CHKSUM_SIZE))) {
-				MARS_ERR(SCAN_TXT "data checksumming mismatch, len=%d/%d\n",
-					 SCAN_PAR, lh->l_len, crc_len);
-				return -EBADMSG;
-			}
-		} else if (lh->l_crc_old) {
-			unsigned char checksum[MARS_DIGEST_SIZE];
-			__u32 old_crc;
-
-			mars_digest(check_flags,
-				    &used_log_digest,
-				    checksum,
-				    crc_buf, crc_len);
-
-			old_crc = *(int*)checksum;
-			if (unlikely(old_crc != lh->l_crc_old)) {
-				MARS_ERR(SCAN_TXT "data checksumming mismatch, len=%d/%d\n",
-					 SCAN_PAR, lh->l_len, crc_len);
-				return -EBADMSG;
-			}
+		crc_status =
+			_check_crc(lh,
+				   crc,
+				   crc_buf,
+				   crc_len,
+				   check_flags);
+		if (crc_status) {
+			MARS_ERR(SCAN_TXT
+				 "data checksumming mismatch, flags=0x%x len=%d/%d err=%d\n",
+				 SCAN_PAR,
+				 check_flags,
+				 lh->l_len, crc_len,
+				 crc_status);
+			return -EBADMSG;
 		}
 
 		// last check
