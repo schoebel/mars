@@ -25,6 +25,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/bio.h>
+#include <linux/bitops.h>
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
@@ -666,8 +667,12 @@ int _check_crc(struct log_header *lh,
 {
 	__u32 invalid_check_flags;
 	bool is_invalid = false;
+	bool did_simple_retry = false;
+	int did_iterative_retry = 0;
+	int bit;
 	int res;
 
+ retry:
 	res = -EBADMSG;
 	if (check_flags & (MREF_CHKSUM_ANY - MREF_CHKSUM_MD5_OLD)) {
 		unsigned char checksum[MARS_DIGEST_SIZE];
@@ -693,13 +698,53 @@ int _check_crc(struct log_header *lh,
 		old_crc = *(int*)checksum;
 		if (old_crc == lh->l_crc_old)
 			res = 0;
-	} else {
+	} else if (!did_iterative_retry) {
 		invalid_check_flags = check_flags;
 		is_invalid = true;
 	}
+	/* simple retry method */
+	if (unlikely(res && !did_simple_retry)) {
+		did_simple_retry = true;
+		MARS_WRN("RETRY crc check flags=0x%x crc_len=%d\n",
+			 check_flags, crc_len);
+		check_flags |= usable_digest_mask;
+		cond_resched();
+		goto retry;
+	}
+	/* when simple retry failed: try the painful iterative method */
+	if (unlikely(res)) {
+		/* We are desperate. We want to recover as much data
+		 * as possible. Performance does no longer matter.
+		 * Try to _wildly_ _guess_ what check_flags might by usable.
+		 */
+		if (!did_iterative_retry) {
+			bit = find_first_bit((void *)&usable_digest_mask,
+					     sizeof(usable_digest_mask));
+		} else {
+			int next_bit =
+				find_next_bit((void *)&usable_digest_mask,
+					      sizeof(usable_digest_mask),
+					      bit + 1);
+			if (next_bit <= bit)
+				goto failed;
+			bit = next_bit;
+		}
+		if (bit >= 32)
+			goto failed;
+		check_flags = (1 << bit);
+		if (!(check_flags & usable_digest_mask))
+			goto failed;
+		did_iterative_retry++;
+		cond_resched();
+		goto retry;
+	failed:
+		MARS_WRN("ITERATIVE RETRY %d failed\n",
+			 did_iterative_retry);
+	}
 	if (is_invalid) {
-		MARS_ERR("Found invalid crc flags=0x%x\n",
-			 invalid_check_flags);
+		MARS_ERR("Found invalid crc flags=0x%x retried=%d+%d\n",
+			 invalid_check_flags,
+			 did_simple_retry, did_iterative_retry);
 	}
 	return res;
 }
