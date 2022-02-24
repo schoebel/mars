@@ -433,8 +433,9 @@ long mars_digest(__u32 digest_flags,
 		if (res >= 0) {
 			if (used_flags)
 				*used_flags = (__u32)res;
+			goto done;
 		}
-		goto done;
+		/* fallthrough to next try */
 	}
 #endif
 #ifdef HAS_CRC32
@@ -443,8 +444,9 @@ long mars_digest(__u32 digest_flags,
 		if (res >= 0) {
 			if (used_flags)
 				*used_flags = MREF_CHKSUM_CRC32;
+			goto done;
 		}
-		goto done;
+		/* fallthrough to next try */
 	}
 #endif
 	if (digest_flags & MREF_CHKSUM_MD5 && md5_tfm) {
@@ -452,8 +454,9 @@ long mars_digest(__u32 digest_flags,
 		if (res >= 0) {
 			if (used_flags)
 				*used_flags = MREF_CHKSUM_MD5;
+			goto done;
 		}
-		goto done;
+		/* fallthrough to next try */
 	}
 #ifdef HAS_SHA1
 	if (digest_flags & MREF_CHKSUM_SHA1 && sha1_tfm) {
@@ -461,8 +464,9 @@ long mars_digest(__u32 digest_flags,
 		if (res >= 0) {
 			if (used_flags)
 				*used_flags = MREF_CHKSUM_SHA1;
+			goto done;
 		}
-		goto done;
+		/* fallthrough to next try */
 	}
 #endif
 
