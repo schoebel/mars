@@ -185,6 +185,14 @@ struct mars_sdesc {
 	char ctx[];
 };
 
+#define _GET_ITERATIONS(digest_size)					\
+	(MARS_DIGEST_SIZE / (digest_size))
+
+#define GET_ITERATIONS(digest_size)					\
+	(!(MARS_DIGEST_SIZE % (digest_size)) ?				\
+	 _GET_ITERATIONS(digest_size) :					\
+	 _GET_ITERATIONS(digest_size) + 1)
+
 /* Note:
  * For compatibility to OLD_MARS_DIGEST_SIZE, the higher
  * digest bytes up to MARS_DIGEST_SIZE are not exploited
@@ -219,7 +227,7 @@ void md5_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(md5_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
-	const int iterations = MARS_DIGEST_SIZE / MD5_DIGEST_SIZE;
+	const int iterations = GET_ITERATIONS(MD5_DIGEST_SIZE);
 	int chunksize = len / iterations;
 	int offset = 0;
 	int done_len = len;
@@ -265,7 +273,7 @@ void crc32c_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(crc32c_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
-	const int iterations = MARS_DIGEST_SIZE / CRC32C_DIGEST_SIZE;
+	const int iterations = GET_ITERATIONS(CRC32C_DIGEST_SIZE);
 	int chunksize = len / iterations;
 	int offset = 0;
 	int done_len = len;
@@ -311,7 +319,7 @@ void crc32_digest(void *digest, const void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(crc32_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
-	const int iterations = MARS_DIGEST_SIZE / CRC32_DIGEST_SIZE;
+	const int iterations = GET_ITERATIONS(CRC32_DIGEST_SIZE);
 	int chunksize = len / iterations;
 	int offset = 0;
 	int done_len = len;
