@@ -59,7 +59,7 @@ char *my_id(void)
 	if (unlikely(!id[0])) {
 		struct new_utsname *u;
 
-		//down_read(&uts_sem); // FIXME: this is currenty not EXPORTed from the kernel!
+		//down_read(&uts_sem); // FIXME: this is currently not EXPORTed from the kernel!
 		u = utsname();
 		if (u) {
 			strncpy(id, u->nodename, sizeof(id));
@@ -159,9 +159,53 @@ __u32 used_net_digest = 0;
 
 /* For now, use shash.
  * Later, asynchronous support should be added for full exploitation
- * of crypto hardware.
+ * of _parallelizing_ (!) (so-called crypto) hardware.
  */
 #include <crypto/hash.h>
+
+/* IMPORTANT:
+ * Currently, we prefer CRC-like digest algorithms
+ * in place of "true security". Do not conclude from the infix
+ * CRYPTO that we would talk about real security. Instead, we are
+ * talking (in order) about
+ *
+ *  1) _reliability_ of data in (long-distance) _distributed_ systems
+ *  2) performance _penalties_
+ *
+ * Over the next years / decades, better hardware support for these goals may
+ * evolve. Do not blindly believe that everything called "crypto" will be
+ * valuable for the above goals.
+ *
+ * Here is some rough estimate about _candidates_ for the timescale
+ * of decades:
+ *
+ * ~/linux-next.git> grep "config CRYPTO_CRC" $(find . -name "Kconf*")
+ * ./crypto/Kconfig:config CRYPTO_CRC32C
+ * ./crypto/Kconfig:config CRYPTO_CRC32C_INTEL
+ * ./crypto/Kconfig:config CRYPTO_CRC32C_VPMSUM
+ * ./crypto/Kconfig:config CRYPTO_CRC32C_SPARC64
+ * ./crypto/Kconfig:config CRYPTO_CRC32
+ * ./crypto/Kconfig:config CRYPTO_CRC32_PCLMUL
+ * ./crypto/Kconfig:config CRYPTO_CRC32_MIPS
+ * ./crypto/Kconfig:config CRYPTO_CRCT10DIF
+ * ./crypto/Kconfig:config CRYPTO_CRCT10DIF_PCLMUL
+ * ./crypto/Kconfig:config CRYPTO_CRCT10DIF_VPMSUM
+ * ./arch/arm64/crypto/Kconfig:config CRYPTO_CRCT10DIF_ARM64_CE
+ * ./arch/arm/crypto/Kconfig:config CRYPTO_CRCT10DIF_ARM_CE
+ * ./arch/arm/crypto/Kconfig:config CRYPTO_CRC32_ARM_CE
+ * ./drivers/crypto/Kconfig:config CRYPTO_CRC32_S390
+ *
+ * Please to _not_ extend the current list of digest algorithms with TONS
+ * of available algorithms, because somebody just "claims" that it were
+ * a "good" algorithm.
+ *
+ * You need to _measure_ on more or less _generic_ SERVER hardware (not on
+ * Raspberry PI & co)  that it actually is faster by at least 30% than the
+ * currently best CRC32 family.
+ *
+ * Please do not bother me with any non- _generalizable_ (!) improvements
+ * below 30%.
+ */
 
 static struct crypto_shash *md5_tfm = NULL;
 
