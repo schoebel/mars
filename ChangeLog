@@ -151,6 +151,13 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable139
+	* Critical improvement:
+	  Certain types of defective logfiles might have led to
+	  false-positive or false-negative CRC checking
+	  (under more or less obscure conditions).
+	  For safety, update is recommended.
+
 mars0.1astable138
 	* Critical fix: scarce list corruption could lead to
 	  kernel stacktraces, requiring a reboot.
