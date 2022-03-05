@@ -3862,9 +3862,9 @@ Here is some background explanation about some internal intermediate steps,
 marsadm cron
 \family default
 .
- The following is not needed for operations, but might be helpful for testing
- and debugging.
- You can skip it if you don't have much time:
+ The following is DEPRECATED.
+ Use cron for operations.
+ Skip the following except for debugging:
 \end_layout
 
 \begin_layout Enumerate
@@ -3976,7 +3976,8 @@ Please prefer the short form
 \family typewriter
 marsadm cron
 \family default
- as an equivalent to scripting two separate commands 
+ both for human usage, and as an equivalent to scripting two separate commands
+ 
 \family typewriter
 marsadm log-rotate all
 \family default
@@ -5100,7 +5101,7 @@ integrity
 When the damage is only at one of your secondaries, you should first ensure
  that the primary has a good logfile after a 
 \family typewriter
-marsadm log-rotate
+marsadm cron
 \family default
 , then try 
 \family typewriter
@@ -5129,7 +5130,7 @@ produced
  your secondaries got that defective logfile.
  After 
 \family typewriter
-marsadm log-delete-all all
+marsadm cron
 \family default
 , you can check this by comparing the 
 \family typewriter
@@ -7574,11 +7575,11 @@ can theoretically
 \emph on
 might
 \emph default
- even 
+ even cron (historic 
 \family typewriter
 log-rotate
 \family default
- independently from each other.
+) independently from each other.
  However, this is really no good idea.
  The replication to third nodes will likely get stuck, and your 
 \family typewriter
@@ -9099,15 +9100,7 @@ Regular userspace monitoring must throw an INFO if a certain freespace limit
 \family typewriter
 marsadm cron
 \family default
- (or 
-\family typewriter
-marsadm log-rotate all
-\family default
- followed by 
-\family typewriter
-marsadm log-delete-all all
-\family default
-).
+.
 \end_layout
 
 \begin_layout Enumerate
@@ -9128,11 +9121,7 @@ Regular userspace monitoring must throw a WARNING if a certain freespace
  are 20%.
  Typical actions are (in addition to 
 \family typewriter
-log-rotate
-\family default
- and 
-\family typewriter
-log-delete-all
+cron
 \family default
 ) alarming human supervisors via SMS and/or further stronger automated actions.
 \begin_inset Newline newline
@@ -14866,9 +14855,13 @@ $res
 \size scriptsize
 Notice: as a side effect for other nodes, their 
 \family typewriter
+cron
+\family default
+ (or historic 
+\family typewriter
 log-delete
 \family default
- may now become possible, since the current node does no longer count as
+) may now become possible, since the current node does no longer count as
  a candidate for logfile application.
  As another side effect, split brain situation may be (partly) resolved
  by this.
@@ -21737,21 +21730,12 @@ status open
 
 \size scriptsize
 Do all necessary housekeeping tasks.
- See 
-\family typewriter
-log-rotate
-\family default
- and 
-\family typewriter
-log-delete-all
-\family default
- for details.
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
-This should be regularly called by an external cron job or similar.
+This needs to be regularly called by an external cron job or similar.
 \end_layout
 
 \end_inset
@@ -21859,61 +21843,12 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Precondition: the local node 
+Historic.
+ Please use 
 \family typewriter
-$host
+cron
 \family default
- must be primary at 
-\family typewriter
-$res
-\family default
-.
-\end_layout
-
-\begin_layout Plain Layout
-
-\size scriptsize
-Postcondition: after a while, a new transaction logfile 
-\family typewriter
-/mars/resource-$res/log-$new_nr-$host
-\family default
- will be used instead of 
-\family typewriter
-/mars/resource-$res/log-$old_nr-$host
-\family default
- where 
-\family typewriter
-$new_nr
-\family default
- = 
-\family typewriter
-$old_nr
-\family default
- + 1.
- Without 
-\family typewriter
---force
-\family default
-, this will only carry out actions at the primary side since it makes no
- sense on secondaries.
- With 
-\family typewriter
---force
-\family default
-, secondaries are 
-\emph on
-trying
-\emph default
- to 
-\emph on
-remotely
-\emph default
- trigger a log-rotate, but without any guarantee (likely even a split-brain
- may result instead, so use this only if you are 
-\emph on
-really
-\emph default
- desperate).
+ instead.
 \end_layout
 
 \end_inset
@@ -22021,26 +21956,12 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Precondition: the local node must be a member of 
+Historic.
+ Please use 
 \family typewriter
-$res
+cron
 \family default
-.
-\end_layout
-
-\begin_layout Plain Layout
-
-\size scriptsize
-Postcondition: when there exists some old transaction logfiles 
-\family typewriter
-/mars/resource-$res/log-*-$some_host
-\family default
- which are no longer referenced by any of the symlinks 
-\family typewriter
-/mars/resource-$res/replay-*
-\family default
- , those logfiles are marked for deletion in the whole cluster.
- When no such logfiles exist, nothing will happen.
+ instead.
 \end_layout
 
 \end_inset
@@ -22146,37 +22067,14 @@ backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
-Only useful for debugging.
-\end_layout
-
-\begin_layout Plain Layout
 
 \size scriptsize
-Precondition: the local node must be a member of 
+Historic.
+ Please use 
 \family typewriter
-$res
+cron
 \family default
-.
-\end_layout
-
-\begin_layout Plain Layout
-
-\size scriptsize
-Postcondition: when there exists an old transaction logfile 
-\family typewriter
-/mars/resource-$res/log-$old_nr-$some_host
-\family default
- where 
-\family typewriter
-$old_nr
-\family default
- is the minimum existing number and that logfile is no longer referenced
- by any of the symlinks 
-\family typewriter
-/mars/resource-$res/replay-*
-\family default
- , that logfile is marked for deletion in the whole cluster.
- When no such logfile exists, nothing will happen.
+ instead.
 \end_layout
 
 \end_inset
@@ -22284,11 +22182,12 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Alias for 
+Historic.
+ Please use 
 \family typewriter
-log-delete
+cron
 \family default
-.
+ instead.
 \end_layout
 
 \end_inset
@@ -35939,7 +35838,7 @@ could
 \emph default
  be deleted by 
 \family typewriter
-marsadm log-delete-all mydata
+marsadm cron
 \family default
 .
  This differs almost always from both 
@@ -36195,9 +36094,9 @@ invalidate
 \family default
 , or since the last emergency mode, but possibly shortened by 
 \family typewriter
-log-delete
+cron
 \family default
-s.
+.
  Notice that the 0% point may be different on different cluster nodes, because
  their resource history may be different or non-contiguous during split
  brain, or after a 
@@ -40358,11 +40257,7 @@ reference "sec:Resolution-of-Split"
 .
  Notice that network outages or missing 
 \family typewriter
-marsadm log-delete-all all
-\family default
- or 
-\family typewriter
-cron
+marsadm cron
 \family default
  may continue to report an old split brain which has gone in the meantime.
 \end_layout
@@ -41924,7 +41819,7 @@ status open
 When your network had partitioned in a very awkward way for a long time,
  and when your partitioned primaries did several 
 \family typewriter
-log-rotate
+cron
 \family default
  operations indendently from each other, there is a small chance that 
 \family typewriter
@@ -42224,11 +42119,12 @@ md5
 \family default
  checksums for all data records.
  Any attempt to replay currupted logfiles is refused by MARS.
- In addition, the sequence numbers of 
+ In addition, the sequence numbers of rotated logfiles (e.g.
+ via 
 \family typewriter
-log-rotate
+cron
 \family default
-d logfiles are checked for contiguity.
+) are checked for contiguity.
  Finally, the 
 \emph on
 sequence path
@@ -42893,7 +42789,7 @@ leave-resource --host=failed-node
 \family default
  trick described earlier, followed by 
 \family typewriter
-log-delete-all
+cron
 \family default
 .
  Best if you have prepared a fully automatic script long before the incident,

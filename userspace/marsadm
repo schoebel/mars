@@ -5758,6 +5758,7 @@ sub delete_res_phase2 {
 
 sub logrotate_res {
   my ($cmd, $res) = @_;
+  lwarn "deprecated: please use 'cron' instead\n" unless $cmd =~ m/cron/;
   # report any upgrades / downgrades
   set_link($marsadm_version, "$mars/actual-$host/marsadm-version");
   if ($force) {
@@ -6173,6 +6174,7 @@ sub link_purge_res {
 
 sub logdelete_res {
   my ($cmd, $res) = @_;
+  lwarn "deprecated: please use 'cron' instead\n" unless $cmd =~ m/cron/;
   lprint "removing left-over $res logfiles...\n" if $verbose;
   my $start_time = mars_time();
   my @paths = lamport_glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
@@ -9709,44 +9711,65 @@ my %cmd_table =
       ],
    "log-rotate"
    => [
+       "verbose 1",
+       "Deprecated.",
+       "Please use \"marsadm cron\" instead.",
        "Only useful at the primary side.",
        "Start writing transaction logs into a new transaction logfile.",
-       "This should be regularly called by a cron job or similar.",
-       "For regular maintainance cron jobs, please prefer 'marsadm cron'.",
+       "For regular maintenance cron jobs, please prefer 'marsadm cron'.",
        "For details and best practices, please refer to the PDF manual.",
        \&logrotate_res,
       ],
    "log-delete-one"
    => [
+       "verbose 1",
+       "Deprecated, and only for testing.",
+       "Please use \"marsadm cron\" instead.",
        "When possible, globally delete at most one old transaction logfile",
        "which is known to be superfluous, i.e. all secondaries no longer",
        "need to replay it.",
        "Hint: use this only for testing and manual inspection.",
-       "For regular maintainance cron jobs, please prefer cron",
-       "or log-delete-all.",
+       "For regular maintenance cron jobs, please prefer 'marsadm cron'.",
+       "For details and best practices, please refer to the PDF manual.",
        \&logdelete_res,
       ],
    "log-delete"
    => [
+       "verbose 1",
+       "Deprecated.",
+       "Please use \"marsadm cron\" instead.",
        "When possible, globally delete all old transaction logfiles which",
        "are known to be superflous, i.e. all secondaries no longer need",
        "to replay them.",
        "This must be regularly called by a cron job or similar, in order",
        "to prevent overflow of the /mars/ directory.",
-       "For regular maintainance cron jobs, please prefer 'marsadm cron'.",
+       "For regular maintenance cron jobs, please prefer 'marsadm cron'.",
        "For details and best practices, please refer to the PDF manual.",
        \&logdelete_res,
       ],
    "log-delete-all"
    => [
+       "verbose 1",
+       "Deprecated.",
        "Alias for log-delete",
+       "Please use \"marsadm cron\" instead.",
+       \&logdelete_res,
+      ],
+   "log-delete-all-replayed"
+   => [
+       "verbose 3",
+       "Deprecated.",
+       "Alias for log-delete",
+       "Please use \"marsadm cron\" instead.",
        \&logdelete_res,
       ],
    "cron"
    => [
        "usage: cron (no parameters)",
        "Do all necessary regular housekeeping tasks.",
-       "This is equivalent to log-rotate all; sleep 7; log-delete-all all.",
+       "This must be regularly called by a cron job or similar, in order",
+       "to prevent overflow of the /mars/ directory.",
+       "For details and best practices, please refer to the PDF manual.",
        [
 	\&link_purge_global,
 	"purge global links",
