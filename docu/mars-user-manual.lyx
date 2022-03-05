@@ -35487,6 +35487,35 @@ df
 \labelwidthstring 00.00.0000
 
 \family typewriter
+total-space
+\family default
+ (available since mars0.1astable140, global, no resource argument necessary)
+ Shows the 
+\emph on
+logically present
+\emph default
+ space in 
+\family typewriter
+/mars/
+\family default
+, which may deviate from the physically available space as indicated by
+ the 
+\family typewriter
+df
+\family default
+ command.
+ Similarly to 
+\family typewriter
+rest-space
+\family default
+ but independently from it, this is also safeguarded and rounded down.
+ Computational details may change in future MARS releases.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 get-{disk,device}
 \family default
  Show the name of the underlying disk, or of the 

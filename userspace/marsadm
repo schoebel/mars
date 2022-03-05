@@ -6103,7 +6103,7 @@ sub link_purge_global {
   # only when a new kernel is running
   if (defined($kernel_compat) && $kernel_compat ne "") {
     my $keep_hours = 0;
-    my $glob = "{alive,buildtag,emergency,features,rest-space,time,tree,usable,used,compat-alivelinks}";
+    my $glob = "{alive,buildtag,emergency,features,{rest,total}-space,time,tree,usable,used,compat-alivelinks}";
     # Notice: $kernel_compat might differ from $compat_alivelinks
     # For example, this can happen temporarily during join-cluster & co
     if (!$kernel_compat) {
@@ -8141,7 +8141,7 @@ sub eval_fn {
       $lnk = correct_path($lnk);
       return get_link($lnk, 1);
     }
-    if (/^(tree|rest-space)$/) {
+    if (/^(tree|(rest|total)-space)$/) {
       my $what = $1;
       return get_alive_link($what, $$env{"host"}, 1)
     }
@@ -9207,7 +9207,7 @@ my %trivial_globs =
    => "",
    "is-{member,guest}"
    => "",
-   "rest-space"
+   "{rest,total}-space"
    => "",
    "get-{disk,device}"
    => "",

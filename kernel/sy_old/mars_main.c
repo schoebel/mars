@@ -654,6 +654,7 @@ int compute_emergency_mode(void)
 
 	present = raw_total_space - limit;
 	global_total_space = present;
+	__make_alivelink("total-space", present / (1024 * 1024), true);
 
 	if (mars_throttle_start > 0 &&
 	    mars_throttle_end > mars_throttle_start &&
