@@ -35469,12 +35469,18 @@ logically
 \family typewriter
 /mars/
 \family default
-, which may deviate from the physically available space as indicated by
- the 
+ measured and rounded down in GiB, which may deviate from the physically
+ available space as indicated by the 
 \family typewriter
 df
 \family default
  command.
+ The difference to 
+\family typewriter
+df
+\family default
+ is intended for safeguarding.
+ Computational details may change in future MARS releases.
 \end_layout
 
 \begin_layout Labeling
