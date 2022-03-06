@@ -192,7 +192,9 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   cron
     usage: cron (no parameters)
     Do all necessary regular housekeeping tasks.
-    This is equivalent to log-rotate all; sleep 7; log-delete-all all.
+    This must be regularly called by a cron job or similar, in order
+    to prevent overflow of the /mars/ directory.
+    For details and best practices, please refer to the PDF manual.
 
   deactivate-guest
     usage: deactivate-guest <resource_name>
@@ -317,42 +319,11 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     usage: link-purge-all <resource_name>
     Remove any .deleted links.
 
-  log-delete
-    usage: log-delete <resource_name>
-    When possible, globally delete all old transaction logfiles which
-    are known to be superflous, i.e. all secondaries no longer need
-    to replay them.
-    This must be regularly called by a cron job or similar, in order
-    to prevent overflow of the /mars/ directory.
-    For regular maintainance cron jobs, please prefer 'marsadm cron'.
-    For details and best practices, please refer to the PDF manual.
-
-  log-delete-all
-    usage: log-delete-all <resource_name>
-    Alias for log-delete
-
-  log-delete-one
-    usage: log-delete-one <resource_name>
-    When possible, globally delete at most one old transaction logfile
-    which is known to be superfluous, i.e. all secondaries no longer
-    need to replay it.
-    Hint: use this only for testing and manual inspection.
-    For regular maintainance cron jobs, please prefer cron
-    or log-delete-all.
-
   log-purge-all
     usage: log-purge-all <resource_name>
     This is potentially dangerous.
     Use this only if you are really desperate in trying to resolve a
     split brain. Use this only after reading the PDF manual!
-
-  log-rotate
-    usage: log-rotate <resource_name>
-    Only useful at the primary side.
-    Start writing transaction logs into a new transaction logfile.
-    This should be regularly called by a cron job or similar.
-    For regular maintainance cron jobs, please prefer 'marsadm cron'.
-    For details and best practices, please refer to the PDF manual.
 
   lowlevel-delete-host
     usage: lowlevel-delete-host <hostname>
@@ -721,7 +692,6 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   replay-code
     When negative, this indidates that a replay/recovery error has occurred.
   resource-possible-size
-  rest-space
   summary-vector
   systemd-unit
   tree
@@ -742,6 +712,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   {is,todo,nr}-{attach,sync,fetch,replay,primary,secondary}
   {my,all}-{resources,members,guests}
   {potential,implemented,usable}-features
+  {rest,total}-space
   {sync,fetch,replay,work,syncpos}-{size,pos}
   {sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}
   {sync,fetch,replay}-{ops-rate,amount-rate,rate,remain}
