@@ -340,10 +340,44 @@ noprefix "false"
 \end_layout
 
 \begin_layout Standard
-Finally, troubleshooting is explained in appendix 
+Appendix 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:FAQ"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ answers a few 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "chap:Handout-for-Midnight"
+reference "chap:FAQ"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+s by the inventor of MARS.
+\end_layout
+
+\begin_layout Standard
+Appendix 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:Technical-Data-MARS"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ contains some estimations for typical datacenter hardware, called 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "chap:Technical-Data-MARS"
 plural "false"
 caps "false"
 noprefix "false"
@@ -31268,6 +31302,13 @@ Why
 systemd
 \family default
 ?
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Why-systemd?"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -31416,8 +31457,7 @@ Conflicts=
 \end_layout
 
 \begin_layout Standard
-In the opinion of of author, systemd also has a few disadvantages, such
- as:
+In the opinion of the author, systemd has a few disadvantages, such as:
 \end_layout
 
 \begin_layout Enumerate
@@ -35407,7 +35447,8 @@ df
 \family typewriter
 rest-space
 \family default
- but independently from it, this is also safeguarded and rounded down.
+ but independently from it, this is also safeguarded and rounded down in
+ units of GiB.
  Computational details may change in future MARS releases.
 \end_layout
 
@@ -39656,6 +39697,392 @@ Test your scripts in failure scenarios!
 
 \begin_layout Chapter
 \start_of_appendix
+FAQ
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:FAQ"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Following answers are from Thomas Schöbel-Theuer, the inventor of the MARS
+ components and the responsible maintainer of the out-of-tree OpenSource
+ project under GPL.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Q: Why are the units of 
+\family typewriter
+marsdm view-rest-space
+\family default
+ or 
+\family typewriter
+marsdm view-total-space
+\family default
+ in GiB?
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+A: This is for your protection.
+ Contemporary servers have RAM up to TiB, not only GiB.
+ In worst case, e.g.
+ certain types of userspace bugs / attacks / intrusions, large parts of
+ this RAM can be filled via the 
+\emph on
+page cache of the kernel
+\emph default
+ by (masses of) wild-running user processes 
+\emph on
+like hell
+\emph default
+, e.g.
+\begin_inset space ~
+\end_inset
+
+GiB/ms.
+ Exceptional RAM usage / rates can trigger the 
+\series bold
+OOM killer
+\series default
+, which in turn may 
+\series bold
+\emph on
+randomly
+\emph default
+ kill
+\series default
+ almost anything, 
+\series bold
+including daemons
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Exceptional fill rates are dangerous by itself.
+ Neither the kernel nor MARS can 
+\emph on
+reliably
+\emph default
+ prevent such 
+\begin_inset Quotes eld
+\end_inset
+
+use cases
+\begin_inset Quotes erd
+\end_inset
+
+.
+ We altogether can only 
+\emph on
+try
+\emph default
+ to 
+\emph on
+deal with it
+\emph default
+ and to protect us 
+\emph on
+as best as possible
+\emph default
+ under certain conditions.
+ Detailed high-frequency monitoring would be difficult in practice.
+ Via units of GiB, I try to 
+\emph on
+hint
+\emph default
+ you on this large problem field.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Q: Why isn't 
+\family typewriter
+marsadm
+\family default
+ a daemon, but follows the process paradigm from UNIX?
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+A: Same story: reasonable protection against whoever kills processes for
+ whatever reasons.
+ Daemons can 
+\series bold
+loose their runtime state
+\series default
+, and this may happen even in 
+\emph on
+critical sections
+\emph default
+.
+ Thus your 
+\series bold
+(distributed) system(s) may get (widely) stuck
+\series default
+.
+ More explanations are in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Why-systemd?"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ 
+\begin_inset CommandInset ref
+LatexCommand vpageref
+reference "subsec:Why-systemd?"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ This can become 
+\emph on
+evil
+\emph default
+ when it happens just during an operational incident, requiring a (mass)
+ failover, and just when you 
+\emph on
+desperately
+\emph default
+ want to 
+\emph on
+rely
+\emph default
+ on MARS (see also the CAP theorem).
+ In contrast, 
+\family typewriter
+marsadm
+\family default
+ (as a component) is 
+\series bold
+stateless
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+marsadm
+\family default
+ does not 
+\emph on
+functionally
+\emph default
+ depend on network traffic, at least for non-network operations.
+ The 
+\emph on
+kernel(!) and its GPLed code
+\emph default
+ will 
+\emph on
+automatically
+\emph default
+ cleanup most remains upon process kill.
+ 
+\series bold
+Repeatability
+\series default
+: afterwards, the next 
+\family typewriter
+marsadm
+\family default
+ invocation should not depend on former (OOM-like) problems.
+\end_layout
+
+\end_inset
+
+
+\series default
+ 
+\emph on
+between
+\emph default
+ invocations.
+ Thus your system(s) can 
+\series bold
+recover more easily
+\series default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Q: Can I create a fork of MARS?
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+A: Yes, given that you 
+\series bold
+conform to the license
+\series default
+.
+ Please read the GPL, and 
+\series bold
+obey the GPL
+\series default
+.
+ This is not only about kernel code.
+ 
+\family typewriter
+marsadm
+\family default
+ will remain under GPL.
+ I have 
+\emph on
+created
+\emph default
+ it under European personal rights, and even during my precious spare time.
+ Personally, I will 
+\emph on
+not
+\emph default
+ publish anything which is 
+\emph on
+not
+\emph default
+ under an OSI and/or OIN-compliant license.
+\begin_inset Newline newline
+\end_inset
+
+In addition, it is 
+\emph on
+more than wise
+\emph default
+ to obey the customs of the OpenSource 
+\series bold
+community
+\series default
+.
+ I 
+\series bold
+firmly recommend
+\series default
+ to 
+\emph on
+fully
+\emph default
+ read and to 
+\emph on
+fully
+\emph default
+ understand and to obey 
+\family sans
+\series bold
+Homesteading the Noosphere
+\family default
+\series default
+ (a ground-breaking essay from Eric Raymond, see original web document at
+ 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://catb.org/~esr/writings/homesteading/homesteading/
+\end_layout
+
+\end_inset
+
+).
+ It may take several days or weeks to 
+\emph on
+really
+\emph default
+ understand this, and its consequences.
+ It is 
+\emph on
+more than unwise
+\emph default
+ to break important basics from there.
+ In addition, it is mandatory to obey the written and non-written rules
+ from the Linux kernel community.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Q: Will MARS become part of the official Linux kernel as published at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+www.kernel.org
+\end_layout
+
+\end_inset
+
+?
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+A: Hopefully.
+ The decision is up to Linus Torvalds and the kernel community.
+ If possible, I will try to do my best, in order to get it there
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Hopefully, the 
+\emph on
+out-of-tree
+\emph default
+ kernel part of MARS will no longer be needed by anyone in the long term.
+ Any (professional) support for the MARS kernel module, and also for 
+\family typewriter
+marsadm
+\family default
+, should hopefully migrate to the official Linux kernel and/or to the OpenSource
+ community of all interested Linux distros, in a reasonable timeframe.
+\end_layout
+
+\end_inset
+
+.
+ After acceptance, I am willing to support it further as a member of the
+ community, up to my death, under my personal constraints after my retirement.
+ I am also planning to continuously support the community, and to consent
+ to passing over the baton to somebody 
+\emph on
+from the Linux kernel community
+\emph default
+.
+ My current problem is lack of time.
+ I estimate that I will need more than 70% of my precious working hours
+ for getting it into the kernel.
+ Please help me.
+ Please talk 
+\emph on
+directly
+\emph default
+ with me about perspectives.
+\end_layout
+
+\begin_layout Standard
+This FAQ will be continued / updated only when necessary, and according
+ to my time constraints.
+\end_layout
+
+\begin_layout Chapter
 Technical Data MARS
 \begin_inset CommandInset label
 LatexCommand label
