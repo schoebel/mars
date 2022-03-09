@@ -625,7 +625,10 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 		if (likely(class >= 0 && class < MAX_SAY_CLASS)) {
 			wait_channel(ch, class);
 			spin_lock_irqsave(&ch->ch_lock[class], flags);
-			
+#ifdef MARS_OLD_SAY_REPORTING /* to disappear */
+			/* No longer print the same info twice during the lock.
+			 * Anyway, this code should vanish some day.
+			 */
 			_say(ch, class, NULL, true,
 			     "%lld.%09ld %lld.%09ld %s %s[%d] %s:%d %s(): ",
 			     (s64)s_now.tv_sec, s_now.tv_nsec,
@@ -634,7 +637,7 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 			     current->comm, (int)smp_processor_id(),
 			     file, line,
 			     func);
-
+#endif
 			va_start(args, fmt);
 			_say(ch, class, args, false, fmt);
 			va_end(args);
@@ -647,7 +650,10 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 	if (likely(ch)) {
 		wait_channel(ch, SAY_TOTAL);
 		spin_lock_irqsave(&ch->ch_lock[SAY_TOTAL], flags);
-
+#ifdef MARS_OLD_SAY_REPORTING /* to disappear */
+			/* No longer print the same info twice during the lock.
+			 * Anyway, this code should vanish some day.
+			 */
 		_say(ch, SAY_TOTAL, NULL, true,
 		     "%lld.%09ld %lld.%09ld %s_%-5s %s %s[%d] %s:%d %s(): ",
 		     (s64)s_now.tv_sec, s_now.tv_nsec,
@@ -657,7 +663,7 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 		     current->comm, (int)smp_processor_id(),
 		     file, line,
 		     func);
-
+#endif
 		va_start(args, fmt);
 		_say(ch, SAY_TOTAL, args, false, fmt);
 		va_end(args);

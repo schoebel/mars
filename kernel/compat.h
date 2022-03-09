@@ -138,6 +138,8 @@ extern int __oldcompat_unlink(
 #if !defined(GENHD_FL_MEDIA_CHANGE_NOTIFY) ||	\
   defined(IOCB_WAITQ)
 #define MARS_NEW_BLK_ALLOC_QUEUE
+#else
+#define MARS_OLD_SAY_REPORTING /* to disappear */
 #endif
 
 /* Detect upstream commits
