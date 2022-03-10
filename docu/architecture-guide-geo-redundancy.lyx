@@ -187,7 +187,6 @@ reference "chap:GNU-FDL"
 \end_layout
 
 \begin_layout New Color Box Type
-
 \begin_inset Argument 2
 status open
 
@@ -236,7 +235,6 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
-
 \begin_inset Argument 2
 status open
 
@@ -285,7 +283,6 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
-
 \begin_inset Argument 2
 status open
 
@@ -334,7 +331,6 @@ thetcbcounter : #1
 \end_layout
 
 \begin_layout New Color Box Type
-
 \begin_inset Argument 2
 status open
 
@@ -2452,7 +2448,7 @@ costly ill-designs
  Some failure examples may be found in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -2925,7 +2921,7 @@ scalability problems
  early enough, see section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -3012,7 +3008,7 @@ architectural
  ill-design (examples see section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -5862,7 +5858,16 @@ name "sec:What-is-Scalability"
 \end_layout
 
 \begin_layout Standard
-If you know the zones from the following picture, you may skip this section:
+If you know the zones from the following picture, and if you know what the
+ red 
+\family sans
+\series bold
+\color red
+X
+\family default
+\series default
+\color inherit
+ means, you may skip this section:
 \end_layout
 
 \begin_layout Standard
@@ -6045,7 +6050,7 @@ tightly coupled
 \emph default
  within their enclosure, for ordinary prices.
  Servers with more than 100 standard SMP CPUs are not extremely expensive,
- while even small loosely coupled 
+ anymore, while even small loosely coupled 
 \series bold
 clusters
 \series default
@@ -7114,11 +7119,112 @@ examples
 \series bold
 important given context
 \series default
- (like the use case, your workload, etc) into account, as well as 
+ (like the use case, your workload, classes of customers, etc) 
+\series bold
+and their distribution / amounts of resources
+\series default
+ into account, as well as 
 \series bold
 all relevant parameters
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Be sure to check what is 
+\emph on
+really
+\emph default
+ given, and what is predicted by whom, and what is 
+\emph on
+really
+\emph default
+ required, and what is just a 
+\begin_inset Quotes eld
+\end_inset
+
+wish
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+
 \series default
  like TCO etc.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do 
+\series bold
+\emph on
+not
+\emph default
+ assume linearity
+\series default
+ in complex systems, consisting of a 
+\emph on
+multitude
+\emph default
+ of layers, and/or hundreds of software components needing 
+\emph on
+runtime interactions
+\emph default
+, typically based on 
+\series bold
+message passing
+\series default
+ (e.g.
+ over 
+\emph on
+virtual
+\emph default
+ networks).
+ OOM or communication overload / 
+\series bold
+queueing
+\series default
+ / deadlocks / 
+\series bold
+self-amplification
+\series default
+ / message floods / etc aren't the only pitfalls.
+ Real systems have 
+\emph on
+many
+\emph default
+ places where non-linear or 
+\series bold
+disruptive behaviour
+\series default
+ can appear under (sometimes 
+\emph on
+unpredictable
+\emph default
+) 
+\series bold
+side conditions
+\series default
+ like (customer-induced) bugs, attacks, etc, which may 
+\series bold
+spread out
+\series default
+ (e.g.
+ error propagation, 
+\series bold
+incident propagation
+\series default
+, etc).
 \end_layout
 
 \end_inset
@@ -7202,7 +7308,33 @@ generic information
 
 \begin_layout Standard
 \noindent
-Once again, here is the picture of the important 
+More 
+\emph on
+examples
+\emph default
+, some of them showing 
+\series bold
+fatal and/or disruptive incidents
+\series default
+, and even requiring (major)
+\series bold
+ architectural changes
+\series default
+ in their specific example use case, can be found in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Failures-Scalability"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Once again, here is the general picture of the important 
 \series bold
 Zones of Scalability
 \series default
@@ -11785,7 +11917,7 @@ possible
  See the example story in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -20313,7 +20445,7 @@ Replication at filesystem level is often by single-file granularity.
  See also 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -25693,7 +25825,7 @@ noprefix "false"
 , or in 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -28019,7 +28151,7 @@ information bubbles
 Example Failures of Scalability
 \begin_inset CommandInset label
 LatexCommand label
-name "subsec:Example-Failures-of"
+name "subsec:Example-Failures-Scalability"
 
 \end_inset
 
@@ -29441,7 +29573,7 @@ packet loss
  
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -30421,7 +30553,7 @@ several
  Another project than mentioned in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -30589,7 +30721,7 @@ interactions
 , see example in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -30952,7 +31084,7 @@ must be scalable
  runtime behaviour is occuring (see section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -47119,7 +47251,7 @@ false proofs
  See the failed scalability scenario in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -47726,7 +47858,7 @@ real
  When this doesn't help, read section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -48499,7 +48631,7 @@ noprefix "false"
 ) ill-design can be found in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
@@ -48677,7 +48809,7 @@ last resort
  See example in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Example-Failures-of"
+reference "subsec:Example-Failures-Scalability"
 plural "false"
 caps "false"
 noprefix "false"
