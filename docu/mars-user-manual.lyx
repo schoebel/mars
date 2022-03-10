@@ -157,6 +157,16 @@ This document explains how to install, setup and run a storage replication
  system on a Linux based platform using MARS.
 \end_layout
 
+\begin_layout Standard
+MARS is free software under GPL.
+ The terms and conditions of the GPL apply.
+ This documentation is 
+\emph on
+best effort
+\emph default
+ and may contain bugs (no warranty, according to the GPL).
+\end_layout
+
 \begin_layout Section*
 Scope
 \end_layout
@@ -191,17 +201,7 @@ hints for monitoring.
 \end_layout
 
 \begin_layout Itemize
-troubleshooting (see appendix 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "chap:Handout-for-Midnight"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-).
+troubleshooting
 \end_layout
 
 \begin_layout Section*
@@ -223,7 +223,7 @@ Operation of storage systems.
 
 \begin_layout Itemize
 Ability to patch and to compile and install a customized Linux kernel.
- Patches are already provided ready-to-use, so no full developer knowledge
+ Most patches are already provided ready-to-use, so no full developer knowledge
  is needed.
 \end_layout
 
@@ -1235,6 +1235,8 @@ Further standard Linux tools like
 modprobe
 \family default
 , typically already present at servers.
+ When necessary, you typically can install them from typical OpenSource
+ / Linux Distro repos.
 \end_layout
 
 \begin_layout Itemize
@@ -1340,8 +1342,8 @@ For low-cost storage, RAID-5 is no longer regarded safe for today's typical
 \end_inset
 
  if you have more than 12 to 15 spindles in total.
- Therefore, the step-by-instructions of this manual will show you some examples
- with LVM striping over 2 physical volumes (PVs).
+ Therefore, the step-by-step HOWTO from this best-effort manual will show
+ you some examples with LVM striping over 2 physical volumes (PVs).
 \end_layout
 
 \begin_layout Standard
@@ -2712,9 +2714,9 @@ vi /etc/hostname
 before
 \emph default
  MARS is configured.
- Here are some 
+ Here are 
 \series bold
-pitfalls you should know
+pitfalls you need to know
 \series default
 :
 \end_layout
@@ -2733,13 +2735,32 @@ pitfalls you should know
 \emph on
 plain
 \emph default
- hostnames, separated from domain names.
+ hostnames, 
+\emph on
+separated from
+\emph default
+ domain names.
  This means: the shell command 
 \family typewriter
 hostname
 \family default
- should deliver exactly 1 word, without any dot.
- Only use this name in later marsadm commands.
+\series bold
+ 
+\series default
+(and siblings like 
+\family typewriter
+uname -n
+\family default
+) 
+\series bold
+must
+\series default
+ deliver exactly 1 word, without any dot.
+ Only use 
+\emph on
+this
+\emph default
+ name in later marsadm commands.
 \end_layout
 
 \begin_layout Enumerate
@@ -2751,12 +2772,116 @@ hostname
 
 \end_inset
 
- Of course, you may also set a domain name as is typically reported by the
- shell command 
+ Of course, you 
+\emph on
+may
+\emph default
+ also set a 
+\series bold
+domain name
+\series default
+ as is typically reported by the shell command 
 \family typewriter
 domainname
 \family default
 .
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not enter any domain name into the hostname field of several major Linux
+ distros.
+ Typically, the entered domainname will then become 
+\emph on
+part of
+\emph default
+ the hostname, which will not only ENDAGER YOUR DATA, but is also a well-known
+ fault in the Linux and UNIX ecosystems since decades.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Always enter any domainname 
+\emph on
+separately
+\emph default
+, typically into a different field, or via a different shell command, or
+ similarly.
+ If this is not possible during installation, do it later, and 
+\emph on
+do not forget it
+\emph default
+.
+ Ensure that the shell command 
+\family typewriter
+hostname
+\family default
+ (or any other host-based command) will never report 
+\emph on
+any part
+\emph default
+ of any / the domainname!
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Why? because there exist OS setups where a host can be member of 
+\emph on
+multiple domains
+\emph default
+, all in parallel.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Historically, there were 
+\emph on
+several types of domains
+\emph default
+, e.g.
+ from YP ~ NIS driven Sun setups.
+ Some alternate domain setups are used today, e.g.
+ by Microsoft, or by non-DNS driven network protocols, by CIFS, or by some
+ printer domains, and so on.
+\end_layout
+
+\begin_layout Enumerate
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
  
 \emph on
 Never
@@ -2765,8 +2890,8 @@ Never
 \family typewriter
 marsadm
 \family default
- commands! This will pay off, because then you can easily change the domainname(
-s) later, e.g.
+ commands! This will pay off, because you can easily change the domainname(s)
+ later, e.g.
  when your machine is expedited to a different location (like moves of whole
  datacenters), or you may configure 
 \emph on
@@ -2817,7 +2942,8 @@ marsadm
 \family typewriter
 _
 \family default
- but simply replace it with an 
+ .
+ When separators are necessary, simply replace it with an 
 \emph on
 infix
 \emph default
@@ -2847,7 +2973,7 @@ recognizable
 \emph on
 systematic
 \emph default
- naming + numbering scheme which is easy usable by a bigger sysadmin team.
+ naming + numbering scheme which is easyly usable by a bigger sysadmin team.
 \end_layout
 
 \begin_layout Enumerate
@@ -2991,24 +3117,51 @@ marsadm --help
 \emph on
 after
 \emph default
- MARS is already installed, or is even already running!
+ MARS is already installed, or is already running!
+\series bold
+ Any (human) error is your fault!
+\begin_inset Newline newline
+\end_inset
+
+See also the GPL: NO WARRANTY
+\begin_inset Newline newline
+\end_inset
+
+11.
+ BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY FOR
+ THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.
+ EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER
+ PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER
+ EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH
+ YOU.
+ SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY
+ SERVICING, REPAIR OR CORRECTION.
+ 
 \end_layout
 
 \begin_layout Enumerate
 \noindent
 \begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 9
-	scale 5
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
 
 \end_inset
 
+ You are FULLY RESPONSIBLE if you do any of the following.
+ There is NO WARRANTY according to the GPL.
  If you 
 \emph on
 really
 \emph default
- need to change the hostname, first stop all your applications, then decommissio
-n MARS via 
+ need to change the hostname, first stop all of your applications, then
+ decommission MARS 
+\emph on
+fully
+\emph default
+ via 
 \family typewriter
 marsadm leave-resource
 \family default
@@ -3022,6 +3175,24 @@ marsadm leave-cluster
 rmmod mars
 \family default
 .
+ Afterwards, re-create the 
+\family typewriter
+/mars
+\family default
+ filesystem, typically via 
+\family typewriter
+mkfs.ext4
+\family default
+.
+ Be 
+\series bold
+100% sure
+\series default
+ that all of this has 
+\emph on
+fully succeeded
+\emph default
+.
  After decommisioning and deconfiguration of the stack parts 
 \emph on
 above
@@ -3030,8 +3201,16 @@ above
 \family typewriter
 /dev/lv/mydata
 \family default
- (see the following sections), you can change the hostname, and finally
- you can re-configure the formerly deconfigured parts under the new hostname,
+ (see the following sections), you can 
+\emph on
+try
+\emph default
+ to change the hostname.
+ CHECK YOUR WHOLE SETUP, and finally you are 
+\emph on
+fully responsible
+\emph default
+ for re-configuration of the formerly deconfigured parts under the new hostname,
  as described in the following sections.
 \end_layout
 
@@ -3044,11 +3223,13 @@ above
 
 \end_inset
 
- Hint: by not decommissionig your disks 
+ Hint: by not decommissioning your disks 
 \family typewriter
 /dev/lv/mydata
 \family default
-, you can keep your valuable data.
+, you may keep your valuable data.
+ However, you are also fully responsible for any error in device naming,
+ device location, device content, etc.
 \end_layout
 
 \end_deeper
@@ -3277,11 +3458,7 @@ marsadm
 \end_layout
 
 \begin_layout Enumerate
-On hostA:
-\begin_inset Newline newline
-\end_inset
-
-
+Example on hostA: 
 \family typewriter
 marsadm create-cluster
 \family default
@@ -3307,6 +3484,77 @@ marsadm
 /mars/
 \family default
  partition and start over with step 2.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Nodenames (see 
+\family typewriter
+uname -n
+\family default
+ and 
+\family typewriter
+man 1 uname
+\family default
+ and 
+\family typewriter
+man 2 uname
+\family default
+) are the most critical part of your setup.
+ They 
+\series bold
+must
+\series default
+ be 
+\series bold
+globally unique
+\series default
+, and they 
+\series bold
+must never change, perpetually.
+ Any (human) error is your fault!
+\begin_inset Newline newline
+\end_inset
+
+See also the GPL: NO WARRANTY
+\begin_inset Newline newline
+\end_inset
+
+11.
+ BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY FOR
+ THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.
+ EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER
+ PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER
+ EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH
+ YOU.
+ SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY
+ SERVICING, REPAIR OR CORRECTION.
+ 
 \end_layout
 
 \begin_layout Enumerate
@@ -12305,9 +12553,86 @@ Hint: use the
 \end_layout
 
 \begin_layout Plain Layout
-Full example on hostA: 
+
+\size scriptsize
+Example on hostA: 
 \family typewriter
 marsadm --ip=192.168.2.101 create-cluster
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Nodenames (see 
+\family typewriter
+uname -n
+\family default
+ and 
+\family typewriter
+man 1 uname
+\family default
+ and 
+\family typewriter
+man 2 uname
+\family default
+) are the most critical part of your setup.
+ They 
+\series bold
+must
+\series default
+ be 
+\series bold
+globally unique
+\series default
+, and they 
+\series bold
+must never change, perpetually.
+ Any (human) error is your fault!
+\begin_inset Newline newline
+\end_inset
+
+
+\size footnotesize
+See also the GPL: NO WARRANTY
+\end_layout
+
+\begin_layout Quotation
+
+\series bold
+\size footnotesize
+11.
+ BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY FOR
+ THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.
+ EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER
+ PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER
+ EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH
+ YOU.
+ SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY
+ SERVICING, REPAIR OR CORRECTION.
+ 
 \end_layout
 
 \end_inset
@@ -39451,7 +39776,7 @@ maximum 100 logfiles per resource
 \end_layout
 
 \begin_layout Chapter
-Guide for Midnight Problem Solving
+HISTORIC Guide for Midnight Problem Solving
 \begin_inset CommandInset label
 LatexCommand label
 name "chap:Handout-for-Midnight"
@@ -39462,7 +39787,7 @@ name "chap:Handout-for-Midnight"
 \end_layout
 
 \begin_layout Standard
-Here is 
+Here is a 
 \emph on
 generic
 \emph default
@@ -39470,13 +39795,21 @@ generic
 \emph on
 guide
 \emph default
- (not to be treated as instructions) for the generic 
+ (
+\series bold
+not to be treated as instructions
+\series default
+) for the 
+\emph on
+generic
+\emph default
+ 
 \family typewriter
 marsadm
 \family default
  and command\SpecialChar softhyphen
 line level.
- 
+ Do not forget the terms and conditions from the GPL.
 \end_layout
 
 \begin_layout Standard
@@ -39604,8 +39937,11 @@ status open
 \end_layout
 
 \begin_layout Standard
-Meaning of the port numbers (current default as configured into the kernel
- module, may change in future):
+Meaning of the port numbers (current 
+\emph on
+default
+\emph default
+ as configured into the kernel module, may change in future):
 \end_layout
 
 \begin_layout Itemize
