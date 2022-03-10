@@ -228,15 +228,59 @@ sub any_exists {
 
 ##################################################################
 
+# CRITICAL: utsname & co
+
+sub get_checked_utsname {
+  my $hostname;
+  my $etc_hostname = "/etc/hostname";
+  if (-s $etc_hostname) {
+    open(my $fh, "<", $etc_hostname)
+      or die "cannot open '$etc_hostname' althoough it appears to exist\n";
+    $hostname = <$fh>;
+    close($fh);
+    chomp $hostname;
+  } else {
+    $etc_hostname = "/bin/hostname";
+    unless (-x $etc_hostname) {
+      $etc_hostname = "/usr/bin/hostname";
+    }
+    $hostname = `$etc_hostname`;
+    chomp $hostname;
+  }
+  unless ($hostname) {
+    die "CRITICAL RISK: cannot determine hostname from $etc_hostname\n";
+  }
+  my $uname_cmd = "/bin/uname";
+  unless (-x $uname_cmd) {
+    $uname_cmd = "/usr/bin/uname";
+  }
+  my $uname = `$uname_cmd -n`;
+  chomp $uname;
+  unless ($uname) {
+    die "CRITICAL RISK: cannot determine network node name via 'uname -n'\n";
+  }
+  if ($uname ne $hostname) {
+    die "CRITICAL RISK: the utsname from 'uname -n' is '$uname', DIFFERING from $etc_hostname '$hostname'\n";
+  }
+  if ($uname =~ m/\./) {
+    warn "CRITICAL RISK: your hostname is MISCONFIGURED, thus you are risiking DATA DESTRUCTION.\n";
+    warn "CRITICAL RISK: do not mix up hostnames and domainnames.\n";
+    warn "CRITICAL RISK: read mars-user-guide.pdf\n";
+    die "CRITICAL RISK: your hostname / uname / utsname MUST NOT contain a '.' symbol!\n";
+  }
+  check_id($uname);
+  return $uname;
+}
+
+##################################################################
+
 # global variables
 
 my $Id = '$Id$ ';
 my $user_version = 0.1;
 my $marsadm_version = 2.9; # some rough hint at newer features
 my $mars = "/mars";
-my $host = `uname -n` or ldie "cannot determine my network node name\n";
-chomp $host;
-check_id($host);
+my $host = get_checked_utsname();
 my $real_host = $host;
 my $backup_dir = "$mars/backups-" . time();
 my $force = 0;
