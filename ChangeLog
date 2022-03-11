@@ -151,6 +151,17 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable140
+	* Critical doc improvement: try to make CRYSTAL CLEAR
+	  why MISCONFIGURED hostnames can cause DATA LOSS.
+	  In short: hostnames must not contain anything from FQDN.
+	* Major doc improvement: cite the NO WARRANTY clause
+	  from the GPL several times, once again.
+	* Minor improvement: new primitive
+	  marsadm view-total-space in units in GiB.
+	* More minor doc updates.
+	* New FAQ appendix, from the inventor of MARS.
+
 mars0.1astable139
 	* Critical improvement:
 	  Certain types of defective logfiles might have led to
