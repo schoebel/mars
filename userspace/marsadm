@@ -31,7 +31,7 @@ umask 0077;
 
 use v5.10;
 
-my $reserved_names = "none|all|any|local|localhost";
+my $reserved_names = "none|all|any|full|empty|undefined|remote|local|localhost";
 my $match_reserved_substr = qr"\(?($reserved_names)\)?";
 my $match_reserved_id = qr{^$match_reserved_substr$};
 
@@ -4470,7 +4470,7 @@ sub _writable {
 }
 
 sub _get_ip {
-  my ($peer) = @_;
+  my ($peer, $ignore_missing_ip) = @_;
   $peer = $host unless $peer;
   check_id($peer);
   # Dynamic programming: this also applies to --ip-$peer=$peer_ip
@@ -4514,6 +4514,12 @@ sub _get_ip {
     lprint_stderr "$type query for '$peer' found IPv4 address '$addr'\n";
     $known_ips{$peer} = $addr;
     return $addr;
+  }
+  if ($ignore_missing_ip) {
+    if ($ignore_missing_ip > 1) {
+      lwarn "Cannot determine any IP for host  '$peer'\n";
+    }
+    return undef;
   }
   ldie "Cannot determine foreign IP for peer '$peer'\n" if $peer ne $real_host;
   chomp (my @info = `/sbin/ip addr show`);
@@ -4793,14 +4799,33 @@ sub create_cluster {
 
 sub join_cluster {
   my ($cmd, $peer, $peer_ip) = @_;
+  $allow_fail_action = undef;
+  $_[1] = "undefined";
   ldie "Cannot join myself (peer='$peer', host='$host')\n" if $peer eq $host;
+  check_id($peer);
   ldie "Directory $mars is missing\n" unless -d $mars;
+  my $old_peer_ip = _get_ip($peer, 2);
+  if ($old_peer_ip && $peer_ip) {
+    if ($old_peer_ip eq $peer_ip) {
+      lhint "the provided IP '$peer_ip' for host '$peer' equals to pre-configured IP\n";
+    } else {
+      ldie "Command '$cmd' cannot modify peer '$peer' from pre-configured IP '$old_peer_ip' to another IP '$peer_ip'\n";
+    }
+  } elsif (!$peer_ip) {
+    if (!$old_peer_ip) {
+      ldie "No IP given for host '$peer'\n";
+    }
+    lhint "Using the pre-configured IP '$old_peer_ip' for host '$peer'\n";
+    $peer_ip = $old_peer_ip;
+  } else {
+    lhint "Using the provided IP '$peer_ip' for host '$peer'\n";
+  }
   if (lamport_glob("$mars/resource-*")) {
-    lwarn "DANGER: some resources already exist!\n";
+    lwarn "DANGER: some resources already exist locally!\n";
+    lwarn "DANGER: any fault is AT YOUR RISK.\n";
     ldie  "DANGER: If you are sure that no resource clash or another clash like cluster-level clash is possible, you may re-invoke $cmd with '--force' option AT YOUR RISK\n" unless $force;
   }
   _create_dirs($cmd);
-  $peer_ip = _get_ip($peer) unless $peer_ip;
   # try new join method
   if (is_module_loaded()) {
     my $ip = _get_ip($host);
