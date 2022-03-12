@@ -2724,8 +2724,7 @@ Installing a Linux distribution is outside the scope of this manual.
 \begin_layout Itemize
 Hostnames need to be entered into typical installers, e.g.
  as used by major Linux distros.
- In case you have selected a bad name, you can typically change it later,
- e.g.
+ In case you have selected a bad name, you can typically change it, e.g.
  via your favourite tool like 
 \family typewriter
 yast
@@ -2743,11 +2742,15 @@ yum
 vi /etc/hostname
 \family default
  followed by reboot, or similar.
- However, do this only 
+ However, do this 
+\series bold
+only 
 \emph on
 before
 \emph default
- MARS is configured.
+ MARS is configured
+\series default
+.
  Here are 
 \series bold
 pitfalls you need to know
@@ -2830,8 +2833,11 @@ domainname
 
 \end_inset
 
- Do not enter any domain name into the hostname field of several major Linux
- distros.
+ Do not enter any domain name into the 
+\family typewriter
+hostname
+\family default
+ field of several major Linux distros.
  Typically, the entered domainname will then become 
 \emph on
 part of
@@ -2924,7 +2930,7 @@ Never
 \family typewriter
 marsadm
 \family default
- commands! This will pay off, because you can easily change the domainname(s)
+ commands! This will pay off, because you typically can change the domainname(s)
  later, e.g.
  when your machine is expedited to a different location (like moves of whole
  datacenters), or you may configure 
@@ -2936,13 +2942,78 @@ multiple
 \emph on
 hostname
 \emph default
- has to be treated as an 
+ has to be treated as a 
+\emph on
+unique
+\emph default
+ 
 \series bold
 immutable ID of your machine
 \series default
 .
  Other hardware or software configurations like MAC addresses or IP addresses
  or DNS zones etc will be typically reconfigurable (when done properly).
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Q: why is the 
+\family typewriter
+hostname
+\family default
+ used as a dot-less machine ID, although there exist a 
+\emph on
+multitude
+\emph default
+ of UUIDs at hardware level?
+\begin_inset Newline newline
+\end_inset
+
+A: because defective hardware is actually repaired in big datacenters, e.g.
+ new mainboards, new CPUs, or even (partially) 
+\series bold
+preconfigured spare machines
+\series default
+ where 
+\emph on
+nothing
+\emph default
+ has survived from the old hardware.
+ MARS supports a 
+\series bold
+variety of repair strategies
+\series default
+ by placing MARS' machine ID into the 
+\emph on
+traditional
+\emph default
+ 
+\family typewriter
+hostname
+\family default
+, independently from any number of domain or DNS names etc, and their contradict
+ory shortcomings.
+ This is a 
+\emph on
+feature
+\emph default
+, not a bug, and you 
+\emph on
+agreed
+\emph default
+ to this built-in feature of MARS by 
+\emph on
+usage
+\emph default
+, see the GPL and its license terms and conditions like FITNESS FOR A PARTICULAR
+ PURPOSE.
 \end_layout
 
 \begin_layout Enumerate
