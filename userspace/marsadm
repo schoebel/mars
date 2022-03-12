@@ -4797,7 +4797,7 @@ sub join_cluster {
   ldie "Directory $mars is missing\n" unless -d $mars;
   if (lamport_glob("$mars/resource-*")) {
     lwarn "DANGER: some resources already exist!\n";
-    ldie  "DANGER: If you are sure that no resource clash is possible, re-invoke $cmd with '--force' option\n" unless $force;
+    ldie  "DANGER: If you are sure that no resource clash or another clash like cluster-level clash is possible, you may re-invoke $cmd with '--force' option AT YOUR RISK\n" unless $force;
   }
   _create_dirs($cmd);
   $peer_ip = _get_ip($peer) unless $peer_ip;
