@@ -40120,16 +40120,16 @@ Some internal algorithms are quadratic.
 
 \end_inset
 
- by the future MARS Full.
+ by future MARS versions.
  Please don't exceed the following limits:
 \end_layout
 
 \begin_layout Itemize
-maximum 4 nodes per cluster
+maximum 10 nodes per cluster
 \end_layout
 
 \begin_layout Itemize
-maximum 20 resources per cluster
+maximum 30 resources per cluster
 \end_layout
 
 \begin_layout Itemize
