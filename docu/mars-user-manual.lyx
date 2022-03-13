@@ -3536,11 +3536,11 @@ marsadm leave-cluster
 rmmod mars
 \family default
 .
- Afterwards, re-create the 
+ Afterwards, you MUST re-create the 
 \family typewriter
 /mars
 \family default
- filesystem, typically via 
+ filesystem for safety, typically via 
 \family typewriter
 mkfs.ext4
 \family default
@@ -9196,7 +9196,7 @@ Finally, say
 \begin_inset Newline newline
 \end_inset
 
-marsadm --host=your-damaged-host leave-cluster --force
+marsadm --host=$your_damaged_host leave-cluster --force
 \end_layout
 
 \begin_layout Standard
@@ -9206,7 +9206,7 @@ believe
 \emph default
  that the old node 
 \family typewriter
-your-damaged-host
+$your_damaged_host
 \family default
  does no longer exist, and that it does no longer participate in any resource.
  For safety, check this via 
@@ -9214,6 +9214,60 @@ your-damaged-host
 marsadm view
 \family default
  everywhere.
+\end_layout
+
+\begin_layout Standard
+As another safeguard, any re-attempt to 
+\begin_inset Quotes eld
+\end_inset
+
+surrect
+\begin_inset Quotes erd
+\end_inset
+
+ a 
+\begin_inset Quotes eld
+\end_inset
+
+zombie
+\begin_inset Quotes erd
+\end_inset
+
+ from its 
+\begin_inset Quotes eld
+\end_inset
+
+claimed death
+\begin_inset Quotes erd
+\end_inset
+
+ and/or from its 
+\begin_inset Quotes eld
+\end_inset
+
+real death
+\begin_inset Quotes erd
+\end_inset
+
+ should 
+\emph on
+spit at you
+\emph default
+ with some tons of warnings.
+ These warnings are a 
+\emph on
+feature
+\emph default
+, not a bug.
+ If you 
+\emph on
+really
+\emph default
+ are an expert and if you 
+\emph on
+really
+\emph default
+ know what you are doing, you may ignore this AT YOUR OWN RISK.
 \end_layout
 
 \begin_layout Standard
@@ -9239,8 +9293,7 @@ modprobe mars
 \end_layout
 
 \begin_layout Standard
-Further instructions for complicated cases of destruction are in appendix
- 
+Further advice for complicated cases of destruction are in appendix 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "chap:Alternative-De--and"
@@ -13674,7 +13727,11 @@ Postcondition: the local node is removed from the replicated symlink tree
 /mars/
 \family default
  such that other nodes will cease to communicate with it after a while.
- The converse it not true: the local node may continue
+ The converse it not true: the local node 
+\emph on
+may
+\emph default
+ continue
 \begin_inset Foot
 status open
 
@@ -13740,9 +13797,13 @@ rmmod
 \family typewriter
 /mars/
 \family default
- filesystem may be manually destroyed thereafte,r, e.g.
+ filesystem should be manually destroyed thereafte,r, e.g.
  for decommissioning of hardware.
- This is receommended for preventing 
+ This is 
+\emph on
+strongly receommended
+\emph default
+ for preventing 
 \begin_inset Quotes eld
 \end_inset
 
@@ -13750,7 +13811,7 @@ zombies
 \begin_inset Quotes erd
 \end_inset
 
- to resurrect by accidenct (human error).
+ to resurrect by accident (human error, which is always AT YOUR RSIK).
 \end_layout
 
 \begin_layout Plain Layout
@@ -13796,8 +13857,9 @@ any
 \begin_layout Plain Layout
 
 \size scriptsize
-Hint: this can be usually achieved by marsadm leave-resource $resource –host=$da
-maged –force
+Hint: this can be usually achieved by 
+\family typewriter
+marsadm leave-resource $resource --host=$damaged --force
 \end_layout
 
 \begin_layout Plain Layout
@@ -13816,7 +13878,7 @@ leave-cluster
 \family default
  for any reason (e.g.
  complete network shutdown, no communication anymore possible at all), here
- is a last resort: destroy the 
+ is an ADVICE for a last resort AT YOUR RISK: destroy the 
 \family typewriter
 /mars/
 \family default
@@ -13945,7 +14007,8 @@ any
 \family typewriter
 /mars/
 \family default
- filesystem for creating / joining a new / different cluster, you 
+ filesystem for re-joining the old cluster, or for creating / joining a
+ new / different cluster, you 
 \emph on
 must
 \emph default
@@ -13961,9 +14024,6 @@ reference "subsec:Setup-your-Cluster"
 mkfs.ext4
 \family default
 .
- Exception: 
-\family typewriter
-marsadm merge-cluster
 \end_layout
 
 \end_inset
@@ -28468,6 +28528,32 @@ backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+
+\size scriptsize
+ Please prefer 
+\family typewriter
+leave-resource
+\family default
+ followed by 
+\family typewriter
+leave-cluster
+\family default
+ instead.
+ This is only a fallback for 
+\emph on
+experts
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
 
 \size scriptsize
 Useful for decommissioning of dead / physically destroyed hosts after a
@@ -28556,7 +28642,11 @@ marsadm cron --autoclean
 
 
 \size scriptsize
- Have a look at 
+ Have a 
+\emph on
+serious look
+\emph default
+ at 
 \family typewriter
 leave-resource --host=$hostname
 \family default
@@ -42256,6 +42346,42 @@ noprefix "false"
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not forget to 
+\emph on
+ensure
+\emph default
+ that suchalike zombies cannot 
+\begin_inset Quotes eld
+\end_inset
+
+resurrect
+\begin_inset Quotes erd
+\end_inset
+
+ by itself! Read 
+\emph on
+all
+\emph default
+ relevant parts of this manual!
+\end_layout
+
+\begin_layout Standard
 Finally, when the split brain + emergency mode is gone everywhere, rebuild
  the redundancy at every (newly deployed 
 \emph on
@@ -43603,6 +43729,19 @@ leave-resource
 leave-cluster
 \family default
 .
+ After 
+\family typewriter
+leave-cluster
+\family default
+, you 
+\emph on
+must
+\emph default
+ re-create the 
+\family typewriter
+/mars
+\family default
+ filesystem.
 \end_layout
 
 \begin_layout Chapter
