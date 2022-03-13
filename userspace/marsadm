@@ -11032,6 +11032,13 @@ sub do_all_res {
 }
 
 if ($cmd =~ m/^(view|pretty)/) {
+  if (! -d $mars) {
+    lwarn "directory $mars does not exist - please read mars-user-manual.pdf\n";
+  } elsif (system("/usr/bin/mountpoint $mars >/dev/null")) {
+    lwarn "directory $mars is NOT a mountpoint - please mount it.\n";
+  } elsif (! -l "$mars/uuid") {
+    lwarn "no cluster uuid found -- be sure to FULLY UNDERSTAND what you need to do, by reading mars-user-manual.pdf\n";
+  }
   lwarn "mars kernel module is not loaded\n" unless is_module_loaded();
   if ($res eq "all" && $cmd =~ m/^view-?(.*)/) {
     my $global_macro_name = $1 ? "$1-header" : "default-header";
