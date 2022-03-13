@@ -778,14 +778,36 @@ sub _scan_caches {
   }
   # Add all known hosts to %total_peers but _not_ to %any_peers.
   # Reason: some hosts might not be member/guest of any resource
+  my $now = mars_time();
   foreach my $path (raw_glob($ips_glob)) {
     $path =~ m:/ip-(.*):;
     my $this_peer = $1;
     my $peer_ip = get_raw_link($path);
     my $deleted_peer = defined($peer_ip) && $peer_ip eq ".deleted";
     if ($deleted_peer) {
+      # SHIT. This may _regularly_ happen upon _intended_ decommissioning
+      # via leave-resource followed by leave-cluster.
+      # Consequently, I could _try_ to recognize whether is was intended,
+      # or whether there was whatever kind of "accident".
+      # Probably I need to become a MEDIUM in order to read
+      # the brain of people for their intentions, or to know what
+      # actually happened.
+      # If it is undetectible, then I just leave it here for documentation.
+      # The following condition may become TBD, or leave it. I cannot help for now.
+      my $raw_ip = get_raw_link($path);
+      if (!$raw_ip || get_link_stamp($path) < $now - $window) {
+	if ($this_peer eq $real_host) {
+	  lwarn "Detected a DECOMMISSIONED machine (e.g. after leave-cluster).\n";
+	  lwarn "There are many possibilities, like hardware failures, disasters, etc.\n";
+	  lwarn "Please use your HUMAN BRAIN for resolving this.\n";
+	} else {
+	  # Unsure "political correctness": lwarn or lhint?
+	  lhint "Peer '$this_peer' looks like decommissioned (or we are in split-cluster).\n";
+	}
+      }
       # ABOLUTE NOGO: the currently running host CANNOT be deleted
-      if ($this_peer eq $real_host) {
+      if ($this_peer eq $real_host &&
+	  (!$raw_ip || get_link_stamp($path) < $now - $window)) {
 	lwarn "IMPORTANT: this script is running under the REAL hostname '$real_host'\n";
 	lwarn "IMPORTANT: but my own entry '$path' is marked as '.deleted'\n";
 	lwarn "IMPORTANT: this is a NOGO and it CANNOT WORK!\n";
