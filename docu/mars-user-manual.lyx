@@ -2704,6 +2704,240 @@ In the following sections, we assume that two RAID sets are already built,
 .
 \end_layout
 
+\begin_layout Subsection
+Setup the Network
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Setup-the-Network"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Here are only brief recommendations.
+ Network setup is outside the scope of this manual.
+ Recommended are the following basics:
+\end_layout
+
+\begin_layout Itemize
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Avoid layer 2 coupling 
+\emph on
+between
+\emph default
+ datacenters.
+ MARS requires only TCP/IP (typically over IPv4 default ports 7776\SpecialChar ldots
+7779)
+ for replication traffic, so layer 4 coupling (aka routing) is sufficient.
+ Of course, the lower layers are always present inside the 
+\emph on
+same
+\emph default
+ datacenter, so just avoid 
+\emph on
+unnecessary
+\emph default
+ lower-layer coupling 
+\emph on
+between 
+\emph default
+datacenters.
+ Any problems caused by the network and its setup are up to your own.
+\end_layout
+
+\begin_layout Itemize
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ As explained in 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+architecture-guide-geo-redundancy.pdf
+\end_layout
+
+\end_inset
+
+, dedicated replication networks are 
+\emph on
+recommended
+\emph default
+ for 
+\emph on
+long-distance
+\emph default
+ replication of hundreds or thousands of servers.
+\end_layout
+
+\begin_layout Itemize
+Best practice: ensure that 
+\emph on
+each
+\emph default
+ of your cluster hosts can 
+\family typewriter
+ping
+\family default
+ to 
+\emph on
+each
+\emph default
+ other (which means 
+\begin_inset Formula $O(k^{2})$
+\end_inset
+
+ potential network connections), via their 
+\emph on
+pure hostname.
+\begin_inset Newline newline
+\end_inset
+
+
+\emph default
+Example on hostA: 
+\family typewriter
+ping hostB
+\end_layout
+
+\begin_layout Itemize
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ If you have only 1 server IP over 1 physical ethernet interface, classical
+ datacenter-internal DNS (as typically used for sysadmin 
+\family typewriter
+ssh
+\family default
+ access etc) is sufficient.
+ If you have a separate replication network, e.g.
+ a separate physical ethernet interface 
+\family typewriter
+eth1
+\family default
+ in addition to classical 
+\family typewriter
+eth0
+\family default
+, you 
+\emph on
+might
+\emph default
+ omit another DNS entry 
+\emph on
+theoretically
+\emph default
+.
+ Although several 
+\family typewriter
+marsadm
+\family default
+ commands are supporting separate 
+\family typewriter
+$host_ip
+\family default
+ parameters for circumvention of DNS, working directly on IP addresses is
+ 
+\emph on
+not
+\emph default
+ a best practice.
+ Out of many alternatives, try to 
+\emph on
+avoid
+\emph default
+ separate DNS names for the 
+\family typewriter
+eth1
+\family default
+-specific master IP, but 
+\emph on
+consider
+\emph default
+ to use 
+\emph on
+local routing
+\emph default
+ for the MARS ports 7776 to 7779 over 
+\family typewriter
+eth1
+\family default
+, while other ports may remain on 
+\family typewriter
+eth0
+\family default
+.
+ Such a port-specific routing setup will make you 
+\emph on
+independent
+\emph default
+ from changes in the network or hardware setup, and it will make the DNS
+ less complex.
+ Your scripting will also benefit from simplicity.
+ On the other hand, beware of (internal or external) routing problems.
+ However, operations of professional datacenters needs to deal with suchalike
+ playgrounds anyway.
+ This MARS-specific guide cannot dive into details.
+\end_layout
+
+\begin_layout Itemize
+Firewalling is also OT = Off Topic here.
+ Recommendation: KISS = Keep It Simple and Stupid.
+\end_layout
+
+\begin_layout Itemize
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Avoid FQDNs for any testing, and do not encode domain names into any scripting.
+ See also section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Setup-OS"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Setup-OS"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
 \begin_layout Section
 Setup / Install OS
 \begin_inset CommandInset label
@@ -3161,7 +3395,21 @@ cluster
 
 \end_inset
 
- Avoid some silly hostnames like 
+ Do not use silly
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+As a protection against sillyness, the list of silly basic names in 
+\family typewriter
+marsadm
+\family default
+ may be extended in future.
+\end_layout
+
+\end_inset
+
+ hostnames like 
 \family typewriter
 none
 \family default
@@ -3172,6 +3420,10 @@ all
  / 
 \family typewriter
 any
+\family default
+ / 
+\family typewriter
+undefined
 \family default
  / 
 \family typewriter
@@ -3221,6 +3473,10 @@ marsadm --help
  NEVER EVER modify the hostname 
 \emph on
 after
+\emph default
+ and/or 
+\emph on
+during
 \emph default
  MARS is already installed, or is already running!
 \series bold
@@ -3512,7 +3768,7 @@ xfs
 
 
 \family default
- .
+ 
 \begin_inset Newline newline
 \end_inset
 
@@ -3563,7 +3819,7 @@ marsadm
 \end_layout
 
 \begin_layout Enumerate
-Example on hostA: 
+On hostA: 
 \family typewriter
 marsadm create-cluster
 \family default
@@ -3575,7 +3831,11 @@ This must be done
 \emph on
 exactly once
 \emph default
-, on exactly one node of your cluster.
+, on exactly one node of your cluster (the 
+\emph on
+first
+\emph default
+ node).
  Never do this twice or on different hosts, because that would create two
  different clusters which would have nothing to do with each other.
  The 
@@ -3663,12 +3923,201 @@ See also the GPL: NO WARRANTY
 \end_layout
 
 \begin_layout Enumerate
-Depending on the MARS version:
+Except for historic versions
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "foot:port_problems-1"
+
+\end_inset
+
+Old versions of MARS before mars0.1astable101 needed a working 
+\family typewriter
+ssh
+\family default
+ connection from hostB to hostA (as 
+\family typewriter
+root
+\family default
+), and also in the opposite direction, and between 
+\emph on
+all
+\emph default
+ (current and future) cluster members.
+ The following is an advice for a historic method.
+ Test ssh on hostB:
 \end_layout
 
-\begin_deeper
-\begin_layout Enumerate
-When using mars version mars0.1astable101 or later, execute on 
+\begin_layout Itemize
+\paragraph_spacing other 0
+\noindent
+
+\family typewriter
+ssh hostA w
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+This needs to work without entering a password.
+ Ensure that it also works in the opposite direction.
+ In addition, 
+\family typewriter
+rsync
+\family default
+ must be installed.
+\end_layout
+
+\begin_layout Plain Layout
+Hints: 
+\emph on
+very useful
+\emph default
+ is 
+\family typewriter
+ssh-agent
+\family default
+ and 
+\family typewriter
+ssh -A
+\family default
+ preconfigured via 
+\family typewriter
+/etc/ssh/ssh{,d}_config
+\family default
+.
+ Hint 2 (experiences from the 
+\family typewriter
+football
+\family default
+ project): if you don't use 
+\family typewriter
+ssh-agent
+\family default
+ (or if you 
+\emph on
+disallow
+\emph default
+ it explicitly by default and allow it only exceptionally), then you will
+ waste a lot of time and energy with trivial basics.
+ 
+\family typewriter
+marsadm
+\family default
+ has got some provisionary workarounds, like internal fallback to an internal
+ list of 
+\family typewriter
+ssh
+\family default
+ ports, but suchalike isn't recommended.
+ Just configure your 
+\family typewriter
+ssh
+\family default
+ infrastructure in such a ways that it works 
+\emph on
+smoothly
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
+Similar waste of time and energy will occur if you follow the ill-belief
+ that (static or dynamic) firewalling on the MARS ports 7776 to 7779 would
+ be a 
+\begin_inset Quotes eld
+\end_inset
+
+clever
+\begin_inset Quotes erd
+\end_inset
+
+ idea, and/or if you 
+\begin_inset Quotes eld
+\end_inset
+
+sell
+\begin_inset Quotes erd
+\end_inset
+
+ some 
+\begin_inset Quotes eld
+\end_inset
+
+features
+\begin_inset Quotes erd
+\end_inset
+
+ like 
+\emph on
+port knocking
+\emph default
+ on MARS ports to the management.
+ The quality of such ideas could be disguised if you noticed that your dedicated
+ replication network 
+\emph on
+is
+\emph default
+ already separated by construction, or it 
+\emph on
+could
+\emph default
+ be done (e.g.
+ via 
+\emph on
+simple
+\emph default
+ network-level firewalling) with 
+\emph on
+less effort
+\emph default
+.
+ Simply, and frankly: 
+\series bold
+do not shoot yourself in your foot
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+Another way for damaging yourself is usage of old MARS versions.
+ Notice that MARS has drastically improved in functional and non-functional
+ aspects during the last years.
+\end_layout
+
+\begin_layout Plain Layout
+Some historic hint for those who 
+\emph on
+want to
+\emph default
+ shoot themselves, or are 
+\emph on
+forced
+\emph default
+ to non-productively 
+\emph on
+test
+\emph default
+ something from the ancient world: in old MARS versions, you 
+\emph on
+must not
+\emph default
+ modprobe before join-cluster is executed.
+ In newer versions, it is vice versa.
+\begin_inset CommandInset label
+LatexCommand label
+name "foot:port_problems-2"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+ of MARS, execute on 
 \emph on
 both
 \emph default
@@ -3681,58 +4130,6 @@ both
 modprobe mars
 \end_layout
 
-\begin_layout Enumerate
-Old versions of MARS before mars0.1astable101 needed a working 
-\family typewriter
-ssh
-\family default
- connection from hostB to hostA (as 
-\family typewriter
-root
-\family default
-).
- When needded, test ssh on hostB:
-\begin_inset Newline newline
-\end_inset
-
-
-\family typewriter
-ssh hostA w
-\begin_inset Newline newline
-\end_inset
-
-
-\family default
-This should work without entering a password.
- Hint: you may use 
-\family typewriter
-ssh-agent
-\family default
- and 
-\family typewriter
-ssh -A
-\family default
- for achieving that.
-\begin_inset Newline newline
-\end_inset
-
-In addition, 
-\family typewriter
-rsync
-\family default
- must be installed.
-\begin_inset Newline newline
-\end_inset
-
-Notice: in the old version, you 
-\emph on
-must not
-\emph default
- modprobe before join-cluster is executed.
- In the new version, it is vice versa.
-\end_layout
-
-\end_deeper
 \begin_layout Enumerate
 On hostB
 \family typewriter
@@ -3805,7 +4202,12 @@ Both variants should show up some healty connections.
 
 \end_inset
 
- Beware of asymmetric connections, caused by inappropriate firewall rules.
+ Beware of 
+\emph on
+asymmetric connections
+\emph default
+, e.g.
+ caused by inappropriate networking or firewall rules.
  
 \emph on
 Any
@@ -3814,11 +4216,146 @@ Any
 \emph on
 any
 \emph default
- other host of the 
+ other host, 
+\emph on
+at least
+\emph default
+ in the 
 \emph on
 same
 \emph default
  cluster.
+ See also the big footnote 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "foot:port_problems-1"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ starting 
+\begin_inset CommandInset ref
+LatexCommand vpageref
+reference "foot:port_problems-1"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ (ending 
+\begin_inset CommandInset ref
+LatexCommand vpageref
+reference "foot:port_problems-2"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not shoot yourself in your foot by the ill-belief that it would be easy
+ to control the (replication) network traffic and/or to manage fine-granular
+ firewalling on hundreds or thousands of machines, whether a single huge
+ BigCluster or many smaller clusters, e.g.
+ pairwise and/or according to the current LV replica situation etc.
+ Big systems (as such) are not only prone to sporadics like defective hardware,
+ they also tend to 
+\emph on
+some dynamic behaviour
+\emph default
+ like growth and hardware lifecyle.
+ Thus they need 
+\emph on
+updates
+\emph default
+ and housekeeping in an 
+\emph on
+incremental
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Big systems are often 
+\series bold
+close to 24/7/365
+\series default
+ und thus need 
+\emph on
+incremental
+\emph default
+ updates / housekeeping at 
+\series bold
+\emph on
+every
+\emph default
+ layer
+\series default
+, including networking and many sub-components.
+ 
+\end_layout
+
+\end_inset
+
+
+\emph default
+ manner.
+ They aren't static piles of metal and fibres.
+ Networking and its configuration should also obey: KISS = Keep It Simple
+ and Stupid.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Well-done 
+\emph on
+coarse
+\emph default
+ granularity at network level is your friend.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ If you try to reduce the risk, or are already hit by asymmetric MARS connection
+s, e.g.
+ for some historic reasons or due to sporadic ARP-cache overflows etc: regularly
+ check (e.g.
+ via monitoring, and/or via long-running background jobs) that 
+\emph on
+all
+\emph default
+ MARS ports are operational, and in 
+\emph on
+all combinations
+\emph default
+ from each server to each other server.
 \end_layout
 
 \begin_layout Section
@@ -12639,6 +13176,8 @@ This must be called exactly once at the initial primary.
 \end_layout
 
 \begin_layout Plain Layout
+
+\size footnotesize
 Hint: use the 
 \family typewriter
 --ip=
@@ -12655,6 +13194,8 @@ marsadm --ip=192.168.2.101 create-cluster
 \end_layout
 
 \begin_layout Plain Layout
+
+\size footnotesize
 \begin_inset Graphics
 	filename images/MatieresToxiques.png
 	lyxscale 50
@@ -12706,12 +13247,10 @@ must never change, perpetually.
 \begin_inset Newline newline
 \end_inset
 
-
-\size footnotesize
 See also the GPL: NO WARRANTY
 \end_layout
 
-\begin_layout Quotation
+\begin_layout Plain Layout
 
 \series bold
 \size footnotesize
@@ -12920,20 +13459,38 @@ The
 \family typewriter
 mars.ko
 \family default
- kernel module must be either loaded, or ssh must be working [exception:
- in old MARS versions before mars0.1astable101 the kernel module 
+ kernel module must be loaded
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+In ancient MARS versions before mars0.1astable101 the kernel module 
 \emph on
 must not
 \emph default
- be loaded, and a working ssh connecttion to $host as root must work (without
- password), and
+ be loaded, and a working ssh connecttion to 
+\family typewriter
+$host
+\family default
+ must work as root (without password), and 
 \family typewriter
 rsync
 \family default
- must be installed at all cluster nodes].
- In newer MARS versions >= mars0.1astable101, the old ssh-based method is
- automatically used as a fallback when the kernel module is forgotten to
- load.
+ must be installed at all cluster nodes.
+ PROVISIONARY: in 
+\emph on
+some
+\emph default
+ newer MARS versions >= mars0.1astable101, the old ssh-based method is automatica
+lly used as a fallback when the kernel module is forgotten to load; however
+ this provisionary workaround shall disappear in future.
+\end_layout
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Plain Layout
@@ -12957,11 +13514,37 @@ This must be called exactly once at every initial secondary node.
 \end_layout
 
 \begin_layout Plain Layout
+
+\size scriptsize
 Hint: use the 
 \family typewriter
 --ip=
 \family default
- option if you have multiple interfaces on your local hostB.
+ option if you have 
+\emph on
+multiple
+\emph default
+ interfaces on your 
+\emph on
+local
+\emph default
+ hostB, and thus the local IP detection is not unique.
+ Be sure to use the right IP, e.g.
+ if you have a dedicated replication network.
+ Similarly, use the optional 
+\family typewriter
+$host_ip
+\family default
+ parameter if the current primary hostA 
+\emph on
+also
+\emph default
+ has 
+\emph on
+multiple
+\emph default
+ IP addresses, and thus the partner IP (in the replication network) is also
+ not uniquely deducable from the hostname.
 \begin_inset Newline newline
 \end_inset
 
