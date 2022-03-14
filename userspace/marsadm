@@ -8756,7 +8756,7 @@ my %complex_macros =
    => ""
    .  "%elsif{%is-member{}}{"
    .    "%call{device-info}"
-   .    "  %{res} [%count-resource-peers{%{res}}/%count-cluster-peers{}]"
+   .    "  %{res} [%count-resource-peers{%{res}}/%count-configured-peers{}]"
    .      " %include{diskstate} %include{replstate} %include{flags} %include{role} %include{primarynode} %include{commstate}\n"
    .    "%if{%>{%-{%disk-size{}}{%resource-size{}}}{%{threshold}}}{"
    .    "     Hint: you are wasting %human-numbers{}{ }{ }{%-{%disk-size{}}{%resource-size{}}} on disk %get-disk{}\n"
@@ -8780,7 +8780,7 @@ my %complex_macros =
    "default-resource"
    => "%if{%{res}}{"
    .    "%{res} %human-numbers{}{ }{ }{%resource-size{}} "
-   .    "[%count-resource-peers{%{res}}/%count-cluster-peers{}]"
+   .    "[%count-resource-peers{%{res}}/%count-configured-peers{}]"
    .  "}",
 
    "default-global"
