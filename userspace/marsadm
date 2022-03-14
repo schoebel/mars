@@ -5755,7 +5755,6 @@ sub leave_res_phase0 {
 
 sub leave_res_phase1 {
   my ($cmd, $res) = @_;
-  set_link("1", "$mars/resource-$res/work-$host");
   _create_delete("$mars/resource-$res/replay-$host");
   _create_delete("$mars/resource-$res/data-$host");
   _create_delete("$mars/resource-$res/syncstatus-$host");
@@ -5827,7 +5826,6 @@ sub delete_res_phase1 {
     next if $path =~ m:/(maxnr$|\.deleted-):;
     _create_delete($path);
   }
-  set_link("1", "$mars/resource-$res/work-$host");
   finish_links();
   _wait_delete();
   _reset_resources();

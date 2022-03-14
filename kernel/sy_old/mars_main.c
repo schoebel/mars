@@ -779,7 +779,6 @@ enum {
 	CL_RES_TODO,
 	CL_RES_ACTUAL,
 	CL_DATA,
-	CL_WORK,
 	CL_SIZE,
 	CL_PRIMARY,
 	CL__FILE,
@@ -5948,24 +5947,6 @@ int make_bio(struct mars_dent *dent)
 	return status;
 }
 
-static
-int make_work(struct mars_dent *dent)
-{
-	struct mars_rotate *rot;
-
-	if (!dent->d_parent) {
-		goto done;
-	}
-	rot = dent->d_parent->d_private;
-	if (!rot)
-		goto done;
-
-	activate_rot(rot);
-
- done:
-	return 0;
-}
-
 static int make_replay(struct mars_dent *dent)
 {
 	struct mars_dent *parent = dent->d_parent;
@@ -7159,18 +7140,6 @@ static const struct main_class main_classes[] = {
 		.cl_father = CL_RESOURCE,
 #ifdef RUN_DATA
 		.cl_forward = make_bio,
-#endif
-		.cl_backward = kill_any,
-	},
-	/* Internal: allows extra rot activation */
-	[CL_WORK] = {
-		.cl_name = "work-",
-		.cl_len = 5,
-		.cl_type = 'l',
-		.cl_hostcontext = true,
-		.cl_father = CL_RESOURCE,
-#ifdef RUN_DATA
-		.cl_forward = make_work,
 #endif
 		.cl_backward = kill_any,
 	},
