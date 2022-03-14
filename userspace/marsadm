@@ -1069,6 +1069,17 @@ sub get_any_peers {
   }
 }
 
+sub _get_configured_peer_paths {
+  my $ips_glob = "$mars/ips/ip-*";
+  return lamport_glob($ips_glob);
+}
+
+sub _count_configured_peer_paths {
+  my $ips_glob = "$mars/ips/ip-*";
+  my @list = lamport_glob($ips_glob);
+  return scalar(@list);
+}
+
 sub key_intersect {
   my ($hash1, $hash2) = @_;
   my %h1 = %$hash1;
@@ -7881,6 +7892,19 @@ sub eval_fn {
       }
       return $list;
     }
+    if (/^(count[-_]?)?configured[-_]?peers$/) {
+      my $do_count = $1;
+      if ($do_count) {
+	return _count_configured_peer_paths();
+      }
+      my $list = "";
+      foreach my $peer_path (_get_configured_peer_paths()) {
+	my $peer = $peer_path;
+	$peer =~ s:^.*/ip-::;
+	$list .= "$peer\n";
+      }
+      return $list;
+    }
     # low-level symlink access
     if (/^readlink$/) {
       my $path = parse_macro($arg1, $env);
@@ -9295,6 +9319,10 @@ my %trivial_globs =
    "{cluster,resource,guest}-peers"
    => "",
    "count-{cluster,resource,guest}-peers"
+   => "",
+   "configured-peers"
+   => "",
+   "count-configured-peers"
    => "",
    "{disk,resource,device}-size"
    => "",
