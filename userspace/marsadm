@@ -239,7 +239,9 @@ sub get_checked_utsname {
     $hostname = <$fh>;
     close($fh);
     chomp $hostname;
-  } else {
+  }
+  # Some distros like OpenSUSE allow differences between /etc/hostname and other sources
+  if (!$hostname || $hostname =~ m/\./) {
     $etc_hostname = "/bin/hostname";
     unless (-x $etc_hostname) {
       $etc_hostname = "/usr/bin/hostname";
@@ -258,6 +260,14 @@ sub get_checked_utsname {
   chomp $uname;
   unless ($uname) {
     die "CRITICAL RISK: cannot determine network node name via 'uname -n'\n";
+  }
+  if ($uname ne $hostname) {
+    # try to shorten only the hostname
+    my $oldname = $hostname;
+    if ($hostname =~ s/\..*$//) {
+      warn "WARNING: I am now shortening the FQDN-like hostname '$oldname' from $etc_hostname down to '$hostname', but you are running a RISK.\n";
+      warn "WARNING: Please read mars-user-manual.pdf about the SERIOUS RISKS from FQDN-like hostnames\n";
+    }
   }
   if ($uname ne $hostname) {
     die "CRITICAL RISK: the utsname from 'uname -n' is '$uname', DIFFERING from $etc_hostname '$hostname'\n";
