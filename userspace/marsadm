@@ -2599,8 +2599,24 @@ sub get_global_versions {
     }
   }
   # compute the mimimum of kernel features capabilities
+  my $start_time = mars_time();
+  my $stone_age = $start_time;
+  if ($cron_autoclean_days) {
+    $stone_age -= $cron_autoclean_days * 3600 * 24;
+  } else {
+    # fallback to 1 YEAR
+    $stone_age -= 3600 * 24 * 365;
+  }
   foreach my $peer (get_any_peers()) {
     next if $peer =~ $match_reserved_id;
+    # check for stone-age relicts which _needs_ to be skipped ;)
+    my $peer_age = get_alive_stamp("alive", $peer);
+    next if !$peer_age;
+    if ($peer_age < $stone_age) {
+      my $days = ($start_time - $peer_age) / 3600 / 24;
+      lwarn "Peer '$peer' alivelinks show an age of $days days, please consider \"cron --autoclean\"\n";
+      next;
+    }
     my $features = get_alive_link("features", $peer, 1);
     next unless (defined($features) && $features);
     next unless $features =~ m/^([0-9]+),?([0-9]*),?([x0-9a-f]*)/;
