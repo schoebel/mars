@@ -5032,6 +5032,10 @@ sub join_cluster {
   _create_dirs($cmd);
   # try new join method
   if (is_module_loaded()) {
+    my $act_dir = "$mars/actual-$real_host";
+    if (! -d $act_dir) {
+      ldie "My kernel module is loaded, but directory '$act_dir' is missing\n";
+    }
     my $ip = _get_ip($host);
     lprint "MARS kernel module is loaded, trying the new $cmd method.\n";
     my $old_uuid = get_link("$mars/uuid", 2);
