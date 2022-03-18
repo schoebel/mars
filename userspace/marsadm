@@ -43,7 +43,6 @@ my $parallel = -999;
 my $single_step = 0;
 my $inject_phase = 0;
 my $compat_deletions = 1;
-my $compat_alivelinks = 1;
 my $threshold = 10 * 1024 * 1024;
 my $window = 60;
 my $stuck_seconds = 3600;
@@ -2452,19 +2451,7 @@ sub is_link_recent {
 sub get_alive_link {
   my ($name, $peer, $unchecked) = @_;
   my $path = "$mars/actual-$peer/$name";
-  my $result;
-  if ($compat_alivelinks) {
-    $result = get_link($path, 2);
-    my $path_old = "$mars/$name-$peer";
-    my $result_old = get_link($path_old, 2);
-    return $result_old if !$result;
-    # determine the newer link
-    if (get_link_stamp($path_old) > get_link_stamp($path)) {
-      return $result_old if $result_old;
-    }
-  } else {
-    $result = get_link($path, $unchecked);
-  }
+  my $result = get_link($path, $unchecked);
   return $result;
 }
 
@@ -2472,15 +2459,6 @@ sub get_alive_stamp {
   my ($name, $peer) = @_;
   my $path = "$mars/actual-$peer/$name";
   my $result = get_link_stamp($path);
-  if ($compat_alivelinks) {
-    my $path_old = "$mars/$name-$peer";
-    my $result_old = get_link_stamp($path_old);
-    return $result_old if !$result;
-    # determine the newer link
-    if ($result_old > $result) {
-      return $result_old;
-    }
-  }
   return $result;
 }
 
@@ -2494,15 +2472,6 @@ sub alive_glob {
     next unless $peer;
     next if $peer =~ $match_reserved_id;
     $peers{$peer} = 1;
-  }
-  if ($compat_alivelinks) {
-    foreach my $path (lamport_glob("$mars/$name-$hosts")) {
-      next unless $path =~ m:/$name-(.+):;
-      my $peer = $1;
-      next unless $peer;
-      next if $peer =~ $match_reserved_id;
-      $peers{$peer} = 1;
-    }
   }
   return sort alphanum_cmp keys(%peers);
 }
@@ -2655,9 +2624,6 @@ sub get_global_versions {
     $ssh_port = 0;
   }
   # determine cluster-wide $compat_* values
-  if ($kernel_strategy_version >= 3) {
-    $compat_alivelinks = 0;
-  }
   my $compat_path = "$mars/compat-deletions";
   $compat_deletions = get_link($compat_path, 2);
   if ($kernel_features_version < 3) {
@@ -2706,18 +2672,6 @@ sub get_alive_links {
     if ($use_remote_stamp) {
       my $remote_path = "$mars/actual-$peer/read-stamp";
       my $remote_val = get_link($remote_path, 2);
-      # check compatibility to old versions, and downgrades
-      if ($compat_alivelinks && $remote_val) {
-	my $path = "$mars/$alive-$peer";
-	my $stamp1 = get_link_stamp($path);
-	my $stamp2 = get_link_stamp($remote_path);
-	# Try to prefer the new remote stamp.
-	# Only use the old one when too much outdated.
-	if ($stamp2 &&
-	    (!$stamp1 || $stamp2 + $window >= $stamp1)) {
-	  $val = $remote_val;
-	}
-      }
     }
     $links{$peer} = $val;
   }
@@ -6477,18 +6431,9 @@ sub link_purge_global {
   if (defined($kernel_compat) && $kernel_compat ne "") {
     my $keep_hours = 0;
     my $glob = "{alive,buildtag,emergency,features,{rest,total}-space,time,tree,usable,used,compat-alivelinks}";
-    # Notice: $kernel_compat might differ from $compat_alivelinks
-    # For example, this can happen temporarily during join-cluster & co
     if (!$kernel_compat) {
       lprint "NEW alivelinks active: purging OLD alivelinks\n" if $verbose;
       $glob = "$mars/$glob-*";
-    } elsif ($compat_alivelinks && $kernel_strategy_version < 3) {
-      # This should happen only after true downgrades.
-      # Notice that newer kernels are writing _both_ variants
-      # during compat mode.
-      lprint "OLD alivelinks active: purging NEW alivelinks\n" if $verbose;
-      $glob = "$mars/actual-$host/$glob*";
-      $keep_hours = $keep_backup_hours unless $force;
     } else {
       $glob = "";
     }
