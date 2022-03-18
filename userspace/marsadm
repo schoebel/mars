@@ -4868,7 +4868,8 @@ sub create_uuid {
   my $old_uuid = get_link("$mars/uuid", 2);
   ldie "Cluster was already created with uuid='$old_uuid'. " .
     "For safety reasons, no override is possible at marsadm level.\n" if $old_uuid;
-  my $uuid = `echo -n \$(hostname) \$(date)`;
+  my $now = mars_time();
+  my $uuid = "${real_host}_${now}";
   set_link($uuid, "$mars/uuid");
   finish_links(); # opportunity for errors => don't continue
   lprint "New cluster UUID is '$uuid'\n";
