@@ -478,32 +478,17 @@ const char * const rot_keys[] = {
 #define IS_EMERGENCY_PRIMARY()     (mars_emergency_mode > 2)
 #define IS_JAMMED()                (mars_emergency_mode > 3)
 
-static bool write_alivelinks = false;
-static bool compat_alivelinks = false;
-static bool needed_compat_alivelinks = false;
-
-/* for safety, consider both the old and new alivelink path */
 static
 void get_alivelink_stamp(const char *name, const char *peer,
 			 struct lamport_time *stamp)
 {
 	const char *peer_time_path1 = NULL;
-	const char *peer_time_path2 = NULL;
 	struct kstat peer_time_stat1 = {};
-	struct kstat peer_time_stat2 = {};
 
 	peer_time_path1 = path_make("/mars/actual-%s/%s", peer, name);
-	peer_time_path2 = path_make("/mars/%s-%s", name, peer);
 	mars_stat(peer_time_path1, &peer_time_stat1, true);
-	mars_stat(peer_time_path2, &peer_time_stat2, true);
 	*stamp = peer_time_stat1.mtime;
-	if (lamport_time_compare(&peer_time_stat1.mtime,
-				 &peer_time_stat2.mtime) < 0) {
-		needed_compat_alivelinks = true;
-		*stamp = peer_time_stat2.mtime;
-	}
 	brick_string_free(peer_time_path1);
-	brick_string_free(peer_time_path2);
 }
 
 static
@@ -524,22 +509,9 @@ static
 const char *get_alivelink(const char *name, const char *peer)
 {
 	const char *path1 = path_make("/mars/actual-%s/%s", peer, name);
-	const char *path2 = path_make("/mars/%s-%s", name, peer);
-	struct lamport_time stamp1 = {};
-	struct lamport_time stamp2 = {};
-	const char *result1 = ordered_readlink(path1, &stamp1);
-	const char *result2 = ordered_readlink(path2, &stamp2);
-
-	if (lamport_time_compare(&stamp1, &stamp2) < 0) {
-		needed_compat_alivelinks = true;
-		brick_string_free(result1);
-		result1 = result2;
-	} else {
-		brick_string_free(result2);
-	}
+	const char *result1 = ordered_readlink(path1, NULL);
 
 	brick_string_free(path1);
-	brick_string_free(path2);
 	return result1;
 }
 
@@ -568,32 +540,6 @@ void get_marsadm_version(const char *peer)
 }
 
 static
-void __make_alivelink_str_old(const char *name, const char *src, bool lazy)
-{
-	char *dst = path_make("/mars/%s-%s", name, my_id());
-
-	if (!src || !dst) {
-		MARS_ERR("cannot make alivelink paths\n");
-		goto err;
-	}
-	if (lazy) {
-		char *check = mars_readlink(dst, NULL);
-		bool ok = (check && !strcmp(check, src));
-
-		brick_string_free(check);
-		if (ok) {
-			MARS_DBG("symlink '%s' -> '%s' has not changed\n", src, dst);
-			goto err;
-		}
-	}
-	MARS_DBG("'%s' -> '%s'\n", src, dst);
-	if (write_alivelinks)
-		ordered_symlink(src, dst, NULL);
-err:
-	brick_string_free(dst);
-}
-
-static
 void __make_alivelink_str(const char *name, const char *src, bool lazy)
 {
 	char *dst = path_make("/mars/actual-%s/%s", my_id(), name);
@@ -602,8 +548,6 @@ void __make_alivelink_str(const char *name, const char *src, bool lazy)
 		MARS_ERR("cannot make alivelink paths\n");
 		goto err;
 	}
-	if (compat_alivelinks)
-		__make_alivelink_str_old(name, src, lazy);
 	if (lazy) {
 		char *check = mars_readlink(dst, NULL);
 		bool ok = (check && !strcmp(check, src));
@@ -615,8 +559,7 @@ void __make_alivelink_str(const char *name, const char *src, bool lazy)
 		}
 	}
 	MARS_DBG("'%s' -> '%s'\n", src, dst);
-	if (write_alivelinks)
-		ordered_symlink(src, dst, NULL);
+	ordered_symlink(src, dst, NULL);
 err:
 	brick_string_free(dst);
 }
@@ -7160,10 +7103,6 @@ int make_uuid(struct mars_dent *dent)
 
 	brick_string_free(my_uuid);
 	my_uuid = brick_strdup(dent->new_link);
-	/* Do not write alivelinks before {create,join}-cluster
-	 * has been exectued.
-	 */
-	write_alivelinks = true;
 	return 0;
 }
 
@@ -7910,16 +7849,6 @@ static int _main_thread(void *data)
 			_tmp_oneshot_stamp.tv_sec = 0;
 		}
 
-		/* determine compat_* variables */
-		compat_alivelinks =
-			needed_compat_alivelinks ||
-			!(usable_strategy_version >= 3 &&
-			  (marsadm_version_major > 2 ||
-			   (marsadm_version_major == 2 &&
-			    marsadm_version_minor >= 8)));
-		needed_compat_alivelinks = false;
-
-		__make_alivelink("compat-alivelinks", compat_alivelinks, true);
 
 		update_brick_mem_freelist_max();
 
