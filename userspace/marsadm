@@ -6310,6 +6310,9 @@ sub logdelete_res {
 	_create_delete($path);
       }
       next;
+    } elsif (is_recent($stamp)) {
+      lwarn "Another join-resource detected at '$path'\n";
+      $transient_join = 1;
     }
     next if is_member($res, $host);
     next unless is_guest($res, $host);
@@ -6337,12 +6340,28 @@ sub logdelete_res {
     lwarn "Keeping some versionlinks\n";
     return unless $force;
   }
+  # Well, be careful due to Distributed Races(tm)
   lprint "Removing left-over versionlinks...\n" if $verbose;
   foreach my $versionlink (@versionlinks) {
     my $nrv = $versionlink;
     $nrv =~ s/^.*\/version-([0-9]+)-.+$/$1/;
     # we need at least one more version link than logfiles for consistency checks
     next unless $nrv < $max_deletable - 1;
+    # Further safeguard: do not delete newer versionlinks.
+    # These will feed out over time.
+    my $max_age = get_link_stamp($versionlink);
+    my $sibl_glob = $versionlink;
+    $sibl_glob =~ s:(/version-[0-9]+).*:$1:;
+    my @siblings = lamport_glob("${sibl_glob}-*");
+    for my $sibling (@siblings) {
+      next if $sibling eq $versionlink;
+      my $sibl_age = get_link_stamp($versionlink);
+      $max_age = $sibl_age if $sibl_age > $max_age;
+    }
+    my $recent = is_recent($max_age);
+    if (!$recent) {
+      last;
+    }
     _create_delete($versionlink);
   }
 
