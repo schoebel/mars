@@ -5941,6 +5941,7 @@ sub logrotate_res {
   set_link($marsadm_version, "$mars/actual-$host/marsadm-version");
   if ($force) {
     lwarn "operation $cmd --force is DANGEROUS\n";
+    sleep(3);
   } else {
     my $no_warn = ($cmd =~ /cron/);
     my $done = check_primary($cmd, $res, 0, 1, $no_warn);
