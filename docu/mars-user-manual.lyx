@@ -40679,11 +40679,7 @@ A: Yes, given that you
 conform to the license
 \series default
 .
- Please read the GPL, and 
-\series bold
-obey the GPL
-\series default
-.
+ Please read the GPL, and follow it.
  This is not only about kernel code.
  
 \family typewriter
@@ -40709,7 +40705,7 @@ not
 
 In addition, it is 
 \emph on
-more than wise
+wise
 \emph default
  to obey the customs of the OpenSource 
 \series bold
@@ -40720,15 +40716,7 @@ community
 \series bold
 firmly recommend
 \series default
- to 
-\emph on
-fully
-\emph default
- read and to 
-\emph on
-fully
-\emph default
- understand and to obey 
+ to take the time to read 
 \family sans
 \series bold
 Homesteading the Noosphere
@@ -40746,19 +40734,10 @@ http://catb.org/~esr/writings/homesteading/homesteading/
 
 \end_inset
 
-).
- It may take several days or weeks to 
-\emph on
-really
-\emph default
- understand this, and its consequences.
- It is 
-\emph on
-more than unwise
-\emph default
- to break important basics from there.
- In addition, it is mandatory to obey the written and non-written rules
- from the Linux kernel community.
+), and to think about its consequences.
+ Just stating the obvious, do not break important basics from there.
+ Finally, keep in mind that it is mandatory to follow the written and unwritten
+ rules from the Linux kernel community.
 \end_layout
 
 \begin_layout Labeling
