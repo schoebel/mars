@@ -5986,6 +5986,29 @@ sub logrotate_res {
     lwarn "logfile '$next' already exists - nothing to do\n";
     return 0;
   }
+  # safeguard defective /mars: the corresonding versionlink must exist.
+  if (!is_link_recent($last)) {
+    my $vers_path = $last;
+    $vers_path =~ s:/log-:/version-:;
+    my $vers_link = get_link($vers_path, 1);
+    if (!$vers_link) {
+      lwarn "logfile '$last' has no corresponding versionlink '$vers_path'\n";
+      unless ($force) {
+	lwarn "do not logrotate on inconsistent /mars filesystem\n";
+	lwarn "please CHECK and REPAIR your /mars filesystem by hand - is there a readonly mount?\n";
+	sleep(3);
+	return 0;
+      }
+      lwarn "continuing $cmd AT YOUR RISK because you said --force\n";
+      sleep(3);
+    }
+  }
+  # Create an empty new logfile for the kernel.
+  # Historically, this was intended as a feature.
+  # But is it really a feature?
+  # THINK: should the _responsibility_ for logrotate migrate to the kernel?
+  # At least, it would reduce some potential races betweek kernelspace and userspace.
+  # But some sysadmins may expect some lowlevel control over logfiles.
   safe_creat($next) unless $dry_run;
   my $startnr = get_link("$mars/resource-$res/maxnr", 1);
   $startnr = $nr + 1 if ($nr >= $startnr);
