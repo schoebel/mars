@@ -6268,7 +6268,7 @@ sub logdelete_res {
   lprint "min non-deletable logfile number: $max_deletable\n" if $verbose;
   if ($min_deletable >= $max_deletable) {
     lprint "no logfiles are deletable.\n" if $verbose;
-    return;
+    return 0;
   }
   if ($cmd eq "log-delete-one") {
     $max_deletable = $min_deletable + 1; # delete only the first one
@@ -6338,7 +6338,7 @@ sub logdelete_res {
       ($transient_join ||
        !detect_splitbrain($res, 1))) {
     lwarn "Keeping some versionlinks\n";
-    return unless $force;
+    return 0 unless $force;
   }
   # Well, be careful due to Distributed Races(tm)
   lprint "Removing left-over versionlinks...\n" if $verbose;
@@ -6381,6 +6381,7 @@ sub logdelete_res {
     lprint "  unlink '$leftlink'\n" if $verbose;
     unlink($leftlink);
   }
+  return 0;
 }
 
 sub cron_phase1 {
