@@ -5849,7 +5849,10 @@ sub logrotate_res {
     lwarn "operation $cmd --force is DANGEROUS\n";
   } else {
     my $no_warn = ($cmd =~ /cron/);
-    return if check_primary($cmd, $res, 0, 1, $no_warn);
+    my $done = check_primary($cmd, $res, 0, 1, $no_warn);
+    if ($done) {
+      return 0;
+    }
   }
   my $log_glob = "$mars/resource-$res/log-*-$host";
   lprint "get logfiles '$log_glob'\n";
@@ -5863,11 +5866,11 @@ sub logrotate_res {
     # By definition, logrotate an old logfile must have been produced
     # by the _same_ host. Only relevant for dangerous cron --force.
     lprint "nothing to $cmd: no old logfiles for '$host' exist.\n";
-    return;
+    return 0;
   }
   if (-z $last) {
     lprint "an empty logfile '$last' already exists, nothing to do.\n" if $verbose;
-    return;
+    return 0;
   }
   # prevent too many small logfiles when secondaries are not catching up
   if (scalar(@paths) >= $thresh_logfiles) {
@@ -5878,17 +5881,21 @@ sub logrotate_res {
     }
     if ($size < $thresh_logsize) {
       lprint "current logfile '$last' is smaller than $thresh_logsize GB, skipping logrotate.\n" if $verbose;
-      return;
+      return 0;
     }
   }
   my $nr = $last;
   $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
   my $next = sprintf("$mars/resource-$res/log-%09d-$host", $nr + 1);
-  ldie "logfile '$next' already exists\n" if file_exists($next);
+  if (file_exists($next)) {
+    lwarn "logfile '$next' already exists - nothing to do\n";
+    return 0;
+  }
   safe_creat($next) unless $dry_run;
   my $startnr = get_link("$mars/resource-$res/maxnr", 1);
   $startnr = $nr + 1 if ($nr >= $startnr);
   set_link("$startnr", "$mars/resource-$res/maxnr");
+  return 0;
 }
 
 sub _get_deletable_logfiles {
