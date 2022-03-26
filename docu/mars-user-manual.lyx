@@ -40800,6 +40800,312 @@ directly
  with me about perspectives.
 \end_layout
 
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Q: What is the 
+\series bold
+business value
+\series default
+ of any 
+\family typewriter
+OpenSource
+\family default
+ for my company?
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+A: Short story for managers / controllers / consultants: talk with 
+\series bold
+\size large
+experts from the Linux Foundation
+\series default
+\size default
+.
+\begin_inset Newline newline
+\end_inset
+
+Some recommended details top-down via checklist:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Consider 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://catb.org/~esr/writings/homesteading/homesteading/
+\end_layout
+
+\end_inset
+
+ a 
+\emph on
+successful
+\emph default
+ management strategy for 
+\emph on
+creation
+\emph default
+ of 
+\emph on
+globally shared commons
+\emph default
+ value
+\series bold
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Recommendation: do not follow a common misbelief that something would not
+ deliver any value because it is 
+\emph on
+for free
+\emph default
+.
+ Also, do not mix up English meanings of 
+\begin_inset Quotes eld
+\end_inset
+
+free
+\begin_inset Quotes erd
+\end_inset
+
+.
+ When unsure, please consult the well-known publications from Richard Stallman,
+ who explained the fundamentals.
+\end_layout
+
+\end_inset
+
+
+\series default
+.
+\end_layout
+
+\begin_layout Enumerate
+Understand the fundamental differences between commons 
+\emph on
+cultures
+\emph default
+ and company 
+\emph on
+cultures
+\emph default
+, and their relationships to management 
+\emph on
+cultures
+\emph default
+.
+\end_layout
+
+\begin_layout Enumerate
+Map typical 
+\emph on
+usage patterns
+\emph default
+ of 
+\family typewriter
+OpenSource
+\family default
+ down to your company, like follows.
+ Cross-compare your 
+\series bold
+savings
+\series default
+ (if you would need to 
+\emph on
+develop
+\emph default
+ and to 
+\emph on
+maintain
+\emph default
+ the software 
+\emph on
+fully yourself
+\emph default
+, and/or to 
+\emph on
+buy
+\emph default
+ and 
+\emph on
+integrate
+\emph default
+ and operate comparable products on non-
+\family typewriter
+OpenSource
+\family default
+ markets), and compute the corresponding 
+\series bold
+earnings
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Optionally, further effects like 
+\series bold
+scaling effects
+\series default
+ may be also relevant.
+\end_layout
+
+\end_inset
+
+
+\series default
+ via best-practice management methods.
+\end_layout
+
+\begin_layout Enumerate
+Finally, take the 
+\series bold
+future
+\series default
+ of business value alternatives, spread over the 
+\series bold
+actual lifetime
+\series default
+, into account.
+\end_layout
+
+\begin_layout Enumerate
+Ultimately, take the long-term 
+\series bold
+ecosystem effects
+\series default
+ of 
+\emph on
+all
+\emph default
+ your downloaded and/or contributed 
+\family typewriter
+OpenSource
+\family default
+ into account, without overlooking so-called 
+\emph on
+hidden champions
+\emph default
+.
+\end_layout
+
+\end_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+\begin_inset space ~
+\end_inset
+
+ Obviously, delegate OpenSource (strategy) only to persons who have 
+\emph on
+proven
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Recommendations: do not forget to take the 
+\emph on
+actual
+\emph default
+ OpenSource 
+\series bold
+affinity
+\series default
+ of people into account, in which 
+\series bold
+culture
+\series default
+ they have 
+\series bold
+grown up
+\series default
+.
+ Just believing some personal claims is not enough.
+ Check for any people who 
+\emph on
+grew up during their youth
+\emph default
+ in a non-affine culture, and do not trust a counter-culture where fighting
+ 
+\emph on
+against
+\emph default
+ OpenSource is or was a fashion.
+ Beware of (hidden) 
+\series bold
+\emph on
+clash of cultures
+\series default
+\emph default
+.
+ Check for contradictions.
+ Guard your company against hidden agendas and against 
+\emph on
+fakes
+\emph default
+.
+ Valuable OpenSource is 
+\emph on
+not
+\emph default
+ created by management affinity, but 
+\emph on
+only
+\emph default
+ by 
+\emph on
+certain hand-selected
+\emph default
+ 
+\series bold
+individuals
+\series default
+.
+ Carefully select the 
+\emph on
+right
+\emph default
+ individual(s) for your company.
+ Do not forget to ask for 
+\series bold
+personal references
+\series default
+, best on 
+\emph on
+actual individual creations
+\emph default
+, and 
+\emph on
+check
+\emph default
+ them.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ that they 
+\emph on
+actually master
+\emph default
+ the OpenSource playgrounds according to its intrinsic rules.
+ Do not put the fox in charge of the henhouse
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Similar saying: do not trust the cat to keep the cream.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
 \begin_layout Standard
 This FAQ will be continued / updated only when necessary, and according
  to my time constraints.
