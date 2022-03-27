@@ -151,6 +151,19 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable141
+	* Major marsadm fix: network-wide race between
+	  log-rotate / cron and invalidate / join-resource / etc.
+	* Major fixes, only relevant for people who need
+	  changes in cluster setup, like {marge,split,join}-cluster after
+	  leave-resource + leave-cluster & co.
+	  More will hopefully follow (currently unclear and not
+	  yet a raw timeline).
+	* Minor marsadm improvements: usability, reporting
+	  improvements, etc.
+	* Minor doc improvements, clarifications. New FAQ item
+	  on Business Value of OpenSource.
+
 mars0.1astable140
 	* Critical doc improvement: try to make CRYSTAL CLEAR
 	  why MISCONFIGURED hostnames can cause DATA LOSS.
