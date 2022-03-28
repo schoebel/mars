@@ -64,7 +64,7 @@ enum field_type {
 	FIELD_RAW,
 	FIELD_INT,
 	FIELD_UINT,
-};
+} __packed;
 
 struct meta {
 	//char  field_name[MAX_FIELD_LEN];

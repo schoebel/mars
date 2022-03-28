@@ -40,9 +40,7 @@ extern int brick_say_syslog_flood_limit;
 extern int brick_say_syslog_flood_recovery;
 extern int delay_say_on_overflow;
 
-// printk() replacements
-
-enum {
+enum _say_mode {
 	SAY_DEBUG,
 	SAY_INFO,
 	SAY_WARN,
@@ -50,7 +48,7 @@ enum {
 	SAY_FATAL,
 	SAY_TOTAL,
 	MAX_SAY_CLASS
-};
+}  __packed;
 
 extern const char *say_class[MAX_SAY_CLASS];
 

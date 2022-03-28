@@ -53,7 +53,7 @@ enum dirty_stage {
 	DIRTY_FINISHED,
 	/* Keep this the last element */
 	DIRTY_MAX
-};
+} __packed;
 
 struct dirty_length {
 	rwlock_t dl_lock;

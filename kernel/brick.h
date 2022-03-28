@@ -675,7 +675,7 @@ extern void set_button_wait(struct generic_brick *brick, bool val, bool force, i
  * There is one exception: when @force is set, only the direction to
  * "off" remains possible. This is useful for emergency shutdowns.
  */
-typedef enum {
+typedef enum brick_switch {
 	// only one brick instance
 	BR_ON_ONE,   // switch on one brick instance
 	BR_OFF_ONE,  // just switch off (may be switched on again)
@@ -686,7 +686,7 @@ typedef enum {
 	BR_OFF_ALL, 
 	BR_KILL_ALL,
 	BR_FREE_ALL,
-} brick_switch_t;
+}  __packed brick_switch_t;
 
 /////////////////////////////////////////////////////////////////////////
 

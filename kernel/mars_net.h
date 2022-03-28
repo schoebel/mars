@@ -105,7 +105,7 @@ enum mars_traffic_types {
 	MARS_TRAFFIC_REPLICATION,
 	MARS_TRAFFIC_SYNC,
 	MARS_TRAFFIC_MAX /* this must come last */
-};
+} __packed;
 
 extern struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX];
 
@@ -122,7 +122,7 @@ enum {
 	CMD_PUSH_CHECK,
 	/* keep last element */
 	CMD_LAST
-};
+} __packed;
 
 #define CMD_FLAG_MASK     255
 #define CMD_FLAG_HAS_DATA 256
