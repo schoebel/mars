@@ -4518,6 +4518,21 @@ sub _writable {
   chmod($newmode, $path) == 1 or ldie "cannot chmod '$path'\n";
 }
 
+sub _get_backup_ip {
+  my ($peer, $ignore_missing_ip) = @_;
+  $peer = $host unless $peer;
+  my $backup_glob = "$mars/backups-*/ips-backup/ip-$peer";
+  foreach my $backup (sort reverse_cmp lamport_glob($backup_glob)) {
+    my $check = get_link($backup, 2);
+    if ($check) {
+      lprint_stderr "Using BACKUP IP '$check' from '$backup'\n" if $verbose;
+      $known_ips{$peer} = $check;
+      return $check;
+    }
+  }
+  return "";
+}
+
 sub _get_ip {
   my ($peer, $ignore_missing_ip) = @_;
   $peer = $host unless $peer;
@@ -4539,15 +4554,8 @@ sub _get_ip {
     return $probe_link;
   }
   # Try the backups in reverse order
-  my $backup_glob = "$mars/backups-*/ips-backup/ip-$peer";
-  foreach my $backup (sort reverse_cmp lamport_glob($backup_glob)) {
-    my $check = get_link($backup, 2);
-    if ($check) {
-      lprint_stderr "Using BACKUP IP '$check' from '$backup'\n" if $verbose;
-      $known_ips{$peer} = $check;
-      return $check;
-    }
-  }
+  my $found_backup = _get_backup_ip(@_);
+  return $found_backup if $found_backup;
   # Try /usr/bin/getent first
   my $answer = `/usr/bin/getent hosts '$peer'`;
   chomp $answer;
@@ -4655,6 +4663,9 @@ sub lowlevel_ls_host_ips {
 sub lowlevel_set_host_ip {
   my ($cmd, $peer, $ip) = @_;
   check_id($peer, 0, 1);
+  if (!$ip) {
+    $ip = _get_backup_ip($peer);
+  }
   if (!$ip) {
     $ip = _get_ip($peer);
   }
