@@ -878,6 +878,7 @@ struct mars_rotate {
 	struct mars_limiter replay_limiter;
 	struct mars_limiter sync_limiter;
 	struct mars_limiter fetch_limiter;
+	struct lamport_time found_double_logfile;
 	int inf_prev_sequence;
 	int inf_old_sequence;
 	long long flip_start;
@@ -4584,6 +4585,41 @@ bool _next_is_acceptable(struct mars_rotate *rot, struct mars_dent *old_dent, st
 	return true;
 }
 
+static
+void _report_double_logfile(struct mars_rotate *rot,
+			    const char *info,
+			    const char *a, const char *b)
+{
+	rot->has_double_logfile = true;
+
+	/* Some ratelimiting, based on pauses / interval logic.
+	 * We can neither rely on Myquist, nor can we assume
+	 * that Distributed Races will not occur.
+	 * So we cannot guarantee almost anything, not even
+	 * whether this special scenario will be reported at all.
+	 */
+	if (!rot->found_double_logfile.tv_sec) {
+		get_real_lamport(&rot->found_double_logfile);
+	} else {
+		/* avoid some register thrashing */
+		struct lamport_time now;
+		struct lamport_time next_msg;
+		bool enough;
+
+		get_real_lamport(&now);
+		next_msg = now;
+		next_msg.tv_sec -= 5;
+		enough = lamport_time_compare(&next_msg,
+					      &rot->found_double_logfile) < 0;
+		rot->found_double_logfile = now;
+		if (enough)
+			return;
+	}
+
+	MARS_ERR("DOUBLE LOGFILES %s '%s' <=> '%s'\n",
+		 info, a, b);
+}
+
 /* Note: this is strictly called in d_serial order.
  * This is important!
  */
@@ -4653,10 +4689,10 @@ int make_log_step(struct mars_dent *dent)
 					MARS_WRN("PREFER LOGFILE '%s' in front of '%s'\n",
 						 dent->d_path, rot->relevant_log->d_path);
 					assign_dent(&rot->relevant_log, dent);
-				} else {
-					rot->has_double_logfile = true;
-					MARS_ERR("DOUBLE LOGFILES '%s' '%s'\n",
-						 dent->d_path, rot->relevant_log->d_path);
+				} else if (!rot->has_double_logfile) {
+					_report_double_logfile(rot, "relevant",
+							       dent->d_path,
+							       rot->relevant_log->d_path);
 				}
 			} else if (_next_is_acceptable(rot, rot->relevant_log, dent)) {
 				assign_dent(&rot->next_relevant_log, dent);
@@ -4671,9 +4707,10 @@ int make_log_step(struct mars_dent *dent)
 				} else if (!strcmp(dent->d_rest, my_id())) {
 					MARS_WRN("PREFER LOGFILE '%s' in front of '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					assign_dent(&rot->next_relevant_log, dent);
-				} else {
-					rot->has_double_logfile = true;
-					MARS_ERR("DOUBLE LOGFILES '%s' '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
+				} else if (!rot->has_double_logfile) {
+					_report_double_logfile(rot, "next_relevant",
+							       dent->d_path,
+							       rot->next_relevant_log->d_path);
 				}
 			} else if (dent->d_serial > rot->next_relevant_log->d_serial + 5) {
 				rot->has_hole_logfile = true;
