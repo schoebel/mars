@@ -5505,6 +5505,7 @@ sub create_res {
   _reset_resources();
   if (!$create) {
     # Check for races with logrotate
+    my $old_stamp = get_alive_link("time", $real_host, 1);
     for (my $check_redo = 3; $check_redo > 0; $check_redo--) {
       wait_cluster($cmd, $res, $primary, 0);
       # Split brain or orphanness can happen due to _inherent_ races
@@ -5523,6 +5524,19 @@ sub create_res {
 	  lwarn "Restarting '$res' due to unstable situation at primary '$primary'\n";
 	  goto join_retry;
 	}
+      }
+      # Re-check only after feedback from kernel.
+      # Otherwise, some complex races might stay undetected.
+      my $more_wait = 0;
+      while ($more_wait++ < 3) {
+	my $new_stamp = get_alive_link("time", $real_host, 1);
+	if ($new_stamp != $old_stamp) {
+	  # ensure enough progress to be made
+	  $old_stamp = $new_stamp;
+	  last;
+	}
+	_trigger();
+	sleep($more_wait);
       }
     }
     lprint "Successfully joined resource '$res' to primary '$primary'\n";
