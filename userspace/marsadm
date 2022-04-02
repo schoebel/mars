@@ -927,7 +927,7 @@ sub _scan_caches {
 	scalar(keys(%member_peers)) . " participating and " .
 	  scalar(keys(%guest_peers)) . " guest " .
 	    "peers\n";
-    lprint "====== found" .
+    lprint "====== found " .
       scalar(keys(%total_resources)) . " total and " .
 	scalar(keys(%member_resources)) . " participating and " .
 	  scalar(keys(%guest_resources)) . " guest " .
