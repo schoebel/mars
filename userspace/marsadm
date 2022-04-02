@@ -5258,6 +5258,14 @@ sub create_res {
   $appear = $res if !$appear;
   check_id($appear, 0, 1) if $appear;
 
+  # guard against distributed races and/or uninitialized communication
+  my $nr_replicas = get_nr_replicas(@_);
+  if (!$create) {
+    update_cluster($cmd, "all", "*");
+  } elsif ($nr_replicas > 0) {
+    lwarn "are you sure to run '$cmd'? There are $nr_replicas known replicas at '$res'\n";
+  }
+
   my $resdir = "$mars/resource-$res";
   if ($create) {
     if (-d $resdir) {
