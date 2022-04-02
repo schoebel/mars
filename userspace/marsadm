@@ -3026,6 +3026,13 @@ sub recent_cluster {
   return 0;
 }
 
+sub get_nr_replicas {
+  my ($cmd, $res) = @_;
+  my @replay_list = lamport_glob("$mars/resource-$res/replay-*");
+  my $result = scalar(@replay_list);
+  return $result;
+}
+
 # Newer kernel modules do no longer work on non-member resources
 # by defaults, for scalability reasons.
 # Activate such a resource as a guest.
@@ -5770,6 +5777,8 @@ sub split_cluster_old {
   }
 }
 
+my $old_nr_replicas = 0;
+
 sub leave_res_phase0 {
   my ($cmd, $res) = @_;
   check_not_primary($cmd, $res, 1);
@@ -5793,6 +5802,8 @@ sub leave_res_phase0 {
     check_status($cmd, $res, "is-attached", 0, 0, 1);
     ldie "there were $errors errors.\n" if $errors;
   }
+  # remember current number of multiple replicas
+  $old_nr_replicas = get_nr_replicas(@_);
   return 0;
 }
 
@@ -5834,6 +5845,13 @@ sub leave_res_phase3 {
   my ($cmd, $res) = @_;
   _wait_delete();
   _reset_resources();
+  # guard against distributed races (multiple replicas)
+  my @replay_list = lamport_glob("$mars/resource-$res/replay-*");
+  if (scalar(@replay_list) > 1 || $old_nr_replicas > 2) {
+    wait_cluster($cmd);
+    _reset_resources();
+    log_purge_res($cmd, $res);
+  }
   err_purge_res($cmd, $res);
   # deprecated: hindering for new deletion method
   if ($compat_deletions && $host eq $real_host) {
