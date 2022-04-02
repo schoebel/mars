@@ -3348,6 +3348,8 @@ sub check_primary {
 sub check_not_primary {
   my ($cmd, $res, $allow_force) = @_;
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
+  my $max_retry = 16;
+ retry:
   my $is_primary = get_link($lnk, 1);
   if ($is_primary) {
     if (!$force || !defined($allow_force) || !$allow_force) {
@@ -3362,6 +3364,25 @@ sub check_not_primary {
     ldie "first switch the designated primary, or use --force if you are sure.\n" unless $force;
     lwarn "continuing anyway due to --force\n";
   }
+  # race avoidance: check that any switch has happened some time ago
+  my $is_primary_recent = is_link_recent($lnk, $window/2);
+  my $prim_path = "$mars/resource-$res/primary";
+  my $desginated_primary_recent = is_link_recent($prim_path, $window/2);
+  # the designated primary link must be old, while the actual state must be recent
+  if (!$is_primary_recent || $desginated_primary_recent) {
+    if ($max_retry-- < 0) {
+      lwarn "Sorry, the primary status on resource '$res' is UNSTABLE or FLIPPING AROUND\n";
+      ldie "Please check whether there are DISTRIBUED RACES or amok-running scripts etc.\n" unless $force;
+      lwarn "You said --force, I will continue AT YOUR RISK\n"
+    } else {
+      _trigger();
+      lwarn "The primary status on resource '$res' looks UNSTABLE or FLIPPING AROUND\n";
+      sleep($window / 8 + 1);
+      _reset_resources();
+      goto retry;
+    }
+  }
+  return 0;
 }
 
 sub check_primary_gone {
