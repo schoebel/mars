@@ -5802,6 +5802,12 @@ my $old_nr_replicas = 0;
 
 sub leave_res_phase0 {
   my ($cmd, $res) = @_;
+  # guard against complicated distributed races
+  my $nr_replicas = get_nr_replicas(@_);
+  if ($nr_replicas > 2) {
+    update_cluster($cmd, $res);
+  }
+  # check preconditions
   check_not_primary($cmd, $res, 1);
   my $errors = 0;
   foreach my $tmp (lamport_glob("$mars/resource-$res/todo-$host/*")) {
