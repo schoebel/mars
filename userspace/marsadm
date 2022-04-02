@@ -3803,6 +3803,7 @@ sub detect_splitbrain {
   my %alive_host_stamps;
   my %involved_logfiles;
   my %involved_hosts;
+  my %missing_host_logfiles;
   my $is_likely_false_positive = 0;
   my $i_am_primary = 0;
   my $is_likely_outdated = 0;
@@ -3813,6 +3814,21 @@ sub detect_splitbrain {
     if (!is_recent($alive_host_stamps{$host1}, $window)) {
       $is_likely_outdated++;
     }
+    # check for Orphan-like path inconsistencies
+    if (!defined($missing_host_logfiles{$host1})) {
+      my $repl1 = get_link("$basedir/replay-$host1", 1);
+      if (!$repl1 || $repl1 !~ m:^([^,]+),: || !$1) {
+	$missing_host_logfiles{$host1} = "(unknown name)";
+      } else {
+	my $logname = $1;
+	my $logfile = "$basedir/$1";
+	my $content_stamp = get_stamp($logfile);
+	if (!$content_stamp) {
+	  $missing_host_logfiles{$host1} = $logname;
+	}
+      }
+    }
+    # run pairwise comparisons
     foreach my $host2 (@hosts) {
       # reduce O(k^2) by some factor
       next if $host1 ge $host2;
@@ -3934,6 +3950,8 @@ sub detect_splitbrain {
 	if ($i_am_primary) {
 	  lhint "   host$nr = '$peer'$txt, my PRIMARY logfile is always UPTODATE by definition.\n";
 	  next;
+	} elsif (my $missing = $missing_host_logfiles{$real_host}) {
+	  lwarn "   logfile '$missing' is MISSING right here ($real_host)\n";
 	} elsif ($is_likely_false_positive) {
 	  lhint "   the following warning MAY be a FALSE POSITIVE (but I cannot determine the truth over network)\n";
 	}
