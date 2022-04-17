@@ -151,6 +151,11 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable142
+	* Minor improvements, in particular for more than 2
+	  replica per resource.
+	* Doc: explain active-active.
+
 mars0.1astable141
 	* Major marsadm fix: network-wide race between
 	  log-rotate / cron and invalidate / join-resource / etc.
