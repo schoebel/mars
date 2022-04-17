@@ -41,7 +41,7 @@ tcolorbox
 \paperfontsize 10
 \spacing single
 \use_hyperref true
-\pdf_title "MARS Architecture Guide"
+\pdf_title "Architecture Guide Geo-Redundancy"
 \pdf_author "Thomas Schöbel-Theuer"
 \pdf_bookmarks true
 \pdf_bookmarksnumbered false
@@ -4068,7 +4068,7 @@ opposite
  See also sections 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -5091,7 +5091,89 @@ additionally
 \end_layout
 
 \begin_layout Plain Layout
-Real geo disasters have happened several times in history.
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+There is at least one more possible scenario, which also belongs to the
+ realm of geo-redundancy, although some people may not count the following
+ as a 
+\begin_inset Quotes eld
+\end_inset
+
+geo
+\begin_inset Quotes erd
+\end_inset
+
+ disaster but instead may talk about a 
+\emph on
+(long-lasting) network outage
+\emph default
+ or a long-lasting 
+\emph on
+cable incident
+\emph default
+ or 
+\series bold
+connection loss by earthquake
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Example: please ask serious geologists about earthquake risks from the San
+ Andreas Fault (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/San_Andreas_Fault
+\end_layout
+
+\end_inset
+
+), or any other risiky 
+\emph on
+places
+\emph default
+ over the world.
+\end_layout
+
+\end_inset
+
+
+\series default
+ or similar:
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+
+\series bold
+\size largest
+OR 
+\emph on
+not predictable
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename images/example-geo-disaster-3.fig
+	width 70line%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+Serious geo disasters / loss of datacenters have happened several times
+ in history.
  For example, the 2021 flood in the German Ahrtal (Ahr valley) has destroyed
  several local datacenters, even governmental ones e.g.
  from local tax authorities.
@@ -5543,7 +5625,7 @@ noprefix "false"
  and 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Requirements-for-Cloud"
+reference "sec:Properties-Cloud-Storage"
 plural "false"
 caps "false"
 noprefix "false"
@@ -8097,8 +8179,945 @@ noprefix "false"
 .
 \end_layout
 
+\begin_layout Section
+What is active-active
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:What-is-active-active"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A search in 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://www.wikipedia.org
+\end_layout
+
+\end_inset
+
+ for the term 
+\begin_inset Quotes eld
+\end_inset
+
+active-active
+\begin_inset Quotes erd
+\end_inset
+
+ results in no article (status April 2022).
+\end_layout
+
+\begin_layout Standard
+To the knowledge of the author, there is no commonly accepted scientific
+ definition.
+ There are some related definitions in Distributed Systems, like 
+\series bold
+cache coherency
+\series default
+ or 
+\series bold
+DSM
+\series default
+ = 
+\series bold
+D
+\series default
+istributed 
+\series bold
+S
+\series default
+hared 
+\series bold
+M
+\series default
+emory etc, but obviously these terms are less accessible for a broad audience.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Why 
+\begin_inset Quotes eld
+\end_inset
+
+active-active
+\begin_inset Quotes erd
+\end_inset
+
+ can be misleading
+\end_layout
+
+\end_inset
+
+This architecture guide is explicitly focussing on
+\emph on
+ 
+\series bold
+geo-redundancy
+\series default
+\emph default
+.
+ By introduction of 
+\begin_inset Quotes eld
+\end_inset
+
+active-active
+\begin_inset Quotes erd
+\end_inset
+
+ into geo-redundancy, the 
+\emph on
+assumption
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+An external source of a (traditional / folklore) definition, cited with
+ extra emphasis added by me:
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+Active-Active Redundancy is a high availability mode of operation whereby
+ two or more instances of the 
+\series bold
+same network device
+\series default
+ or 
+\series bold
+appliance
+\series default
+ serve clients 
+\series bold
+simultaneously and interchangeably
+\series default
+.
+ A client can connect to any one instance and have requests served in the
+ same way.
+ If any of the 
+\series bold
+identical instances
+\series default
+ go offline, any of the other instances can 
+\series bold
+seamlessly serve requests
+\series default
+ while client sessions persist.
+ 
+\end_layout
+
+\begin_layout Plain Layout
+Commentary: in addition to 
+\emph on
+fundamental
+\emph default
+ contradictions to the CAP theorem, this 
+\emph on
+forces
+\emph default
+ a certain solution class while excluding other solution classes.
+ When the term 
+\begin_inset Quotes eld
+\end_inset
+
+client
+\begin_inset Quotes erd
+\end_inset
+
+ is borrowed from the client-server computing paradigm, a solution 
+\emph on
+within the same datacenter
+\emph default
+ is typically possible, but outside the scope of this guide on 
+\emph on
+geo
+\emph default
+-redundancy.
+ When the term 
+\begin_inset Quotes eld
+\end_inset
+
+client
+\begin_inset Quotes erd
+\end_inset
+
+ is used exchangably with 
+\begin_inset Quotes eld
+\end_inset
+
+customer using a geo-redundant service
+\begin_inset Quotes erd
+\end_inset
+
+, following is an attempted explanation, touching only 
+\emph on
+some
+\emph default
+ key items out of many others:
+\end_layout
+
+\begin_layout Itemize
+Multiple instances of the 
+\emph on
+same
+\emph default
+ network device [
+\begin_inset Formula $\ldots$
+\end_inset
+
+] identical instances: forces DSM or its equivalent not only at lower layers
+ like the storage layer and the computation layer, but also at networking,
+ e.g.
+ the application layer, or at least the session layer.
+ This is by far harder than required by geo-redundancy.
+ Essentially, the 
+\emph on
+network itself
+\emph default
+ must be HA.
+ How to achieve this on the 
+\emph on
+entire internet
+\emph default
+ as such?
+\begin_inset Newline newline
+\end_inset
+
+In contrast, geo-redundancy just requires 
+\emph on
+core business continuity
+\emph default
+ within a 
+\emph on
+reasonable
+\emph default
+ period of time.
+ Business continuity in the context of internet / hosting companies will
+ typically 
+\emph on
+not
+\emph default
+ require that customer sessions (e.g.
+ originating from mobiles like smartphones) and/or http requests (maybe
+ while in progress?) must 
+\emph on
+seamlessly
+\emph default
+ survive a 
+\emph on
+geo
+\emph default
+ disaster.
+\end_layout
+
+\begin_layout Itemize
+Multiple instances of the 
+\emph on
+same(!)
+\emph default
+ 
+\series bold
+\emph on
+appliance
+\series default
+\emph default
+: this may prefer 
+\emph on
+commercial
+\emph default
+ turn-key solutions (so-called 
+\emph on
+Vendor-Lock-In
+\emph default
+) in front of (self-managed) OpenSource components supporting an open /
+ extensible / migratable manner.
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $\ldots$
+\end_inset
+
+ can [sic!] connect to 
+\emph on
+any one
+\emph default
+ instance 
+\begin_inset Formula $\ldots$
+\end_inset
+
+: how to achieve this without knowledge on the instance name, excluding
+ Location Transparency (section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Location-transparency"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+)?
+\end_layout
+
+\begin_layout Itemize
+Serve [requests] simultaneously: implies 
+\emph on
+full parallelism
+\emph default
+ between different requests, even when needing to work on the 
+\emph on
+virtually same data
+\emph default
+.
+ In Computer Science, this broad research area is called differently, like:
+ 
+\series bold
+Formal Semantics
+\series default
+ of 
+\emph on
+parallelism
+\emph default
+ applied to Memory and/or Storage (and/or networking etc).
+ Thus the results from these scientific disciplines (and more) will hold
+ in addition, thereby exceeding the scope of this guide 
+\emph on
+by far
+\emph default
+.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ could be something like: during 
+\emph on
+ordinary
+\emph default
+ operations, 
+\emph on
+all
+\emph default
+ hardware from 
+\emph on
+all
+\emph default
+ geo-redundant datacenters should be 
+\begin_inset Quotes eld
+\end_inset
+
+fully employed
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Plain Layout
+Here is an attempt to explain why the term 
+\begin_inset Quotes eld
+\end_inset
+
+active-active
+\begin_inset Quotes erd
+\end_inset
+
+ is more or less a 
+\emph on
+contradiction
+\emph default
+ to the term 
+\begin_inset Quotes eld
+\end_inset
+
+geo-redundancy
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Please recap from section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, while adding a 
+\emph on
+slight
+\emph default
+ enhancement:
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename images/example-geo-disaster-1.fig
+	width 40line%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+
+\series bold
+\size larger
+OR 
+\emph on
+not predictable
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename images/example-geo-disaster-2.fig
+	width 40line%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+
+\series bold
+\size larger
+AND / OR 
+\emph on
+not predictable
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename images/example-geo-disaster-3.fig
+	width 40line%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+According to the CAP theorem (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ ff), at least the last scenario cannot be 
+\emph on
+productively
+\emph default
+ handled by a so-called 
+\begin_inset Quotes eld
+\end_inset
+
+active-active
+\begin_inset Quotes erd
+\end_inset
+
+ setup between the two datacenters, without 
+\series bold
+causing split brain
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+If you want to survive any of the unpredictable datacenter losses via 
+\begin_inset Quotes eld
+\end_inset
+
+active-active
+\begin_inset Quotes erd
+\end_inset
+
+, then good luck.
+ Maybe there exists some kind of 
+\begin_inset Quotes eld
+\end_inset
+
+solution
+\begin_inset Quotes erd
+\end_inset
+
+, but you likely will be on your own upon further on-top incidents, at least
+ when bound to the so-called 
+\begin_inset Quotes eld
+\end_inset
+
+active-active
+\begin_inset Quotes erd
+\end_inset
+
+ operation mode even 
+\emph on
+during
+\emph default
+ suchalike long-lasting geo-disasters.
+ Some kind of 
+\begin_inset Quotes eld
+\end_inset
+
+downgrading
+\begin_inset Quotes erd
+\end_inset
+
+ of your active-active setup during a long-lasting geo disaster 
+\emph on
+might
+\emph default
+ be possible in some way, but again: good luck.
+ Hopefully you have 
+\emph on
+tested in advance
+\emph default
+ all relevant combinations of possible scenarios.
+\end_layout
+
+\begin_layout Plain Layout
+More details: sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Performance-Risks-Replication-Layer"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Global-Strict-Consistency"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ ff.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+3-fold Datacenter Replication and 2-fold Geo-Disaster
+\end_layout
+
+\end_inset
+
+As a hypothetical example of a geo-redundant datacenter setup, according
+ to some imagined 
+\emph on
+future
+\emph default
+ EU standards, you will have 3 datacenters A and B and C.
+ Maybe that A will reside in the Netherlands, B might be in Spain, and C
+ might be in Poland:
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename images/example-3x2-geo-disaster.fig
+	width 70line%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+You are free to populate these 3 datacenters via any affordable strategy,
+ like:
+\end_layout
+
+\begin_layout Description
+(a) active-active-active, or 
+\end_layout
+
+\begin_layout Description
+(b) active-passive-passive.
+\end_layout
+
+\begin_layout Plain Layout
+Please imagine a future geo disaster: a future impact (e.g.
+ storm flood) will hit your company, such that 
+\emph on
+two
+\emph default
+ datacenters (e.g.
+ unpredictable A and B) will get lost, and only one of the datacenters will
+ survive (e.g.
+ C).
+\end_layout
+
+\begin_layout Plain Layout
+Answers are left to the reader.
+ You are free
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Outside the scope of this guide: active-passive+ can survive 
+\begin_inset Formula $(k-1)$
+\end_inset
+
+ unpredictable datacenter losses out of 
+\begin_inset Formula $k$
+\end_inset
+
+ datacenters, while active-active+ can only survive 
+\begin_inset Formula $k/2-\epsilon$
+\end_inset
+
+ unpredictable losses, where 
+\begin_inset Formula $\epsilon\approx1$
+\end_inset
+
+ in practice.
+\end_layout
+
+\end_inset
+
+ to select solutions, as far as you will bear the consequences.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Personal Advice for Responsibles 
+\size scriptsize
+(from the author of this guide)
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ 
+\series bold
+KISS
+\series default
+ = 
+\series bold
+K
+\series default
+eep 
+\series bold
+I
+\series default
+t 
+\series bold
+S
+\series default
+imple and 
+\series bold
+S
+\series default
+tupid
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Simply do 
+\series bold
+not require
+\series default
+ 
+\emph on
+both
+\emph default
+ geo-redundancy 
+\emph on
+and
+\emph default
+ active-active, 
+\emph on
+both at the same time
+\emph default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Please do yourself a favour by requiring 
+\emph on
+either
+\emph default
+ geo-redundancy, 
+\emph on
+or
+\emph default
+ by requiring the so-called active-active operation, 
+\emph on
+or
+\emph default
+ (maybe) none
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Beware in bigger organizations and/or broad product spectrum: different
+ teams (e.g.
+ when working on different matter) may decide their local solutions differently.
+ While it is typical for humans to prefer their own (envisioned) solutions,
+ it 
+\emph on
+may
+\emph default
+ be an 
+\emph on
+advantage
+\emph default
+ for an enterprise (e.g.
+ when different use cases can justify it, backed by real experiences), 
+\emph on
+or
+\emph default
+ it may become a 
+\emph on
+disadvantage
+\emph default
+: any cleanup of suchalike individual decisions may become a (future) challenge.
+\end_layout
+
+\end_inset
+
+ of them.
+ This will simplify your life.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Theoretically, you may require the so-called active-active operation mode
+ for 
+\emph on
+each
+\emph default
+ of two data\SpecialChar softhyphen
+cen\SpecialChar softhyphen
+ters, as a purely 
+\emph on
+local
+\emph default
+ option, while 
+\emph on
+not
+\emph default
+ spreading 
+\emph on
+across
+\emph default
+ the datacenters.
+ Theoretically this 
+\emph on
+might
+\emph default
+ be possible for 
+\begin_inset Formula $k=2$
+\end_inset
+
+ (or even 
+\begin_inset Formula $k>2$
+\end_inset
+
+) total storage replica
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Probably, 
+\begin_inset Formula $k=4$
+\end_inset
+
+ total storage replica in a 
+\begin_inset Formula $2\times2$
+\end_inset
+
+ scheme 
+\emph on
+might
+\emph default
+ reduce the 
+\emph on
+overall
+\emph default
+ complexity under certain circumstances, but suchalike will drastically
+ increase TCO = Total Cost of Ownership.
+\end_layout
+
+\end_inset
+
+, but I cannot recommend it.
+ Preparations against only the 3 depicted scenarios are probably not enough,
+ since there will be much more opportunities for 
+\series bold
+complicated failures
+\series default
+ (e.g.
+ upon 
+\emph on
+partial
+\emph default
+ failures in some datacenters, maybe so-called 
+\begin_inset Quotes eld
+\end_inset
+
+rolling disasters
+\begin_inset Quotes erd
+\end_inset
+
+, etc), and for unintended human error, etc.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Hint: please take a deeper look at the so-called 
+\series bold
+Butterfly operation mode
+\series default
+ (section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ ff), which is a 
+\emph on
+generalization
+\emph default
+ of an 
+\series bold
+active-passive
+\series default
+ scheme.
+ By definition, it can adapt to geo disasters in a flexible way.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Chapter
-Architectural Principles and Properties
+Architectural Principles and Properties for Geo-Redundancy and its Storages
 \begin_inset CommandInset label
 LatexCommand label
 name "chap:Architectural-Principles-and-Properties"
@@ -8160,8 +9179,12 @@ only one shot
 
 \begin_layout Standard
 \noindent
-We need to take a look at the most general possibilities how storage can
- be architecturally designed:
+We need to take a look at the most general possibilities how 
+\emph on
+storage
+\emph default
+ can be architecturally designed (independently from considerations on geo-redun
+dancy):
 \end_layout
 
 \begin_layout Standard
@@ -8178,8 +9201,8 @@ We need to take a look at the most general possibilities how storage can
 
 \begin_layout Standard
 \noindent
-The topmost question is: do we always need to access bigger masses of (typically
- unstructured) data over a network?
+An important question is: do we always need to access bigger masses of (typicall
+y unstructured) data over a network?
 \end_layout
 
 \begin_layout Standard
@@ -8269,9 +9292,348 @@ name "sec:Requirements-for-Geo-Redundancy"
 
 \end_layout
 
+\begin_layout Subsection
+
+\emph on
+Global
+\emph default
+ Strict Consistency and Latencies vs Geo-Redundancy
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Global-Strict-Consistency"
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
-Some BigCluster advocates are trying to use their favourite implementation
- for geo-distribution.
+Experienced sysadmins typically know that Strict Consistency 
+\emph on
+between
+\emph default
+ datacenters (e.g.
+ 
+\emph on
+synchronous
+\emph default
+ replication, or their harder variants like active-active, see 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-active-active"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, or dual-primary, etc) can induce operational problems when run over long
+ distances, as is 
+\emph on
+necessary
+\emph default
+ for 
+\emph on
+real
+\emph default
+ geo-redundancy (cf section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ Since this subsection is on 
+\emph on
+requirements from architecture
+\emph default
+ (as opposed to discussions about solutions and implementations), important
+ questions are:
+\end_layout
+
+\begin_layout Description
+1)
+\begin_inset space ~
+\end_inset
+
+Why can geo-redundancy cause latency problems?
+\end_layout
+
+\begin_layout Description
+2)
+\begin_inset space ~
+\end_inset
+
+How can latency problems due to geo-redundancy be resolved at architectural
+ level?
+\end_layout
+
+\begin_layout Standard
+For 1) there is a simple answer:
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Why can geo-redundancy cause latency problems?
+\end_layout
+
+\end_inset
+
+With 
+\series bold
+increasing distance
+\series default
+, latencies are following 
+\series bold
+Einstein's law
+\series default
+ of the 
+\series bold
+speed of light
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Distance matters.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not forget to determine distances from market demands, and check 
+\series bold
+governmental requirements
+\series default
+ / 
+\series bold
+laws
+\series default
+.
+ Otherwise you are risking consequences like going out of business, or even
+ consequences by court.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+For 2) there are multiple answers:
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\begin_inset Flex Custom Color Box 3
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+How can latency problems due to geo-redundancy be resolved at architectural
+ level?
+\end_layout
+
+\end_inset
+
+Check which architectures may fit your needs for planning and evaluation:
+\end_layout
+
+\begin_layout Description
+2a
+\begin_inset space ~
+\end_inset
+
+Low
+\begin_inset space ~
+\end_inset
+
+performance
+\begin_inset space ~
+\end_inset
+
+demands: by deciding that Einstein's law and its impact on network latencies
+ can be accepted.
+ You are limiting the product space, and probably are increasing some business
+ risks.
+ When demands are low enough, almost any architecture, and almost any correspond
+ing solution, will become acceptable.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Exception: anything which 
+\emph on
+contradicts
+\emph default
+ to geo-redundancy 
+\emph on
+by construction
+\emph default
+.
+ This rules out almost all so-called active-active architectures and solutions,
+ see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-active-active"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, even for extremely low performance demands.
+\end_layout
+
+\begin_layout Description
+2b
+\begin_inset space ~
+\end_inset
+
+Mid
+\begin_inset space ~
+\end_inset
+
+performance
+\begin_inset space ~
+\end_inset
+
+demands
+\begin_inset space ~
+\end_inset
+
+or
+\begin_inset space ~
+\end_inset
+
+unknown
+\begin_inset space ~
+\end_inset
+
+demands: please read this guide carefully and think about all pros and cons
+ in all relevant dimensions of all affordable solutions.
+\end_layout
+
+\begin_layout Description
+2c
+\begin_inset space ~
+\end_inset
+
+High
+\begin_inset space ~
+\end_inset
+
+performance
+\begin_inset space ~
+\end_inset
+
+demands: concentrate on active-passive architectures (contrary to section
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-active-active"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ Inside of active-passive architectures, select only 
+\series bold
+asynchronous solutions
+\series default
+, because any comparable synchronous solution will necessarily be worse
+ (due to Einstein's law).
+ Further topics and answers can be found in this guide.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Good solutions based on good architecture can deliver almost the same (or
+ sometimes even better) performance for geo-redundant setups, than local
+ datacenters have delivered in the past, for comparable TCO = Total Cost
+ of Ownership.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+
+\emph on
+Global
+\emph default
+ Eventual Consistency vs Geo-Redundancy
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Global-Eventual-Consistency"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Some BigCluster advocates are seemingly trying to use their favourite implementa
+tion for geo-distribution, and to adjust requirements accordingly.
  There is a 
 \emph on
 fundamental
@@ -8349,7 +9711,7 @@ lost
 \end_layout
 
 \begin_layout Standard
-Consequence: 
+Consequence for requirements: 
 \emph on
 any
 \emph default
@@ -8365,7 +9727,31 @@ recovery operation
 \end_layout
 
 \begin_layout Standard
-Example: in DRBD or MARS, the recovery operation is called (fast) 
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Recovery operations in Linux-based OpenSource components for short and long
+ replication distances
+\end_layout
+
+\end_inset
+
+In DRBD or MARS, the recovery operation is called (fast) 
 \series bold
 full-sync
 \series default
@@ -8385,7 +9771,13 @@ marsadm invalidate
 .
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+\noindent
 Notice: when you have a few petabytes of data, the recovery operation needs
  to transfer a non-trivial amount of data over a cross-datacenter bottleneck
  (cf section 
@@ -8421,7 +9813,299 @@ logically consistent
 \end_layout
 
 \begin_layout Standard
-All of this must be enterprise-grade, meeting some appropriate SLAs.
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 2
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Logical consisteny before/during/after recovery
+\series default
+ 
+\end_layout
+
+\end_inset
+
+
+\series default
+You 
+\emph on
+may
+\emph default
+ need two different types of consistency models at the same time, but on
+ different layers:
+\end_layout
+
+\begin_layout Description
+Customer-visible
+\begin_inset space ~
+\end_inset
+
+consistency
+\begin_inset space ~
+\end_inset
+
+model: typically either Strict Consistency, or Eventual Consistency.
+ Any of them is needed 
+\emph on
+as well as
+\emph default
+ during ordinary operations 
+\emph on
+as well as
+\emph default
+ during geo disasters 
+\emph on
+as well as
+\emph default
+ during geo recovery 
+\emph on
+as well as
+\emph default
+ afterwards.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Never require only Eventually Consistent although your 
+\emph on
+application class
+\emph default
+ / 
+\emph on
+use case
+\emph default
+ actually requires Strict Consistency.
+ Suchalike would mean that you would accept 
+\emph on
+inconsistent data
+\emph default
+ from the viewpoint of your customers, by construction.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Requiring Strict Consistency as the customer-visible model is always at
+ the 
+\series bold
+safe side
+\series default
+.
+ Why? Because any strictly consistent solution will also fulfill Eventually
+ Consistent, but vice versa is 
+\emph on
+not
+\emph default
+ possible in general, due to the 
+\series bold
+laws of Mathematics
+\series default
+.
+ Never try to circumvent the firm laws of maths!
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ 
+\series bold
+Overkill avoidance
+\series default
+ by requirement engineering: do 
+\emph on
+not
+\emph default
+ require Strict Consistency 
+\emph on
+inbetween
+\emph default
+ any distinct customers X and Y although these customers have 
+\emph on
+nothing to do with each other, obviously!
+\end_layout
+
+\begin_layout Description
+Geo-level
+\begin_inset space ~
+\end_inset
+
+consistency
+\begin_inset space ~
+\end_inset
+
+model: typically only Eventually Consistent is possible over long geo-distances,
+ due to physics (aka Einstein's law / speed of light).
+ This holds for 
+\emph on
+all
+\emph default
+ operational phases, including ordinary operations, during (geo) disasters,
+ and of course for
+\emph on
+ 
+\emph default
+recovery phases after geo disasters, etc.
+ It also holds for 
+\emph on
+partial
+\emph default
+ failures, e.g.
+ at room level, failed power phases, etc.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Consequence: the safe side is to require Strict Consistency at the per-customer
+ visible layer, while at the same time requiring Eventually Consistent for
+ the geo layer 
+\emph on
+inbetween
+\emph default
+ your datacenters.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not mix up the two layers: geo-layer vs cutomer-visible layer.
+ You need to look at 
+\emph on
+both
+\emph default
+ of them.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Recovery after geo disasters is 
+\emph on
+top important
+\emph default
+ for anything claiming to provide geo-redundancy.
+ Thus any 
+\emph on
+potential
+\emph default
+ violations of 
+\emph on
+future
+\emph default
+ customer-visible consistency problems 
+\emph on
+must
+\emph default
+ be also repaired by the geo-level recovery operation.
+ Otherwise your seemingly 
+\begin_inset Quotes eld
+\end_inset
+
+repaired
+\begin_inset Quotes erd
+\end_inset
+
+ datacenter is 
+\series bold
+not really repaired
+\series default
+, but would 
+\emph on
+not
+\emph default
+ be fully usable for future operations, and the geo recovery would have
+ 
+\emph on
+failed
+\emph default
+ in reality.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not miss the following 
+\series bold
+requirement
+\series default
+: the geo-level recovery operation 
+\emph on
+must
+\emph default
+ also deal with the customer-visible consistency model, working on 
+\emph on
+both
+\emph default
+ consistency layers at the same time, and 
+\emph on
+in parallel
+\emph default
+ to each other.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+All of this must be enterprise-grade, meeting appropriate SLAs.
  You 
 \emph on
 cannot assume
@@ -8431,26 +10115,42 @@ cannot assume
 \series bold
 explicitly constructed and 
 \emph on
-tested(!)
+tested
 \emph default
  for geo-redundancy
 \series default
- like MARS is.
+.
 \end_layout
 
 \begin_layout Standard
-In addition to the storage, enough 
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Critically: in addition to the storage, enough 
 \series bold
 application servers
 \series default
- must be present at both locations A and B, and they need to know where
- their corresponding data is.
- When the active side is lost by a spontanous geo-disaster like an earthquake,
+ (or 
+\emph on
+combined
+\emph default
+ server hardware containing their local storage) must be present at 
+\emph on
+both
+\emph default
+ locations A and B, and they need to know where their corresponding data
+ is (remote storage and/or local storage).
+ When the active side is lost by a spontaneous geo-disaster like an earthquake,
  all the application servers, their services, networking functionality,
  etc, must be successfully restarted at the other location within a reasonable
  timeframe.
- It must be guaranteed that all servers and services are running on the
- right corresponding data, with the right IP addresses, etc.
+ It must be guaranteed that all relevant servers and services are running
+ on the right corresponding data, with the right IP addresses, etc.
 \end_layout
 
 \begin_layout Standard
@@ -8566,7 +10266,8 @@ lose a lot of time and money
 \end_layout
 
 \begin_layout Plain Layout
-Consequence: any storage strategy in an enterprise 
+Consequence: any (storage / operations / product) strategy in an enterprise
+ 
 \emph on
 must
 \emph default
@@ -8584,7 +10285,7 @@ extremely expensive
 \emph on
 fundamental architecture
 \emph default
- like BigCluster, it may be easily much more.
+ like BigCluster, it may grow much higher.
 \end_layout
 
 \begin_layout Plain Layout
@@ -8597,11 +10298,11 @@ fundamental architecture
 \end_inset
 
  Never start with a particular solution in mind.
- 
+ Determine and update
 \series bold
-Always start with 
+ 
 \emph on
-requirements.
+serious requirements.
 \end_layout
 
 \end_inset
@@ -8615,7 +10316,7 @@ Architectural Properties of Cloud Storage
 
 \begin_inset CommandInset label
 LatexCommand label
-name "sec:Requirements-for-Cloud"
+name "sec:Properties-Cloud-Storage"
 
 \end_inset
 
@@ -9392,7 +11093,7 @@ standard
 \emph on
 Formal Semantics
 \emph default
- (outside the scope of this paper 
+ (outside the scope of this guide 
 \begin_inset Formula $\Longrightarrow$
 \end_inset
 
@@ -9451,6 +11152,8 @@ status open
 status open
 
 \begin_layout Plain Layout
+
+\series bold
 What the Definition of Cloud Storage means
 \end_layout
 
@@ -9464,8 +11167,9 @@ What the Definition of Cloud Storage means
 
 \end_inset
 
- Some people are confusing cloud storage with other types of storage.
- Please read the above definition 
+ Confusing of cloud storage with other types of storage may cause massive
+ problems.
+ When unsure, please read the above definition 
 \emph on
 carefully
 \emph default
@@ -9483,8 +11187,8 @@ need not
 realtime
 \emph default
  consistency properties.
- Unfortunately, some advocates are incorrectly claiming that replicas would
- need to be updated and/or usable for failover in 
+ Unfortunately, some advocates have incorrectly propagated that replicas
+ would need to be updated and/or usable for failover in 
 \emph on
 realtime
 \emph default
@@ -9555,11 +11259,24 @@ realtime
 
 \end_inset
 
-, otherwise it wouldn't be cloud storage.
- By using a wrong definition at concept or architecture level, it is possible
- to screw up whole product lines, at least in the financial dimension: 
+, otherwise it wouldn't be 
+\begin_inset Quotes eld
+\end_inset
+
+cloud storage
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Via propagation of a wrong definition at concept or architecture level,
+ it is possible to screw up whole product lines, at least in the financial
+ dimension: 
 \series bold
-realtime requirements are expensive
+realtime properties
+\series default
+ are relatively 
+\series bold
+expensive
 \series default
  to achieve, leading to 
 \series bold
@@ -9594,7 +11311,11 @@ antagonist
 \series bold
  of cloud storage
 \series default
- to get rid of realtime requirements at those places where it is reasonable.
+ to get 
+\emph on
+rid
+\emph default
+ of realtime requirements at those places where it is reasonable.
  More on (unnecessary) realtime requirements and its financial consequences
  see section 
 \begin_inset CommandInset ref
@@ -9939,8 +11660,12 @@ failures
 
  It is clear that a failure of a classical storage network will halt all
  services depending on it.
- Some people believe that realtime storage networks cannot be avoided, in
- order to react at varying load situations, and are running much faster
+ Some people believe that realtime storage networks and/or replication networks
+ could not be avoided, in order to react on (real or assumed) 
+\emph on
+varying
+\emph default
+ load situations, and thus the whole system would be running much faster
  due to load distribution.
  This is not the full picture:
 \end_layout
@@ -10073,7 +11798,7 @@ noprefix "false"
 
 \begin_layout Enumerate
 \noindent
-Reorg tasks: these can occur in all top-level architectures.
+Reorg tasks: these may occur in any top-level architectures.
  In general, not all operations can run in realtime, by construction.
  For example, increasing the number of replicas in an operational Ceph cluster,
  already containing a few hundreds of terabytes of data, will not only require
@@ -10164,7 +11889,7 @@ https://www.it-finanzmagazin.de/bsi-rechenzentren-entfernung-bafin-84078/
 .
  Over suchalike distances, realtime storage networks cannot be used anymore
  in general.
- Thus some kind of 
+ Thus some sort of 
 \begin_inset Quotes eld
 \end_inset
 
@@ -10189,6 +11914,18 @@ status open
 
 \begin_layout Plain Layout
 \noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Synergy effects: combination of Background Migration with geo-redundancy
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 9
@@ -10210,23 +11947,6 @@ and
 \series default
  all at the same time.
 \end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset VSpace defskip
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Flex Custom Color Box 3
-status open
 
 \begin_layout Plain Layout
 \noindent
@@ -10292,6 +12012,18 @@ status open
 
 \begin_layout Plain Layout
 \noindent
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Missing of Opportunities
+\end_layout
+
+\end_inset
+
+
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -10299,15 +12031,12 @@ status open
 
 \end_inset
 
- Unfortunately, this opportunity is easily 
+ Unfortunately, this opportunity can be easily 
 \emph on
 missed
 \emph default
  if both system architects and responsible managers are just requiring only
- DR = Disaster Recovery over long distances, instead of 
-\series bold
-requiring
-\series default
+ DR = Disaster Recovery over long distances, while forgetting to require
  the 
 \series bold
 ability for butterfly
@@ -10344,8 +12073,19 @@ status open
 
 \begin_layout Plain Layout
 \noindent
-Essentially, suchalike minimum requirements can be easily interpreted as
- 
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Pitfalls from non-optimum Requirements
+\end_layout
+
+\end_inset
+
+Essentially, minimum requirements like mentioned can be easily interpreted
+ as 
 \begin_inset Quotes eld
 \end_inset
 
@@ -10804,7 +12544,7 @@ There are some consequences from the above definition of Cloud Storage (see
  section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Requirements-for-Cloud"
+reference "sec:Properties-Cloud-Storage"
 plural "false"
 caps "false"
 noprefix "false"
@@ -14729,7 +16469,7 @@ each and every
  See section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Requirements-for-Cloud"
+reference "sec:Properties-Cloud-Storage"
 plural "false"
 caps "false"
 noprefix "false"
@@ -14869,7 +16609,7 @@ not imply
  See section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Requirements-for-Cloud"
+reference "sec:Properties-Cloud-Storage"
 plural "false"
 caps "false"
 noprefix "false"
@@ -15085,7 +16825,7 @@ xfs
  As explained in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Requirements-for-Cloud"
+reference "sec:Properties-Cloud-Storage"
 plural "false"
 caps "false"
 noprefix "false"
@@ -15241,7 +16981,7 @@ noprefix "false"
  and 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -17056,11 +18796,29 @@ Cycles
 \end_layout
 
 \begin_layout Itemize
-When active-active parallel writes to 
+When so-called 
+\begin_inset Quotes eld
+\end_inset
+
+active-active
+\begin_inset Quotes erd
+\end_inset
+
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:What-is-active-active"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) parallel writes to 
 \emph on
 logically shared data
 \emph default
- in distributed object stores are possible: beware of 
+ in distributed object stores are promised to be possible: beware of 
 \series bold
 split brain
 \series default
@@ -18535,7 +20293,7 @@ nt setup.
 In the definition of Cloud Storage in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Requirements-for-Cloud"
+reference "sec:Properties-Cloud-Storage"
 plural "false"
 caps "false"
 noprefix "false"
@@ -19653,10 +21411,10 @@ noprefix "false"
 \end_layout
 
 \begin_layout Section
-Performance Arguments from Architecture
+Performance Arguments and Risks from Architecture
 \begin_inset CommandInset label
 LatexCommand label
-name "sec:Performance-Arguments-from"
+name "sec:Performance-Risk-Arguments-from-Layer"
 
 \end_inset
 
@@ -19664,10 +21422,10 @@ name "sec:Performance-Arguments-from"
 \end_layout
 
 \begin_layout Subsection
-Performance Penalties by Choice of Replication Layer
+Performance Penalties and Risks from Choice of Replication Layer
 \begin_inset CommandInset label
 LatexCommand label
-name "subsec:Performance-Penalties-Layer"
+name "subsec:Performance-Risks-Replication-Layer"
 
 \end_inset
 
@@ -19679,11 +21437,23 @@ Some people think that replication is easily done at filesystem layer.
  There exist lots of cluster filesystems and other filesystem-layer solutions
  which claim to be able to replicate your data, sometimes even over long
  distances.
+ Some of them may appear under buzzwords like active-active (cf section
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-active-active"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Standard
 Trying to replicate several petabytes of data, or some billions of inodes,
- is however a much bigger challenge than many people can imagine.
+ is a much bigger challenge than many people can imagine.
 \end_layout
 
 \begin_layout Standard
@@ -20126,8 +21896,18 @@ potential
 \emph on
 typically
 \emph default
- limited to active-passive replication.
- An active-active operation is generally 
+ limited to so-called active-passive replication.
+ So-called active-active operation (see section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:What-is-active-active"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) is probably 
 \emph on
 not impossible
 \emph default
@@ -20140,8 +21920,8 @@ ocfs2
 \emph on
 not recommend
 \emph default
- the active-active mode as supported by DRBD, while the newer MARS feature
- called 
+ the so-called active-active mode as supported by DRBD (aka dual-primary
+ in DRBD speak), while the newer MARS feature called 
 \begin_inset Quotes eld
 \end_inset
 
@@ -20149,12 +21929,23 @@ Prosumer Device
 \begin_inset Quotes erd
 \end_inset
 
- can do it also for non-critical or non-performant purposes, but this is
- also 
+ may be able to do it 
+\emph on
+somewhen in future
+\emph default
+ for 
+\emph on
+non-critical
+\emph default
+ or 
+\emph on
+non-performant
+\emph default
+ purposes, but this is also 
 \emph on
 not recommended
 \emph default
- for block-level coupling of active-active filesystems like 
+ for block-level coupling of so-called active-active filesystems like 
 \family typewriter
 ocfs2
 \family default
@@ -20479,11 +22270,25 @@ Conclusion
 
 \end_inset
 
-
+So-called 
 \series bold
-Active-passive operation
+active-passive operation
 \series default
- over long distances (such as between continents) at 
+ (cf section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-active-active"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) over 
+\emph on
+long
+\emph default
+ distances at 
 \series bold
 block layer
 \series default
@@ -25711,7 +27516,7 @@ way of thinking
  section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -28401,7 +30206,19 @@ Due to some external investigations and recommendations, the system was
 ocfs2
 \family default
 .
- Now DRBD was operated in active-active mode.
+ Now DRBD was operated in so-called active-active (see explanation in section
+ 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:What-is-active-active"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) resp.
+ dual-primary mode.
  Only one system software component was replaced with another one, without
  altering the 
 \family typewriter
@@ -28628,7 +30445,7 @@ df -i
  (see the cut point discussion in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -28798,7 +30615,7 @@ cache reduction
  graphics in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -28963,7 +30780,7 @@ selection of granularity level
  (filesystem vs block layer, see section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -29352,7 +31169,7 @@ layer
  filesystem layer vs block layer, see section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -30507,7 +32324,7 @@ Caching
  See the picture in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -30589,7 +32406,7 @@ not prove
  Please recall the picture from section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -32572,7 +34389,7 @@ block
  layer (see the picture in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -33222,7 +35039,7 @@ erronously not considered
 Example, see also section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -33256,7 +35073,7 @@ fastest
  Some more details are in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -35566,7 +37383,7 @@ storage class
  (see section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Requirements-for-Cloud"
+reference "sec:Properties-Cloud-Storage"
 plural "false"
 caps "false"
 noprefix "false"
@@ -37097,8 +38914,19 @@ constructed
  space resources.
  In addition, newer DRBD versions can run over high-speed but short-distance
  interconnects like Infiniband (via the SDP protocol).
- Another use case for DRBD is active-active / dual-primary mode, e.g.
- 
+ Another use case for DRBD is the so-called active-active / dual-primary
+ mode (see section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:What-is-active-active"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), e.g.
+ similar to 
 \family typewriter
 ocfs2
 \family default
@@ -37133,7 +38961,8 @@ glusterfs
 \family typewriter
 glusterfs
 \family default
- showed extremely bad performance when trying to enable active-active 
+ showed extremely bad performance when trying to enable so-called active-active
+ 
 \family typewriter
 glusterfs
 \family default
@@ -37173,7 +39002,8 @@ ocfs2
 \family typewriter
 DRBD
 \family default
- in active-active mode was somewhere inbetween.
+ in the so-called active-active mode (also called dual-primary) was somewhere
+ inbetween.
  All cluster comparisons with an increasing workload over time (measured
  as number of customers which could be safely operated).
  Each system was replaced by the next one when the respective scalability
@@ -37193,8 +39023,18 @@ sharding
 status open
 
 \begin_layout Plain Layout
-Active-active won't work over long distances at all because of high network
- latencies (cf chapter 
+So-called active-active replication (see section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:What-is-active-active"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) have been experienced to show massive problems over long distances, because
+ of (a) high network latencies (cf chapter 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "chap:Cloud-Storage"
@@ -37211,10 +39051,11 @@ noprefix "false"
 
 \end_inset
 
-).
- Probably, for replication of whole clusters over long distances DRBD and
- MARS could be stacked: using DRBD on top for MARS for active-active clustering
- of 
+) and/or (b) network failures or other failures leading to split brain with
+ non-zero probability.
+ Theoretically, for replication of whole clusters over long distances DRBD
+ and MARS could be stacked: using DRBD on top for MARS for so-called active-acti
+ve clustering of 
 \family typewriter
 gfs2
 \family default
@@ -37231,6 +39072,7 @@ below
 one
 \emph default
  of the DRBD replicas over long distances.
+ No experiences, and not recommended for now.
 \end_layout
 
 \end_inset
@@ -37245,8 +39087,8 @@ On the other hand, there exist other use cases where DRBD did not work as
  The later author of MARS came to the conclusion that they could only be
  resolved by fundamental changes in the internal architecture of DRBD.
  The development of MARS started at the personal initiative of the author,
- first in form of a personal project during holidays, but later picked up
- by 1&1 as an official project.
+ first in form of a personal project during holidays, and later became operation
+al at 1&1.
 \end_layout
 
 \begin_layout Standard
@@ -37668,10 +39510,18 @@ Some people may argue that the probability for a similar scenario were low.
  We don't agree on such an argumentation.
  Not only because it really happens in pratice, and it may even last some
  days until problems are fixed.
- In case of 
+ In case of so-called 
 \series bold
+
+\begin_inset Quotes eld
+\end_inset
+
 rolling disasters
 \series default
+
+\begin_inset Quotes erd
+\end_inset
+
 , the network is very likely to become flaky and/or overloaded shortly before
  the final damage.
  Even in other cases, you can easily end up with inconsistent secondaries.
@@ -39103,7 +40953,7 @@ You may wonder what the difference to MARS is.
  As explained in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Requirements-for-Cloud"
+reference "sec:Properties-Cloud-Storage"
 plural "false"
 caps "false"
 noprefix "false"
@@ -39682,7 +41532,7 @@ conflicts
  see section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "subsec:Performance-Penalties-Layer"
+reference "subsec:Performance-Risks-Replication-Layer"
 plural "false"
 caps "false"
 noprefix "false"
@@ -39818,7 +41668,7 @@ application class
  (see also the Cloud Storage definition in section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Requirements-for-Cloud"
+reference "sec:Properties-Cloud-Storage"
 plural "false"
 caps "false"
 noprefix "false"
@@ -48679,7 +50529,7 @@ noprefix "false"
  (similarly also found in Windows) from section 
 \begin_inset CommandInset ref
 LatexCommand nameref
-reference "sec:Performance-Arguments-from"
+reference "sec:Performance-Risk-Arguments-from-Layer"
 plural "false"
 caps "false"
 noprefix "false"
