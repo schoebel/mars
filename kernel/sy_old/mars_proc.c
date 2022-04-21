@@ -46,6 +46,8 @@
 
 #include "../buildtag.h"
 
+#define USE_NEW_TRIGGER
+
 const char mars_version_string[] = BUILDTAG " (" BUILDHOST " " BUILDDATE ") "
 #ifndef CONFIG_MARS_DEBUG
 	"production"
@@ -175,6 +177,153 @@ void interpret_user_message(char *msg)
 		MARS_DBG("unknown user message '%s'\n", msg);
 	}
 }
+
+#ifdef USE_NEW_TRIGGER
+
+static DEFINE_MUTEX(trigger_buf_mutex);
+static char trigger_buffer[PAGE_SIZE];
+
+/* Compatible to old behaviour.
+ * Please use the new "t" codes instead.
+ * HOPEFULLY this can vanish some day :(
+ */
+static
+int work_trigger_old(void)
+{
+	int code = 0;
+
+	sscanf(trigger_buffer, "%d", &code);
+	if (code >= 8) {
+		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE | MARS_TRIGGER_TO_REMOTE_ALL | MARS_TRIGGER_FULL);
+	} else if (code >= 3) {
+		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE | MARS_TRIGGER_TO_REMOTE_ALL);
+	} else if (code >= 2) {
+		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
+	} else if (code >= 1) {
+		mars_remote_trigger(MARS_TRIGGER_LOCAL);
+	}
+	return 0;
+}
+
+static
+int work_trigger(void)
+{
+	/* Deprecated, to disappear */
+	if (trigger_buffer[0] == ' ' ||
+	    (trigger_buffer[0] >= '0' && trigger_buffer[0] <= '9'))
+		return work_trigger_old();
+
+	if (!trigger_buffer[0] || !trigger_buffer[1])
+		return -EINVAL;
+
+	interpret_user_message(trigger_buffer);
+	return 0;
+}
+
+static
+int trigger_answer(void)
+{
+	char *answer = "MARS module not operational\n";
+	char *tmp = NULL;
+
+	if (mars_info) {
+		answer = "internal error while determining mars_info\n";
+		tmp = mars_info();
+		if (tmp)
+			answer = tmp;
+	}
+
+	strncpy(trigger_buffer, answer, sizeof(trigger_buffer));
+
+	brick_string_free(tmp);
+	return 0;
+}
+
+int mars_dotrigger(struct ctl_table *table, int write,
+		   void *buffer, size_t *lenp, loff_t *ppos)
+{
+	int err;
+
+	mutex_lock(&trigger_buf_mutex);
+
+	if (!write) {
+		err = trigger_answer();
+		if (err < 0)
+			goto done_unlock;
+	}
+
+	err = proc_dostring(table, write, buffer, lenp, ppos);
+
+	if (write && err >= 0) {
+		int status = work_trigger();
+
+		if (status < 0)
+			goto done_unlock;
+	}
+ done_unlock:
+	mutex_unlock(&trigger_buf_mutex);
+	return err;
+}
+
+#define LAMPORT_BUF_LEN 128
+
+/* NO rw-mutex, to enforce strictness of results.
+ * This will deliberately limit the userspace parallelism ;)
+ * In short, userspace should not overload a long-distance
+ * Distributed System as represented by a Lamport Clock.
+ * As explained elsewhere, a Lamport Clock should act as
+ * a _singleton_ as seen from a local perspective.
+ * Nevertheless, a local nesting hierarchy remains possible
+ * for improved performance, but suchalike is deliberately _not_
+ * exported to userspace.
+ * Hopefully this will protect the kernel from intrusion-like
+ * misbehaviour.
+ * When necessary, some msleep() limitations may be added in future.
+ */
+static DEFINE_MUTEX(lamport_buf_mutex);
+atomic_t lamport_calls = ATOMIC_INIT(0);
+static char lamport_buffer[LAMPORT_BUF_LEN];
+
+int proc_dolamport(struct ctl_table *table, int write,
+		   void *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct lamport_time know;
+	struct lamport_time lnow;
+	int calls;
+	int len;
+	int err = -EINVAL;
+
+	/* also count any tries or failures */
+	calls = atomic_inc_return(&lamport_calls);
+
+	if (write)
+		goto out;
+
+	mutex_lock(&lamport_buf_mutex);
+
+	get_lamport(&know, &lnow);
+
+	len = scnprintf(lamport_buffer, LAMPORT_BUF_LEN,
+			"CURRENT_TIME=%lld.%09ld\n"
+			"lamport_now=%lld.%09ld\n"
+			"CALLS=%u",
+			(s64)know.tv_sec, know.tv_nsec,
+			(s64)lnow.tv_sec, lnow.tv_nsec,
+			/* may overflow */
+			(unsigned)calls);
+	if (unlikely(len <= 0 || len >= LAMPORT_BUF_LEN - 1))
+		goto out_unlock;
+
+	err = proc_dostring(table, write, buffer, lenp, ppos);
+
+ out_unlock:
+	mutex_unlock(&lamport_buf_mutex);
+ out:
+	return err;
+}
+EXPORT_SYMBOL_GPL(proc_dolamport);
+
+#else /* USE_NEW_TRIGGER */
 
 static
 int trigger_sysctl_handler(
@@ -311,6 +460,8 @@ done:
 	return res;
 }
 
+#endif /* USE_NEW_TRIGGER */
+
 #ifdef CTL_UNNUMBERED
 #define _CTL_NAME 		.ctl_name       = CTL_UNNUMBERED,
 #define _CTL_STRATEGY(handler)	.strategy       = &handler,
@@ -419,19 +570,37 @@ struct ctl_table mars_table[] = {
 		_CTL_NAME
 		.procname	= "trigger",
 		.mode		= 0200,
+#ifdef USE_NEW_TRIGGER
+		.data		= trigger_buffer,
+		.maxlen		= sizeof(trigger_buffer),
+		.proc_handler	= &mars_dotrigger,
+#else
 		.proc_handler	= &trigger_sysctl_handler,
+#endif
 	},
 	{
 		_CTL_NAME
 		.procname	= "info",
 		.mode		= 0400,
+#ifdef USE_NEW_TRIGGER
+		.data		= trigger_buffer,
+		.maxlen		= sizeof(trigger_buffer),
+		.proc_handler	= &mars_dotrigger,
+#else
 		.proc_handler	= &trigger_sysctl_handler,
+#endif
 	},
 	{
 		_CTL_NAME
 		.procname	= "lamport_clock",
 		.mode		= 0400,
+#ifdef USE_NEW_TRIGGER
+		.data		= lamport_buffer,
+		.maxlen		= LAMPORT_BUF_LEN,
+		.proc_handler	= &proc_dolamport,
+#else
 		.proc_handler	= &lamport_sysctl_handler,
+#endif
 	},
 	INT_ENTRY("min_update_seconds",   mars_min_update,        0600),
 	INT_ENTRY("max_lamport_future",   max_lamport_future,     0600),
