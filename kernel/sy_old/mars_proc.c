@@ -465,7 +465,6 @@ done:
 	}
 	return res;
 }
-
 #endif /* USE_NEW_TRIGGER */
 
 #ifdef CTL_UNNUMBERED
