@@ -143,6 +143,15 @@ void _set_socketopts(struct socket *sock, struct mars_tcp_params *params, bool i
 	/* I have given up the mirror symmetric rcvtimeo, for now.
 	 * Upon complaints from MARS users, this could be resurrected.
 	 */
+	/* In addition, I now use the new tcp_sock_set_user_timeout()
+	 * since c488aeadcbd0
+	 * in the hope that it will actually work in masses.
+	 * There is some tradeoff between user expectations and
+	 * mathematics ;)
+	 * As documented elsewhere, this cannot affect all states of the TCP
+	 * protocol, so this is likely not enough :(
+	 */
+	tcp_sock_set_user_timeout(sk, params->tcp_timeout * 1000); /* ms */
 }
 
 #else /* OLD socketopt CODE & sister => to disappear */
