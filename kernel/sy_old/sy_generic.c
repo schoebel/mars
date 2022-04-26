@@ -1868,6 +1868,8 @@ static int _mars_readdir(struct mars_cookie *cookie)
 	struct file *f;
 	struct address_space *mapping;
         mm_segment_t oldfs;
+	loff_t dir_pos, old_dir_pos;
+	int _loop_limit;
 	int i;
 	int status = 0;
 
@@ -1908,6 +1910,8 @@ static int _mars_readdir(struct mars_cookie *cookie)
 
 	cookie->global->nr_readdir++;
 
+	_loop_limit = 1024 * 1024;
+	dir_pos = f->f_pos;
 	for (;;) {
 //      remove_this
 #ifdef MARS_HAS_ITERATE_DIR
@@ -1923,12 +1927,55 @@ static int _mars_readdir(struct mars_cookie *cookie)
 		status = vfs_readdir(f, mars_filler, cookie);
 #endif
 //      end_remove_this
-		if (!cookie->hit)
-			break;
+		/* Check this first.
+		 * We cannot continue upon inode lock contention.
+		 */
 		if (unlikely(status < 0)) {
 			MARS_ERR("readdir() on path='%s' status=%d\n", cookie->path, status);
+			/* Retry on the next invocation, but calm down any
+			 * potential lock contention issues & sisters.
+			 */
+			brick_msleep(100);
 			break;
 		}
+		/* Give up on EOF-like semantics */
+		if (!cookie->hit)
+			break;
+
+		/* This should _never_ happen, but who knows what may
+		 * actually happen on _defective_ file systems....
+		 */
+		if (unlikely(_loop_limit-- < 0)) {
+			MARS_ERR("readdir() path='%s' ENDLESS LOOP, status=%d\n",
+				 cookie->path, status);
+			brick_msleep(100);
+			break;
+		}
+		/* The old POSIX-like semantics was to run the loop
+		 * until nothing was delivered anymore, which meant EOF.
+		 * Since iterate_dir() is used in the kernel, the semantics
+		 * of "hit" is/has somewhat changed (in detail), and maybe
+		 * (less) subtly depending on the fs type.
+		 * For maintainability over long periods, and over
+		 * upstream kernel generations, we assume that EOF
+		 * can be detected when nothing changes anymore
+		 * at ->f_pos, and when ->f_pos is non-zero.
+		 * Any filesystem ignoring ->f_pos is no longer
+		 * supported via the old semantics, but assumed
+		 * that a single iteration will _entirely_ work
+		 * (until "classical" EOF).
+		 * Consequence: in worst case, an unnecessary iteration
+		 * _should_ run only twice.
+		 * For maximum safety (e.g. flipping positions due to
+		 * whatever reasons), _loop_limit acts as a safeguard.
+		 * CHECK: can this be improved?
+		 */
+		old_dir_pos = dir_pos;
+		dir_pos = f->f_pos;
+		if (dir_pos == old_dir_pos || !dir_pos)
+			break;
+
+		brick_yield();
 	}
 
 	filp_close(f, NULL);
