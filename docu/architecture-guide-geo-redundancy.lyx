@@ -5547,6 +5547,310 @@ noprefix "false"
 \end_layout
 
 \begin_layout Section
+What is a Trilemma?
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:What-is-a-Trilemma"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+While 
+\begin_inset Quotes eld
+\end_inset
+
+dilemma
+\begin_inset Quotes erd
+\end_inset
+
+ is a common term, 
+\begin_inset Quotes eld
+\end_inset
+
+trilemma
+\begin_inset Quotes erd
+\end_inset
+
+ is less known.
+ Managers and other decision makers may 
+\series bold
+risk massive consequences
+\series default
+, such as 
+\series bold
+going out of business
+\series default
+, when a 
+\emph on
+certain
+\emph default
+ trilemma is 
+\emph on
+unknown
+\emph default
+ and/or 
+\emph on
+not considered appropriately
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+In short: 
+\series bold
+\size larger
+pick any two
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+Management Trilemma 
+\series bold
+Quality-Cost-Delivery 
+\series default
+\size footnotesize
+aka
+\series bold
+ Quick-Cheap-Good
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/trilemma-quality-cost-delivery.fig
+	width 45col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ If you switch your management strategy too fast or too often, several 
+\series bold
+employees
+\series default
+ may 
+\series bold
+leave your company each time
+\series default
+.
+ People have 
+\emph on
+adapted
+\emph default
+ to the old situation, and cannot switch quickly to a new strategy.
+ For example, some people have invested large parts of their professional
+ life into 
+\begin_inset Quotes eld
+\end_inset
+
+Good
+\begin_inset Quotes erd
+\end_inset
+
+ delivery but not 
+\begin_inset Quotes eld
+\end_inset
+
+Fast
+\begin_inset Quotes erd
+\end_inset
+
+ delivery, e.g.
+ in areas where 
+\begin_inset Quotes eld
+\end_inset
+
+Fast
+\begin_inset Quotes erd
+\end_inset
+
+ is simply 
+\emph on
+impossible
+\emph default
+.
+ Such people will then likely go to another employer where their skills
+ are a better fit.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Flex Custom Color Box 1
+status open
+
+\begin_layout Plain Layout
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+
+\series bold
+Datacenter and Geo-Redundancy Trilemma: CAP-Theorem
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/cap-theorem.fig
+	width 60col%
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset VSpace -6mm
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not try to achieve the impossible.
+ You 
+\emph on
+cannot
+\emph default
+ pick 
+\emph on
+all
+\emph default
+ three.
+\end_layout
+
+\begin_layout Plain Layout
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ It 
+\emph on
+might
+\emph default
+ be possible to change the CAP property of a 
+\series bold
+big operational system
+\series default
+ (e.g.
+ huge local and/or geo-redundant datacenters) under certain circumstances,
+ but it
+\emph on
+ can easily
+\emph default
+ grow into 
+\emph on
+more
+\emph default
+ risk during a transitional phase, and will likely eat a lot of time and
+ resources.
+\end_layout
+
+\begin_layout Plain Layout
+Details: section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+More examples: 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Trilemma
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
 What is 
 \emph on
 Cloud Storage
@@ -40615,8 +40919,25 @@ name "sec:Explanation-via-CAP"
 \begin_layout Standard
 \noindent
 The famous CAP theorem, also called Brewer's theorem, is important for a
- deeper understanding of the differences between DRBD and MARS.
- A good explanation can be found at 
+ deeper understanding of architectural setups, and of important differences
+ between synchronous and asynchronous replication.
+ It is mandatory for understanding the implementations DRBD and MARS.
+ It is a 
+\emph on
+trilemma
+\emph default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-a-Trilemma"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ A good explanation of the CAP Theorem can be found at 
 \begin_inset Flex URL
 status open
 
@@ -40632,8 +40953,11 @@ https://en.wikipedia.org/wiki/CAP_theorem
 
 \begin_layout Standard
 The CAP theorem states that only 2 out of 3 properties can be achieved at
- the same time, when a Distributed System is under pressure: C = Consistency
- means 
+ the same time, when an 
+\emph on
+arbitrary
+\emph default
+ Distributed System is under pressure: C = Consistency means 
 \series bold
 \emph on
 Strict
@@ -40657,23 +40981,33 @@ local
 \emph default
  systems), A = Availability = intuitively clear from a user's perspective,
  and P = Partitioning Tolerance = the network may have its own outages at
- any time (which is a negative criterion).
+ any time (which is a 
+\emph on
+negative criterion
+\emph default
+ and thus will 
+\series bold
+complicate resolutions like hell
+\series default
+).
 \end_layout
 
 \begin_layout Standard
 As explained in the Wikipedia article, the P = Partitioning Tolerance is
- a property which is imporant at least in 
+ a property which is important at least in 
 \emph on
 wide-distance
 \emph default
- data replication scenarios, and possibly in some other scenarios.
- There the property P cannot be chosen at runtime, but is 
+ data replication scenarios, and possibly / very likely also in other scenarios.
+ The property P cannot generally be chosen at runtime, but is 
 \emph on
 given
 \emph default
  by 
+\series bold
 \emph on
 setup
+\series default
 \emph default
  of the Distributed System.
 \end_layout
@@ -40737,6 +41071,31 @@ passive component which cannot fail
 \end_inset
 
  is no longer true by construction.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Some companies are claiming that 100% reliability of (certain) networks
+ can be achieved.
+ Please check these claims 
+\emph on
+seriously
+\emph default
+, and look at the price tag.
+ Physics says that everything in this universe has a lifetime, and will
+ fail somewhen.
+ Nothing is 
+\emph on
+acually
+\emph default
+ for free.
 \end_layout
 
 \begin_layout Standard
@@ -40874,7 +41233,8 @@ This is explained by the thick line in the following variant of the graphics,
 \noindent
 Now look at the case of a truly Distributed System, where P cannot be assumed
  as for free.
- For example, try to use DRBD in a long-distance replication scenario.
+ For example, try to use the component DRBD in a long-distance replication
+ scenario.
  There we cannot assume P as already given.
  We 
 \series bold
@@ -40960,7 +41320,8 @@ noprefix "false"
 
 \end_inset
 
-, MARS is not only intended for wide distances, but also for 
+, the component MARS is not only intended for wide distances, but also for
+ 
 \series bold
 Cloud Storage
 \series default
@@ -40983,7 +41344,7 @@ not required by definition
 
 \begin_layout Standard
 Consequently, the red X is not present in the following graphics, showing
- the state where MARS is remaining 
+ the state where the component MARS is remaining 
 \emph on
 locally consistent
 \emph default
@@ -41049,7 +41410,7 @@ y compared to the current version of MARS.
 
 \end_inset
 
-Notice: MARS does not guarantee strict consistency 
+Notice: the component MARS does not guarantee strict consistency 
 \emph on
 between
 \emph default
@@ -41063,16 +41424,16 @@ at the same time
 \emph on
 also
 \emph default
- guarantees strict consistency 
+ guarantees strict consistency as a 
 \emph on
-locally
+local component
 \emph default
 , and even at 
 \emph on
 each
 \emph default
  of the passive replicas, each by each.
- Don't confuse these different levels.
+ Please don't confuse these different levels.
  There are two different consistency guarantees at different levels, both
  at the same time.
  This might be confusing if you are not looking at the system at different
@@ -41089,7 +41450,8 @@ each
 
 \end_inset
 
- Why does MARS this? Because a better way is not possible at all.
+ Why does the component MARS this? Because a better way is not possible
+ at all.
  The CAP theorem tells us that there exists no better way when both A has
  to be guaranteed (as almost everywhere in enterprise-critical IT operations
  except database systems), and P has to be ensured in geo-redundant datacenter
@@ -41099,7 +41461,7 @@ each
 \emph on
 does not exist
 \emph default
- a better way!
+ a better way.
 \end_layout
 
 \begin_layout Standard
@@ -41143,7 +41505,7 @@ hard
 \emph on
 requirement
 \emph default
-, don't use DRBD (or any other 
+, don't use the component DRBD (or any other 
 \emph on
 synchronous
 \emph default
@@ -41171,10 +41533,57 @@ noprefix "false"
 \end_inset
 
 ).
- MARS has no red X at C because of its 
+ The component MARS has no red X at C because of its 
 \series bold
 Anytime Consistency
 \series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There is an exception: during 
+\emph on
+repair
+\emph default
+ via 
+\family typewriter
+marsadm invalidate
+\family default
+, the current replica is reported as 
+\family typewriter
+InConsistent
+\family default
+.
+ Repair means: the sysadmin has noticed that something is 
+\emph on
+damaged
+\emph default
+ (e.g.
+ the underlying HDDs, or the underlying RAID system, etc), or that a split-brain
+ situation needs to be repaired, und thus has triggered the repair operation
+ as provided by the replication subsystem.
+ Of course, repair of damaged components must be always possible (see also
+ explanation of 
+\series bold
+recovery
+\series default
+ in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Global-Eventual-Consistency"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ A similar re-sync is also supported by DRBD.
+\end_layout
+
+\end_inset
+
 , which refers to 
 \emph on
 local
@@ -41265,7 +41674,7 @@ You need a conscious decision about
 priorities
 \series default
 , which property to drop first.
- Rethink your complete concept, from end to end.
+ Please rethink your complete concept, from end to end.
  Something is wrong, somewhere.
  Ignoring a fundamental law like CAP on enterprise-critical use cases can
  endanger a company and/or your career.
@@ -41401,7 +41810,11 @@ there is a method for
 \emph on
 dynamic
 \emph default
- control of SplitBrain at 
+ control of 
+\family typewriter
+SplitBrain
+\family default
+ at 
 \emph on
 runtime
 \emph default
@@ -41433,8 +41846,11 @@ lly create split brain via automatic cluster managers, e.g.
  Pacemaker or similar.
  As explained in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Inappropriate-Clustermanger"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -41442,8 +41858,15 @@ reference "sec:Inappropriate-Clustermanger"
  scenarios, where no split brain can occur by construction.
  Using them in masses on versioned data in truly distributed systems can
  result in existential surprises, once a bigger network partition and/or
- a flaky replication networks triggers them in masses, and possibly at unexpecte
-d moments.
+ a flaky replication network (so-called 
+\series bold
+flipping
+\series default
+ or 
+\series bold
+flapping
+\series default
+) can trigger them in masses, and possibly at unexpected moments.
 \end_layout
 
 \begin_layout Standard
@@ -41503,7 +41926,39 @@ throwing away
 This kind of split brain resolution problem is not specific for DRBD or
  MARS.
  It is a fundamental property of Distributed Systems, and the difficulty
- of resolution is an inherent property of generic block devices.
+ of resolution is an inherent property of generic block devices
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Some people have claimed that the block device layer would be obsolete in
+ future, to be replaced by filesystems.
+ Please read sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Layering-Rules"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Filesystem-Layer-vs"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -41684,7 +42139,8 @@ would
 \series bold
 not prepared for suchalike scenarios at your enterprise-critical data
 \series default
-, it could cost you a lot of money and/or reputation and/or even your existence.
+, it could cost your company a lot of money and/or reputation and/or even
+ its existence.
 \end_layout
 
 \begin_layout Standard
@@ -41831,8 +42287,8 @@ noprefix "false"
 \end_inset
 
  that certain types of network bottlenecks can easily (and reproducibly)
- destroy the consistency of your DRBD secondary, while MARS will preserve
- local consistency at the cost of actuality (
+ destroy the consistency of your DRBD secondary, while the component MARS
+ will preserve local consistency at the cost of actuality (
 \series bold
 anytime consistency
 \series default
@@ -41879,8 +42335,8 @@ provably
 \end_layout
 
 \begin_layout Enumerate
-In the presence of network bottlenecks, people didn't notice and/or didn't
- understand and/or did under-estimate the risk of accidental invalidation
+In the presence of network bottlenecks, some people didn't notice and/or
+ didn't understand and/or did under-estimate the risk of accidental invalidation
  of their DRBD secondaries.
  They should carefully check that risk.
  They should convince themselves that the risk is 
@@ -41892,11 +42348,16 @@ really
 \emph on
 systematic chain
 \emph default
- of events which 
+ of events (e.g.
+ a certain instance of so-called 
+\series bold
+rolling disasters
+\series default
+) which 
 \emph on
 reproducibly
 \emph default
- provoke the bad effect, it is too late
+ provoke the bad effect, it will be too late
 \begin_inset Foot
 status open
 
@@ -42009,7 +42470,7 @@ noprefix "false"
 \end_layout
 
 \begin_layout Enumerate
-People do not know the CAP theorem (see section 
+People might not know the CAP theorem (see section 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "sec:Explanation-via-CAP"
@@ -42030,7 +42491,7 @@ impossible
 People are stuck in contradictive requirements because the current version
  of MARS does not yet support synchronous or pseudo-synchronous operation
  modes.
- This should be resolved some day.
+ This should be hopefully resolved some day.
 \end_layout
 
 \end_inset
@@ -42096,7 +42557,7 @@ O_DIRECT
 \emph on
 vast majority of applications
 \emph default
- don't use them at all, or use them only sparingly!
+ don't use them at all, or are using them only sparingly.
 \end_layout
 
 \begin_layout Standard
@@ -42132,7 +42593,7 @@ anytime consistency
 \end_layout
 
 \begin_layout Chapter
-Requirements of Long-Distance Replication
+Requirements for Long-Distance Replication
 \end_layout
 
 \begin_layout Section
