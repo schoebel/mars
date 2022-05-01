@@ -41802,11 +41802,11 @@ status open
 
 \end_inset
 
- Fortunately,
+ There are some 
 \emph on
- 
+ideas
 \emph default
-there is a method for 
+ for 
 \emph on
 dynamic
 \emph default
@@ -41825,6 +41825,7 @@ dynamically dependent
 \emph default
  on further external factors, like current customer demands, or forecasts,
  etc.
+ Please evaluate them carefully before going into mass production.
 \end_layout
 
 \end_inset
@@ -42692,7 +42693,7 @@ internal
 \emph on
 system
 \emph default
- architecure layer / network level, there exists no redundant disk at all.
+ architecture layer / network level, there exists no redundant disk at all.
  Only the application cluster is built redundantly.
 \end_layout
 
@@ -42848,9 +42849,9 @@ In general, clustermanagers must fit to the model.
 status open
 
 \begin_layout Plain Layout
-Some people don't know, or they don't believe even when told them, that
- different architectural models like shared-disk or shared-nothing will
- 
+Some people don't seem to know, or they seemingly don't believe even when
+ told, that different architectural models like shared-disk or shared-nothing
+ will 
 \emph on
 require
 \emph default
@@ -42878,7 +42879,7 @@ hazardous
 
  Pitfall: suchalike problems are typically appearing 
 \series bold
-only during incidents
+only during / after incidents
 \series default
 .
 \end_layout
@@ -42900,7 +42901,7 @@ stable ordinary operation
 \begin_inset Quotes erd
 \end_inset
 
- that the system is reliable.
+ that a system is reliable.
  The real 
 \series bold
 risk
@@ -42913,7 +42914,8 @@ data inconsistencies
 \series bold
 wrong moment
 \series default
-, when the clustermanager has to execute the right actions for compensation
+, e.g.
+ when the clustermanager has to execute the right actions for compensation
  of a certain component failure.
 \end_layout
 
@@ -43006,7 +43008,22 @@ extremely
 \end_layout
 
 \begin_layout Standard
-Both reasons are valid and must be automatically 
+Both reasons are valid and should
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Automatics should be preferred, but there are exceptional cases.
+ For example, certain scenarios of hardware defects may require 
+\emph on
+manual switchoff
+\emph default
+ of some (parts of) automatics.
+\end_layout
+
+\end_inset
+
+ be automatically 
 \emph on
 handled
 \emph default
@@ -43141,6 +43158,32 @@ automatic mode
  (except when you start to hack the code and/or write new plugins; then
  you might notice that there is no sufficient architectural layering / sufficien
 t separation between mechanism and strategy).
+ Even when such a switch is present and is triggerd by somebody (whether
+ this is good or bad), this does 
+\emph on
+not
+\emph default
+ imply that network outages cannot ocurr (e.g.
+ concurrently by accident), and/or that it will work under any 
+\emph on
+unpredictable
+\emph default
+ incident / disaster scenario and/or its variants like 
+\emph on
+partial failures
+\emph default
+ / rolling disasters / etc (c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+)
 \end_layout
 
 \begin_layout Standard
@@ -43165,7 +43208,8 @@ triggering
 \series bold
 considerable risk
 \series default
- when automatics do a wrong decision at hundreds of instances in parallel.
+ when automatics do a bad or even wrong decision at hundreds of instances
+ in parallel.
 \end_layout
 
 \end_inset
@@ -43219,6 +43263,11 @@ also
 \emph default
  at a higher granularity such as a room, or a whole datacenter.
  Otherwise, some chaos is likely to happen.
+\end_layout
+
+\begin_layout Standard
+This is not enough: the CAP theorem and its sisters will also apply.
+ Avoid SPOF = Single Points of Failure also at higher layers.
 \end_layout
 
 \begin_layout Standard
@@ -43340,12 +43389,13 @@ Minimum requirements for larger installations
 \series bold
 architectural software layers
 \series default
- is not only a blatant ignoration of well-established best practices of
+ should be viewed as ignoration of well-established best practices from
  
 \series bold
 software engineering
 \series default
-, but will bind you even more firmly to an 
+.
+ It will likely bind you to an 
 \series bold
 inflexible system
 \series default
@@ -43593,7 +43643,7 @@ Typical contemporary STONITH implementations are using IPMI and relatives
 always
 \emph default
  create a certain type of damage: the affected systems will definitely not
- be available, at least for some time until it has (manually) rebooted.
+ be available, at least for some time until they have (manually) rebooted.
 \end_layout
 
 \end_inset
@@ -45315,6 +45365,122 @@ fencing of application traffic
 mandatory
 \emph default
 .
+\end_layout
+
+\begin_layout Itemize
+When considering algorithms like 
+\series bold
+leader election
+\series default
+ or 
+\series bold
+master selection
+\series default
+ or similar, or even highly sophisticated ones like 
+\emph on
+consensus on state machine replication
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Some families of protocols like PAXOS (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Paxos_(computer_science)
+\end_layout
+
+\end_inset
+
+) are currently hyped.
+ Certainly, suchalike agreement algorithms and their promises 
+\emph on
+look
+\emph default
+ appealing for humans.
+ Practical replication of masses of so-called 
+\begin_inset Quotes eld
+\end_inset
+
+machines
+\begin_inset Quotes erd
+\end_inset
+
+ over long distances is not as easy as laymen in Theoretical Computer Science
+ may conclude, e.g.
+ from a 
+\emph on
+variety
+\emph default
+ of 
+\emph on
+misunderstandings
+\emph default
+ of terms and descriptions.
+ This guide is on 
+\emph on
+geo-redundancy
+\emph default
+ of 
+\emph on
+datacenters
+\emph default
+ (cf section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Geo-Redundancy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), and this does 
+\emph on
+not
+\emph default
+ imply that the runtime state of VMs & co needs to be replicated.
+ Discussions are outside the scope of this guide.
+\end_layout
+
+\end_inset
+
+, please think twice.
+ The CAP theorem will hold at 
+\emph on
+any
+\emph default
+ layer, and may produce 
+\emph on
+different
+\emph default
+ results at 
+\emph on
+each
+\emph default
+ of the layers.
+ Chaos may occur.
+ For example, independent split brain may occur at the layer of so-called
+ 
+\emph on
+orchestrations
+\emph default
+, and at different points in time.
+\begin_inset Newline newline
+\end_inset
+
+Example of an analogy: when a big classical orchestra is forcefully split
+ into multiple sub-orchestras by some unexpected external force during their
+ performance, the surviving players will not improve their music, in particular
+ when they cannot hear each other anymore.
+ Having a common conductor will also not help if he/she breaks down, or
+ cannot be seen anymore by some of the surviving players, or when suddenly
+ two independent conductors are entering the scene, e.g.
+ because each of them believes that the other one would be already dead.
 \end_layout
 
 \begin_layout Chapter
