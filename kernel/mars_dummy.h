@@ -31,15 +31,21 @@ struct dummy_mref_aspect {
 
 struct dummy_brick {
 	MARS_BRICK(dummy);
+	/* parameters */
+	/* private */
 	int my_own;
 };
 
 struct dummy_input {
 	MARS_INPUT(dummy);
+	/* parameters */
+	/* private */
 };
 
 struct dummy_output {
 	MARS_OUTPUT(dummy);
+	/* parameters */
+	/* private */
 	int my_own;
 };
 

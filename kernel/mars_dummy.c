@@ -22,7 +22,8 @@
  */
 
 
-// Dummy brick (just for demonstration)
+/* Dummy brick (just for demonstration)
+ */
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
@@ -35,13 +36,25 @@
 
 #include "mars.h"
 
-///////////////////////// own type definitions ////////////////////////
+/* ///////////////////////// own type definitions //////////////////////// */
 
 #include "mars_dummy.h"
 
-///////////////////////// own helper functions ////////////////////////
+/* ///////////////////////// own helper functions //////////////////////// */
 
-////////////////// own brick / input / output operations //////////////////
+/* ////////////////// own brick / input / output operations ////////////////// */
+
+static
+bool dummy_switch_on(struct dummy_brick *brick)
+{
+	return false;
+}
+
+static
+bool dummy_switch_off(struct dummy_brick *brick)
+{
+	return false;
+}
 
 static
 int dummy_get_info(struct dummy_output *output, struct mars_info *info)
@@ -80,23 +93,23 @@ int dummy_switch(struct dummy_brick *brick)
 {
 	if (brick->power.button) {
 		bool success = false;
+
 		if (brick->power.led_on)
 			goto done;
-		mars_power_led_off((void*)brick, false);
-		//...
-		success = true;
+		mars_power_led_off((void *)brick, false);
+		success = dummy_switch_on(brick);
 		if (success) {
-			mars_power_led_on((void*)brick, true);
+			mars_power_led_on((void *)brick, true);
 		}
 	} else {
 		bool success = false;
+
 		if (brick->power.led_off)
 			goto done;
-		mars_power_led_on((void*)brick, false);
-		//...
-		success = true;
+		mars_power_led_on((void *)brick, false);
+		success = dummy_switch_off(brick);
 		if (success) {
-			mars_power_led_off((void*)brick, true);
+			mars_power_led_off((void *)brick, true);
 		}
 	}
 done:
@@ -104,7 +117,7 @@ done:
 }
 
 
-//////////////// informational / statistics ///////////////
+/* //////////////// informational / statistics /////////////// */
 
 static
 char *dummy_statistics(struct dummy_brick *brick, int verbose)
@@ -125,27 +138,27 @@ void dummy_reset_statistics(struct dummy_brick *brick)
 {
 }
 
-//////////////// object / aspect constructors / destructors ///////////////
+/* //////////////// object / aspect constructors / destructors /////////////// */
 
 static
 int dummy_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct dummy_mref_aspect *ini = (void*)_ini;
+	struct dummy_mref_aspect *ini = (void *)_ini;
 	(void)ini;
-	//ini->my_own = 0;
+	// ini->my_own = 0;
 	return 0;
 }
 
 static
 void dummy_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct dummy_mref_aspect *ini = (void*)_ini;
+	struct dummy_mref_aspect *ini = (void *)_ini;
 	(void)ini;
 }
 
 MARS_MAKE_STATICS(dummy);
 
-////////////////////// brick constructors / destructors ////////////////////
+/* ////////////////////// brick constructors / destructors //////////////////// */
 
 static
 int dummy_brick_construct(struct dummy_brick *brick)
@@ -173,7 +186,7 @@ int dummy_output_destruct(struct dummy_output *output)
 	return 0;
 }
 
-///////////////////////// static structs ////////////////////////
+/* ///////////////////////// static structs //////////////////////// */
 
 static
 struct dummy_brick_ops dummy_brick_ops = {
@@ -227,7 +240,7 @@ const struct dummy_brick_type dummy_brick_type = {
 };
 EXPORT_SYMBOL_GPL(dummy_brick_type);
 
-////////////////// module init stuff /////////////////////////
+/* ////////////////// module init stuff ///////////////////////// */
 
 int __init init_mars_dummy(void)
 {
