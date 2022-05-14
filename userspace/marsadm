@@ -2942,6 +2942,7 @@ sub wait_cluster {
 	# Also possible at join-cluster: restart freshly
 	lwarn "Need restart for getting more 'time' links\n";
 	goto restart if $max_restarts-- > 0;
+	$old_status{$peer} = 0;
       }
       if ($status{$peer} !~ m/^[0-9.]+$/) {
 	$dead_count++;
