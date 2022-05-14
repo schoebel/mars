@@ -151,6 +151,10 @@ Changelog for series 0.1a:
 	The old stable branch mars 0.1.y is EOL,
 	now fully superseeded by this branch.
 
+mars0.1astable143
+	* Minor marsadm improvements.
+	* Doc: new section on Trilemma and CAP theorem.
+
 mars0.1astable142
 	* Minor improvements, in particular for more than 2
 	  replica per resource.
