@@ -2138,6 +2138,7 @@ struct mars_peerinfo {
 	__u32 available_mask;
 	int  nr_dents;
 	bool need_destruct;
+	bool in_destruct;
 	bool to_terminate;
 	bool has_terminated;
 	bool to_remote_trigger;
@@ -2344,6 +2345,12 @@ bool _push_info(const char *peer_name,
 	}
 	if (peer_dent) {
 		peer = peer_dent->d_private;
+		if (peer &&
+		    unlikely(READ_ONCE(peer->in_destruct))) {
+			MARS_WRN("peer '%s' %p is under destruction\n",
+				 peer_name, peer);
+			return false;
+		}
 	}
 	/* Create a dynamic peer.
 	 * Only needed in special cases like join-cluster /
@@ -3661,6 +3668,8 @@ static int _kill_peer(struct mars_peerinfo *peer)
 	list_del_init(&peer->peer_head);
 	up_write(&peer_list_lock);
 
+	WRITE_ONCE(peer->in_destruct, true);
+
 	MARS_INF("stopping peer thread...\n");
 	if (peer->peer_thread) {
 		brick_thread_stop(peer->peer_thread);
@@ -3919,13 +3928,13 @@ static int make_scan(struct mars_dent *dent)
 
 			dst = path_make("/mars/ips/ip-%s", my_id());
 			src = ordered_readlink(dst, NULL);
-			if (src && *src) {
+			if (src && *src && !READ_ONCE(peer->in_destruct)) {
 				bool empty_pushes;
 
 				mutex_lock(&peer->peer_lock);
 				empty_pushes = !!list_empty(&peer->push_anchor);
 				mutex_unlock(&peer->peer_lock);
-				if (empty_pushes)
+				if (empty_pushes && !READ_ONCE(peer->in_destruct))
 					push_link(dent->d_rest, NULL, src, dst);
 			}
 			brick_string_free(src);
