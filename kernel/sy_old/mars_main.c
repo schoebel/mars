@@ -2127,6 +2127,7 @@ struct mars_peerinfo {
 	 * peer->push_anchor, push->push_head
 	 */
 	struct mutex peer_lock;
+	/* Protected by global peer_list_lock */
 	struct list_head peer_head;
 	struct list_head push_anchor;
 	struct lamport_time remote_start_stamp;
