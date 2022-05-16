@@ -2342,15 +2342,26 @@ bool _push_info(const char *peer_name,
 			peer_dent = NULL;
 
 	}
-	if (peer_dent)
+	if (peer_dent) {
 		peer = peer_dent->d_private;
+	}
+	/* Create a dynamic peer.
+	 * Only needed in special cases like join-cluster /
+	 * merge-cluster / etc.
+	 */
 	if (!peer) {
 		_peer = new_peer(peer_name, peer_ip);
 		peer = _peer;
-		if (peer_dent) {
+		if (peer_dent && !peer_dent->d_private) {
+			/* Register this one as a semi-permanent peer.
+			 * This is needed for two-way communication.
+			 */
 			peer_dent->d_private = peer;
 			peer_dent->d_private_destruct = peer_destruct;
 		} else {
+			/* Register this one as a temporary peer.
+			 * Only one-way communication.
+			 */
 			mars_running_additional_peers++;
 			peer->need_destruct = true;
 			peer->oneshot = true;
@@ -3279,6 +3290,9 @@ int peer_thread(void *data)
 			MARS_DBG("sending notify to peer...\n");
 			cmd.cmd_code = CMD_NOTIFY;
 			status = mars_send_cmd(&peer->socket, &cmd, false);
+			if (unlikely(status < 0)) {
+				goto send_error;
+			}
 		}
 
 		mutex_lock(&peer->peer_lock);
@@ -3313,12 +3327,14 @@ int peer_thread(void *data)
 			brick_string_free(push->dst);
 			brick_mem_free(push);
 		}
-
-		if (unlikely(status < 0)) {
+		if (status < 0) {
+			if (list_empty(&tmp_push_list))
+				goto send_error;
 			/* try working the push list next time */
 			mutex_lock(&peer->peer_lock);
 			list_replace_init(&tmp_push_list, &peer->push_anchor);
 			mutex_unlock(&peer->peer_lock);
+			goto send_error;
 		} else if (peer->no_fetch) {
 			/* Needed for split-cluster: do not fetch metadata from
 			 * another cluster group.
@@ -3361,6 +3377,7 @@ int peer_thread(void *data)
 			status = mars_send_cmd(&peer->socket, &cmd, false);
 		}
 		if (unlikely(status < 0)) {
+		send_error:
 			MARS_WRN("communication error on send, status = %d\n", status);
 			if (do_kill) {
 				do_kill = false;
