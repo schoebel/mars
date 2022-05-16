@@ -2122,6 +2122,10 @@ struct mars_peerinfo {
 	char *peer_dir_list;
 	struct mars_socket socket;
 	struct task_struct *peer_thread;
+	/* protects:
+	 * peer->remote_global
+	 * peer->push_anchor, push->push_head
+	 */
 	struct mutex peer_lock;
 	struct list_head peer_head;
 	struct list_head push_anchor;
@@ -3300,7 +3304,11 @@ int peer_thread(void *data)
 			brick_string_free(cmd_push.cmd_str2);
 			if (status < 0)
 				break;
+
+			mutex_lock(&peer->peer_lock);
 			list_del_init(&push->push_head);
+			mutex_unlock(&peer->peer_lock);
+
 			brick_string_free(push->src);
 			brick_string_free(push->dst);
 			brick_mem_free(push);
@@ -3318,11 +3326,17 @@ int peer_thread(void *data)
 			brick_msleep(200);
 			if (!mars_global->global_power.button)
 				break;
-			if (peer->oneshot &&
-			    (list_empty(&peer->push_anchor) ||
-			     jiffies - peer->create_jiffies >
-			     mars_scan_interval * 2 * HZ))
-				break;
+			if (peer->oneshot) {
+				bool empty_pushes;
+
+				mutex_lock(&peer->peer_lock);
+				empty_pushes = !!list_empty(&peer->push_anchor);
+				mutex_unlock(&peer->peer_lock);
+				if (empty_pushes ||
+				    jiffies - peer->create_jiffies >
+				    mars_scan_interval * 2 * HZ)
+					break;
+			}
 			continue;
 		} else {
 			peer->to_remote_trigger = false;
@@ -3646,7 +3660,9 @@ static int _kill_peer(struct mars_peerinfo *peer)
 		struct push_info *push;
 
 		push = container_of(tmp_push_list.next, struct push_info, push_head);
+		mutex_lock(&peer->peer_lock);
 		list_del_init(&push->push_head);
+		mutex_unlock(&peer->peer_lock);
 		brick_string_free(push->src);
 		brick_string_free(push->dst);
 		brick_mem_free(push);
@@ -3886,8 +3902,15 @@ static int make_scan(struct mars_dent *dent)
 
 			dst = path_make("/mars/ips/ip-%s", my_id());
 			src = ordered_readlink(dst, NULL);
-			if (src && *src && list_empty(&peer->push_anchor))
-				push_link(dent->d_rest, NULL, src, dst);
+			if (src && *src) {
+				bool empty_pushes;
+
+				mutex_lock(&peer->peer_lock);
+				empty_pushes = !!list_empty(&peer->push_anchor);
+				mutex_unlock(&peer->peer_lock);
+				if (empty_pushes)
+					push_link(dent->d_rest, NULL, src, dst);
+			}
 			brick_string_free(src);
 			brick_string_free(dst);
 		}
