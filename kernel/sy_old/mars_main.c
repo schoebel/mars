@@ -2159,14 +2159,11 @@ char *make_peer_dir_list(const char *mypeer)
 }
 
 static
-struct mars_peerinfo *new_peer(const char *peer_name, const char *peer_ip)
+void _init_peer(struct mars_peerinfo *peer, const char *peer_name, const char *peer_ip)
 {
-	struct mars_peerinfo *peer;
-
 	/* determine marsadm version once per peer */
 	get_marsadm_version(peer_name);
 
-	peer = brick_zmem_alloc(sizeof(struct mars_peerinfo));
 	peer->peer = brick_strdup(peer_name);
 	if (peer_ip)
 		peer->peer_ip = brick_strdup(peer_ip);
@@ -2187,6 +2184,17 @@ struct mars_peerinfo *new_peer(const char *peer_name, const char *peer_ip)
 	/* always trigger on peer startup */
 	peer->from_remote_trigger = true;
 	peer->to_remote_trigger = true;
+}
+
+
+static
+struct mars_peerinfo *new_peer(const char *peer_name, const char *peer_ip)
+{
+	struct mars_peerinfo *peer;
+
+	peer = brick_zmem_alloc(sizeof(struct mars_peerinfo));
+
+	_init_peer(peer, peer_name, peer_ip);
 
 	down_write(&peer_list_lock);
 	list_add_tail(&peer->peer_head, &peer_anchor);
@@ -2356,9 +2364,11 @@ bool _push_info(const char *peer_name,
 	push->src = brick_strdup(src);
 	push->dst = brick_strdup(dst);
 	push->cmd_code = cmd_code;
+
 	mutex_lock(&peer->peer_lock);
 	list_add_tail(&push->push_head, &peer->push_anchor);
 	mutex_unlock(&peer->peer_lock);
+
 	if (_peer)
 		start_peer(_peer);
 	mars_trigger();
