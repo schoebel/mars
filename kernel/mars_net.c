@@ -991,16 +991,32 @@ static
 int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_desc_cache *mc, int index, int line)
 {
 	struct mars_desc_item *mi = ((struct mars_desc_item*)(mc + 1)) + index;
-	void *item = NULL;
+	void *item;
+	void *orig_item;
+	int field_recver_offset = mi->field_recver_offset;
+	int field_type;
 	int len = mi->field_size;
 	int status;
 	int res = -1;
 
-	if (likely(data && mi->field_recver_offset >= 0)) {
-		item = data + mi->field_recver_offset;
+	if (likely(data && field_recver_offset >= 0)) {
+		item = data + field_recver_offset;
+	} else {
+		MARS_ERR("#%d data=%p mc=%p item=%d offset=%d len=%d line=%d\n",
+			 msock->s_debug_nr,
+			 data, mc, index, field_recver_offset, len, line);
+		goto done;
 	}
+	field_type = mi->field_type;
+	if (unlikely(field_type < 0)) {
+		MARS_ERR("#%d field_type=%d item=%d offset=%d len=%d line=%d\n",
+			 msock->s_debug_nr,
+			 field_type, index, field_recver_offset, len, line);
+		goto done;
+	}
+	orig_item = item;
 
-	switch (mi->field_type) {
+	switch (field_type) {
 	case FIELD_REF:
 		MARS_ERR("NYI\n");
 		goto done;
@@ -1021,15 +1037,17 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 		}
 
 		if (len > 0 && item) {
-			char *str = _brick_string_alloc(len, line);
+			char *str = *(void **)item;
 
+			str = _brick_string_alloc(len, line);
 			if (unlikely(!str)) {
 				MARS_ERR("#%d string alloc error\n",
 					 msock->s_debug_nr);
 				status = -ENOMEM;
 				goto done;
 			}
-			*(void**)item = str;
+			/* safeguard against any suspected  problems */
+			*str = '\0';
 			item = str;
 		}
 
@@ -1038,12 +1056,54 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 		if (likely(len > 0)) {
 			status = mars_recv_raw(msock, item, len, len);
 			if (unlikely(status < 0))
-				goto done;
+				goto failed_recv_item;
+
+			/* Protect string transfers against mischief */
+			if (field_type == FIELD_STRING) {
+				char *str = item;
+
+				/* Prevent kernel memory corruption
+				 * by short or long read, e.g. protocol
+				 * errors etc.
+				 */
+				if (unlikely(status < len)) {
+					MARS_ERR("#%d string short read %d < %d\n",
+						 msock->s_debug_nr,
+						 status, len);
+					status = -ENODATA;
+					goto failed_recv_item;
+				}
+				if (unlikely(status > len)) {
+					MARS_DBG("#%d string oversized read %d > %d\n",
+						 msock->s_debug_nr,
+						 status, len);
+				}
+				/* Protect against damaged network packets */
+				if (unlikely(str[len-1])) {
+					str[len-1] = '\0';
+					MARS_WRN("#%d string '%s' not terminated by NUL\n",
+						 msock->s_debug_nr, str);
+				}
+			}
+			/* generic pointer swizzling, only after successful transport */
+			if (item != orig_item) {
+				*(void **)orig_item = item;
+			}
 		}
 		res = len;
 	}
 done:
 	return res;
+
+ failed_recv_item:
+	/* Safeguard against dangling strings.
+	 */
+	if (item && item != orig_item) {
+		char *str = item;
+
+		brick_string_free(str);
+	}
+	goto done;
 }
 
 #define MARS_DESC_MAGIC 0x73f0A2ec6148f48dll
