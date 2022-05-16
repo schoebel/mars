@@ -1039,6 +1039,17 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 		if (len > 0 && item) {
 			char *str = *(void **)item;
 
+			if (unlikely(str)) {
+				MARS_ERR("#%d string already allocated %p at address %p\n",
+					 msock->s_debug_nr,
+					 str, item);
+				if (*str) {
+					MARS_DBG("#%d old string='%s'\n",
+						 msock->s_debug_nr, str);
+				}
+				status = -EINVAL;
+				goto done;
+			}
 			str = _brick_string_alloc(len, line);
 			if (unlikely(!str)) {
 				MARS_ERR("#%d string alloc error\n",
