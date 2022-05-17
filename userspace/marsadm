@@ -11244,11 +11244,27 @@ sub do_all_res {
   }
 }
 
+sub no_mountpoint {
+  my ($pathname) = @_;
+  my $cmd = "/bin/mountpoint";
+  if (! -x $cmd) {
+    $cmd = "/usr/bin/mountpoint";
+  }
+  if (! -x $cmd) {
+    $cmd = "/usr/local/bin/mountpoint";
+  }
+  if (! -x $cmd) {
+    lwarn "cannot determine whether '$pathname' is a mountpoint - please install the tool 'mountpoint'\n";
+    return 0;
+  }
+  return system("$cmd $pathname >/dev/null 2>&1");
+}
+
 if ($cmd =~ m/^(view|pretty)/) {
   if (! -d $mars) {
     lwarn "directory $mars does not exist - please read mars-user-manual.pdf\n";
-  } elsif (system("/usr/bin/mountpoint $mars >/dev/null")) {
-    lwarn "directory $mars is NOT a mountpoint - please mount it.\n";
+  } elsif (no_mountpoint($mars)) {
+    lwarn "directory $mars is NOT a recognized mountpoint - please mount it.\n";
   } elsif (! -l "$mars/uuid") {
     lwarn "no cluster uuid found -- be sure to FULLY UNDERSTAND what you need to do, by reading mars-user-manual.pdf\n";
   }
