@@ -3349,7 +3349,9 @@ sub check_primary {
 sub check_not_primary {
   my ($cmd, $res, $allow_force) = @_;
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
+  my $nr_warn = 0;
   my $max_retry = 16;
+  $max_retry = 1 if $force;
  retry:
   my $is_primary = get_link($lnk, 1);
   if ($is_primary) {
@@ -3377,7 +3379,9 @@ sub check_not_primary {
       lwarn "You said --force, I will continue AT YOUR RISK\n"
     } else {
       _trigger();
-      lwarn "The primary status on resource '$res' looks UNSTABLE or FLIPPING AROUND\n";
+      if (!($nr_warn++ % 4)) {
+	lwarn "The primary status on resource '$res' looks UNSTABLE or FLIPPING AROUND\n";
+      }
       sleep($window / 8 + 1);
       _reset_resources();
       goto retry;
