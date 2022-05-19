@@ -222,6 +222,7 @@ void copy_endio(struct generic_callback *cb)
 	struct copy_state *st;
 	struct mref_object *old_mref;
 	unsigned index;
+	unsigned check_index;
 	unsigned queue;
 	int error = 0;
 
@@ -241,8 +242,21 @@ void copy_endio(struct generic_callback *cb)
 	    (!input->check_hint || mref->ref_pos < input->check_hint))
 		input->check_hint = mref->ref_pos;
 
-	queue = mref_a->queue;
-	index = GET_INDEX(mref->ref_pos);
+	queue = mref_a->saved_queue;
+	index = mref_a->saved_index;
+	/* index paranoia */
+	check_index = GET_INDEX(mref_a->orig_ref_pos);
+	if (unlikely(check_index != index)) {
+		/* This should not happen */
+		MARS_ERR("index slippery %u != %u on queue=%u: mref=%p mref_a=%p cb=%p err=%d\n",
+			 index, check_index,
+			 queue,
+			 mref, mref_a,
+			 cb, cb->cb_error);
+		error = -EEXIST;
+		goto exit;
+	}
+
 	st = &GET_STATE(brick, index);
 
 	MARS_IO("queue=%u index=%u pos=%lld state=%d err=%d\n",
@@ -262,7 +276,7 @@ void copy_endio(struct generic_callback *cb)
 	}
 	old_mref = READ_ONCE(st->table[queue]);
 	if (unlikely(old_mref != mref)) {
-		MARS_ERR("table corruption at %u %u (%p => %p) state=%d err=%d\n",
+		MARS_ERR("table corruption at index=%u queue=%u: %p => %p state=%d err=%d\n",
 			 index, queue,
 			 old_mref, mref,
 			 st->state,
@@ -306,8 +320,9 @@ err:
 
 static
 int _make_mref(struct copy_brick *brick,
-	       unsigned index,
-	       unsigned queue,
+	       const unsigned index,
+	       /* let the compiler check for 0 <= queue <= 1 */
+	       const bool _queue,
 	       void *data,
 	       loff_t pos, loff_t end_pos,
 	       __u32 flags)
@@ -317,6 +332,8 @@ int _make_mref(struct copy_brick *brick,
 	struct copy_input *input;
 	struct copy_state *st;
 	struct mref_object *old_mref;
+	const unsigned queue = _queue;
+	unsigned input_index;
 	unsigned offset;
 	unsigned len;
 	int status = -EAGAIN;
@@ -362,8 +379,19 @@ int _make_mref(struct copy_brick *brick,
 		goto done;
 	}
 
+	/* Save some important values for the lifetime of
+	 * of the mref object and the corresponding aspect instance.
+	 */
+	/*input = queue ? brick->inputs[INPUT_B] : brick->inputs[INPUT_A];*/
+	input_index = INPUT_A + (queue * (INPUT_B - INPUT_A));
+	input = brick->inputs[input_index];
+	mref_a->input = input;
 	mref_a->brick = brick;
-	mref_a->queue = queue;
+	mref_a->orig_ref_pos = pos;
+	mref_a->saved_queue = queue;
+	mref_a->saved_index = index;
+
+	/* Compute the start values for the new mref */
 	mref->ref_flags = flags;
 	mref->ref_data = data;
 	mref->ref_pos = pos;
@@ -388,8 +416,6 @@ int _make_mref(struct copy_brick *brick,
 
 	SETUP_CALLBACK(mref, copy_endio, mref_a);
 	
-	input = queue ? brick->inputs[INPUT_B] : brick->inputs[INPUT_A];
-	mref_a->input = input;
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
 	if (unlikely(status < 0)) {
 		MARS_ERR("mref_get %u status = %d\n",

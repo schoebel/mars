@@ -68,7 +68,9 @@ struct copy_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct copy_input *input;
 	struct copy_brick *brick;
-	unsigned queue;
+	loff_t orig_ref_pos;
+	unsigned saved_queue;
+	unsigned saved_index;
 };
 
 struct copy_brick {
