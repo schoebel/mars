@@ -45,7 +45,6 @@
 
 #define STATES_PER_PAGE    (PAGE_SIZE / sizeof(struct copy_state))
 #define MAX_SUB_TABLES     (NR_COPY_REQUESTS / STATES_PER_PAGE + (NR_COPY_REQUESTS % STATES_PER_PAGE ? 1 : 0))
-#define MAX_COPY_REQUESTS  (PAGE_SIZE / sizeof(struct copy_state*) * STATES_PER_PAGE)
 
 #define GET_STATE(brick,index)						\
 	((brick)->st[(unsigned)(index) / STATES_PER_PAGE][(unsigned)(index) % STATES_PER_PAGE])
@@ -210,6 +209,7 @@ void _clear_state_table(struct copy_brick *brick)
 
 		memset(sub_table, 0, PAGE_SIZE);
 	}
+	mb();
 }
 
 static
@@ -220,6 +220,7 @@ void copy_endio(struct generic_callback *cb)
 	struct copy_input *input;
 	struct copy_brick *brick;
 	struct copy_state *st;
+	struct mref_object *old_mref;
 	unsigned index;
 	unsigned queue;
 	int error = 0;
@@ -244,23 +245,28 @@ void copy_endio(struct generic_callback *cb)
 	index = GET_INDEX(mref->ref_pos);
 	st = &GET_STATE(brick, index);
 
-	MARS_IO("queue = %u index = %u pos = %lld status = %d\n",
+	MARS_IO("queue=%u index=%u pos=%lld state=%d err=%d\n",
 		queue, index,
 		mref->ref_pos,
+		st->state,
 		cb->cb_error);
 
 	if (unlikely(queue >= 2)) {
-		MARS_ERR("bad queue %u at %p %p\n",
+		MARS_ERR("bad queue %u at %p %p state=%d err=%d\n",
 			 queue,
-			 cb, mref_a);
+			 cb, mref_a,
+			 st->state,
+			 cb->cb_error);
 		error = -EINVAL;
 		goto exit;
 	}
-	if (unlikely(READ_ONCE(st->table[queue]) != mref)) {
-		MARS_ERR("table corruption at %u %u (%p => %p)\n",
-			 index,
-			 queue, st->table[queue],
-			 mref);
+	old_mref = READ_ONCE(st->table[queue]);
+	if (unlikely(old_mref != mref)) {
+		MARS_ERR("table corruption at %u %u (%p => %p) state=%d err=%d\n",
+			 index, queue,
+			 old_mref, mref,
+			 st->state,
+			 cb->cb_error);
 		error = -EEXIST;
 		goto exit;
 	}
@@ -270,10 +276,10 @@ void copy_endio(struct generic_callback *cb)
 		 * Worst case just produces more error output.
 		 */
 		if (!brick->copy_error_count++) {
-			MARS_WRN("IO error %d on index %u, old state = %d\n",
-				 cb->cb_error,
+			MARS_WRN("IO error on index=%u state=%d err=%d\n",
 				 index,
-				 st->state);
+				 st->state,
+				 cb->cb_error);
 		}
 	}
 
@@ -310,12 +316,39 @@ int _make_mref(struct copy_brick *brick,
 	struct copy_mref_aspect *mref_a;
 	struct copy_input *input;
 	struct copy_state *st;
+	struct mref_object *old_mref;
 	unsigned offset;
 	unsigned len;
 	int status = -EAGAIN;
 
+	/* Does it make sense to create a new mref right here? */
 	if (brick->clash || pos < 0 || end_pos <= 0 || pos >= end_pos)
 		goto done;
+
+	/* Some safeguards */
+	if (unlikely(queue < 0 || queue >= 2)) {
+		MARS_ERR("trying bad queue %d\n",
+			 queue);
+		status = -EINVAL;
+		goto done;
+	}
+	if (unlikely(index > NR_COPY_REQUESTS)) {
+		MARS_ERR("trying bad index=%u at queue=%d pos=%lld end_pos=%lld flags=%d\n",
+			 index, queue, pos, end_pos, flags);
+		status = -EINVAL;
+		goto done;
+	}
+	st = &GET_STATE(brick, index);
+	old_mref = READ_ONCE(st->table[queue]);
+	if (unlikely(old_mref)) {
+		MARS_ERR("cannot overrride old_mref=%p at index=%u queue=%d pos=%lld end_pos=%lld flags=%d\n",
+			 old_mref,
+			 index, queue, pos, end_pos, flags);
+		status = -EEXIST;
+		goto done;
+	}
+
+	/* Now create the new mref and remember in st->table[] */
 
 	mref = copy_alloc_mref(brick);
 	status = -ENOMEM;
@@ -324,7 +357,8 @@ int _make_mref(struct copy_brick *brick,
 
 	mref_a = copy_mref_get_aspect(brick, mref);
 	if (unlikely(!mref_a)) {
-		MARS_FAT("cannot get own apsect\n");
+		MARS_FAT("cannot get aspect from %p %p\n",
+			 brick, mref);
 		goto done;
 	}
 
@@ -348,7 +382,6 @@ int _make_mref(struct copy_brick *brick,
 	if (mref->ref_prio < MARS_PRIO_HIGH || mref->ref_prio > MARS_PRIO_LOW)
 		mref->ref_prio = brick->io_prio;
 
-	st = &GET_STATE(brick, index);
 	st->len = len;
 	WRITE_ONCE(st->table[queue], mref);
 	WRITE_ONCE(st->active[queue], true);
@@ -450,10 +483,10 @@ restart:
 		index,
 		state,
 		pos,
-		st->table[0],
-		st->table[1],
-		st->active[0],
-		st->active[1],
+		READ_ONCE(st->table[0]),
+		READ_ONCE(st->table[1]),
+		READ_ONCE(st->active[0]),
+		READ_ONCE(st->active[1]),
 		st->writeout,
 		st->prev,
 		st->len,
@@ -697,10 +730,10 @@ idle:
 		index,
 		st->state,
 		next_state,
-		st->table[0],
-		st->table[1],
-		st->active[0],
-		st->active[1],
+		READ_ONCE(st->table[0]),
+		READ_ONCE(st->table[1]),
+		READ_ONCE(st->active[0]),
+		READ_ONCE(st->active[1]),
 		st->writeout,
 		st->prev,
 		st->len,
