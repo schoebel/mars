@@ -127,34 +127,22 @@ int _clear_clash(struct copy_brick *brick)
  * replay logic applying the transaction logs _only_ after
  * crashes during inconsistency caused by partial replication of writes.
  */
+
 static
-unsigned _determine_input(struct copy_brick *brick, struct mref_object *mref)
+struct copy_input *_determine_input(struct copy_brick *brick, struct mref_object *mref)
 {
-	int below;
-	int behind;
-	loff_t ref_end;
+	struct copy_mref_aspect *mref_a;
 
-	if (!brick->utilize_mode || brick->low_dirty)
-		return INPUT_A;
-
-	ref_end = mref->ref_pos + mref->ref_len;
-	below = ref_end <= brick->copy_start;
-	behind = !brick->copy_end || mref->ref_pos >= brick->copy_end;
-	if (mref->ref_flags & (MREF_WRITE | MREF_MAY_WRITE)) {
-		if (!behind) {
-			brick->low_dirty = true;
-			if (!below) {
-				_clash(brick);
-				wake_up_interruptible(&brick->event);
-			}
-		}
-		return INPUT_A;
+	mref_a = copy_mref_get_aspect(brick, mref);
+	if (unlikely(!mref_a)) {
+		MARS_FAT("cannot get own aspect from %p %p\n",
+			 brick, mref);
+		return NULL;
 	}
-
-	if (below)
-		return INPUT_B;
-
-	return INPUT_A;
+	/* TODO: implement the new logic, for the envisioned
+	 * new use cases.
+	 */
+	return mref_a->input;
 }
 
 #define GET_INDEX(pos)    (((unsigned long)(pos) / COPY_CHUNK) % NR_COPY_REQUESTS)
@@ -1005,11 +993,10 @@ static int copy_get_info(struct copy_output *output, struct mars_info *info)
 static int copy_ref_get(struct copy_output *output, struct mref_object *mref)
 {
 	struct copy_input *input;
-	unsigned index;
 	int status;
 
-	index = _determine_input(output->brick, mref);
-	input = output->brick->inputs[index];
+	input = _determine_input(output->brick, mref);
+
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
 	if (status >= 0) {
 		atomic_inc(&output->brick->io_flight);
@@ -1021,10 +1008,9 @@ static void copy_ref_put(struct copy_output *output, struct mref_object *mref)
 {
 	struct copy_brick *brick = output->brick;
 	struct copy_input *input;
-	unsigned index;
 
-	index = _determine_input(brick, mref);
-	input = brick->inputs[index];
+	input = _determine_input(brick, mref);
+
 	GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
 	if (atomic_dec_and_test(&brick->io_flight)) {
 		WRITE_ONCE(brick->trigger, true);
@@ -1035,10 +1021,9 @@ static void copy_ref_put(struct copy_output *output, struct mref_object *mref)
 static void copy_ref_io(struct copy_output *output, struct mref_object *mref)
 {
 	struct copy_input *input;
-	unsigned index;
 
-	index = _determine_input(output->brick, mref);
-	input = output->brick->inputs[index];
+	input = _determine_input(output->brick, mref);
+
 	GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
 }
 
