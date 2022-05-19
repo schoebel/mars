@@ -423,21 +423,11 @@ int _make_mref(struct copy_brick *brick,
 		mars_free_mref(mref);
 		goto done;
 	}
-#ifdef CONFIG_MARS_DEBUG
 	/* in general, mref_get() may deliver a shorter buffer */
-	if (unlikely(mref->ref_len < len)) {
-		MARS_DBG("shorten len %d < %u\n",
-			 mref->ref_len, len);
-	}
-#endif
-	if (queue == 0) {
+	if (mref->ref_len < len) {
 		st->len = mref->ref_len;
-	} else if (unlikely(mref->ref_len < st->len)) {
-		MARS_DBG("shorten len %d < %u at index %u\n",
-			 mref->ref_len,
-			 st->len,
-			 index);
-		st->len = mref->ref_len;
+		MARS_DBG("shorten len %d < %u at queue=%d index=%u\n",
+			 mref->ref_len, len, queue, index);
 	}
 
 	if (flags & MREF_WRITE) {
