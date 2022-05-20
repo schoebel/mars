@@ -182,6 +182,27 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable144
+	(bugfix release)
+
+	* CRITICAL FIX: network interruption or packet loss / scrambled
+	  IP packets during certain transfers of strings could have led
+	  to shortened in-kernel strings without trailing NUL bytes,
+	  and in turn some internal error paths could have led to nasty
+	  consecutive kernel crashes, right at the wrong moment from a
+	  sysadmin's perspective.
+	  Although this is extremely unlikely during ordinary operations,
+	  and although the only "use case" known by me is around
+	  {join,merge,split,leave}-cluster and {join,leave}-resource,
+	  please UPDATE mars.ko for maximum safety.
+	  - I am unsure whether there might be some more "use cases".
+	  - Even if you think it won't hurt you: remember Murphy's law.
+	  - Do not forget reboot || (rmmod mars && modprobe mars)
+
+	* Critical safeguard: natural races in copy_end_io() now compensated
+	  in a better way. Probably also relevant for operations.
+	  Another argument for upgrading mars.ko to this version ASAP.
+
 mars0.1astable143
 	* Minor marsadm improvements.
 	* Doc: new section on Trilemma and CAP theorem.
