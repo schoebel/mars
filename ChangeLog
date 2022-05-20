@@ -6,18 +6,17 @@ Example: mars0.1stable01:
                             (only incremented when downgrades are impossible)
                             (not incremented on backwards-compatible upgrades)
                1           = version of feature set
-                stable     = feature set is frozen during this series
+                stable     = feature set is never reduced during this series
                       01   = bugfix revision
 
 Example: mars0.2beta2.3:
 			   The general idea is as before.
 			   "beta" means that new features are roughly tested
 			   in the lab, but not in production, so there may be
-	                   some bugs. New features may be added during
-			   the beta phase.
+	                   some bugs.
 
 Example: mars0.3alpha*:
-			  Never use this for production. Only for historic
+			  Never use this for production. Only for (historic)
 			  code inspection.
 
 Release Conventions / Branches / Tagnames
@@ -37,16 +36,43 @@ Release Conventions / Branches / Tagnames
 		 - Stable tagnames: mars0.1astable%02d
 		 - Historic tagnames: light0.1abeta%d (obsolete)
 
-	mars1.0 series (planned):
-		 - Replace symlink tree by transactional status files
+	mars0.5 series (planned interim series):
+		 - The stable Linux kernel upstram series linux-5.10.y
+		   and later will require new interfaces between MARS
+		   and the kernel. For example, fs/aio.c is no
+		   longer usable by kernelspace activities.
+		 - I plan to take this opportunity for getting rid
+		   of ~10 years old backward-compatibility parts,
+		   interfacing with ancient kernels, e.g. from linux-2.*
+		   to linux-3.x.y
+		 - the branches mars0.1.y and mars.1a.y will become
+		   unmaintained. Just use the standard branch "master"
+		   as usual, since it will become the new alias for
+		   the new mars0.5.y series.
+		 - Newer MARS improvements like the newer .deleted format
+		   are planned to become standard, and a few tons of
+		   ancient code are planned to vanish over time.
+		   Do not expect backwards compatibility over years of
+		   development efforts. I won't test big jumps anymore.
+		 - Consequence: you need a Linux kernel series
+		   from linux-4.9.y onwards. The corresponding
+		   historic MARS pre-patches will be removed from the
+		   MARS git repo, starting with this branch.
+		   The then-historic mars branches may be renamed to
+		   *-historic in order to inform you.
+
+	mars1.0 series (planned future series):
+		 - Replace the symlink tree by transactional status files
 		   (future-proof)
 		   This is required for upstream merging to the kernel.
 		   It has further advantages, such as better scalability.
+		 - Some migration strategy for the data format in /mars
+		   will be certainly done, but details are not yet planned.
 		 - Trying to additionally address public needs.
-		 - Potentially for Linux kernel upstream,
-		 - Unstable tagnames: mars1.0beta%d.%d (planned)
-		 - Stable branch: mars1.0.y (planned)
-		 - Stable tagnames: mars1.0stable%02d (planned)
+		 - Intended for Linux kernel upstream submission.
+		 - See the FAQ: the out-of-tree MARS version in kernel/
+		   shall become unmaintained after acceptance by
+		   Linus Torvalds and the kernel community.
 
 	WIP-* branches are for development and may be rebased onto anything
 	at any time without notice. They will disappear eventually.
@@ -58,13 +84,15 @@ Release Conventions / Branches / Tagnames
 	    including network outages and HumanError(tm) at 1&1 Ionos
 	    ShaHoLin. Thus the _component_ SLA of MARS must be much better.
 
-	  - New features may be introduced, but are off by default.
+	  - New features may be introduced, but are initially off by default.
+	    They may become default after some operational experiences.
 
 	  - There is always an upgrade path. Simply install the new
 	    version, obeying the below compatibility rules.
 
 	  - Rolling upgrades (temporarily different MARS kernel module
-	    versions at primary vs secondary side) are supported.
+	    versions at primary vs secondary side) are supported, as
+	    far as reasonable.
 	    Typically, do "rmmod mars; modprobe mars" at the secondary
 	    side first, then handover, then do the same at the former
 	    primary side.
@@ -116,7 +144,7 @@ Release Conventions / Branches / Tagnames
 	    the kernel modules are installed.
 
 	  - Please check this ChangeLog for any upgrade / downgrade
-	    incompatibility bugs. In case they are detected, they will
+	    incompatibility problems. When bugs are detected, they will
 	    be fixed. But I cannot retrospectivly change already released
 	    versions and their bugs. Fixes are only possible in newer
 	    versions.
@@ -132,24 +160,27 @@ Release Conventions / Branches / Tagnames
 	    or may require some extaordinary actions.
 	    Please read this ChangeLog for details.
 
-	Example: a new future-proof internal deletion format has been
-	introduced in mars0.1astable88. It is off by default.
-	If you never activate it, you can downgrade inside of mars0.1astable*
-	as you like.
-	Only if you actually activate it, and if you really need to
-	downgrade beyond that old version, you have to obey the
-	downgrade instructions documented below.
-	However, don't rely on this. Somewhen after many releases, and after
-	its stability has been proven at 1&1 Inonos ShaHoLin over a long time,
-	the new feature may be auto-activated, so that downgrade should remain
-	possible, but may then require some manual actions.
+	Historic example: a new future-proof internal deletion format
+	had been introduced in mars0.1astable88. It was off by default.
+	But it will become default somewhen (e.g. during newer branches).
+	Only if you never had activated it, and if you had obeyed the
+	downgrade instructions as documented here, you might have
+	downgraded. I had invested a lot of time in testing, but
+	I don't know of anyone who actually did this in operations.
 
 -----------------------------------
 Changelog for series 0.1a:
 
 	This is the new master branch, starting January 2019.
-	The old stable branch mars 0.1.y is EOL,
-	now fully superseeded by this branch.
+	The _historic_ stable branch mars0.1.y is EOL since a
+	long time, and had been forced to the current master.
+
+	INFO: upstream stable kernels v5.10.x and later will require
+	some new MARS-internal bricks and libraries, currently under
+	preparation.
+	Please stay patient; some old MARS bugs have been already found and
+	fixed during the preparation phase. I am releasing them
+	for the currently supported stable upstream kernels.
 
 mars0.1astable143
 	* Minor marsadm improvements.
