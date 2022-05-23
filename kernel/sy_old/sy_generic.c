@@ -1228,20 +1228,24 @@ void __mars_trigger(int mode)
 	}
 }
 
-bool mars_check_inputs(struct mars_brick *brick)
+static
+int mars_check_inputs(struct mars_brick *brick)
 {
 	int max_inputs;
+	int nr_bad = 0;
 	int i;
+
 	if (likely(brick->type)) {
 		max_inputs = brick->type->max_inputs;
 	} else {
 		MARS_ERR("uninitialized brick '%s' '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
-		return true;
+		return -1;
 	}
 	for (i = 0; i < max_inputs; i++) {
 		struct mars_input *input = brick->inputs[i];
 		struct mars_output *prev_output;
 		struct mars_brick *prev_brick;
+
 		if (!input)
 			continue;
 		prev_output = input->connect;
@@ -1252,12 +1256,12 @@ bool mars_check_inputs(struct mars_brick *brick)
 		if (prev_brick->power.led_on)
 			continue;
 	done:
-		return true;
+		nr_bad++;
 	}
-	return false;
+	return nr_bad;
 }
-EXPORT_SYMBOL_GPL(mars_check_inputs);
 
+static
 bool mars_check_outputs(struct mars_brick *brick)
 {
 	int i;
@@ -1269,7 +1273,6 @@ bool mars_check_outputs(struct mars_brick *brick)
 	}
 	return false;
 }
-EXPORT_SYMBOL_GPL(mars_check_outputs);
 
 int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 {
@@ -1286,8 +1289,13 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 		// check whether switching is possible
 		status = -EINVAL;
 		if (val) { // check all inputs
-			if (unlikely(mars_check_inputs(brick))) {
-				MARS_ERR("CANNOT SWITCH ON: brick '%s' '%s' has a turned-off predecessor\n", brick->brick_name, brick->brick_path);
+			int bad = mars_check_inputs(brick);
+
+			if (unlikely(bad)) {
+				MARS_ERR("CANNOT SWITCH ON: brick '%s' '%s' type='%s' has %d turned-off / bad predecessors\n",
+					 brick->brick_name, brick->brick_path,
+					 brick->type ? brick->type->type_name : "(unknown)",
+					 bad);
 				goto done;
 			}
 		} else { // check all outputs
@@ -1299,12 +1307,17 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 				 * Probabĺy it is a good idea to retain the stronger rule
 				 * as long as nobody needs the relaxed one.
 				 */
-				MARS_ERR("CANNOT SWITCH OFF: brick '%s' '%s' has a successor\n", brick->brick_name, brick->brick_path);
+				MARS_ERR("CANNOT SWITCH OFF: brick '%s' '%s' type='%s' has a successor\n",
+					 brick->brick_name, brick->brick_path,
+					 brick->type ? brick->type->type_name : "(unknown)");
 				goto done;
 			}
 		}
 
-		MARS_DBG("brick '%s' '%s' type '%s' power button %d -> %d\n", brick->brick_name, brick->brick_path, brick->type->type_name, oldval, val);
+		MARS_DBG("brick '%s' '%s' type='%s' power button %d -> %d\n",
+			 brick->brick_name, brick->brick_path,
+			 brick->type->type_name,
+			 oldval, val);
 
 		set_button(&brick->power, val, false);
 	}

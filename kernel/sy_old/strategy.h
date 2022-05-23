@@ -332,9 +332,6 @@ extern int ordered_symlink(const char *oldpath,
 
 extern struct mars_global *mars_global;
 
-extern bool mars_check_inputs(struct mars_brick *brick);
-extern bool mars_check_outputs(struct mars_brick *brick);
-
 extern int  mars_power_button(struct mars_brick *brick, bool val, bool force_off);
 
 /////////////////////////////////////////////////////////////////////////
