@@ -11264,6 +11264,29 @@ sub no_mountpoint {
   return system("$cmd $pathname >/dev/null 2>&1");
 }
 
+sub report_non_standard_settings {
+  my $proc_path = "/proc/sys/mars";
+  return unless -d $proc_path;
+  # TODO: report some more (undocumented) internals which
+  # might lead to misunderstandings (e.g. because they exist,
+  # and somebody plays around with it) and/or may impact
+  # performance due to misconfigs.
+  foreach my $cand_path (glob("$proc_path/write_throttle*")) {
+    next if $cand_path =~ m:_end_percent$:;
+    my $IN;
+    if (!open($IN, "<", $cand_path)) {
+      next;
+    }
+    my $val = <$IN>;
+    close($IN);
+    chomp $val;
+    next if !$val;
+    next if ($val eq "10000" &&
+	     $cand_path =~ m:_ratelimit_kb$:);
+    lhint "Non-standard kernel setting: $cand_path is set to '$val'\n";
+  }
+}
+
 if ($cmd =~ m/^(view|pretty)/) {
   if (! -d $mars) {
     lwarn "directory $mars does not exist - please read mars-user-manual.pdf\n";
@@ -11291,6 +11314,8 @@ if ($cmd =~ m/^(view|pretty)/) {
   # report any dead peers
   my $report_foreign = ($ignore_deleted_peers > 1);
   get_alive_links("all", "alive", "*", $report_foreign, 0);
+  # report non-standard settings from /proc/sys/mars/
+  report_non_standard_settings();
   exit($error_count);
 }
 
