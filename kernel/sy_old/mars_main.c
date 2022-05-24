@@ -8078,11 +8078,16 @@ MODULE_INFO(io_driver, "aio");
 MODULE_INFO(io_driver, "sio");
 #endif
 
-#ifndef CONFIG_MARS_DEBUG
-MODULE_INFO(debug, "production");
+#if defined(CONFIG_KASAN)
+MODULE_INFO(debug, "KASAN");
+#elif defined(CONFIG_DEBUG_PAGEALLOC)
+MODULE_INFO(debug, "PAGEALLOC");
+#elif defined(CONFIG_MARS_DEBUG)
+MODULE_INFO(debug, "MARS_DEBUG");
 #else
-MODULE_INFO(debug, "DEBUG");
+MODULE_INFO(debug, "production");
 #endif
+
 #ifdef CONFIG_MARS_DEBUG_MEM
 MODULE_INFO(io, "BAD_PERFORMANCE");
 #endif
