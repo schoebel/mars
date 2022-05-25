@@ -59,7 +59,10 @@ do {									\
 #ifdef CONFIG_MARS_DEBUG_MEM
 #define CHECK_PTR_DEAD(ptr,label)					\
 do {									\
-	if (BRICK_CHECKING && unlikely((ptr) == (void*)0x5a5a5a5a5a5a5a5a)) { \
+	if (BRICK_CHECKING &&						\
+	    unlikely(							\
+		((unsigned long)(ptr) & 0xffffffff) == 0x5a5a5a5a ||	\
+		((unsigned long)(ptr) & 0xffffffff) == 0x6b6b6b6b)) {	\
 		BRICK_FAT("%d: pointer '" #ptr "' is DEAD\n", __LINE__); \
 		goto label;						\
 	}								\
