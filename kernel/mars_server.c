@@ -245,6 +245,8 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 		mars_free_mref(mref);
 		goto done;
 	}
+	mref_a->brick = brick;
+	mref_a->data = mref->ref_data;
 
 	status = mars_recv_mref(sock, mref, cmd);
 	if (status < 0) {
@@ -252,7 +254,6 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 		goto done;
 	}
 	
-	mref_a->brick = brick;
 	mref_a->data = mref->ref_data;
 	mref_a->len = mref->ref_len;
 	SETUP_CALLBACK(mref, server_endio, mref_a);
@@ -269,6 +270,8 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 		status = 0; // continue serving requests
 		goto done;
 	}
+	mref_a->data = mref->ref_data;
+	mref_a->len = mref->ref_len;
 	mref_a->do_put = true;
 	atomic_inc(&brick->in_flight);
 	GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_io, mref);
