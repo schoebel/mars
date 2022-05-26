@@ -182,6 +182,8 @@ extern int _mars_recv_cmd(struct mars_socket *msock, struct mars_cmd *cmd, int l
 		_mars_recv_cmd(_sock_, _cmd_, __LINE__);		\
 	})
 
+#define MARS_NET_MREF_DATA_MAX (PAGE_SIZE)
+
 extern int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cork);
 extern int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd);
 extern int mars_send_cb(struct mars_socket *msock, struct mref_object *mref, bool cork);

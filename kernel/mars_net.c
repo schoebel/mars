@@ -1367,18 +1367,36 @@ int _mars_send_mref(struct mars_socket *msock,
 	__u32 compr_flags = 0;
 	void *compr_buf = NULL;
 	int compr_len = 0;
+	void *ref_data = mref->ref_data;
+	int ref_len = mref->ref_len;
 	int seq = 0;
-	int status;
+	bool has_data;
+	int status = -EINVAL;
 
-	if ((cmd->cmd_code & CMD_FLAG_HAS_DATA) &&
-	    (mref->ref_flags & MREF_COMPRESS_ANY)) {
-		compr_buf = brick_mem_alloc(mref->ref_len + compress_overhead);
-		compr_len = mars_compress(mref->ref_data, mref->ref_len,
-					  compr_buf, mref->ref_len,
+	if (unlikely(ref_len < 0 || ref_len > MARS_NET_MREF_DATA_MAX)) {
+		MARS_ERR("invalid len=%d\n", ref_len);
+		goto done;
+	}
+	/* Empty MREFs without data may be used for
+	 * signalling of status, like flags etc.
+	 */
+	has_data = (cmd->cmd_code & CMD_FLAG_HAS_DATA);
+	if (!has_data)
+		goto no_data;
+
+	if (unlikely(!ref_data || !ref_len)) {
+		MARS_ERR("invalid data=%p len=%d\n",
+			 ref_data, ref_len);
+		goto done;
+	}
+	if (mref->ref_flags & MREF_COMPRESS_ANY) {
+		compr_buf = brick_mem_alloc(ref_len + compress_overhead);
+		compr_len = mars_compress(ref_data, ref_len,
+					  compr_buf, ref_len,
 					  mref->ref_flags, &compr_flags);
 
 		if (likely(compr_len > 0 &&
-			   compr_len < mref->ref_len &&
+			   compr_len < ref_len &&
 			   compr_flags)) {
 			used_net_compression = compr_flags;
 			cmd->cmd_compr_flags = compr_flags;
@@ -1390,6 +1408,7 @@ int _mars_send_mref(struct mars_socket *msock,
 		}
 	}
 
+ no_data:
 	status = mars_send_cmd(msock, cmd, true);
 	if (status < 0)
 		goto done;
@@ -1397,22 +1416,24 @@ int _mars_send_mref(struct mars_socket *msock,
 	seq = 0;
 	status = desc_send_struct(msock,
 				  mref, mars_mref_meta,
-				  cork || cmd->cmd_code & CMD_FLAG_HAS_DATA);
+				  cork || has_data);
 	if (status < 0)
 		goto done;
 
-	if (cmd->cmd_code & CMD_FLAG_HAS_DATA) {
+	if (has_data) {
 		if (compr_buf) {
 			MARS_IO("#%d sending compressed len = %d/%d\n",
-				msock->s_debug_nr, compr_len, mref->ref_len);
+				msock->s_debug_nr, compr_len, ref_len);
 			status = mars_send_raw(msock,
 					       compr_buf, compr_len,
 					       cork);
 			goto done;
 		}
 		MARS_IO("#%d sending blocklen = %d\n",
-			msock->s_debug_nr, mref->ref_len);
-		status = mars_send_raw(msock, mref->ref_data, mref->ref_len, cork);
+			msock->s_debug_nr, ref_len);
+		status = mars_send_raw(msock,
+				       ref_data, ref_len,
+				       cork);
 	}
 done:
 	brick_mem_free(compr_buf);
@@ -1430,6 +1451,7 @@ int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cor
 	/* compatibility to old protocol */
 	_send_deprecated(mref);
 
+	/* TODO: remove this overhead from future versions */
 	if ((mref->ref_flags & MREF_WRITE) &&
 	    mref->ref_data &&
 	    !(mref->ref_flags & MREF_NODATA))
@@ -1473,6 +1495,8 @@ static void _recv_deprecated(struct mref_object *mref)
 int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd)
 {
 	void *tmp_buf = NULL;
+	void *ref_data;
+	int ref_len;
 	int status;
 
 	status = desc_recv_struct(msock, mref, mars_mref_meta, __LINE__);
@@ -1482,6 +1506,16 @@ int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct m
 	/* compatibility to old protocol */
 	_recv_deprecated(mref);
 
+	ref_data = mref->ref_data;
+	ref_len = mref->ref_len;
+	if (unlikely(ref_len < 0 || ref_len > MARS_NET_MREF_DATA_MAX)) {
+		MARS_ERR("invalid len=%d\n", ref_len);
+		status = -EINVAL;
+		goto done;
+	}
+
+	/* Data compression at transport level.
+	 */
 	if (cmd->cmd_compr_flags && cmd->cmd_compr_len) {
 		void *decompr_buf;
 
@@ -1492,41 +1526,61 @@ int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct m
 				       cmd->cmd_compr_len,
 				       cmd->cmd_compr_len);
 		if (status < 0) {
-			MARS_WRN("#%d compr_len = %d mref_len = %d, status = %d\n",
+			MARS_WRN("#%d compr_len=%d ref_len=%d, err=%d\n",
 				 msock->s_debug_nr,
-				 cmd->cmd_compr_len, mref->ref_len,
+				 cmd->cmd_compr_len, ref_len,
 				 status);
 			goto done;
 		}
 
-		/* Ensure that ref_data is block-aligned */
-		if (!mref->ref_data)
-			mref->ref_data = brick_block_alloc(0, mref->ref_len);
+		/* Ensure that length is block-aligned */
+		if (!ref_data) {
+			ref_data = brick_block_alloc(0, ref_len);
+		}
 
 		status = -EBADMSG;
 		decompr_buf =
 			mars_decompress(tmp_buf, cmd->cmd_compr_len,
-					mref->ref_data, mref->ref_len,
+					ref_data, ref_len,
 					cmd->cmd_compr_flags);
 		if (unlikely(!decompr_buf))
 			goto done;
+		if (unlikely(decompr_buf != ref_data))
+			brick_block_free(ref_data, ref_len);
 
 		/* decompression success */
 		mref->ref_data = decompr_buf;
-		status = mref->ref_len;
+		status = ref_len;
 		goto done;
 	}
 
 	if (cmd->cmd_code & CMD_FLAG_HAS_DATA) {
-		if (!mref->ref_data)
-			mref->ref_data = brick_block_alloc(0, mref->ref_len);
-		if (!mref->ref_data) {
+		if (!ref_data)
+			ref_data = brick_block_alloc(0, mref->ref_len);
+		if (unlikely(!ref_data)) {
 			status = -ENOMEM;
 			goto done;
 		}
-		status = mars_recv_raw(msock, mref->ref_data, mref->ref_len, mref->ref_len);
-		if (status < 0)
-			MARS_WRN("#%d mref_len = %d, status = %d\n", msock->s_debug_nr, mref->ref_len, status);
+		status = mars_recv_raw(msock, ref_data, ref_len, ref_len);
+		if (unlikely(status < 0)) {
+			MARS_WRN("#%d data=%p len=%d, err=%d\n",
+				 msock->s_debug_nr,
+				 ref_data, ref_len, status);
+			if (!mref->ref_data)
+				brick_block_free(ref_data, ref_len);
+			goto done;
+		}
+		if (unlikely(status != ref_len)) {
+			MARS_WRN("#%d short read on data=%p len=%d/%d\n",
+				 msock->s_debug_nr,
+				 ref_data, status, ref_len);
+			if (!mref->ref_data)
+			status = -ENODATA;
+				brick_block_free(ref_data, ref_len);
+			goto done;
+		}
+		if (!mref->ref_data)
+			mref->ref_data = ref_data;
 	}
 
 done:
@@ -1546,6 +1600,7 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref, bool cork)
 	/* compatibility to old protocol */
 	_send_deprecated(mref);
 
+	/* TODO: remove this overhead from future versions */
 	if (!(mref->ref_flags & MREF_WRITE) &&
 	    mref->ref_data &&
 	    !(mref->ref_flags & MREF_NODATA))
@@ -1560,7 +1615,8 @@ int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mar
 {
 	int status;
 
-	if (cmd->cmd_code & CMD_FLAG_HAS_DATA && !mref->ref_data) {
+	if (cmd->cmd_code & CMD_FLAG_HAS_DATA &&
+	    unlikely(!mref->ref_data)) {
 		MARS_WRN("#%d no internal buffer available\n", msock->s_debug_nr);
 		status = -EINVAL;
 		goto done;
