@@ -182,13 +182,21 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable145
+	* Major fix: races between network data transport and local IO,
+	  only observed during preparation of compatibility with
+	  newer kernels. Depending on .config and on further rare
+	  scenarios, it might also occur in combination with
+	  currently supported kernels and/or some Frankenstein
+	  kernels.
+
 mars0.1astable144
-	(bugfix release)
+	(IMPORTANT bugfix release)
 
 	* CRITICAL FIX: network interruption or packet loss / scrambled
 	  IP packets during certain transfers of strings could have led
-	  to shortened in-kernel strings without trailing NUL bytes,
-	  and in turn some internal error paths could have led to nasty
+	  to shortened in-kernel strings without trailing NUL bytes.
+	  In turn, some internal error paths could have led to nasty
 	  consecutive kernel crashes, right at the wrong moment from a
 	  sysadmin's perspective.
 	  Although this is extremely unlikely during ordinary operations,
