@@ -235,6 +235,7 @@ struct callback_object {
 		CHECK_PTR(obj, done);					\
 		__cb = (obj)->object_cb;				\
 		CHECK_PTR_NULL(__cb, done);				\
+		CHECK_PTR_NULL(__cb->cb_fn, done);			\
 		__cb->cb_error = (err);					\
 		__cb->cb_fn(__cb);					\
 	}
