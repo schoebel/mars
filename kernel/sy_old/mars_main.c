@@ -8078,16 +8078,48 @@ MODULE_INFO(io_driver, "aio");
 MODULE_INFO(io_driver, "sio");
 #endif
 
+/* New modinfo on combined debugging info.
+ * Format: kernel_options | mars_options
+ * where only the most relevant option (AFAICS)
+ * is reported.
+ * Please extend the kernel-specific list for better
+ * sysadmin informations. Sysadmins should not react
+ * surprised, as far as possible.
+ */
 #if defined(CONFIG_KASAN)
-MODULE_INFO(debug, "KASAN");
+#define KERN_DEBUG_INFO "CONFIG_KASAN"
 #elif defined(CONFIG_DEBUG_PAGEALLOC)
-MODULE_INFO(debug, "PAGEALLOC");
-#elif defined(CONFIG_MARS_DEBUG)
-MODULE_INFO(debug, "MARS_DEBUG");
+#define KERN_DEBUG_INFO "CONFIG_DEBUG_PAGEALLOC"
 #else
-MODULE_INFO(debug, "production");
+#define KERN_DEBUG_INFO  "assumed_production_kernel"
 #endif
 
+/* MARS-specific debugging (defined at compiletime):
+ * Such options should always start with CONFIG_MARS_*
+ */
+#if defined(CONFIG_MARS_DEBUG_ORDER0)
+#define MARS_DEBUG_INFO "CONFIG_MARS_DEBUG_MEM | CONFIG_MARS_DEBUG_ORDER0"
+#elif defined(CONFIG_MARS_DEBUG_MEM)
+#define MARS_DEBUG_INFO "CONFIG_MARS_DEBUG_MEM"
+#elif defined(CONFIG_MARS_DEBUG_DEFAULT)
+#define MARS_DEBUG_INFO "CONFIG_MARS_DEBUG_DEFAULT"
+#elif defined(CONFIG_MARS_DEBUG)
+#define MARS_DEBUG_INFO "CONFIG_MARS_DEBUG"
+#elif defined(CONFIG_MARS_CHECKS)
+#define MARS_DEBUG_INFO "CONFIG_MARS_CHECKS"
+#else
+#define MARS_DEBUG_INFO "mars_production"
+#endif
+
+/* Currently, MARS debugging is more or less orthogonal
+ * to kernel debugging.
+ * The new report syntax tries to transport this to
+ * sysadmins.
+ */
+MODULE_INFO(debug, KERN_DEBUG_INFO " | " MARS_DEBUG_INFO);
+
+/* Old style module info (may disappear in future)
+ */
 #ifdef CONFIG_MARS_DEBUG_MEM
 MODULE_INFO(io, "BAD_PERFORMANCE");
 #endif
