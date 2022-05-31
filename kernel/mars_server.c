@@ -739,6 +739,9 @@ static int server_switch(struct server_brick *brick)
 		mars_power_led_on((void*)brick, true);
 	} else if (!brick->power.led_off) {
 		struct task_struct *thread;
+		int nr_retry;
+		int success;
+
 		mars_power_led_on((void*)brick, false);
 
 		mars_shutdown_socket(sock);
@@ -754,9 +757,22 @@ static int server_switch(struct server_brick *brick)
 		mars_put_socket(sock);
 		MARS_DBG("#%d socket s_count = %d\n", sock->s_debug_nr, atomic_read(&sock->s_count));
 
-		// do this only after _both_ threads have stopped...
+		/* Safeguard against hanging threads.
+		 */
+		nr_retry = 0;
+	retry:
+		success = mutex_trylock(&brick->cb_mutex);
+		if (!success) {
+			brick_msleep(100);
+			if (nr_retry++ < 100)
+				goto retry;
+			MARS_ERR("thread '%s' seems to hang\n",
+				 current->comm);
+			goto done;
+		}
 		_clean_list(brick, &brick->cb_read_list);
 		_clean_list(brick, &brick->cb_write_list);
+		mutex_unlock(&brick->cb_mutex);
 
 		mars_power_led_off((void*)brick, true);
 	}
