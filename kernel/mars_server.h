@@ -42,8 +42,8 @@ struct server_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct server_brick *brick;
 	struct list_head cb_head;
-	void *data;
-	int len;
+	void *first_data;
+	int first_len;
 	bool do_put;
 };
 

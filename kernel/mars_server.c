@@ -167,10 +167,6 @@ int cb_thread(void *data)
 			mars_shutdown_socket(sock);
 		}
 
-		if (mref_a->data) {
-			brick_block_free(mref_a->data, mref_a->len);
-			mref->ref_data = NULL;
-		}
 		if (mref_a->do_put) {
 			GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_put, mref);
 			atomic_dec(&brick->in_flight);
@@ -246,16 +242,18 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 		goto done;
 	}
 	mref_a->brick = brick;
-	mref_a->data = mref->ref_data;
+	mref_a->first_data = mref->ref_data;
 
 	status = mars_recv_mref(sock, mref, cmd);
 	if (status < 0) {
 		mars_free_mref(mref);
 		goto done;
 	}
-	
-	mref_a->data = mref->ref_data;
-	mref_a->len = mref->ref_len;
+
+	if (!mref_a->first_data) {
+		mref_a->first_data = mref->ref_data;
+		mref_a->first_len = mref->ref_len;
+	}
 	SETUP_CALLBACK(mref, server_endio, mref_a);
 
 	amount = 0;
@@ -270,10 +268,13 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 		status = 0; // continue serving requests
 		goto done;
 	}
-	mref_a->data = mref->ref_data;
-	mref_a->len = mref->ref_len;
+	if (!mref_a->first_data) {
+		mref_a->first_data = mref->ref_data;
+		mref_a->first_len = mref->ref_len;
+	}
 	mref_a->do_put = true;
 	atomic_inc(&brick->in_flight);
+
 	GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_io, mref);
 
 done:
@@ -798,15 +799,54 @@ void server_reset_statistics(struct server_brick *brick)
 
 static int server_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct server_mref_aspect *ini = (void*)_ini;
-	INIT_LIST_HEAD(&ini->cb_head);
+	struct server_mref_aspect *mref_a = (void *)_ini;
+
+	INIT_LIST_HEAD(&mref_a->cb_head);
 	return 0;
 }
 
+/* This is responsible for _safe_ transition to deallocate state.
+ */
 static void server_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct server_mref_aspect *ini = (void*)_ini;
-	CHECK_HEAD_EMPTY(&ini->cb_head);
+	struct server_mref_aspect *mref_a = (void *)_ini;
+	void *first_data;
+	int first_len;
+
+	/* For safety, do not leave dangling pointers.
+	 * We don't want to win any micro-benchmarks here.
+	 * We need to ensure geo-redundancy over long distances.
+	 * When unsure, test via poisoning, independently at page
+	 * granularity and at brick / object / aspect level.
+	 */
+	first_data = mref_a->first_data;
+	first_len = mref_a->first_len;
+	if (first_data && first_len) {
+		struct mref_object *mref = mref_a->object;
+
+		mref_a->first_data = NULL;
+		/* Prevent double free.
+		 * Some callee might have allocated, and already freed
+		 * via mref_data. This might have happened upon another
+		 * thread / interrupt / callback / etc.
+		 * Network transports / compression / etc may introduce
+		 * further parallelism, independently from all of this.
+		 * Be sure to deallocate the original address, since
+		 * some address arithmetic might have happened
+		 * somewhere else (e.g. sector-wise / packet fragments / etc).
+		 * All of this might have happened below your ass,
+		 * where you cannot see it, because we cannot know which
+		 * which other (future) brick instances we are / were
+		 * (re)connected during our unknown brick lifetime
+		 * (which might range from milliseconds to months).
+		 */
+		if (mref && mref->ref_data) {
+			mref->ref_data = NULL;
+			brick_block_free(first_data, first_len);
+		}
+	}
+
+	CHECK_HEAD_EMPTY(&mref_a->cb_head);
 }
 
 MARS_MAKE_STATICS(server);
