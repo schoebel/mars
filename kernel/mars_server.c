@@ -99,6 +99,7 @@ int cb_thread(void *data)
 {
 	struct server_brick *brick = data;
 	struct mars_socket *sock = &brick->handler_socket;
+	int max_wait;
 	bool aborted = false;
 	bool ok = mars_get_socket(sock);
 	int status = -EINVAL;
@@ -165,6 +166,14 @@ int cb_thread(void *data)
 			 * any lost operations.
 			 */
 			mars_shutdown_socket(sock);
+			/* Safeguard against races with shutdown
+			 */
+			max_wait = 10;
+			while (max_wait-- >= 0) {
+				brick_msleep(100);
+				if (!mars_socket_is_alive(sock))
+					break;
+			}
 		}
 
 		if (mref_a->do_put) {
@@ -176,6 +185,14 @@ int cb_thread(void *data)
 	}
 
 	mars_shutdown_socket(sock);
+	/* Safeguard against races with shutdown
+	 */
+	max_wait = 10;
+	while (max_wait-- >= 0) {
+		brick_msleep(100);
+		if (!mars_socket_is_alive(sock))
+			break;
+	}
 	mars_put_socket(sock);
 
 done:
