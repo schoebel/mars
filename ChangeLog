@@ -182,6 +182,12 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable146
+	(bugfix release)
+	* While testing with newer kernels and their better
+	  POISONing variants (thanks to kernel upstream), extremely
+	  rare trilemma-like races detected and hopefully fixed now.
+
 mars0.1astable145
 	* Major fix: races between network data transport and local IO,
 	  only observed during preparation of compatibility with
