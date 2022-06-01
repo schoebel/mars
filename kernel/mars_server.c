@@ -111,17 +111,20 @@ int cb_thread(void *data)
 	brick->cb_running = true;
 	wake_up_interruptible(&brick->startup_event);
 
-        while (!brick_thread_should_stop() || !list_empty(&brick->cb_read_list) || !list_empty(&brick->cb_write_list) || atomic_read(&brick->in_flight) > 0) {
+        while (!brick_thread_should_stop() ||
+	       atomic_read(&brick->in_flight) > 0) {
 		struct server_mref_aspect *mref_a;
 		struct mref_object *mref;
 		struct list_head *tmp;
+		unsigned long wait_jiffies =
+			brick_thread_should_stop() ? 1 * HZ : 2;
 		bool cork;
-		
+
+
 		wait_event_interruptible_timeout(
 			brick->cb_event,
-			!list_empty(&brick->cb_read_list) ||
-			!list_empty(&brick->cb_write_list),
-			1 * HZ);
+			atomic_read(&brick->in_flight) > 0,
+			wait_jiffies);
 
 		/* Try to get the next request for callback over
 		 * the network.
