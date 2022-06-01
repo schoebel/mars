@@ -123,19 +123,35 @@ int cb_thread(void *data)
 			!list_empty(&brick->cb_write_list),
 			1 * HZ);
 
+		/* Try to get the next request for callback over
+		 * the network.
+		 * Writes are preferred.
+		 * This is important for long-distance transports
+		 * of IO (e.g. using MARS for iSCSI-like use cases).
+		 * Use the cork iff there are some more requests
+		 * to be completed, whether reads or writes.
+		 */
+		tmp = NULL;
+		cork = false;
 		mutex_lock(&brick->cb_mutex);
-		tmp = brick->cb_write_list.next;
-		if (tmp == &brick->cb_write_list) {
+		if (!list_empty(&brick->cb_write_list)) {
+			tmp = brick->cb_write_list.next;
+			list_del_init(tmp);
+			cork =
+				!list_empty(&brick->cb_write_list) ||
+				!list_empty(&brick->cb_read_list);
+		} else if (!list_empty(&brick->cb_read_list)) {
 			tmp = brick->cb_read_list.next;
-			if (tmp == &brick->cb_read_list) {
-				mutex_unlock(&brick->cb_mutex);
-				brick_yield();
-				continue;
-			}
+			list_del_init(tmp);
+			cork = !list_empty(&brick->cb_read_list);
 		}
-		list_del_init(tmp);
-		cork = !list_empty(&brick->cb_write_list);
 		mutex_unlock(&brick->cb_mutex);
+
+		if (!tmp) {
+			/* nothing to do for now */
+			brick_yield();
+			continue;
+		}
 
 		mref_a = container_of(tmp, struct server_mref_aspect, cb_head);
 		mref = mref_a->object;
