@@ -299,7 +299,6 @@ struct generic_switch {
 	struct BRITYPE##_output **outputs;				\
 	struct generic_switch power;					\
 	int (*free)(struct BRITYPE##_brick *del);			\
-	struct list_head tmp_head;					\
 
 struct generic_brick {
 	GENERIC_BRICK(generic);
@@ -473,13 +472,11 @@ INLINE int generic_brick_init(const struct generic_brick_type *type, struct gene
 	brick->nr_outputs = 0;
 	brick->power.led_off = true;
 	init_waitqueue_head(&brick->power.event);
-	INIT_LIST_HEAD(&brick->tmp_head);
 	return 0;
 }
 
 INLINE void generic_brick_exit(struct generic_brick *brick)
 {
-	list_del_init(&brick->tmp_head);
 	brick->brick_name = NULL;
 	brick->type = NULL;
 	brick->ops = NULL;
