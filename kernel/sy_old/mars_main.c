@@ -5541,8 +5541,25 @@ int _stop_trans(struct mars_rotate *rot)
 		write_info_links(rot);
 		for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
 			struct trans_logger_input *trans_input;
+
 			trans_input = trans_brick->inputs[i];
 			if (trans_input && !trans_input->is_operating) {
+				struct mars_brick *prev_brick;
+
+				if (!trans_input->connect)
+					continue;
+
+				/* For safety, do not mock with a transient
+				 * predecessor.
+				 * In general, the predecessor may be in shared use
+				 * otherwise.
+				 */
+				prev_brick = (void *)trans_input->connect->brick;
+				if (prev_brick &&
+				    !prev_brick->power.led_on &&
+				    !prev_brick->power.led_off)
+					continue;
+
 				(void)mars_disconnect((void*)trans_input);
 			}
 		}
