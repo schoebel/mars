@@ -1238,7 +1238,9 @@ int mars_check_inputs(struct mars_brick *brick)
 	if (likely(brick->type)) {
 		max_inputs = brick->type->max_inputs;
 	} else {
-		MARS_ERR("uninitialized brick '%s' '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+		MARS_ERR("uninitialized brick '%s' '%s'\n",
+			 brick->brick_name,
+			 brick->brick_path);
 		return -1;
 	}
 	for (i = 0; i < max_inputs; i++) {
@@ -1253,10 +1255,23 @@ int mars_check_inputs(struct mars_brick *brick)
 			continue;
 		prev_brick = prev_output->brick;
 		CHECK_PTR(prev_brick, done);
-		if (prev_brick->power.led_on)
+		if (prev_brick->power.button && prev_brick->power.led_on)
 			continue;
+		MARS_ERR("PREDECESSOR %d/%d prev_brick '%s' '%s' type='%s' led_off=%d led_on=%d power=%d\n",
+			 i, max_inputs,
+			 prev_brick->brick_name, prev_brick->brick_path,
+			 prev_brick->type ? prev_brick->type->type_name : "(unknown)",
+			 prev_brick->power.led_off, prev_brick->power.led_on, 
+			 prev_brick->power.button);
+
 	done:
 		nr_bad++;
+	}
+	if (nr_bad) {
+		MARS_ERR("CANNOT SWITCH ON: brick '%s' '%s' type='%s' has %d turned-off / bad predecessors\n",
+			 brick->brick_name, brick->brick_path,
+			 brick->type ? brick->type->type_name : "(unknown)",
+			 nr_bad);
 	}
 	return nr_bad;
 }
@@ -1292,10 +1307,6 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 			int bad = mars_check_inputs(brick);
 
 			if (unlikely(bad)) {
-				MARS_ERR("CANNOT SWITCH ON: brick '%s' '%s' type='%s' has %d turned-off / bad predecessors\n",
-					 brick->brick_name, brick->brick_path,
-					 brick->type ? brick->type->type_name : "(unknown)",
-					 bad);
 				goto done;
 			}
 		} else { // check all outputs
