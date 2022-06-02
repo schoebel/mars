@@ -1713,6 +1713,24 @@ done:;
 }
 
 static
+bool _is_trans_input_fully_working(struct trans_logger_input *trans_input)
+{
+	if (!trans_input ||
+	    !trans_input->connect)
+		return false;
+	return true;
+}
+
+static
+bool is_trans_input_fully_working(struct mars_rotate *rot, int input_nr)
+{
+	struct trans_logger_input *trans_input;
+
+	trans_input = rot->trans_brick->inputs[input_nr];
+	return _is_trans_input_fully_working(trans_input);
+}
+
+static
 void write_info_links(struct mars_rotate *rot)
 {
 	int count = 0;
@@ -1730,12 +1748,9 @@ void write_info_links(struct mars_rotate *rot)
 	 * speed may be different.
 	 */
 	for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
-		struct trans_logger_input *trans_input;
 		int inf_nr;
 
-		trans_input = rot->trans_brick->inputs[i];
-		if (!trans_input ||
-		    !trans_input->connect)
+		if (!is_trans_input_fully_working(rot, i))
 			continue;
 		inf_nr = i - TL_INPUT_LOG1;
 		if (!min || rot->infs[inf_nr].inf_sequence < min) {
@@ -4484,9 +4499,16 @@ int make_log_init(struct mars_dent *dent)
 	 */
 	if (rot->trans_brick) {
 		struct trans_logger_input *trans_input = rot->trans_brick->inputs[rot->trans_brick->old_input_nr];
-		if (trans_input && trans_input->is_operating) {
-			aio_path = path_make("%s/log-%09d-%s", parent_path, trans_input->inf.inf_sequence, trans_input->inf.inf_host);
-			MARS_DBG("using logfile '%s' from trans_input %d (new=%d)\n", SAFE_STR(aio_path), rot->trans_brick->old_input_nr, rot->trans_brick->log_input_nr);
+
+		if (_is_trans_input_fully_working(trans_input)) {
+			aio_path = path_make("%s/log-%09d-%s",
+					     parent_path,
+					     trans_input->inf.inf_sequence,
+					     trans_input->inf.inf_host);
+			MARS_DBG("using logfile '%s' from trans_input %d (new=%d)\n",
+				 SAFE_STR(aio_path),
+				 rot->trans_brick->old_input_nr,
+				 rot->trans_brick->log_input_nr);
 		}
 	}
 	if (!aio_path) {
