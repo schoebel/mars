@@ -1176,13 +1176,25 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 			if (unlikely(!aio_brick)) {
 				MARS_WRN("'%s' uninitialized brick %d\n",
 					 _brick->brick_path, i);
+				mars_trigger();
 				goto done;
 			}
-			if (!aio_brick->power.led_on) {
+			/* Have the target states been reached? */
+			if (unlikely(aio_brick->power.button &&
+				     !aio_brick->power.led_on)) {
 				MARS_INF("'%s' brick %d not working\n",
 					 _brick->brick_path, i);
+				mars_trigger();
 				goto done;
 			}
+			if (unlikely(!aio_brick->power.button &&
+				     !aio_brick->power.led_off)) {
+				MARS_INF("'%s' brick %d not yet off\n",
+					 _brick->brick_path, i);
+				mars_trigger();
+				goto done;
+			}
+
 			status = aio_output->ops->mars_get_info(
 					    aio_output,
 					    &cc->info[i]);
