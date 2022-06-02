@@ -2003,6 +2003,11 @@ int __make_copy(struct mars_dent *belongs,
 			    aio->power.button &&
 			    aio->power.led_on)
 				goto found;
+			/* Wait until the old brick is fully off */
+			if (aio &&
+			    !aio->power.button &&
+			    !aio->power.led_off)
+				goto done;
 		}
 
 		cc.argv[i] = argv[i];
