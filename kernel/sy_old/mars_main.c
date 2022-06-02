@@ -1715,8 +1715,16 @@ done:;
 static
 bool _is_trans_input_fully_working(struct trans_logger_input *trans_input)
 {
+	struct mars_brick *prev_brick;
+
 	if (!trans_input ||
 	    !trans_input->connect)
+		return false;
+
+	prev_brick = (void *)trans_input->connect->brick;
+	if (!prev_brick ||
+	    !prev_brick->power.button ||
+	    !prev_brick->power.led_on)
 		return false;
 	return true;
 }
