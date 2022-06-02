@@ -1999,7 +1999,9 @@ int __make_copy(struct mars_dent *belongs,
 		/* do not change names underway */
 		if (copy && copy->inputs[i] && copy->inputs[i]->connect) {
 			aio = copy->inputs[i]->connect->brick;
-			if (aio && aio->power.button)
+			if (aio &&
+			    aio->power.button &&
+			    aio->power.led_on)
 				goto found;
 		}
 
