@@ -5338,6 +5338,11 @@ void _rotate_trans(struct mars_rotate *rot)
 				       0);
 		if (unlikely(!rot->next_relevant_brick)) {
 			MARS_ERR_TO(rot->log_say, "could not open next transaction log '%s'\n", rot->next_relevant_log->d_path);
+
+		}
+		if (!rot->next_relevant_brick->power.led_on) {
+			MARS_DBG("startup '%s' not yet completed\n",
+				 rot->next_relevant_log->d_path);
 			goto done;
 		}
 		trans_input = trans_brick->inputs[next_nr];
