@@ -3221,7 +3221,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	} else if (status == -EAGAIN && finished_pos + brick->replay_tolerance > brick->replay_end_pos) {
 		MARS_INF("TOLERANCE: logfile is incomplete at %lld (of %lld)\n", finished_pos, brick->replay_end_pos);
 		replay_code = TL_REPLAY_INCOMPLETE;
-	} else if (status < 0) {
+	} else if (status < 0 && status != -EAGAIN) {
 		if (finished_pos < 0)
 			finished_pos = new_finished_pos;
 		if (finished_pos + brick->replay_tolerance > brick->replay_end_pos) {
