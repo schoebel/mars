@@ -1470,7 +1470,7 @@ int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 
 		dent->d_corr_A = 0;
 		dent->d_corr_B = 0;
-		min = mf_get_any_dirty(newpath, DIRTY_COMPLETED);
+		min = mf_get_any_dirty(newpath, DIRTY_COMPLETING);
 		if (min < dent->new_stat.size) {
 			MARS_DBG("file '%s' A size=%lld min=%lld\n", newpath, dent->new_stat.size, min);
 			dent->d_corr_A = min;

@@ -416,12 +416,14 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 	if (!(mref->ref_flags & MREF_WRITE)) {
 		status = read_aops(output, mref);
 	} else {
-		mf_dirty_append(output->mf, DIRTY_SUBMITTED, mref->ref_pos + mref->ref_len);
+		mf_dirty_append(output->mf, DIRTY_SUBMITTED,
+				mref->ref_pos + mref->ref_len);
 		status = write_aops(output, mref);
 		if (status >= 0) {
 			if (barrier || output->brick->o_fdsync)
 				sync_file(output);
-			mf_dirty_append(output->mf, DIRTY_COMPLETED, mref->ref_pos + mref->ref_len);
+			mf_dirty_append(output->mf, DIRTY_COMPLETING,
+					mref->ref_pos + mref->ref_len);
 		}
 	}
 

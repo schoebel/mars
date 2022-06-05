@@ -187,7 +187,7 @@ loff_t get_total_size(struct aio_output *output)
 	 * appended by a write operation, but the data has not actually hit
 	 * the page cache, such that a concurrent read gets NULL blocks.
 	 */
-	return mf_dirty_length(output->mf, DIRTY_COMPLETED);
+	return mf_dirty_length(output->mf, DIRTY_COMPLETING);
 }
 
 static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
@@ -294,7 +294,8 @@ void _complete(struct aio_output *output, struct aio_mref_aspect *mref_a, int er
 		/* Needs to be done before callback, which might modify
 		 * mref->.+
 		 */
-		mf_dirty_append(output->mf, DIRTY_FINISHED, mref->ref_pos + mref->ref_len);
+		mf_dirty_append(output->mf, DIRTY_FINISHED,
+				mref->ref_pos + mref->ref_len);
 	}
 
 	CHECKED_CALLBACK(mref, err, err_found);
@@ -737,7 +738,8 @@ static int aio_event_thread(void *data)
 
 			mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
 			if (mref->ref_flags & MREF_WRITE)
-				mf_dirty_append(output->mf, DIRTY_COMPLETED, mref->ref_pos + mref->ref_len);
+				mf_dirty_append(output->mf, DIRTY_COMPLETING,
+						mref->ref_pos + mref->ref_len);
 
 			/* Workaround for never implemented aio_fsync operation,
 			 * see also upstream commit 723c038475b78edc9327eb952f95f9881cc9d7.
@@ -1024,7 +1026,8 @@ static int aio_submit_thread(void *data)
 		mapfree_set(output->mf, mref->ref_pos, -1);
 
 		if (mref->ref_flags & MREF_WRITE) {
-			mf_dirty_append(output->mf, DIRTY_SUBMITTED, mref->ref_pos + mref->ref_len);
+			mf_dirty_append(output->mf, DIRTY_SUBMITTED,
+					mref->ref_pos + mref->ref_len);
 		}
 
 		mref->ref_total_size = get_total_size(output);

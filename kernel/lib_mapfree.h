@@ -49,7 +49,7 @@ extern int mapfree_grace_keep_mb;
 
 enum dirty_stage {
 	DIRTY_SUBMITTED,
-	DIRTY_COMPLETED,
+	DIRTY_COMPLETING,
 	DIRTY_FINISHED,
 	/* Keep this the last element */
 	DIRTY_MAX
