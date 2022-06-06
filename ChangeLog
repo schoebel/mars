@@ -182,6 +182,12 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable147
+	* Several fixes, detected during testing
+	  a future replacement of the historic aio brick.
+	  Some of these generic fixes and improvements may be also
+	  beneficial for the current MARS release.
+
 mars0.1astable146
 	(bugfix release)
 	* While testing with newer kernels and their better
