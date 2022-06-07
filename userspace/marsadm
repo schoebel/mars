@@ -4416,12 +4416,71 @@ sub __conv_tv {
   return sprintf("%04d-%02d-%02d %02d:%02d:%02d%s", $year+1900, $mon + 1, $mday, $hour, $min, $sec, $tv_nsec);
 }
 
-sub __conv_errno {
+my @errno_names = keys(%ERRNO);
+my %errno2names =
+  (
+   # Caveat: try to keep the mars-specific error codes
+   # disjoint from the official POSIX errno codes.
+   9998 => ["EXAMPLE_MARS_NAME", "ClearText"],
+   9999 => "EXAMPLE_ANY_OTHER_NAME_WITHOUT_CLEARTEXT",
+  );
+
+sub __conv_errno_to_names {
+  my ($error) = @_;
+  return "" if !defined($error) || !scalar($error);
+  $error = -$error if ($error < 0);
+  my $res = $errno2names{$error};
+  if (!defined($res)) {
+    # Current Perl allows parsing the cleartext only when an actual
+    # errno code is set _locally_ (!).
+    # Here we fake an OS error again iff we need to report it to
+    # humans.
+    # Important: errno codes may stem from another cluster members,
+    # which may potentially run under a different OS and/or under
+    # a different hardware architecture (e.g. arm64 vs x86_64).
+    # Also consider that errno codes as defined by POSIX may
+    # vary on almost anything.
+    # TODO: pre-compute all relevant codes in advance, and
+    # independently from POSIX / Linux kernel implementations,
+    # and without wasting tons of CPU just for pre-computation
+    # of the full cartesian product.
+    $! = $error;
+    my $cleartext = $!;
+    foreach my $test_name (@errno_names) {
+      my $known = $ERRNO{$test_name};
+      next unless (defined($known) && $known);
+      if ($cleartext) {
+	$errno2names{$known} = [ $test_name, $cleartext ];
+      } else {
+	$errno2names{$known} = $test_name;
+      }
+    }
+    $res = $errno2names{$error};
+  }
+  $res = "" unless $res;
+  return $res;
+}
+
+sub __conv_errno_to_text {
   my ($txt, $error) = @_;
-  return "$txt$error" if !defined($error) || ($error <= 0);
+  if (!defined($error)) {
+    return "${txt}UNDEF";
+  }
+  if (!scalar($error)) {
+    return "$txt$error";
+  }
+  $error = -$error if ($error < 0);
+  my $symbolic_names = __conv_errno_to_names($error);
+  if (ref($symbolic_names) eq "ARRAY") {
+    my @arr = @$symbolic_names;
+    my $res = "${txt}[" . $arr[0] . ":" . $arr[1]. "]";
+    return $res;
+  }
+  $symbolic_names .= ":" if $symbolic_names;
   $! = $error;
-  my $res = "${txt}[$!]";
+  my $full_text = $!;
   $! = 0;
+  my $res = "${txt}[$symbolic_names$full_text]";
   return $res;
 }
 
@@ -4432,7 +4491,7 @@ sub _replace_timestamps {
   } else {
     $txt =~ s:([0-9]{9,99})\.([0-9]{9}):__conv_tv($1,$2):ge;
   }
-  $txt =~ s:((error|status)\s*=?\s*-)([0-9]+):__conv_errno($1,$3):ge;
+  $txt =~ s:((error|status)\s*=?\s*-)([0-9]+):__conv_errno_to_text($1,$3):ge;
   return $txt;
 }
 
@@ -7957,9 +8016,27 @@ sub eval_fn {
     }
     if (/^errno[-_]?text$/) {
       my $code = parse_macro($arg1, $env);
-      return "" unless defined($code) && $code != 0;
-      $code = -$code if $code < 0;
-      return __conv_errno("", $code);
+      my $txt = "";
+      return $txt unless defined($code);
+      for (;;) {
+	my $rest = "";
+	if ($code =~ m{^([^,]+),(.*)}) {
+	  ($code, $rest) = ($1, $2);
+	}
+	if ($code && $code =~ m/^0x/) {
+	  $txt .= ",HEXCODE=$code";
+	  last unless $rest;
+	  $code = $rest;
+	  next;
+	} elsif (scalar($code) && $code < 0) {
+	  $code = -$code;
+	}
+	$txt .= __conv_errno_to_text("", $code);
+	last unless $rest;
+	$code = $rest;
+      }
+      $txt =~ s/\s+/_/g;
+      return $txt;
     }
     if (/^get[-_]?log[-_]?status/) {
       return get_error_text($$env{"cmd"}, $$env{"res"});
@@ -9001,7 +9078,7 @@ my %complex_macros =
    .  "%if{%device-opened{}}{"
    .    "Opened, "
    .    "%if{%device-error{}}{"
-   .      "ERROR %device-error{} %errno-text{%device-error{}}, "
+   .      "DEVICE_ERROR=%device-error{}%errno-text{%device-error{}}, "
    .    "}"
    .    "%device-ops-rate{} IOPS"
    .    "%if{%device-nrflying{}}{"
@@ -9023,7 +9100,7 @@ my %complex_macros =
 
    "diskstate"
    => "%if{%disk-error{}}{"
-   .    "DISK_ERROR %disk-error{} %errno-text{%disk-error{}} "
+   .    "DISK_ERROR=%disk-error{}%errno-text{%disk-error{}} "
    .  "}"
    .  "%elsif{%not{%get-disk{}}}{"
    .    "NotJoined"
@@ -9036,7 +9113,13 @@ my %complex_macros =
    .      "Detached"
    .    "}"
    .  "}{%and{%replay-code{}}{%<{%replay-code{}}{0}}}{"
-   .    "DefectiveLog[%errno-text{%replay-code{}}]"
+   .    "%elsif{%=={%replay-code{}}{-85}}{"
+   .      "IncompleteLog"
+   .    "}{%=={%replay-code{}}{-56}}{"
+   .      "UnInitializedLogRecord"
+   .    "}{"
+   .      "DefectiveLog"
+   .    "}[%replay-code{}=%errno-text{%replay-code{}}]"
    .  "}{%is-orphan{}}{"
    .    "Orphan"
    .  "}{%not{%is-attach{}}}{"
