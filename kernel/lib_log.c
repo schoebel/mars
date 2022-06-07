@@ -749,6 +749,47 @@ int _check_crc(struct log_header *lh,
 	return res;
 }
 
+static
+int classify_bad_magic(unsigned long long this_magic,
+		       unsigned char *found_byte_code)
+{
+	unsigned long long shifter;
+	unsigned char pattern;
+	unsigned char byte;
+	int j;
+
+	/* Variant 1:
+	 * Zero is assumed to be recoverable.
+	 */
+	if (!this_magic)
+		return -ERESTART;
+
+	/* Variant 2:
+	 * Repeated bytewise patterns are assumed
+	 * to point at
+	 *  (a) uninitialized (or defective) disk data.
+	 *  (b) problems in RAID hardware, drivers, DMA, etc.
+	 *  (c) CONFIG_DEBUG_PAGEALLOC or similar
+	 *      kernel-level sisters (also MARS-specific
+	 *      ones like CONFIG_MARS_DEBUG_MEM and
+	 *      sisters).
+	 */
+	shifter = this_magic;
+	pattern = (unsigned char)shifter;
+	for (j = 1; j < sizeof(shifter); j++) {
+		shifter >>= 8;
+		byte = shifter;
+		if (byte != pattern) {
+			*found_byte_code = byte;
+			return -EBADMSG;
+		}
+	}
+	/* Last resort:
+	 * not enough knowledge what might have happened before.
+	 */
+	return -EBADRQC;
+}
+
 int log_scan(void *buf,
 	     int len,
 	     loff_t file_pos,
@@ -760,6 +801,7 @@ int log_scan(void *buf,
 	     unsigned int *seq_nr)
 {
 	bool dirty = false;
+	unsigned char start_byte_code = 0;
 	int offset;
 	int i;
 
@@ -768,11 +810,11 @@ int log_scan(void *buf,
 
 	for (i = 0; i < len && i <= len - OVERHEAD; i += sizeof(long)) {
 		unsigned char crc[LOG_CHKSUM_SIZE];
-		long long start_magic;
+		unsigned long long start_magic;
 		char format_version;
 		char valid_flag;
 		short total_len;
-		long long end_magic;
+		unsigned long long end_magic;
 		char valid_copy;
 		__u32 check_flags;
 		int restlen = 0;
@@ -780,6 +822,7 @@ int log_scan(void *buf,
 		int decompr_len;
 		int found_offset;
 		int crc_status;
+		int advance;
 		void *new_buf = NULL;
 		void *crc_buf;
 
@@ -792,8 +835,14 @@ int log_scan(void *buf,
 
 		DATA_GET(buf, offset, start_magic);
 		if (unlikely(start_magic != START_MAGIC)) {
-			if (start_magic != 0)
+			/* Skip any zeros without notice.
+			 * This may be used for future extensions, like
+			 * padding at certain places of logfiles.
+			 */
+			if (start_magic != 0) {
 				dirty = true;
+				classify_bad_magic(start_magic, &start_byte_code);
+			}
 			continue;
 		}
 
@@ -814,6 +863,16 @@ int log_scan(void *buf,
 			continue;
 		}
 		DATA_GET(buf, offset, total_len);
+		if (unlikely(!total_len)) {
+			MARS_WRN(SCAN_TXT "advance is zero\n",
+				 SCAN_PAR);
+			return -ERESTART;
+		}
+		if (unlikely(total_len < 0)) {
+			MARS_WRN(SCAN_TXT "advance %d is wrong\n",
+				 SCAN_PAR, total_len);
+			return -EBADMSG;
+		}
 		if (unlikely(total_len > restlen)) {
 			MARS_WRN(SCAN_TXT "total_len = %d but available data restlen = %d. Was the logfile truncated?\n", SCAN_PAR, total_len, restlen);
 			return -EAGAIN;
@@ -831,7 +890,13 @@ int log_scan(void *buf,
 		offset += 2; // skip spare
 
 		found_offset = offset;
-		offset += total_len - OVERHEAD;
+		advance = total_len - OVERHEAD;
+		if (unlikely(advance <= 0)) {
+			MARS_WRN(SCAN_TXT "advance %d is too small\n",
+				 SCAN_PAR, advance);
+			return -ERESTART;
+		}
+		offset += advance;
 
 		restlen = len - offset;
 		if (unlikely(restlen < END_OVERHEAD)) {
@@ -841,8 +906,19 @@ int log_scan(void *buf,
 
 		DATA_GET(buf, offset, end_magic);
 		if (unlikely(end_magic != END_MAGIC)) {
-			MARS_WRN(SCAN_TXT "bad end_magic 0x%llx, is the logfile truncated?\n", SCAN_PAR, end_magic);
-			return -EBADMSG;
+			unsigned char end_byte_code = 0;
+			int err;
+
+			MARS_WRN(SCAN_TXT "bad end_magic 0x%llx, is the logfile truncated?\n",
+				 SCAN_PAR,
+				 end_magic);
+			err = classify_bad_magic(end_magic, &end_byte_code);
+			if (end_byte_code) {
+				MARS_WRN(SCAN_TXT "found repeated byte pattern 0x%02x",
+					 SCAN_PAR,
+					 end_byte_code);
+			}
+			return err;
 		}
 		DATA_GET(buf, offset, lh->l_crc_old);
 		DATA_GET(buf, offset, valid_copy);
@@ -945,6 +1021,10 @@ int log_scan(void *buf,
 		// don't cry when nullbytes have been skipped
 		if (i > 0 && dirty) {
 			MARS_WRN(SCAN_TXT "skipped %d dirty bytes to find valid data\n", SCAN_PAR, i);
+			if (start_byte_code) {
+				MARS_WRN("found repeated byte pattern 0x%02x",
+					 start_byte_code);
+			}
 		}
 
 		return offset;
