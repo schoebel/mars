@@ -193,6 +193,8 @@ struct trans_logger_brick {
 	int log_input_nr;   // where we are currently logging to
 	int old_input_nr;   // where old IO requests may be on the fly
 	int replay_code;    // replay errors (if any)
+	int mars_error_code; /* MARS-specific error information */
+	int byte_code;       /* repeated byte pattern */
 	bool stopped_logging; // direct IO without logging (only in case of EMERGENCY)
 	// private
 	int disk_io_error;         // replay errors from callbacks

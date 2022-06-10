@@ -4423,6 +4423,37 @@ my %errno2names =
    # disjoint from the official POSIX errno codes.
    9998 => ["EXAMPLE_MARS_NAME", "ClearText"],
    9999 => "EXAMPLE_ANY_OTHER_NAME_WITHOUT_CLEARTEXT",
+
+   # /* logfile scanning problems */
+	10000	=>	[ "MARS_ERR_NOSCAN",		"Logfile scan was not possible" ],
+	10001	=>	[ "MARS_ERR_SCAN_TIMEOUT",	"Logfile scan timsouted" ],
+	10002	=>	[ "MARS_ERR_SCAN_HOLE",		"Detected a hole in logfile" ],
+	10003	=>	[ "MARS_ERR_SCAN_FORMAT",	"Unknown record format in logfile" ],
+	10003	=>	[ "MARS_ERR_SCAN_INVAL",	"Record marked as invalid" ],
+	10004	=>	[ "MARS_ERR_SCAN_ZERO",		"Zero-length record encountered" ],
+	10005	=>	[ "MARS_ERR_SCAN_NEGATIVE",	"Negative record length" ],
+	10006	=>	[ "MARS_ERR_SCAN_BADLEN",	"Mismatch in record length" ],
+	10007	=>	[ "MARS_ERR_SCAN_ADVANCE",	"Positional advance too small" ],
+	10008	=>	[ "MARS_ERR_SCAN_RESTLEN",	"Record restlen not sufficient" ],
+	10009	=>	[ "MARS_ERR_SCAN_INCOMPL",	"Record explicitly marked as incomplete" ],
+	10010	=>	[ "MARS_ERR_SCAN_SEQ_FW",	"Illegal record sequence skip forward" ],
+	10011	=>	[ "MARS_ERR_SCAN_SEQ_BW",	"Record sequence skip backwards" ],
+	10012	=>	[ "MARS_ERR_SCAN_SIZE",		"Internal size mismatch" ],
+
+	10020	=>	[ "MARS_ERR_MAGIC_BAD",		"Bad magic " ],
+	10021	=>	[ "MARS_ERR_MAGIC_REPEATED",	"Bad magic has repeated pattern" ],
+	10029	=>	[ "MARS_ERR_SCAN_GARBAGE",	"Scanning found garbage" ],
+
+   # /* CRC errors */
+	10100	=>	[ "MARS_ERR_CRC_FLAGS",		"Bad CRC flags found" ],
+	10101	=>	[ "MARS_ERR_CRC_MISMATCH",	"CRC mismatch found" ],
+
+   # /* Compression errors */
+	10150	=>	[ "MARS_ERR_DECOMPR_FAIL",	"Decompression failure" ],
+	10151	=>	[ "MARS_ERR_DECOMPR_TOOBIG",	"Cannot handle decompression length" ],
+	10152	=>	[ "MARS_ERR_DECOMPR_BADLEN",	"Implausible decompression length" ],
+
+
   );
 
 sub __conv_errno_to_names {

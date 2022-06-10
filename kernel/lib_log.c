@@ -515,7 +515,7 @@ void log_read_endio(struct generic_callback *cb)
 
 	LAST_CALLBACK(cb);
 	CHECK_PTR(logst, err);
-	logst->error_code = cb->cb_error;
+	logst->posix_error_code = cb->cb_error;
 	logst->got = true;
 	wake_up_interruptible(&logst->event);
 	return;
@@ -590,7 +590,7 @@ restart:
 		status = -ETIME;
 		if (!logst->got)
 			goto done_put;
-		status = logst->error_code;
+		status = logst->posix_error_code;
 		if (status < 0)
 			goto done_put;
 		if (mref->ref_len < this_len) {
@@ -611,11 +611,16 @@ restart:
 			  payload,
 			  payload_len,
 			  dealloc,
-			  &logst->seq_nr);
+			  &logst->seq_nr,
+			  &logst->mars_error_code,
+			  &logst->byte_code);
 
 	if (unlikely(status == 0)) {
 		MARS_ERR("bad logfile scan\n");
 		status = -EINVAL;
+		if (!logst->mars_error_code)
+			logst->mars_error_code = -MARS_ERR_NOSCAN;
+		goto done_put;
 	}
 	if (unlikely(status < 0)) {
 		goto done_put;
@@ -663,7 +668,8 @@ int _check_crc(struct log_header *lh,
 	       void *crc,
 	       void *crc_buf,
 	       int crc_len,
-	       __u32 check_flags)
+	       __u32 check_flags,
+	       int *mars_error_code)
 {
 	__u32 invalid_check_flags;
 	bool is_invalid = false;
@@ -742,16 +748,21 @@ int _check_crc(struct log_header *lh,
 			 did_iterative_retry);
 	}
 	if (is_invalid) {
+		if (!*mars_error_code)
+			*mars_error_code = -MARS_ERR_CRC_FLAGS;
 		MARS_ERR("Found invalid crc flags=0x%x retried=%d+%d\n",
 			 invalid_check_flags,
 			 did_simple_retry, did_iterative_retry);
-	}
+	} else if (res < 0 && !*mars_error_code)
+		*mars_error_code = -MARS_ERR_CRC_MISMATCH;
+
 	return res;
 }
 
 static
 int classify_bad_magic(unsigned long long this_magic,
-		       unsigned char *found_byte_code)
+		       unsigned char *found_byte_code,
+		       int *mars_error_code)
 {
 	unsigned long long shifter;
 	unsigned char pattern;
@@ -779,16 +790,26 @@ int classify_bad_magic(unsigned long long this_magic,
 	for (j = 1; j < sizeof(shifter); j++) {
 		shifter >>= 8;
 		byte = shifter;
-		if (byte != pattern) {
-			*found_byte_code = byte;
-			return -EBADMSG;
-		}
+		if (byte != pattern)
+			goto no_repeat;
 	}
+	*found_byte_code = byte;
+	if (!*mars_error_code)
+		*mars_error_code = -MARS_ERR_MAGIC_REPEATED;
+	return -EBADMSG;
+
+ no_repeat:
 	/* Last resort:
 	 * not enough knowledge what might have happened before.
 	 */
+	if (!*mars_error_code)
+		*mars_error_code = -MARS_ERR_MAGIC_BAD;
 	return -EBADRQC;
 }
+
+#define RECORD_ERR(code)			\
+	if (!*mars_error_code)			\
+		*mars_error_code = (code)
 
 int log_scan(void *buf,
 	     int len,
@@ -798,7 +819,9 @@ int log_scan(void *buf,
 	     struct log_header *lh,
 	     void **payload, int *payload_len,
 	     void **dealloc,
-	     unsigned int *seq_nr)
+	     unsigned int *seq_nr,
+	     int *mars_error_code,
+	     int *byte_code)
 {
 	bool dirty = false;
 	unsigned char start_byte_code = 0;
@@ -829,7 +852,9 @@ int log_scan(void *buf,
 
 		offset = i;
 		if (unlikely(i > 0 && !sloppy)) {
-			MARS_ERR(SCAN_TXT "detected a hole / bad data\n", SCAN_PAR);
+			MARS_ERR(SCAN_TXT "detected a hole / bad data >= %d\n",
+				 SCAN_PAR, i);
+			RECORD_ERR(-MARS_ERR_SCAN_HOLE);
 			return -EBADMSG;
 		}
 
@@ -841,7 +866,15 @@ int log_scan(void *buf,
 			 */
 			if (start_magic != 0) {
 				dirty = true;
-				classify_bad_magic(start_magic, &start_byte_code);
+				classify_bad_magic(start_magic,
+						   &start_byte_code,
+						   mars_error_code);
+				if (start_byte_code && !*byte_code) {
+					*byte_code = start_byte_code;
+					MARS_WRN(SCAN_TXT "found repeated byte pattern 0x%02x",
+						 SCAN_PAR,
+						 start_byte_code);
+				}
 			}
 			continue;
 		}
@@ -854,27 +887,37 @@ int log_scan(void *buf,
 
 		DATA_GET(buf, offset, format_version);
 		if (unlikely(format_version != FORMAT_VERSION)) {
-			MARS_ERR(SCAN_TXT "found unknown data format %d\n", SCAN_PAR, (int)format_version);
+			MARS_ERR(SCAN_TXT "found unknown data format %d\n",
+				 SCAN_PAR,
+				 (int)format_version);
+			RECORD_ERR(-MARS_ERR_SCAN_FORMAT);
 			return -EBADMSG;
 		}
 		DATA_GET(buf, offset, valid_flag);
 		if (unlikely(!valid_flag)) {
-			MARS_WRN(SCAN_TXT "data is explicitly marked invalid (was there a short write?)\n", SCAN_PAR);
+			MARS_WRN(SCAN_TXT "data is explicitly marked invalid (was there a short write?)\n",
+				 SCAN_PAR);
+			RECORD_ERR(-MARS_ERR_SCAN_INVAL);
 			continue;
 		}
 		DATA_GET(buf, offset, total_len);
 		if (unlikely(!total_len)) {
 			MARS_WRN(SCAN_TXT "advance is zero\n",
 				 SCAN_PAR);
+			RECORD_ERR(-MARS_ERR_SCAN_ZERO);
 			return -ERESTART;
 		}
 		if (unlikely(total_len < 0)) {
 			MARS_WRN(SCAN_TXT "advance %d is wrong\n",
 				 SCAN_PAR, total_len);
+			RECORD_ERR(-MARS_ERR_SCAN_NEGATIVE);
 			return -EBADMSG;
 		}
 		if (unlikely(total_len > restlen)) {
-			MARS_WRN(SCAN_TXT "total_len = %d but available data restlen = %d. Was the logfile truncated?\n", SCAN_PAR, total_len, restlen);
+			MARS_WRN(SCAN_TXT "total_len = %d but available data restlen = %d. Was the logfile truncated?\n",
+				 SCAN_PAR,
+				 total_len, restlen);
+			RECORD_ERR(-MARS_ERR_SCAN_BADLEN);
 			return -EAGAIN;
 		}
 
@@ -894,6 +937,7 @@ int log_scan(void *buf,
 		if (unlikely(advance <= 0)) {
 			MARS_WRN(SCAN_TXT "advance %d is too small\n",
 				 SCAN_PAR, advance);
+			RECORD_ERR(-MARS_ERR_SCAN_ADVANCE);
 			return -ERESTART;
 		}
 		offset += advance;
@@ -901,6 +945,7 @@ int log_scan(void *buf,
 		restlen = len - offset;
 		if (unlikely(restlen < END_OVERHEAD)) {
 			MARS_WRN(SCAN_TXT "restlen %d is too small\n", SCAN_PAR, restlen);
+			RECORD_ERR(-MARS_ERR_SCAN_RESTLEN);
 			return -EAGAIN;
 		}
 
@@ -912,8 +957,11 @@ int log_scan(void *buf,
 			MARS_WRN(SCAN_TXT "bad end_magic 0x%llx, is the logfile truncated?\n",
 				 SCAN_PAR,
 				 end_magic);
-			err = classify_bad_magic(end_magic, &end_byte_code);
-			if (end_byte_code) {
+			err = classify_bad_magic(end_magic,
+						 &end_byte_code,
+						 mars_error_code);
+			if (end_byte_code && !*byte_code) {
+				*byte_code = end_byte_code;
 				MARS_WRN(SCAN_TXT "found repeated byte pattern 0x%02x",
 					 SCAN_PAR,
 					 end_byte_code);
@@ -924,7 +972,10 @@ int log_scan(void *buf,
 		DATA_GET(buf, offset, valid_copy);
 
 		if (unlikely(valid_copy != 1)) {
-			MARS_WRN(SCAN_TXT "found data marked as uncompleted / invalid, len = %d, valid_flag = %d\n", SCAN_PAR, lh->l_len, (int)valid_copy);
+			MARS_WRN(SCAN_TXT "found data marked as uncompleted / invalid, len = %d, valid_flag = %d\n",
+				 SCAN_PAR,
+				 lh->l_len, (int)valid_copy);
+			RECORD_ERR(-MARS_ERR_SCAN_INCOMPL);
 			return -EBADMSG;
 		}
 
@@ -937,10 +988,22 @@ int log_scan(void *buf,
 		offset += LOG_CHKSUM_SIZE;
 
 		if (unlikely(lh->l_seq_nr > *seq_nr + 1 && lh->l_seq_nr && *seq_nr)) {
-			MARS_ERR(SCAN_TXT "record sequence number %u mismatch, expected was %u\n", SCAN_PAR, lh->l_seq_nr, *seq_nr + 1);
+			MARS_ERR(SCAN_TXT "record sequence number %u mismatch, expected was %u\n",
+				 SCAN_PAR,
+				 lh->l_seq_nr, *seq_nr + 1);
+			RECORD_ERR(-MARS_ERR_SCAN_SEQ_FW);
 			return -EBADMSG;
 		} else if (unlikely(lh->l_seq_nr != *seq_nr + 1 && lh->l_seq_nr && *seq_nr)) {
-			MARS_WRN(SCAN_TXT "record sequence number %u mismatch, expected was %u\n", SCAN_PAR, lh->l_seq_nr, *seq_nr + 1);
+			MARS_WRN(SCAN_TXT "record sequence number %u mismatch, expected was %u\n",
+				 SCAN_PAR,
+				 lh->l_seq_nr, *seq_nr + 1);
+			/* Theoretically, a backskip of sequence number
+			 * can be tolerated, if it is really true.
+			 * We may use this in future, e.g. for propagation
+			 * of updated records.
+			 * It may also happen in some future record patterns.
+			 */
+			RECORD_ERR(-MARS_ERR_SCAN_SEQ_BW);
 		}
 		*seq_nr = lh->l_seq_nr;
 
@@ -966,11 +1029,13 @@ int log_scan(void *buf,
 			     (decompr_len % 512) != 0)) {
 			MARS_ERR(SCAN_TXT "implausible decompr_len: %d ~~ %d\n",
 				 SCAN_PAR, decompr_len, crc_len);
+			RECORD_ERR(-MARS_ERR_DECOMPR_BADLEN);
 			return -EBADMSG;
 		}
 		if (unlikely(crc_len > MARS_MAX_COMPR_SIZE)) {
 			MARS_ERR(SCAN_TXT "implausible crc_len: %d > %ld\n",
 				 SCAN_PAR, crc_len, MARS_MAX_COMPR_SIZE);
+			RECORD_ERR(-MARS_ERR_DECOMPR_TOOBIG);
 			return -EBADMSG;
 		}
 		crc_buf = buf + found_offset;
@@ -988,6 +1053,7 @@ int log_scan(void *buf,
 				MARS_ERR(SCAN_TXT "decompression 0x%x failure len=%d/%d\n",
 					 SCAN_PAR,  check_flags,
 					 crc_len, decompr_len);
+				RECORD_ERR(-MARS_ERR_DECOMPR_FAIL);
 				return -EBADMSG;
 			}
 		}
@@ -997,7 +1063,8 @@ int log_scan(void *buf,
 				   crc,
 				   crc_buf,
 				   crc_len,
-				   check_flags);
+				   check_flags,
+				   mars_error_code);
 		if (crc_status) {
 			MARS_ERR(SCAN_TXT
 				 "data checksumming mismatch, flags=0x%x len=%d/%d err=%d\n",
@@ -1011,6 +1078,7 @@ int log_scan(void *buf,
 		// last check
 		if (unlikely(total_len != offset - i)) {
 			MARS_ERR(SCAN_TXT "internal size mismatch: %d != %d\n", SCAN_PAR, total_len, offset - i);
+			RECORD_ERR(-MARS_ERR_SCAN_SIZE);
 			return -EBADMSG;
 		}
 
@@ -1021,7 +1089,8 @@ int log_scan(void *buf,
 		// don't cry when nullbytes have been skipped
 		if (i > 0 && dirty) {
 			MARS_WRN(SCAN_TXT "skipped %d dirty bytes to find valid data\n", SCAN_PAR, i);
-			if (start_byte_code) {
+			if (start_byte_code && !*byte_code) {
+				*byte_code = start_byte_code;
 				MARS_WRN("found repeated byte pattern 0x%02x",
 					 start_byte_code);
 			}
@@ -1031,6 +1100,7 @@ int log_scan(void *buf,
 	}
 
 	MARS_ERR("could not find any useful data within len=%d bytes\n", len);
+	RECORD_ERR(-MARS_ERR_SCAN_GARBAGE);
 	return -EAGAIN;
 }
 

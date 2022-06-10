@@ -902,6 +902,8 @@ struct mars_rotate {
 	int fetch_next_is_available;
 	int relevant_serial;
 	int replay_code;
+	int mars_error_code;
+	int byte_code;
 	int avoid_count;
 	int old_open_count;
 	bool is_attached;
@@ -1873,6 +1875,33 @@ int __show_actual(const char *path, const char *name, int val)
 	int status = -EINVAL;
 
 	src = path_make("%d", val);
+	dst = path_make("%s/actual-%s/%s", path, my_id(), name);
+	status = -ENOMEM;
+	if (!dst)
+		goto done;
+
+	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
+	status = ordered_symlink(src, dst, NULL);
+
+done:
+	brick_string_free(src);
+	brick_string_free(dst);
+	return status;
+}
+
+static
+int __show_actual3(const char *path,
+		   const char *name,
+		   int val1, int val2, int val3)
+{
+	char *src;
+	char *dst = NULL;
+	int status = -EINVAL;
+
+	if (val3)
+		src = path_make("%d,%d,0x%02x", val1, val2, val3);
+	else
+		src = path_make("%d,%d", val1, val2);
 	dst = path_make("%s/actual-%s/%s", path, my_id(), name);
 	status = -ENOMEM;
 	if (!dst)
@@ -5383,6 +5412,8 @@ void _rotate_trans(struct mars_rotate *rot)
 		trans_brick->new_input_nr = next_nr;
 		MARS_INF_TO(rot->log_say, "started logrotate switchover from '%s' to '%s'\n", rot->relevant_log->d_path, rot->next_relevant_log->d_path);
 		rot->replay_code = TL_REPLAY_RUNNING;
+		rot->mars_error_code = 0;
+		rot->byte_code = 0;
 	}
 done: ;
 }
@@ -5512,6 +5543,8 @@ int _start_trans(struct mars_rotate *rot)
 	trans_brick->replay_tolerance = REPLAY_TOLERANCE;
 	_init_trans_input(trans_input, rot->relevant_log, nr, rot);
 	rot->replay_code = TL_REPLAY_RUNNING;
+	rot->mars_error_code = 0;
+	rot->byte_code = 0;
 
 	/* Connect to new transaction log
 	 */
@@ -5737,15 +5770,26 @@ int make_log_finalize(struct mars_dent *dent)
 			    (trans_brick->replay_code == TL_REPLAY_INCOMPLETE ||
 			     trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance))) {
 			if (trans_brick->replay_code < 0) {
+				if (trans_brick->mars_error_code < 0 &&
+				    !rot->mars_error_code) {
+					rot->mars_error_code =
+						trans_brick->mars_error_code;
+					rot->byte_code =
+						trans_brick->byte_code;
+				}
 				MARS_ERR_TO(rot->log_say,
-				    "logfile replay stopped with error = %d at position %lld + %lld\n",
+				    "logfile replay stopped with error=%d,%d,%d at position %lld + %lld\n",
 				    trans_brick->replay_code,
+				    trans_brick->mars_error_code,
+				    trans_brick->byte_code,
 				    trans_brick->replay_current_pos,
 				    trans_brick->replay_end_pos - trans_brick->replay_current_pos);
 			}
 			make_rot_msg(rot, "err-replay-stop",
-				     "logfile replay stopped with error = %d at position %lld + %lld",
+				     "logfile replay stopped with error=%d,%d,%d at position %lld + %lld",
 				     trans_brick->replay_code,
+				     trans_brick->mars_error_code,
+				     trans_brick->byte_code,
 				     trans_brick->replay_current_pos,
 				     trans_brick->replay_end_pos - trans_brick->replay_current_pos);
 			rot->replay_code = trans_brick->replay_code;
@@ -5810,7 +5854,16 @@ int make_log_finalize(struct mars_dent *dent)
 	rot->retry_recovery = 0;
 
  skip_retry_recovery:
-	__show_actual(parent->d_path, "replay-code", rot->replay_code);
+	if (rot->replay_code && rot->mars_error_code)
+		__show_actual3(parent->d_path,
+			       "replay-code",
+			       rot->replay_code,
+			       rot->mars_error_code,
+			       rot->byte_code);
+	else
+		__show_actual(parent->d_path,
+			      "replay-code",
+			      rot->replay_code);
 
 	/* Stopping is also possible in case of errors
 	 */

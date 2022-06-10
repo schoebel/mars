@@ -3083,6 +3083,12 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	MARS_INF("starting replay from %lld to %lld\n", start_pos, end_pos);
 	
 	brick->replay_code = replay_code;
+	brick->mars_error_code = 0;
+	brick->byte_code = 0;
+	input->logst.posix_error_code = 0;
+	input->logst.mars_error_code = 0;
+	input->logst.byte_code = 0;
+
 	mars_power_led_on((void *)brick, true);
 
 	for (;;) {
@@ -3099,6 +3105,16 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 
 		status = log_read(&input->logst, false, &lh,
 				  &buf, &len, &dealloc);
+
+		/* only catch the very first mars_error_code */
+		if (status < 0 &&
+		    !brick->mars_error_code &&
+		    input->logst.mars_error_code) {
+			brick->mars_error_code =
+				input->logst.mars_error_code;
+			brick->byte_code =
+				input->logst.byte_code;
+		}
 
 		new_finished_pos = input->logst.log_pos + input->logst.offset;
 		MARS_RPL("read  %lld %lld\n", finished_pos, new_finished_pos);
@@ -3131,7 +3147,10 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		}
 		if (unlikely(status < 0)) {
 			replay_code = status;
-			MARS_WRN("cannot read logfile data, status = %d\n", status);
+			MARS_WRN("cannot read logfile data, err=%d,%d,%d\n",
+				 status,
+				 brick->mars_error_code,
+				 brick->byte_code);
 			break;
 		}
 
@@ -3151,16 +3170,27 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		} else if (unlikely(brick->disk_io_error)) {
 			status = brick->disk_io_error;
 			replay_code = status;
-			MARS_ERR("IO error %d\n", status);
+			MARS_ERR("IO error %d,%d,%d\n",
+				 status,
+				 brick->mars_error_code,
+				 brick->byte_code);
 			break;
 		} else if (likely(buf && len)) {
 			if (brick->replay_limiter)
 				mars_limit_sleep(brick->replay_limiter, (len - 1) / 1024 + 1);
 			status = replay_data(brick, lh.l_pos, buf, len);
-			MARS_RPL("replay %lld %lld (pos=%lld status=%d)\n", finished_pos, new_finished_pos, lh.l_pos, status);
+			MARS_RPL("replay %lld %lld (pos=%lld err=%d,%d,%d)\n",
+				 finished_pos, new_finished_pos, lh.l_pos,
+				 status,
+				 input->logst.mars_error_code,
+				 input->logst.byte_code);
 			if (unlikely(status < 0)) {
 				replay_code = status;
-				MARS_ERR("cannot replay data at pos = %lld len = %d, status = %d\n", lh.l_pos, len, status);
+				MARS_ERR("cannot replay data at pos=%lld len=%d, err=%d,%d,%d\n",
+					 lh.l_pos, len,
+					 status,
+					 brick->mars_error_code,
+					 brick->byte_code);
 				break;
 			} else {
 				finished_pos = new_finished_pos;
@@ -3181,7 +3211,10 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 			if (unlikely(brick->disk_io_error)) {
 				status = brick->disk_io_error;
 				replay_code = status;
-				MARS_ERR("IO error %d\n", status);
+				MARS_ERR("IO error %d,%d,%d\n",
+					 status,
+					 brick->mars_error_code,
+					 brick->byte_code);
 				break;
 			}
 
@@ -3218,6 +3251,8 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	if (status >= 0 && finished_pos == brick->replay_end_pos) {
 		MARS_INF("replay finished at %lld\n", finished_pos);
 		replay_code = TL_REPLAY_FINISHED;
+		brick->mars_error_code = 0;
+		brick->byte_code = 0;
 	} else if (status == -EAGAIN && finished_pos + brick->replay_tolerance > brick->replay_end_pos) {
 		MARS_INF("TOLERANCE: logfile is incomplete at %lld (of %lld)\n", finished_pos, brick->replay_end_pos);
 		replay_code = TL_REPLAY_INCOMPLETE;
@@ -3225,9 +3260,17 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		if (finished_pos < 0)
 			finished_pos = new_finished_pos;
 		if (finished_pos + brick->replay_tolerance > brick->replay_end_pos) {
-			MARS_INF("TOLERANCE: logfile is incomplete at %lld (of %lld), status = %d\n", finished_pos, brick->replay_end_pos, status);
+			MARS_INF("TOLERANCE: logfile is incomplete at %lld (of %lld), err=%d,%d,%d\n",
+				 finished_pos, brick->replay_end_pos,
+				 status,
+				 input->logst.mars_error_code,
+				 input->logst.byte_code);
 		} else {
-			MARS_ERR("replay error %d at %lld (of %lld)\n", status, finished_pos, brick->replay_end_pos);
+			MARS_ERR("replay error %d,%d,%d at %lld (of %lld)\n",
+				 status,
+				 input->logst.mars_error_code,
+				 input->logst.byte_code,
+				 finished_pos, brick->replay_end_pos);
 		}
 		replay_code = status;
 	} else {

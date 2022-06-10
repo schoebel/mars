@@ -32,6 +32,8 @@
 #ifndef LIB_LOG_H
 #define LIB_LOG_H
 
+#include "mars_errno.h"
+
 #ifdef __KERNEL__
 #include "mars.h"
 
@@ -128,7 +130,9 @@ extern int log_scan(void *buf,
 		    struct log_header *lh,
 		    void **payload, int *payload_len,
 		    void **dealloc,
-		    unsigned int *seq_nr);
+		    unsigned int *seq_nr,
+		    int *mars_error_code,
+		    int *byte_code);
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -169,7 +173,9 @@ struct log_status {
 	struct mref_object *log_mref;
 	struct mref_object *read_mref;
 	wait_queue_head_t event;
-	int error_code;
+	int posix_error_code;
+	int mars_error_code;
+	int byte_code;
 	bool got;
 	bool do_free;
 	void *private;
