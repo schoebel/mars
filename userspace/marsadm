@@ -7743,6 +7743,8 @@ sub progress_bar {
 sub make_numeric {
   my $number = shift;
   return 0 if (!defined($number) || $number eq "");
+  # skip followin parts of comma-separated lists
+  $number =~ s/,.*//;
   return $number;
 }
 
