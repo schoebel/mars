@@ -621,13 +621,13 @@ void _inf_callback(struct trans_logger_input *input, bool force)
 }
 
 static inline 
-int _congested(struct trans_logger_brick *brick)
+bool _congested(struct trans_logger_brick *brick)
 {
 	return
-		brick->q_phase[0].q_active ||
-		brick->q_phase[1].q_active ||
-		brick->q_phase[2].q_active ||
-		brick->q_phase[3].q_active;
+		READ_ONCE(brick->q_phase[0].q_active) ||
+		READ_ONCE(brick->q_phase[1].q_active) ||
+		READ_ONCE(brick->q_phase[2].q_active) ||
+		READ_ONCE(brick->q_phase[3].q_active);
 }
 
 ////////////////// own brick / input / output operations //////////////////
@@ -2317,7 +2317,8 @@ bool _check_pressure(struct trans_logger_brick *brick)
 
 	active =
 		atomic_read(&brick->any_fly_count) +
-		brick->q_phase[0].q_queued + brick->q_phase[0].q_active;
+		READ_ONCE(brick->q_phase[0].q_queued) +
+		READ_ONCE(brick->q_phase[0].q_active);
 
 	return (active > trans_logger_pressure_limit);
 }
@@ -2390,7 +2391,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 
 	// obey the basic rules...
 	for (i = 0; i < LOGGER_QUEUES; i++) {
-		int queued = brick->q_phase[i].q_queued;
+		int queued = READ_ONCE(brick->q_phase[i].q_queued);
 
 #ifdef CONFIG_MARS_DEBUG
 		brick->bail[i] = -1;
@@ -2442,10 +2443,11 @@ int _do_ranking(struct trans_logger_brick *brick)
 			struct trans_logger_brick *leader;
 			int lim;
 
-			if (!mref_flying && brick->q_phase[0].q_queued > 0) {
+			if (!mref_flying &&
+			    READ_ONCE(brick->q_phase[0].q_queued) > 0) {
 				MARS_IO("BAILOUT phase_[0]queued = %d phase_[0]active = %d\n",
-					brick->q_phase[0].q_queued,
-					brick->q_phase[0].q_active);
+					READ_ONCE(brick->q_phase[0].q_queued),
+					READ_ONCE(brick->q_phase[0].q_active));
 #ifdef CONFIG_MARS_DEBUG
 				brick->bail[i] = 4;
 #endif
@@ -2677,14 +2679,14 @@ void flush_inputs(struct trans_logger_brick *brick, int flush_mode)
 {
 	if (flush_mode < 1 ||
 	    // there is nothing to append any more
-	    (brick->q_phase[0].q_queued <= 0 &&
+	    (READ_ONCE(brick->q_phase[0].q_queued) <= 0 &&
 	     // and the user is waiting for an answer
 	     (flush_mode < 2 ||
 	      atomic_read(&brick->log_fly_count) > 0 ||
 	     // else flush any leftovers in background, when there is no writeback activity
 	      (flush_mode == 3 &&
-	       brick->q_phase[1].q_active - brick->q_phase[1].q_queued +
-	       brick->q_phase[3].q_active - brick->q_phase[3].q_queued <= 0)))) {
+	       READ_ONCE(brick->q_phase[1].q_active) - READ_ONCE(brick->q_phase[1].q_queued) +
+	       READ_ONCE(brick->q_phase[3].q_active) - READ_ONCE(brick->q_phase[3].q_queued) <= 0)))) {
 		_flush_inputs(brick);
 	}
 }
