@@ -2237,24 +2237,6 @@ struct rank_info float_queue_rank_io[] = {
 };
 
 static
-struct rank_info float_fly_rank_log[] = {
-	{     0,    0 },
-	{     1,    1 },
-	{    32,   10 },
-	{ RKI_DUMMY }
-};
-
-static
-struct rank_info float_fly_rank_io[] = {
-	{     0,    0 },
-	{     1,   10 },
-	{     2,  -10 },
-	{ 10000, -200 },
-	{ RKI_DUMMY }
-};
-
-
-static
 struct rank_info nofloat_queue_rank_log[] = {
 	{     0,    0 },
 	{     1,   10 },
@@ -2269,18 +2251,6 @@ struct rank_info nofloat_queue_rank_io[] = {
 	{ RKI_DUMMY }
 };
 
-#define nofloat_fly_rank_log float_fly_rank_log
-
-static
-struct rank_info nofloat_fly_rank_io[] = {
-	{     0,    0 },
-	{     1,   10 },
-	{   128,    8 },
-	{   129, -200 },
-	{ RKI_DUMMY }
-};
-
-
 static
 struct rank_info *queue_ranks[2][LOGGER_QUEUES] = {
 	[0] = {
@@ -2294,21 +2264,6 @@ struct rank_info *queue_ranks[2][LOGGER_QUEUES] = {
 		[1] = nofloat_queue_rank_io,
 		[2] = nofloat_queue_rank_io,
 		[3] = nofloat_queue_rank_io,
-	},
-};
-static
-struct rank_info *fly_ranks[2][LOGGER_QUEUES] = {
-	[0] = {
-		[0] = float_fly_rank_log,
-		[1] = float_fly_rank_io,
-		[2] = float_fly_rank_io,
-		[3] = float_fly_rank_io,
-	},
-	[1] = {
-		[0] = nofloat_fly_rank_log,
-		[1] = nofloat_fly_rank_io,
-		[2] = nofloat_fly_rank_io,
-		[3] = nofloat_fly_rank_io,
 	},
 };
 
@@ -2436,7 +2391,6 @@ int _do_ranking(struct trans_logger_brick *brick)
 	// obey the basic rules...
 	for (i = 0; i < LOGGER_QUEUES; i++) {
 		int queued = brick->q_phase[i].q_queued;
-		int flying;
 
 #ifdef CONFIG_MARS_DEBUG
 		brick->bail[i] = -1;
@@ -2533,12 +2487,6 @@ int _do_ranking(struct trans_logger_brick *brick)
 		}
 
 		ranking_compute(&rkd[i], queue_ranks[pressure_mode][i], queued);
-
-		flying = brick->q_phase[i].q_active - brick->q_phase[i].q_active;
-
-		MARS_IO("i = %d queued = %d flying = %d\n", i, queued, flying);
-
-		ranking_compute(&rkd[i], fly_ranks[pressure_mode][i], flying);
 #ifdef CONFIG_MARS_DEBUG
 		brick->bail[i] = 0;
 #endif
