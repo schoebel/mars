@@ -679,6 +679,11 @@ restart:
 			progress = -EINTR;
 			break;
 		}
+		/* Wait until any previous writeouts have finished.
+		 */
+		if (READ_ONCE(st->active[1])) {
+			goto idle;
+		}
 		/* start writeout */
 		status = _make_mref(brick, index, 1, mref0->ref_data,
 				    pos, pos + mref0->ref_len,
