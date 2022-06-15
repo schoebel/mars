@@ -939,6 +939,7 @@ static int server_brick_destruct(struct server_brick *brick)
 {
 	CHECK_HEAD_EMPTY(&brick->cb_read_list);
 	CHECK_HEAD_EMPTY(&brick->cb_write_list);
+	mutex_destroy(&brick->cb_mutex);
 	return 0;
 }
 
