@@ -182,7 +182,9 @@ void _clear_all_mref(struct copy_brick *brick)
 	unsigned i;
 
 	for (i = 0; i < NR_COPY_REQUESTS; i++) {
-		GET_STATE(brick, i).state = COPY_STATE_START;
+		struct copy_state *st = &GET_STATE(brick, i);
+		st->state = COPY_STATE_START;
+		st->prev = -1;
 		_clear_mref(brick, i, 0);
 		_clear_mref(brick, i, 1);
 	}
@@ -523,6 +525,7 @@ restart:
 		/* This state is only entered after errors or
 		 * in restarting situations.
 		 */
+		st->prev = -1;
 		wait_for_requests_finished = brick->power.button;
 		if (!wait_for_requests_finished &&
 		    brick->copy_shutdown_started.tv_sec) {
@@ -940,6 +943,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			}
 			// rollover
 			st->state = COPY_STATE_START;
+			st->prev = -1;
 			len = st->len;
 			count += len;
 			// check contiguity
