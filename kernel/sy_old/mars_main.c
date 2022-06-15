@@ -3744,6 +3744,7 @@ static int _kill_peer(struct mars_peerinfo *peer)
 	brick_string_free(peer->peer_ip);
 	brick_string_free(peer->peer_dir_list);
 	brick_string_free(peer->rebase_dir);
+	mutex_destroy(&peer->peer_lock);
 	return 0;
 }
 
