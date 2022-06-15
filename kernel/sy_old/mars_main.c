@@ -4393,6 +4393,7 @@ void rot_destruct(void *_rot)
 		brick_string_free(rot->parent_rest);
 		brick_string_free(rot->fetch_next_origin);
 		clear_vals(rot->msgs);
+		mutex_destroy(&rot->inf_mutex);
 	}
 }
 
