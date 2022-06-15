@@ -324,6 +324,7 @@ int _make_mref(struct copy_brick *brick,
 	const unsigned queue = _queue;
 	unsigned input_index;
 	unsigned offset;
+	unsigned max_len;
 	unsigned len;
 	int status = -EAGAIN;
 
@@ -393,12 +394,13 @@ int _make_mref(struct copy_brick *brick,
 	mref->ref_data = data;
 	mref->ref_pos = current_pos;
 	offset = GET_OFFSET(current_pos);
-	len = COPY_CHUNK - offset;
-	if (current_pos + len > end_pos) {
-		unsigned new_len = end_pos - current_pos;
-
-		if (new_len < len)
-			len = new_len;
+	max_len = COPY_CHUNK - offset;
+	/* higher end values than 2GiB may occur at big devices */
+	if (diff > COPY_CHUNK)
+		diff = COPY_CHUNK;
+	len = diff;
+	if (len > max_len) {
+		len = max_len;
 	}
 	mref->ref_len = len;
 	mref->ref_prio = (flags & MREF_WRITE) ?
