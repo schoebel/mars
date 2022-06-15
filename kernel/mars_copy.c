@@ -528,8 +528,10 @@ restart:
 		/* This is the relgular starting state.
 		 * It must be zero, automatically entered via memset()
 		 */
-		if ((unsigned long)READ_ONCE(st->table[0]) |
-		    (unsigned long)READ_ONCE(st->table[1])) {
+		if ((READ_ONCE(st->active[0]) |
+		     READ_ONCE(st->active[1])) ||
+		    ((unsigned long)READ_ONCE(st->table[0]) |
+		     (unsigned long)READ_ONCE(st->table[1]))) {
 			MARS_ERR("index %u not startable at pos=%lld\n",
 				 index, pos);
 			progress = -EPROTO;
