@@ -1172,6 +1172,7 @@ static int client_output_destruct(struct client_output *output)
 {
 	brick_string_free(output->bundle.path);
 	brick_block_free(output->hash_table, PAGE_SIZE);
+	mutex_destroy(&output->mutex);
 	return 0;
 }
 
