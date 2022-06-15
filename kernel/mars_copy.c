@@ -846,6 +846,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			unsigned len;
 			unsigned index = GET_INDEX(pos);
 			struct copy_state *st = &GET_STATE(brick, index);
+			bool is_active;
 
 			if (st->state != COPY_STATE_FINISHED) {
 				break;
@@ -868,6 +869,16 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 				if (brick->abort_mode) {
 					brick->is_aborting = true;
 				}
+				break;
+			}
+			is_active =
+				(READ_ONCE(st->active[0]) |
+				 READ_ONCE(st->active[1])) != 0;
+			if (is_active) {
+				break;
+			}
+			if (READ_ONCE(st->table[0]) ||
+			    READ_ONCE(st->table[1])) {
 				break;
 			}
 			// rollover
