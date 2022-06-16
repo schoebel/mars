@@ -104,6 +104,8 @@ struct copy_brick {
 	// internal
 	bool trigger;
 	bool terminated;
+	loff_t stable_copy_start;
+	loff_t stable_copy_end;
 	unsigned long clash;
 	atomic_t total_clash_count;
 	atomic_t io_flight;

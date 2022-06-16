@@ -624,7 +624,7 @@ restart:
 			goto idle;
 
 		status = _make_mref(brick, index, 0, NULL,
-				    pos, brick->copy_end,
+				    pos, brick->stable_copy_end,
 				    _make_flags(brick->verify_mode, false));
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
@@ -643,7 +643,7 @@ restart:
 	case COPY_STATE_START2:
 	label_COPY_STATE_START2:
 		status = _make_mref(brick, index, 1, NULL,
-				    pos, brick->copy_end,
+				    pos, brick->stable_copy_end,
 				    _make_flags(true, true));
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
@@ -675,7 +675,9 @@ restart:
 			mars_limit_sleep(brick->copy_limiter, amount);
 		}
 		// on append mode: increase the end pointer dynamically
-		if (brick->append_mode > 0 && mref0->ref_total_size && mref0->ref_total_size > brick->copy_end) {
+		if (brick->append_mode > 0 &&
+		    mref0->ref_total_size &&
+		    mref0->ref_total_size > brick->copy_end) {
 			brick->copy_end = mref0->ref_total_size;
 		}
 		// do verify (when applicable)
@@ -715,7 +717,7 @@ restart:
 			/* re-read, this time with data */
 			_clear_mref(brick, index, 0);
 			status = _make_mref(brick, index, 0, NULL,
-					    pos, brick->copy_end,
+					    pos, brick->stable_copy_end,
 					    _make_flags(false, false));
 			if (unlikely(status < 0)) {
 				MARS_DBG("status = %d\n", status);
@@ -909,7 +911,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 	}
 	progress = 0;
 	for (pos = this_start;
-	     pos < brick->copy_end || brick->append_mode > 1;
+	     pos < brick->stable_copy_end || brick->append_mode > 1;
 	     pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 		unsigned index = GET_INDEX(pos);
 		struct copy_state *st = &GET_STATE(brick, index);
@@ -940,7 +942,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 
 		max = all_max;
 		for (pos = brick->copy_last;
-		     pos < brick->copy_end;
+		     pos < brick->stable_copy_end;
 		     pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 			unsigned len;
 			unsigned index = GET_INDEX(pos);
@@ -987,10 +989,22 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			count += len;
 			// check contiguity
 			if (unlikely(GET_OFFSET(pos) + len != COPY_CHUNK)) {
-				/* Short read detected: shorten the copy_end.
+				loff_t short_pos = pos + len;
+
+				/* Short read/write detected: this may be
+				 * a usual case as well as an unusual one.
+				 * Set the internal stable_copy_end, and
+				 * update the external copy_end when
+				 * shortened.
+				 * This way, we will finish this run
+				 * cycle at the current end position, and
+				 * give the external controller a chance
+				 * to decide what to do next (e.g. starting
+				 * another transfer, or abort, or whatever).
 				 */
-				brick->copy_end = pos + len;
-				break;
+				brick->stable_copy_end = short_pos;
+				if (brick->copy_end > short_pos)
+					brick->copy_end = short_pos;
 			}
 		}
 		if (count > 0) {
@@ -1019,6 +1033,8 @@ static int _copy_thread(void *data)
 	int i;
 
 	MARS_DBG("--------------- copy_thread %p starting\n", brick);
+	brick->stable_copy_start = brick->copy_start;
+	brick->stable_copy_end = brick->copy_end;
 	brick->copy_error = 0;
 	brick->copy_error_count = 0;
 	brick->verify_ok_count = 0;
@@ -1035,11 +1051,13 @@ static int _copy_thread(void *data)
 	WRITE_ONCE(brick->trigger, true);
 
         while (!_is_done(brick)) {
-		loff_t old_start = brick->copy_start;
-		loff_t old_end = brick->copy_end;
+		loff_t old_start;
+		loff_t old_end;
 		int progress = 0;
 		loff_t check_hint;
 
+		old_start = brick->stable_copy_start;
+		old_end = brick->stable_copy_end;
 		if (old_end > 0) {
 			loff_t old_last = brick->copy_last;
 			loff_t old_dirty = brick->copy_dirty;
@@ -1075,8 +1093,8 @@ static int _copy_thread(void *data)
 		brick_wait_smp(brick->event,
 						 progress > 0 ||
 						 READ_ONCE(brick->trigger) ||
-						 brick->copy_start != old_start ||
-						 brick->copy_end != old_end ||
+						 brick->stable_copy_start != old_start ||
+						 brick->stable_copy_end != old_end ||
 						 _is_done(brick),
 						 1 * HZ);
 		WRITE_ONCE(brick->trigger, false);
@@ -1095,11 +1113,11 @@ static int _copy_thread(void *data)
 	}
 	_update_percent(brick, true);
 
-	MARS_DBG("--------------- copy_thread terminating (%d read requests / %d write requests flying, copy_start = %lld copy_end = %lld)\n",
+	MARS_DBG("--------------- copy_thread terminating (%d read requests / %d write requests flying, copy_start=%lld~%lld copy_end=%lld~%lld)\n",
 		 atomic_read(&brick->copy_read_flight),
 		 atomic_read(&brick->copy_write_flight),
-		 brick->copy_start,
-		 brick->copy_end);
+		 brick->stable_copy_start, brick->copy_start,
+		 brick->stable_copy_end, brick->copy_end);
 
 	_clear_all_mref(brick);
 	brick->terminated = true;
@@ -1221,10 +1239,10 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
                 return NULL;
 	
 	snprintf(res, 1024,
-		 "copy_start = %lld "
+		 "copy_start = %lld~%lld "
 		 "copy_last = %lld "
 		 "copy_dirty = %lld "
-		 "copy_end = %lld "
+		 "copy_end = %lld~%lld "
 		 "check_hint[0] = %lld "
 		 "check_hint[1] = %lld "
 		 "copy_error = %d "
@@ -1238,9 +1256,11 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 "io_flight = %d "
 		 "copy_read_flight = %d "
 		 "copy_write_flight = %d\n",
+		 brick->stable_copy_start,
 		 brick->copy_start,
 		 brick->copy_last,
 		 brick->copy_dirty,
+		 brick->stable_copy_end,
 		 brick->copy_end,
 		 brick->inputs[0]->check_hint,
 		 brick->inputs[1]->check_hint,
