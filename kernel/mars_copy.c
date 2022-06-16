@@ -44,6 +44,8 @@
 #define COPY_CHUNK         (PAGE_SIZE)
 #define NR_COPY_REQUESTS   (128 * 1024 * 1024 / COPY_CHUNK)
 
+#define MAX_ACTIVE_AREA		(COPY_CHUNK * (NR_COPY_REQUESTS - 4))
+
 #define STATES_PER_PAGE    (PAGE_SIZE / sizeof(struct copy_state))
 #define MAX_SUB_TABLES     (NR_COPY_REQUESTS / STATES_PER_PAGE + (NR_COPY_REQUESTS % STATES_PER_PAGE ? 1 : 0))
 
@@ -911,7 +913,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 	}
 	progress = 0;
 	for (pos = this_start;
-	     pos < brick->stable_copy_end || brick->append_mode > 1;
+	     (pos < brick->stable_copy_end ||
+	      brick->append_mode > 1) &&
+		     pos < brick->copy_last + MAX_ACTIVE_AREA;
 	     pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 		unsigned index = GET_INDEX(pos);
 		struct copy_state *st = &GET_STATE(brick, index);
