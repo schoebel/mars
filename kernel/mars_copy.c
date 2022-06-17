@@ -50,7 +50,7 @@
 #define MAX_SUB_TABLES     (NR_COPY_REQUESTS / STATES_PER_PAGE + (NR_COPY_REQUESTS % STATES_PER_PAGE ? 1 : 0))
 
 #define GET_STATE(brick,index)						\
-	((brick)->st[(unsigned)(index) / STATES_PER_PAGE][(unsigned)(index) % STATES_PER_PAGE])
+	((brick)->st[(__u64)(index) / STATES_PER_PAGE][(__u64)(index) % STATES_PER_PAGE])
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -148,8 +148,8 @@ struct copy_input *_determine_input(struct copy_brick *brick, struct mref_object
 	return mref_a->input;
 }
 
-#define GET_INDEX(pos)    (((unsigned long)(pos) / COPY_CHUNK) % NR_COPY_REQUESTS)
-#define GET_OFFSET(pos)   ((unsigned long)(pos) % COPY_CHUNK)
+#define GET_INDEX(pos)    (((__u64)(pos) / COPY_CHUNK) % NR_COPY_REQUESTS)
+#define GET_OFFSET(pos)   ((__u64)(pos) % COPY_CHUNK)
 
 static
 void __clear_mref(struct copy_brick *brick, struct mref_object *mref, unsigned queue)
@@ -587,8 +587,8 @@ restart:
 			 */
 			if ((READ_ONCE(st->active[0]) |
 			     READ_ONCE(st->active[1])) ||
-			    ((unsigned long)READ_ONCE(st->table[0]) |
-			     (unsigned long)READ_ONCE(st->table[1]))) {
+			    ((__u64)READ_ONCE(st->table[0]) |
+			     (__u64)READ_ONCE(st->table[1]))) {
 				progress = -EAGAIN;
 				goto idle;
 			}
@@ -610,8 +610,8 @@ restart:
 		 */
 		if ((READ_ONCE(st->active[0]) |
 		     READ_ONCE(st->active[1])) ||
-		    ((unsigned long)READ_ONCE(st->table[0]) |
-		     (unsigned long)READ_ONCE(st->table[1]))) {
+		    ((__u64)READ_ONCE(st->table[0]) |
+		     (__u64)READ_ONCE(st->table[1]))) {
 			MARS_ERR("index %u not startable at pos=%lld\n",
 				 index, pos);
 			progress = -EPROTO;
