@@ -186,7 +186,6 @@ void _clear_all_mref(struct copy_brick *brick)
 	for (i = 0; i < NR_COPY_REQUESTS; i++) {
 		struct copy_state *st = &GET_STATE(brick, i);
 		st->state = COPY_STATE_START;
-		st->prev = -1;
 		_clear_mref(brick, i, 0);
 		_clear_mref(brick, i, 1);
 	}
@@ -527,7 +526,8 @@ __u32 _make_flags(bool verify_mode, bool is_local)
  * calling this too often does no harm, just costs performance).
  */
 static
-int _next_state(struct copy_brick *brick, unsigned index, loff_t pos)
+int _next_state(struct copy_brick *brick, unsigned index, loff_t pos,
+		bool is_first)
 {
 	struct mref_object *mref0;
 	struct mref_object *mref1;
@@ -545,7 +545,7 @@ int _next_state(struct copy_brick *brick, unsigned index, loff_t pos)
 restart:
 	state = next_state;
 
-	MARS_IO("ENTER index=%u state=%d pos=%lld table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d prev=%d len=%u error=%d do_restart=%d\n",
+	MARS_IO("ENTER index=%u state=%d pos=%lld table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d len=%u error=%d do_restart=%d\n",
 		index,
 		state,
 		pos,
@@ -554,7 +554,6 @@ restart:
 		READ_ONCE(st->active[0]),
 		READ_ONCE(st->active[1]),
 		st->writeout,
-		st->prev,
 		st->len,
 		st->error,
 		do_restart);
@@ -566,7 +565,6 @@ restart:
 		/* This state is only entered after errors or
 		 * in restarting situations.
 		 */
-		st->prev = -1;
 		wait_for_requests_finished = brick->power.button;
 		if (!wait_for_requests_finished &&
 		    brick->copy_shutdown_started.tv_sec) {
@@ -737,6 +735,7 @@ restart:
 	label_COPY_STATE_WRITE:
 		if (is_write_limited(brick))
 			goto idle;
+
 		/* Obey ordering to get a strict "append" behaviour.
 		 * We assume that we don't need to wait for completion
 		 * of the previous write to avoid a sparse result file
@@ -748,9 +747,14 @@ restart:
 		 * implementing new IO bricks!
 		 */
 		if (mars_copy_strict_write_order &&
-		    st->prev >= 0 &&
-		    !GET_STATE(brick, st->prev).writeout) {
-			goto idle;
+		    !is_first) {
+			unsigned mask = COPY_CHUNK - 1;
+			unsigned prev_index = (index + mask) & mask;
+			struct copy_state *prev_st;
+
+			prev_st = &GET_STATE(brick, prev_index);
+			if (!READ_ONCE(prev_st->writeout))
+				goto idle;
 		}
 		mref0 = READ_ONCE(st->table[0]);
 		if (unlikely(!mref0 || !mref0->ref_data)) {
@@ -849,7 +853,7 @@ idle:
 		progress++;
 	}
 
-	MARS_IO("LEAVE index=%u state=%d next_state=%d table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d prev=%d len=%u error=%d progress=%d\n",
+	MARS_IO("LEAVE index=%u state=%d next_state=%d table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d len=%u error=%d progress=%d\n",
 		index,
 		st->state,
 		next_state,
@@ -858,7 +862,6 @@ idle:
 		READ_ONCE(st->active[0]),
 		READ_ONCE(st->active[1]),
 		st->writeout,
-		st->prev,
 		st->len,
 		st->error,
 		progress);
@@ -874,8 +877,8 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 	int all_max;
 	int max;
 	loff_t pos;
-	short prev;
 	int progress;
+	bool is_first;
 
 	if (unlikely(_clear_clash(brick))) {
 		MARS_DBG("clash\n");
@@ -904,10 +907,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 	all_max = max;
 	MARS_IO("max = %d\n", max);
 
-	prev = -1;
+	is_first = true;
 	if (this_start > brick->copy_last) {
-		if (this_start >= COPY_CHUNK)
-			prev = GET_INDEX(this_start - COPY_CHUNK);
+		is_first = false;
 		max -= (this_start - brick->copy_last) / COPY_CHUNK;
 		all_max = max;
 	}
@@ -924,16 +926,15 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 		if (max-- <= 0) {
 			break;
 		}
-		st->prev = prev;
-		prev = index;
 		if (READ_ONCE(st->active[0]) & READ_ONCE(st->active[1]))
 			break;
 
 		// call the finite state automaton
-		this_progress = _next_state(brick, index, pos);
+		this_progress = _next_state(brick, index, pos, is_first);
 		if (this_progress <= 0)
 			break;
 
+		is_first = false;
 		progress += this_progress;
 		if (pos > brick->copy_dirty)
 			brick->copy_dirty = pos;
@@ -988,7 +989,6 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			}
 			// rollover
 			st->state = COPY_STATE_START;
-			st->prev = -1;
 			len = st->len;
 			count += len;
 			// check contiguity

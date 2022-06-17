@@ -59,7 +59,6 @@ struct copy_state {
 	bool active[2];
 	enum _copy_state state;
 	bool writeout;
-	short prev;
 	unsigned short len;
 	short error;
 };
