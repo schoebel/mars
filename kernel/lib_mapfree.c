@@ -467,7 +467,12 @@ void mf_dirty_reduce(struct mapfree_info *mf, enum dirty_stage stage, loff_t new
 
 loff_t mf_dirty_length(struct mapfree_info *mf, enum dirty_stage stage)
 {
-	struct dirty_length *dl = _get_dl(mf, stage);
+	struct dirty_length *dl;
+	loff_t res = 0;
+
+	CHECK_PTR_NULL(mf, done);
+	dl = _get_dl(mf, stage);
+	CHECK_PTR_NULL(dl, done);
 
 #ifdef CONFIG_64BIT
 	/* Avoid locking by assuming that 64bit reads are atomic in itself */
@@ -490,16 +495,16 @@ loff_t mf_dirty_length(struct mapfree_info *mf, enum dirty_stage stage)
 				return real_size;
 		}
 	}
-	return READ_ONCE(dl->dl_length);
+	res = READ_ONCE(dl->dl_length);
 #else /* cannot rely on atomic read of two 32bit values */
-	loff_t res;
 	unsigned long flags;
 
 	traced_readlock(&dl->dl_lock, flags);
 	res = dl->dl_length;
 	traced_readunlock(&dl->dl_lock, flags);
-	return res;
 #endif
+ done:
+	return res;
 }
 
 ////////////////// dirty IOs on the fly  //////////////////
