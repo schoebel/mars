@@ -600,6 +600,25 @@ int handler_thread(void *data)
 				(const char *[]){},
 				0);
 			if (likely(prev)) {
+				int max_loop = 10;
+				int nr_loop = 0;
+
+				/* First check whether the new brick is actually working */
+				while (!prev->power.led_on) {
+					status = mars_power_button(prev, true, false);
+					if (status >= 0)
+						break;
+					brick_msleep((nr_loop / 2) * (1000 / HZ));
+					nr_loop++;
+					if (nr_loop > max_loop) {
+						MARS_ERR("#%d cannot start '%s', err=%d\n",
+							 sock->s_debug_nr,
+							 path, status);
+						goto err;
+					}
+					cond_resched();
+				}
+				/* All right: we can connect to the new brick */
 				status = mars_connect((void *)brick->inputs[0], prev->outputs[0]);
 				if (unlikely(status < 0)) {
 					MARS_ERR("#%d cannot connect to '%s'\n", sock->s_debug_nr, path);
