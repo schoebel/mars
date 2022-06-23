@@ -850,8 +850,10 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 		 * Otherwise consistency could be violated for some time.
 		 */
 		while (_congested(brick)) {
-			// in case of emergency, busy-wait should be acceptable
-			brick_msleep(HZ / 10);
+			/* In case of emergency, busy-wait should be acceptable
+			 */
+			brick_msleep(1000 / HZ + 1);
+			cond_resched();
 		}
 		return _read_ref_get(output, mref_a);
 	}
@@ -859,7 +861,8 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */
 	while (unlikely(!brick->power.led_on)) {
-		brick_msleep(HZ / 10);
+		brick_msleep(1000 / HZ + 1);
+		cond_resched();
 	}
 
 	return _write_ref_get(output, mref_a);
