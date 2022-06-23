@@ -674,6 +674,7 @@ sub __read_cache {
 }
 
 sub _read_cache {
+  return 0 if no_mountpoint($mars);
   return 0 if $kernel_strategy_version < 4;
   my $inval_path = "$cache_dir/invalid";
   if (-l $inval_path) {
@@ -698,6 +699,7 @@ sub _read_cache {
 
 sub __write_cache {
   my ($filename, $hash, $dimensions) = @_;
+  return 0 if no_mountpoint($mars);
   $dimensions = 2 unless $dimensions;
   my $tmpname = "$filename.tmp.$$";
   local $OFS = " ";
@@ -735,6 +737,7 @@ sub __write_cache {
 }
 
 sub _write_cache {
+  return 0 if no_mountpoint($mars);
   mkdir($cache_dir);
   my $ok =
   __write_cache("$cache_dir/total_resources.cache", \%total_resources) &&
@@ -2586,7 +2589,12 @@ sub get_global_versions {
   }
   unless (defined($ARGV[0]) && $ARGV[0] =~ m/cluster|cat/) {
     my $act_dir = "$mars/actual-$host";
-    mkdir($act_dir) unless -d $act_dir;
+    unless (-d $act_dir) {
+      my $not_mounted = no_mountpoint($mars);
+      if (defined($not_mounted) && !$not_mounted) {
+	mkdir($act_dir);
+      }
+    }
     $kernel_version = get_alive_link("tree", $host, 2);
     if ($kernel_version && $user_version != $kernel_version) {
       lwarn "kernel_version=$kernel_version user_version=$user_version\n";
@@ -4959,6 +4967,9 @@ sub set_sync_limit_value {
 
 sub create_uuid {
   my ($cmd) = @_;
+  if (no_mountpoint($mars)) {
+    ldie "$mars is not mounted, cannot create uuid\n";
+  }
   my $old_uuid = get_link("$mars/uuid", 2);
   ldie "Cluster was already created with uuid='$old_uuid'. " .
     "For safety reasons, no override is possible at marsadm level.\n" if $old_uuid;
@@ -4971,6 +4982,9 @@ sub create_uuid {
 
 sub _create_dirs {
   my ($cmd) = @_;
+  if (no_mountpoint($mars)) {
+    ldie "$mars is not mounted, cannot create subdirs\n";
+  }
   system("mkdir $mars/ips") unless -d "$mars/ips";
   system("mkdir $mars/userspace") unless -d "$mars/userspace";
   system("mkdir $mars/defaults") unless -d "$mars/defaults";
@@ -4983,6 +4997,9 @@ sub _create_dirs {
 sub _create_cluster {
   my ($cmd) = @_;
   ldie "The $mars directory does not exist.\n" unless -d $mars;
+  if (no_mountpoint($mars)) {
+    ldie "$mars is not mounted, cannot create any cluster info\n";
+  }
   my $ip = _get_ip($host);
   _create_dirs($cmd);
   create_uuid(@_) if $cmd eq "create-cluster";
@@ -5001,6 +5018,9 @@ sub create_cluster {
 
 sub join_cluster {
   my ($cmd, $peer, $peer_ip) = @_;
+  if (no_mountpoint($mars)) {
+    ldie "$mars is not mounted, cannot create any cluster info\n";
+  }
   $allow_fail_action = undef;
   $_[1] = "undefined";
   ldie "Cannot join myself (peer='$peer', host='$host')\n" if $peer eq $host;
@@ -5105,6 +5125,9 @@ sub join_cluster {
 
 sub _get_probe {
   my ($probe_dir, $peer, $peer_ip) = @_;
+  if (no_mountpoint($mars)) {
+    ldie "$mars is not mounted, cannot probe any peer info\n";
+  }
   $peer_ip = _get_ip($peer) unless $peer_ip;
   mkdir($probe_dir);
   my $new_mars = "$probe_dir/$mars";
@@ -5348,6 +5371,9 @@ sub leave_cluster {
 
 sub create_res {
   my ($cmd, $res, $dev, $appear, $size_arg) = @_;
+  if (no_mountpoint($mars)) {
+    ldie "$mars is not mounted, cannot modify any resource info\n";
+  }
   my $create = ($cmd eq "create-resource");
 
   ldie "undefined device or size argument\n" unless $dev;
@@ -11364,8 +11390,13 @@ sub do_all_res {
   }
 }
 
+my %has_mountpoint;
+
 sub no_mountpoint {
   my ($pathname) = @_;
+  if (defined($has_mountpoint{$pathname})) {
+    return $has_mountpoint{$pathname};
+  }
   my $cmd = "/bin/mountpoint";
   if (! -x $cmd) {
     $cmd = "/usr/bin/mountpoint";
@@ -11377,7 +11408,8 @@ sub no_mountpoint {
     lwarn "cannot determine whether '$pathname' is a mountpoint - please install the tool 'mountpoint'\n";
     return 0;
   }
-  return system("$cmd $pathname >/dev/null 2>&1");
+  $has_mountpoint{$pathname} = system("$cmd $pathname >/dev/null 2>&1");
+  return $has_mountpoint{$pathname};
 }
 
 sub report_non_standard_settings {
