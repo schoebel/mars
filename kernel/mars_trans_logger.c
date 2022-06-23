@@ -3065,6 +3065,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	long long old_jiffies = jiffies;
 	int replay_code = TL_REPLAY_RUNNING;
 	int nr_flying;
+	unsigned long poll_jiffies = 0;
 	int backoff = 0;
 	int status = 0;
 
@@ -3135,9 +3136,22 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 				replay_code = status;
 				break;
 			}
-			brick_msleep(backoff);
+			if (!poll_jiffies) {
+				poll_jiffies = jiffies;
+				continue;
+			} else if (backoff) {
+				brick_msleep(backoff);
+			} else if (jiffies <= poll_jiffies + 1) {
+				cond_resched();
+				continue;
+			}
 			if (backoff < trans_logger_replay_timeout * 1000) {
-				backoff += 100;
+				if (backoff < 10)
+					backoff++;
+				else if (backoff < 100)
+					backoff += 10;
+				else
+					backoff += 100;
 			} else {
 				MARS_WRN("logfile replay not possible at position %lld (end_pos = %lld, remaining = %lld), please check/repair your logfile in userspace by some tool!\n",
 					 new_finished_pos,
@@ -3148,6 +3162,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 			}
 			continue;
 		}
+		poll_jiffies = 0;
 		if (unlikely(status < 0)) {
 			replay_code = status;
 			MARS_WRN("cannot read logfile data, err=%d,%d,%d\n",
