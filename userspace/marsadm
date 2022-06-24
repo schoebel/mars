@@ -755,6 +755,8 @@ sub _write_cache {
   return $ok;
 }
 
+my $cache_warning;
+
 sub _scan_caches {
   return if %total_peers;
   return if _read_cache();
@@ -937,7 +939,7 @@ sub _scan_caches {
 	    "resources\n";
   }
   if (!_write_cache()) {
-    lwarn "cannot write peer cache\n";
+    lwarn "cannot write peer cache\n" unless $cache_warning++;
   }
 }
 
