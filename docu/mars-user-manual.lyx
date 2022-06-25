@@ -5688,22 +5688,40 @@ d by MARS.
 \labelwidthstring 00.00.0000
 
 \family typewriter
+IncompleteLog[
+\emph on
+description-text
+\emph default
+] or
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+InitializedLogRecord[
+\emph on
+description-text
+\emph default
+] or
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 DefectiveLog[
 \emph on
 description-text
 \emph default
-]
+] 
 \family default
- (cf 
+(cf 
 \family typewriter
 %replay-code{}
 \family default
-) Typicially this indicates an 
-\family typewriter
-md5
-\family default
- checksum error in a transaction logfile, or another (hardware / filesystem)
- defect.
+) Typicially this indicates a checksum error in a transaction logfile, or
+ another (hardware / filesystem) defect.
  This occurs extremely rarely in practice, but has been observed more frequently
  during a massive failure of air conditioning in a datacenter, when disk
  temperatures raised to more than 80° Celsius.
@@ -5722,6 +5740,47 @@ not directly
 relevance
 \series default
  for the diskstate.
+ 
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+ Hint for expert sysadmins: when desperate, read the sourcecode of the 
+\family typewriter
+marsadm
+\family default
+ Perl script.
+ The otherwise undocumented table 
+\family typewriter
+%errno2names
+\family default
+ could hint you at a lot of potential problems, in 
+\emph on
+addition
+\emph default
+ to the standard Unix codes as documented in 
+\family typewriter
+man errno
+\family default
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
  A damaged transaction logfile will always affect the 
 \emph on
 actuality
@@ -5731,7 +5790,7 @@ actuality
 integrity
 \emph default
  (by itself).
- What to do in such a case?
+ What to do in such cases?
 \begin_inset Separator latexpar
 \end_inset
 
@@ -5740,18 +5799,24 @@ integrity
 
 \begin_deeper
 \begin_layout Enumerate
-When the damage is only at one of your secondaries, you should first ensure
- that the primary has a good logfile after a 
+When the damage is only at one of your secondaries, and the primary continues
+ working: first you should ensure that the primary has a good logfile after
+ a 
 \family typewriter
 marsadm cron
 \family default
-, then try 
+, wait for the secondary to get this knowlege over the network, and try
+ 
 \family typewriter
 marsadm invalidate
 \family default
  at the damaged secondary.
  It is crucial that the primary has a fresh correct logfile behind the error
- position, and that it is continuing to operate correctly.
+ position, and that it is 
+\emph on
+continuously(!)
+\emph default
+ operating correctly, without any interruption.
 \end_layout
 
 \begin_layout Enumerate
@@ -5763,14 +5828,49 @@ all
 \family typewriter
 DefectiveLog
 \family default
-, the primary could have 
+ or relatives, the primary could have 
 \emph on
 produced
 \emph default
  a damaged logfile (e.g.
  in RAM, in a DMA channel, etc) while continuing to operate, and all of
  your secondaries got that defective logfile.
- After 
+ Please consider more lowlevel messages as reported by 
+\family typewriter
+marsadm view mydata
+\family default
+.
+ Check the internet what hardware-dependent cleartext messages might mean,
+ or some hints like 
+\begin_inset Quotes eld
+\end_inset
+
+Bad magic has repeated pattern 
+\shape italic
+$some_hex_code
+\shape default
+
+\begin_inset Quotes erd
+\end_inset
+
+.
+ When a hex code is present, and when it is the 
+\emph on
+same
+\emph default
+ hex number appearing on all of your secondaries, this 
+\emph on
+might
+\emph default
+ tell you something.
+ For example, certain hex-coded patterns may stem from various HDD or SSD
+ models, under certain operational conditions like uninitialized media,
+ or defective BBU caches, etc.
+ What to do in such cases?
+\begin_inset Newline newline
+\end_inset
+
+After 
 \family typewriter
 marsadm cron
 \family default
@@ -30805,7 +30905,7 @@ refuse
 \family typewriter
 DefectiveLog
 \family default
- in the 
+ or similar message in the 
 \family typewriter
 diskstate
 \family default
@@ -35940,7 +36040,11 @@ replay-code
 
 \begin_layout Labeling
 \labelwidthstring 00.00.0000
-<0 See Linux 
+<
+\begin_inset space ~
+\end_inset
+
+0 See Linux 
 \family typewriter
 errno
 \family default
@@ -35951,6 +36055,19 @@ errno
 /mars
 \family default
 .
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+<=
+\begin_inset space ~
+\end_inset
+
+-10000 See the Perl hash from the 
+\family typewriter
+marsadm
+\family default
+ script, describing some MARS-specific error codes.
 \end_layout
 
 \end_deeper
@@ -36272,11 +36389,23 @@ device-nrflying
 \family typewriter
 disk-error
 \family default
- Show the negative Linux errno code of the last open() error on the underlying
- disk.
- It should be always zero.
- When < 0 according to kernel return-code conventions, this typically indicates
- a hardware or LVM problem, etc.
+ Show a negative Linux errno code, or a mars-specific code when lower than
+ -10000.
+ In addition to some explanation text, it shows the first 
+\emph on
+known
+\emph default
+ IO error, as reported upwards to applications, and before it was resetted
+ for whatever reason.
+ For example, it may be the last open() error on the underlying disk, or
+ something else may have occured during operations, and sometimes it may
+ have corrected itself.
+ Normally, this should be always zero.
+ When < 0 according to return-code conventions as explained at 
+\family typewriter
+%replay-code{}
+\family default
+, this typically indicates a hardware or LVM problem, etc.
 \end_layout
 
 \begin_layout Labeling
@@ -36285,11 +36414,20 @@ disk-error
 \family typewriter
 device-error
 \family default
- Show the negative Linux errno code of the last IO error, as reported upwards
- to applications.
- It should be always zero.
- When < 0 according to kernel return-code conventions, this typically indicates
- a hardware (or network) problem.
+ Show a negative Linux errno code, or a mars-specific code when lower than
+ -10000.
+ In addition to some explanation text, it shows the first 
+\emph on
+known
+\emph default
+ IO error, as reported upwards to applications, and before it was resetted
+ for whatever reason.
+ Normally, this should be always zero.
+ When < 0 according to return-code conventions as explained at 
+\family typewriter
+%replay-code{}
+\family default
+, this typically indicates a hardware (or network) problem.
 \end_layout
 
 \begin_layout Labeling
