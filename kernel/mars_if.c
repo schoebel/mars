@@ -919,8 +919,17 @@ void if_unplug(struct request_queue *q)
 int mars_congested(void *data, int bdi_bits)
 {
 	struct if_input *input = data;
-	struct if_brick *brick = input->brick;
+	struct if_brick *brick;
 	int ret = 0;
+
+	if (!data)
+		goto done;
+
+	CHECK_PTR(input, done);
+	brick = input->brick;
+	if (!brick)
+		goto done;
+	CHECK_PTR(brick, done);
 
 #ifdef WB_STAT_BATCH /* changed by 4452226ea276e74fc3e252c88d9bb7e8f8e44bf0 */
 	if (bdi_bits & (1 << WB_sync_congested) &&
@@ -941,6 +950,7 @@ int mars_congested(void *data, int bdi_bits)
 		ret |= (1 << BDI_async_congested);
 	}
 #endif
+ done:
 	return ret;
 }
 
@@ -1224,8 +1234,10 @@ static int if_switch(struct if_brick *brick)
 			/* ensure that callbacks will stop */
 			MARS_DBG("unregister congested_fn\n");
 			bdi = input->bdev->bd_bdi;
-			if (bdi)
+			if (bdi) {
 				bdi->congested_fn = NULL;
+				bdi->congested_data = NULL;
+			}
 #endif
 			MARS_DBG("calling bdput()\n");
 			bdput(input->bdev);
@@ -1240,6 +1252,7 @@ static int if_switch(struct if_brick *brick)
 			/* ensure that callbacks will stop */
 			MARS_DBG("unregister congested_fn\n");
 			q->backing_dev_info.congested_fn = NULL;
+			q->backing_dev_info.congested_data = NULL;
 #endif
 			blk_cleanup_queue(q);
 			input->q = NULL;
