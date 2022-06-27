@@ -182,6 +182,16 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable148
+	* Major fix: under certain types of overloads during
+	  shutdown of /dev/mars/mydata, a kernel stacktrace was
+	  possible under further conditions.
+	* Reduce unnecessary network connection aborts, leading
+	  to unnecessary retries.
+	* Serveral smaller fixes and improvements.
+	* Doc: describe new ERROR codes and new reports
+	  like IncompleteLog or UnInitializedLogRecord.
+
 mars0.1astable147
 	* Several fixes, detected during testing
 	  a future replacement of the historic aio brick.
