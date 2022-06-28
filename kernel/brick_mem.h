@@ -96,18 +96,14 @@ void *__mark_ptr_nonnull(void *_ptr)
 	return ptr;
 }
 
-/* All the brick memory allocations are guaranteed to succeed when
- * CONFIG_MARS_MEM_RETRY is set. In case of low memory, they will just
- * retry (forever).
+/* All the brick memory allocations need to succeed.
+ * In case of low memory, they will retry (forever),
+ * but only after some pause.
  *
- * Allow checking code to be written which works for both cases:
- * CONFIG_MARS_MEM_RETRY is selected, or not.
+ * This allows OOM to catch in, and to (hopefully)
+ * improve the situation.
  */
-#ifdef CONFIG_MARS_MEM_RETRY
 #define brick_mark_nonnull __mark_ptr_nonnull
-#else
-#define brick_mark_nonnull(p) (p)
-#endif
 
 /////////////////////////////////////////////////////////////////////////
 

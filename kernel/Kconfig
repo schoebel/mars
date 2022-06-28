@@ -134,13 +134,6 @@ config MARS_IPv4_TOS
 	In certain private networks, this can improve certain
 	network bottlenecks.
 
-config MARS_MEM_RETRY
-	bool "make MARS memory allocation more robust"
-	depends on MARS
-	default y
-	---help---
-	Normally ON. Switch only off for systems having very low memory.
-
 config MARS_LOGDIR
 	string "absolute path to the logging directory"
 	depends on MARS
