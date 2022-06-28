@@ -46,8 +46,25 @@
 #define BRICK_DEBUG_ORDER0
 #endif
 
+#if defined(__GFP_NORETRY) &&			\
+	defined(__GFP_KSWAPD_RECLAIM) &&	\
+	defined(__GFP_RECLAIM)
+#if !defined(__GFP_COLD) /* see upstream 453f85d43fa9 after v4.14 */
+#define GFP_BRICK				\
+	((GFP_NOIO			&	\
+	  ~__GFP_KSWAPD_RECLAIM		&	\
+	  ~__GFP_RECLAIM		&	\
+	  ~0x0u)			|	\
+	 __GFP_NORETRY			|	\
+	 0x0u)
+#else
+#define GFP_BRICK GFP_NOIO /* otherwise people may get alarmed by massses of stacktraces */
+#endif
+#else
+/* very old kernels */
+#warning Using outdated GFP_NOIO because your kernel does not reliably support OOM mitigation via __GFP_NORETRY and co
 #define GFP_BRICK GFP_NOIO
-//#define GFP_BRICK GFP_KERNEL // can lead to deadlocks!
+#endif
 
 extern long long brick_global_memavail;
 extern long long brick_global_memlimit;
