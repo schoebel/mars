@@ -91,13 +91,23 @@ EXPORT_SYMBOL_GPL(brick_global_memlimit);
 atomic64_t brick_global_block_used = ATOMIC64_INIT(0);
 EXPORT_SYMBOL_GPL(brick_global_block_used);
 
+static
 void get_total_ram(void)
 {
 	struct sysinfo i = {};
+
 	si_meminfo(&i);
-	//si_swapinfo(&i);
 	brick_global_memavail = (long long)i.totalram * (PAGE_SIZE / 1024);
 	BRICK_INF("total RAM = %lld [KiB]\n", brick_global_memavail);
+}
+
+void msleep_backoff(int *ms)
+{
+	msleep(*ms);
+	if (*ms < 100)
+		*ms += 1000 / HZ;
+	else if (*ms < 1000)
+		*ms += 10;
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -125,11 +135,13 @@ void *__brick_mem_alloc(int len)
 #endif
 		res = _brick_block_alloc(0, len, 0);
 	} else {
+		int ms = 0;
+
 		for (;;) {
 			res = kmalloc(len, GFP_BRICK);
 			if (likely(res))
 				break;
-			msleep(1000);
+			msleep_backoff(&ms);
 		}
 #ifdef BRICK_DEBUG_MEM
 		atomic_inc(&phys_mem_alloc);
@@ -266,6 +278,7 @@ static atomic_t string_free[BRICK_DEBUG_MEM] = {};
 
 char *_brick_string_alloc(int len, int line)
 {
+	int ms = 0;
 	char *res;
 
 #ifdef CONFIG_MARS_DEBUG
@@ -282,7 +295,7 @@ char *_brick_string_alloc(int len, int line)
 		res = kzalloc(len + STRING_PLUS, GFP_BRICK);
 		if (likely(res))
 			break;
-		msleep(1000);
+		msleep_backoff(&ms);
 	}
 
 #ifdef BRICK_DEBUG_MEM
@@ -431,6 +444,7 @@ static
 void _new_block_info(void *data, int len, int cline)
 {
 	struct mem_block_info *inf;
+	int ms = 0;
 	unsigned int hash;
 	unsigned long flags;
 
@@ -438,7 +452,7 @@ void _new_block_info(void *data, int len, int cline)
 		inf = kmalloc(sizeof(struct mem_block_info), GFP_BRICK);
 		if (likely(inf))
 			break;
-		msleep(1000);
+		msleep_backoff(&ms);
 	}
 	inf->inf_data = data;
 	inf->inf_len = len;
@@ -486,6 +500,8 @@ static inline
 void *__brick_block_alloc(gfp_t gfp, int order, int cline)
 {
 	void *res;
+	int ms = 0;
+
 	for (;;) {
 #ifdef USE_KERNEL_PAGES
 		res = (void*)__get_free_pages(gfp, order);
@@ -494,7 +510,7 @@ void *__brick_block_alloc(gfp_t gfp, int order, int cline)
 #endif
 		if (likely(res))
 			break;
-		msleep(1000);
+		msleep_backoff(&ms);
 	}
 
 	if (likely(res)) {
