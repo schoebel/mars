@@ -182,6 +182,16 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable149
+	(bugfix release)
+	* Critical improvement: reduce damages caused by OOM.
+	  MARS will now refrain from high-frequency retries to
+	  allocate vital memory in OOM situations, giving
+	  servers with hundreds of CPUs a better chance to survive.
+	  HIGHLY RECOMMENDED!
+	* Major improvement: improve latencies caused by RAM
+	  shortages.
+
 mars0.1astable148
 	* Major fix: under certain types of overloads during
 	  shutdown of /dev/mars/mydata, a kernel stacktrace was
