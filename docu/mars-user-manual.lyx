@@ -6265,11 +6265,19 @@ n of recovery time after a primary crash.
 \labelwidthstring 00.00.0000
 
 \family typewriter
-Recovery
+Recovery[
+\emph on
+amount
+\emph default
+]
 \family default
  (cf 
 \family typewriter
 %todo-primary{}
+\family default
+ and amount via 
+\family typewriter
+%writeback-rest{}
 \family default
 ) Appears only at the designated primary before it actually has become primary.
  Similar to database recovery, this indicates the recovery phase after a
