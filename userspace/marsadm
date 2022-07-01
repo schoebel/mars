@@ -3638,9 +3638,9 @@ sub compare_replaylinks {
 ##################################################################
 
 sub get_amount {
-  my ($resdir, $host, $direction, $only_files) = @_;
+  my ($resdir, $host, $direction, $only_files, $sum_up_numbers) = @_;
   my $level = 0;
-  my $firstpos = 0;
+  my $first_number = 0;
   my $logpos = 0;
   my $oldpos = 0;
   my $sum = 0;
@@ -3652,14 +3652,20 @@ sub get_amount {
       my $replay_link = get_link($replay_path, 1);
       return (0, 0, 0, 0) if !$replay_link;
       return (0, 0, 0, 0) if $replay_link !~ m:log-([0-9]+)-[^,]+,([0-9]+),([0-9]+):;
-      $firstpos = int($1);
-      $logpos = $firstpos;
-      $oldpos = $firstpos;
+      $first_number = int($1);
+      my $second_number = int($2);
+      my $third_number = int($3);
+      $logpos = $first_number;
+      $oldpos = $first_number;
       if ($direction < 0) {
-	$sum = $2;
+	$sum = defined($sum_up_numbers) ?
+	  $second_number + $third_number :
+	    $second_number;
       } else {
-	$val0 = $2;
-	$sum = $3;
+	$val0 = $second_number;
+	$sum = defined($sum_up_numbers) ?
+	  $second_number + $third_number :
+	    $third_number;
       }
     }
     if ($level > 0 || $direction > 0) {
@@ -3691,7 +3697,7 @@ sub get_amount {
 	  }
 	}
       }
-      return ($sum, $firstpos, $oldpos, $level) unless $ok;
+      return ($sum, $first_number, $oldpos, $level) unless $ok;
       if ($level > 0) {
 	$sum += $val;
       } else {
@@ -3706,9 +3712,9 @@ sub get_amount {
       $logpos++;
     } elsif ($direction < 0) {
       $logpos--;
-      return ($sum, $firstpos, $oldpos, $level) if $logpos < 1;
+      return ($sum, $first_number, $oldpos, $level) if $logpos < 1;
     } else {
-      return ($sum, $firstpos, $oldpos, $level);
+      return ($sum, $first_number, $oldpos, $level);
     }
     $level++;
   }
