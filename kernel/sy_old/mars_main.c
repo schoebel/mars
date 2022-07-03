@@ -8141,6 +8141,15 @@ static void exit_main(void)
 	brick_msleep(1000);
 }
 
+static noinline
+void ensure_actual(char *peer)
+{
+	char *actual_dir = path_make("/mars/actual-%s", peer);
+
+	(void)mars_mkdir(actual_dir);
+	brick_string_free(actual_dir);
+}
+
 static int __init init_main(void)
 {
 #if defined(MARS_HAS_PREPATCH) ||		\
@@ -8236,6 +8245,11 @@ static int __init init_main(void)
 	brick_pre_reserve[MARS_MEMRESERVE_ORDER] = 64;
 	brick_mem_reserve();
 #endif
+
+	/* Ensure that the bare minimum is present, even when
+	 * userspace support is missing.
+	 */
+	ensure_actual(my_id());
 
 	status = compute_emergency_mode();
 	if (unlikely(status < 0)) {
