@@ -328,17 +328,15 @@ void _show_vals(struct key_value_pair *start,
 			start->old_val = NULL;
 		}
 		if (silent) {
+			const char *check = ordered_readlink(dst, NULL);
+			bool gone = (!check || !*check);
+
+			brick_string_free(check);
 			brick_string_free(start->val);
 			/* remove old message with minimum update frequency */
-			if (!compat_deletions) {
-				const char *check = ordered_readlink(dst, NULL);
-				bool gone = (!check || !*check);
-
-				brick_string_free(check);
-				if (gone)
-					ordered_symlink(MARS_DELETED_STR, dst, NULL);
-				goto done;
-			}
+			if (gone)
+				ordered_symlink(MARS_DELETED_STR, dst, NULL);
+			goto done;
 		}
 		if (start->val) {
 			char *src = path_make("%lld.%09ld %lld.%09ld %s",
@@ -738,7 +736,6 @@ enum {
 	// replacement for DNS in kernelspace
 	CL_IPS,
 	CL_GBL_ACTUAL,
-	CL_COMPAT_DELETIONS, /* transient, to re-disappear */
 	// resource definitions
 	CL_RESOURCE,
 	/* subdir items */
@@ -6991,15 +6988,6 @@ static int check_deleted(struct mars_dent *dent)
 	return 0;
 }
 
-/* transient, to re-disappear */
-static
-int get_compat_deletions(struct mars_dent *dent)
-{
-	if (dent && dent->new_link)
-		sscanf(dent->new_link, "%d", &compat_deletions);
-	return 0;
-}
-
 static
 int make_res(struct mars_dent *dent)
 {
@@ -7214,15 +7202,6 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_ROOT,
-	},
-	/* transient, to re-disappear */
-	[CL_COMPAT_DELETIONS] = {
-		.cl_name = "compat-deletions",
-		.cl_len = 16,
-		.cl_type = 'l',
-		.cl_hostcontext = false,
-		.cl_father = CL_ROOT,
-		.cl_forward = get_compat_deletions,
 	},
 
 	/* Directory containing all items of a resource
