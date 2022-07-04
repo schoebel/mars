@@ -517,7 +517,7 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 		MARS_DBG("stopping thread %d ...\n", i);
 		tinfo->should_terminate = true;
 
-		// workaround for waking up the receiver thread. TODO: check whether signal handlong could do better.
+		// workaround for waking up the receiver thread. TODO: check whether signal handling could do better.
 		if (do_submit_dummy) {
 			MARS_DBG("submitting dummy for wakeup %d...\n", i);
 			use_fake_mm();
@@ -854,7 +854,7 @@ void _destroy_ioctx(struct aio_output *output)
 
 /* TODO: this is provisionary. We only need it for sys_io_submit()
  * which uses userspace concepts like file handles.
- * This should be replaced by a future kernelsapce vfs_submit() or
+ * This should be replaced by a future kernelspace vfs_submit() or
  * do_submit() which currently does not exist :(
  * Or, the whole aio brick should be replaced by something else.
  * A good candidate could be the new {read,write}_iter() infrastructure.

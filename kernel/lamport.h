@@ -74,7 +74,7 @@ struct lamport_clock {
 
 extern struct lamport_clock global_lamport;
 
-/* Protect against illegal values, e.g. from currupt filesystems etc.
+/* Protect against illegal values, e.g. from corrupt filesystems etc.
  */
 extern int max_lamport_future;
 
