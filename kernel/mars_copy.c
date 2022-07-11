@@ -399,9 +399,6 @@ int _make_mref(struct copy_brick *brick,
 		mref->ref_prio = brick->io_prio;
 
 	st->len = len;
-	WRITE_ONCE(st->table[queue], mref);
-	WRITE_ONCE(st->active[queue], true);
-
 	SETUP_CALLBACK(mref, copy_endio, mref_a);
 	
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
@@ -418,6 +415,9 @@ int _make_mref(struct copy_brick *brick,
 			 mref->ref_len, len, queue, index);
 	}
 
+	/* Setup done.
+	 * Start IO, somewhen triggering the callback.
+	 */
 	if (flags & MREF_WRITE) {
 		atomic_inc(&brick->copy_write_flight);
 		atomic_inc(&global_copy_write_flight);
@@ -425,6 +425,8 @@ int _make_mref(struct copy_brick *brick,
 		atomic_inc(&brick->copy_read_flight);
 		atomic_inc(&global_copy_read_flight);
 	}
+	WRITE_ONCE(st->table[queue], mref);
+	WRITE_ONCE(st->active[queue], true);
 
 	GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
 
