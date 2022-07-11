@@ -398,9 +398,6 @@ int _make_mref(struct copy_brick *brick,
 	if (mref->ref_prio < MARS_PRIO_HIGH || mref->ref_prio > MARS_PRIO_LOW)
 		mref->ref_prio = brick->io_prio;
 
-	st->len = len;
-	SETUP_CALLBACK(mref, copy_endio, mref_a);
-	
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
 	if (unlikely(status < 0)) {
 		MARS_ERR("mref_get %u status = %d\n",
@@ -409,11 +406,13 @@ int _make_mref(struct copy_brick *brick,
 		goto done;
 	}
 	/* in general, mref_get() may deliver a shorter buffer */
+	st->len = len;
 	if (mref->ref_len < len) {
 		st->len = mref->ref_len;
 		MARS_DBG("shorten len %d < %u at queue=%d index=%u\n",
 			 mref->ref_len, len, queue, index);
 	}
+	SETUP_CALLBACK(mref, copy_endio, mref_a);
 
 	/* Setup done.
 	 * Start IO, somewhen triggering the callback.
