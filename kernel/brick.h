@@ -457,6 +457,7 @@ INLINE void _generic_output_exit(struct generic_output *output)
 	output->type = NULL;
 	output->ops = NULL;
 	output->nr_connected = 0;
+	SET_PTR_NULL(output);
 }
 
 #ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
@@ -483,6 +484,7 @@ INLINE void generic_brick_exit(struct generic_brick *brick)
 	brick->nr_inputs = 0;
 	brick->nr_outputs = 0;
 	put_nr(brick->brick_index);
+	SET_PTR_NULL(brick);
 }
 
 INLINE int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input, const char *input_name)
@@ -508,6 +510,7 @@ INLINE void generic_input_exit(struct generic_input *input)
 	input->brick = NULL;
 	input->type = NULL;
 	input->connect = NULL;
+	SET_PTR_NULL(input);
 }
 
 INLINE int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
