@@ -71,6 +71,20 @@ do {									\
 #define CHECK_PTR_DEAD(ptr,label) /*empty*/
 #endif
 
+/* Counterpart of CHECK_PTR_NULL().
+ * Most of the consequences should be caught by the compiler,
+ * without producing code (potentially except some debugging code).
+ * Otherwise, or when dump_stack()ing at runtime, code inspection should be
+ * tightened.
+ * So this is essentially a self-check against common bugs, often introduced
+ * during reorgs.
+ */
+#ifdef BRICK_CHECKING
+#define SET_PTR_NULL(ptr) (ptr) = NULL
+#else
+#define SET_PTR_NULL(ptr) /* empty */
+#endif
+
 #define CHECK_PTR_NULL(ptr,label)					\
 do {									\
 	CHECK_PTR_DEAD(ptr, label);					\

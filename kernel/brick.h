@@ -639,7 +639,8 @@ INLINE struct OBJTYPE##_object *BRITYPE##_alloc_##OBJTYPE(struct BRITYPE##_brick
 									\
 INLINE void BRITYPE##_free_##OBJTYPE(struct OBJTYPE##_object *object)   \
 {									\
-	generic_free((struct generic_object*)object);			\
+	generic_free((struct generic_object *)object);			\
+	SET_PTR_NULL(object);						\
 }									\
 									\
 INLINE struct BRITYPE##_##OBJTYPE##_aspect *BRITYPE##_##OBJTYPE##_get_aspect(struct BRITYPE##_brick *brick, struct OBJTYPE##_object *obj) \
