@@ -312,7 +312,7 @@ int _make_mref(struct copy_brick *brick,
 	       /* let the compiler check for 0 <= queue <= 1 */
 	       const bool _queue,
 	       void *data,
-	       loff_t pos, loff_t end_pos,
+	       loff_t current_pos, loff_t end_pos,
 	       __u32 flags)
 {
 	struct mref_object *mref;
@@ -320,6 +320,7 @@ int _make_mref(struct copy_brick *brick,
 	struct copy_input *input;
 	struct copy_state *st;
 	struct mref_object *old_mref;
+	loff_t diff;
 	const unsigned queue = _queue;
 	unsigned input_index;
 	unsigned offset;
@@ -327,28 +328,36 @@ int _make_mref(struct copy_brick *brick,
 	int status = -EAGAIN;
 
 	/* Does it make sense to create a new mref right here? */
-	if (brick->clash || pos < 0 || end_pos <= 0 || pos >= end_pos)
+	if (brick->clash)
+		goto done;
+	status = -EINVAL;
+	if (current_pos < 0 || end_pos <= 0)
+		goto done;
+	diff = (end_pos - current_pos);
+	if (diff <= 0)
 		goto done;
 
 	/* Some safeguards */
 	if (unlikely(queue < 0 || queue >= 2)) {
 		MARS_ERR("trying bad queue %d\n",
 			 queue);
-		status = -EINVAL;
 		goto done;
 	}
 	if (unlikely(index > NR_COPY_REQUESTS)) {
-		MARS_ERR("trying bad index=%u at queue=%d pos=%lld end_pos=%lld flags=%d\n",
-			 index, queue, pos, end_pos, flags);
-		status = -EINVAL;
+		MARS_ERR("trying bad index=%u at queue=%d pos=%lld+%lld flags=%d\n",
+			 index, queue,
+			 current_pos, diff, flags);
 		goto done;
 	}
+
+	/* Check the state table */
 	st = &GET_STATE(brick, index);
 	old_mref = READ_ONCE(st->table[queue]);
 	if (unlikely(old_mref)) {
-		MARS_ERR("cannot overrride old_mref=%p at index=%u queue=%d pos=%lld end_pos=%lld flags=%d\n",
+		MARS_ERR("cannot overrride old_mref=%p at index=%u queue=%d pos=%lld+%lld flags=%d\n",
 			 old_mref,
-			 index, queue, pos, end_pos, flags);
+			 index, queue,
+			 current_pos, diff, flags);
 		status = -EEXIST;
 		goto done;
 	}
@@ -375,18 +384,18 @@ int _make_mref(struct copy_brick *brick,
 	input = brick->inputs[input_index];
 	mref_a->input = input;
 	mref_a->brick = brick;
-	mref_a->orig_ref_pos = pos;
+	mref_a->orig_ref_pos = current_pos;
 	mref_a->saved_queue = queue;
 	mref_a->saved_index = index;
 
 	/* Compute the start values for the new mref */
 	mref->ref_flags = flags;
 	mref->ref_data = data;
-	mref->ref_pos = pos;
-	offset = GET_OFFSET(pos);
+	mref->ref_pos = current_pos;
+	offset = GET_OFFSET(current_pos);
 	len = COPY_CHUNK - offset;
-	if (pos + len > end_pos) {
-		unsigned new_len = end_pos - pos;
+	if (current_pos + len > end_pos) {
+		unsigned new_len = end_pos - current_pos;
 
 		if (new_len < len)
 			len = new_len;
