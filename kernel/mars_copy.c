@@ -326,6 +326,7 @@ int _make_mref(struct copy_brick *brick,
 	unsigned offset;
 	unsigned max_len;
 	unsigned len;
+	int ref_len;
 	int status = -EAGAIN;
 
 	/* Does it make sense to create a new mref right here? */
@@ -416,12 +417,15 @@ int _make_mref(struct copy_brick *brick,
 		mars_free_mref(mref);
 		goto done;
 	}
-	/* in general, mref_get() may deliver a shorter buffer */
-	st->len = len;
-	if (mref->ref_len < len) {
-		st->len = mref->ref_len;
+	/* In general, mref_get() may deliver a shorter buffer,
+	 * and even EOF.
+	 */
+	WRITE_ONCE(st->len, len);
+	ref_len = mref->ref_len;
+	if (ref_len >= 0 && ref_len < len) {
+		WRITE_ONCE(st->len, ref_len);
 		MARS_DBG("shorten len %d < %u at queue=%d index=%u\n",
-			 mref->ref_len, len, queue, index);
+			 ref_len, len, queue, index);
 	}
 	SETUP_CALLBACK(mref, copy_endio, mref_a);
 
