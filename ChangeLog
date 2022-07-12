@@ -182,6 +182,12 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable150
+	(bugfix release)
+	* Critical fix: under OOM conditions, an allocation failure
+	  in the kernel bio playground could spread to MARS, leading
+	  to a variety of consecutive errors.
+
 mars0.1astable149
 	(bugfix release)
 	* Critical improvement: reduce damages caused by OOM.
