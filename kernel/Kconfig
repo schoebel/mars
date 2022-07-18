@@ -17,7 +17,7 @@ config MARS
 	select CRYPTO_CRC32
 	select CRYPTO_CRC32C
 	select CRYPTO_SHA1
-	---help---
+	help
 	See https://github.com/schoebel/mars/docu/
 	Only compile as a module!
 
@@ -25,7 +25,7 @@ config MARS_BENCHMARK
 	bool "rough measurement of digest and compression algorithms"
 	depends on MARS
 	default y
-	---help---
+	help
 	Upon modprobe mars, display some rough measurements in
 	nanoseconds. Note that results may depend on the compressibility
 	of test data. Thus take the results with a grain of salt
@@ -36,7 +36,7 @@ config MARS_CHECKS
 	bool "enable simple runtime checks in MARS"
 	depends on MARS
 	default y
-	---help---
+	help
 	These checks should be rather lightweight. Use them
 	for beta testing and for production systems where
 	safety is more important than performance.
@@ -50,7 +50,7 @@ config MARS_DEBUG
 	bool "enable full runtime checks and some tracing in MARS"
 	depends on MARS
 	default n
-	---help---
+	help
 	Some of these checks and some additional error tracing may
 	consume noticable amounts of memory.
 	OFF for production systems. ON for testing!
@@ -59,14 +59,14 @@ config MARS_DEBUG_DEFAULT
 	bool "turn on debug messages by default (may flood the logfiles)"
 	depends on MARS_DEBUG
 	default n
-	---help---
+	help
 	normally OFF
 
 config MARS_DEBUG_MEM
 	bool "debug memory operations"
 	depends on MARS_DEBUG
 	default n
-	---help---
+	help
 	This adds considerable space and time overhead, but catches
 	many errors (including some that are not caught by kmemleak).
 	Use only for development and thorough testing!
@@ -75,7 +75,7 @@ config MARS_DEBUG_MEM_STRONG
 	bool "intensified debugging of memory operations"
 	depends on MARS_DEBUG_MEM
 	default y
-	---help---
+	help
 	Trace all block allocations, find more errors.
 	Adds some overhead.
 	Use for debugging of new bricks or for intensified
@@ -85,7 +85,7 @@ config MARS_DEBUG_ORDER0
 	bool "also debug order0 operations"
 	depends on MARS_DEBUG_MEM
 	default n
-	---help---
+	help
 	Turn even order 0 allocations into order 1 ones and provoke
 	heavy memory fragmentation problems from the buddy allocator,
 	but catch some additional memory problems.
@@ -96,7 +96,7 @@ config MARS_DEFAULT_PORT
 	int "port number where MARS is listening"
 	depends on MARS
 	default 7777
-	---help---
+	help
 	Best practice is to uniformly use the same port number
 	in a cluster. Therefore, this is a compiletime constant.
 	You may override this at insmod time via the mars_port= parameter.
@@ -105,7 +105,7 @@ config MARS_SEPARATE_PORTS
 	bool "use separate port numbers for traffic shaping"
 	depends on MARS
 	default y
-	---help---
+	help
 	When enabled, the following port assignments will be used:
 
 	  CONFIG_MARS_DEFAULT_PORT     : updates of symlinks
@@ -129,7 +129,7 @@ config MARS_IPv4_TOS
 	bool "use TOS / DSCP in IPv4"
 	depends on MARS_SEPARATE_PORTS
 	default y
-	---help---
+	help
 	Tag IP traffic differently for different ports.
 	In certain private networks, this can improve certain
 	network bottlenecks.
@@ -138,7 +138,7 @@ config MARS_LOGDIR
 	string "absolute path to the logging directory"
 	depends on MARS
 	default "/mars"
-	---help---
+	help
 	Path to the directory where all MARS messages will reside.
 	Usually this is equal to the global /mars directory.
 
@@ -161,28 +161,28 @@ config MARS_ROLLOVER_INTERVAL
 	int "rollover time of logging status files (in seconds)"
 	depends on MARS
 	default 3
-	---help---
+	help
 	May influence the system load; dont use too low nubmers.
 
 config MARS_SCAN_INTERVAL
 	int "re-scanning of symlinks in /mars/ (in seconds)"
 	depends on MARS
 	default 5
-	---help---
+	help
 	May influence the system load; dont use too low nubmers.
 
 config MARS_PROPAGATE_INTERVAL
 	int "network propagation delay of changes in /mars/ (in seconds)"
 	depends on MARS
 	default 5
-	---help---
+	help
 	May influence the system load; dont use too low nubmers.
 
 config MARS_SYNC_FLIP_INTERVAL
 	int "interrpt sync by logfile update after (seconds)"
 	depends on MARS
 	default 60
-	---help---
+	help
 	0 = OFF. Normally ON.
 	When disabled, application of logfiles may wait for
 	a very time, until full sync has finished. As a
@@ -197,7 +197,7 @@ config MARS_NETIO_TIMEOUT
 	int "timeout for remote IO operations (in seconds)"
 	depends on MARS
 	default 30
-	---help---
+	help
 	In case of network hangs, don't wait forever, but rather
 	abort with -ENOTCONN
 	when == 0, wait forever (may lead to hanging operations
@@ -207,14 +207,14 @@ config MARS_MEM_PREALLOC
 	bool "avoid memory fragmentation by preallocation"
 	depends on MARS
 	default y
-	---help---
+	help
 	Normally ON. Switch off only for EXPERIMENTS!
 
 config MARS_FAST_FULLSYNC
 	bool "decrease network traffic at initial sync"
 	depends on MARS
 	default y
-	---help---
+	help
 	Normally ON.
 	When on, both sides will read the data, compute a md5
 	checksum, and compare them. Only in case the checksum
@@ -230,7 +230,7 @@ config MARS_SHOW_CONNECTIONS
 	bool "show connection status symlinks"
 	depends on MARS
 	default n
-	---help---
+	help
 	Normally OFF.
 
 	When enabled, the status of all current network connections is
@@ -256,14 +256,14 @@ config MARS_LOGROT
 	bool "allow logrotate during operation"
 	depends on MARS
 	default y
-	---help---
+	help
 	Normally ON. Switch off only for EXPERIMENTS!
 
 config MARS_MIN_SPACE_4
 	int "absolutely necessary free space in /mars/ (hard limit in GB)"
 	depends on MARS
 	default 2
-	---help---
+	help
 	HARDEST EMERGENCY LIMIT
 
 	When free space in /mars/ drops under this limit,
@@ -296,7 +296,7 @@ config MARS_MIN_SPACE_3
 	int "free space in /mars/ for primary logfiles (additional limit in GB)"
 	depends on MARS
 	default 2
-	---help---
+	help
 	MEDIUM EMERGENCY LIMIT
 
 	When free space in /mars/ drops under
@@ -324,7 +324,7 @@ config MARS_MIN_SPACE_2
 	int "free space in /mars/ for secondary logfiles (additional limit in GB)"
 	depends on MARS
 	default 2
-	---help---
+	help
 	MEDIUM EMERGENCY LIMIT
 
 	When free space in /mars/ drops under
@@ -355,7 +355,7 @@ config MARS_MIN_SPACE_1
 	int "free space in /mars/ for replication (additional limit in GB)"
 	depends on MARS
 	default 2
-	---help---
+	help
 	LOWEST EMERGENCY LIMIT
 
 	When free space in /mars/ drops under MARS_MIN_SPACE_4
@@ -384,7 +384,7 @@ config MARS_MIN_SPACE_0
 	int "total space needed in /mars/ for (additional limit in GB)"
 	depends on MARS
 	default 12
-	---help---
+	help
 	Operational pre-requirement.
 
 	In order to use MARS, the total space available in /mars/ must
@@ -398,7 +398,7 @@ config MARS_LOGROT_AUTO
 	int "automatic logrotate when logfile exceeds size (in GB)"
 	depends on MARS_LOGROT
 	default 32
-	---help---
+	help
 	You could switch this off by setting to 0. However, deletion
 	of really huge logfiles can take several minutes, or even substantial
 	fractions of hours (depending on the underlying filesystem).
@@ -409,6 +409,6 @@ config MARS_PREFER_SIO
 	bool "prefer sio bricks instead of aio"
 	depends on MARS
 	default n
-	---help---
+	help
 	Normally OFF for production systems.
 	Only use as alternative for testing.
