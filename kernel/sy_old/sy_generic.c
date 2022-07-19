@@ -1126,6 +1126,126 @@ int mars_mkdir(const char *path)
 	return status;
 }
 
+#ifdef USE_NEW_MARS_RENAME
+static
+int __mars_rename(struct path *parent_path,
+		  const char *old_one,
+		  const char *new_one)
+{
+	struct dentry *parent_dentry;
+	struct inode *parent_inode;
+	struct dentry *old_dentry;
+	struct dentry *new_dentry;
+	struct dentry *trap;
+	struct inode *delegated_inode;
+	int status;
+
+	status = mnt_want_write(parent_path->mnt);
+	if (unlikely(status))
+		goto done;
+
+	parent_dentry = parent_path->dentry;
+	if (unlikely(!parent_dentry)) {
+		status = -EINVAL;
+		goto done_drop;
+	}
+	parent_inode = d_inode(parent_dentry);
+	if (unlikely(!parent_inode)) {
+		status = -EINVAL;
+		goto done_drop;
+	}
+
+	trap = lock_rename(parent_dentry, parent_dentry);
+
+	old_dentry = lookup_one_len(old_one, parent_dentry, strlen(old_one));
+	if (unlikely(!old_dentry)) {
+		status = -EINVAL;
+		goto done_parent_unlock;
+	}
+	if (unlikely(IS_ERR(old_dentry))) {
+		status = PTR_ERR(old_dentry);
+		goto done_parent_unlock;
+	}
+	if (unlikely(d_is_negative(old_dentry))) {
+		status = -ENOENT;
+		goto done_dput_old;
+	}
+	if (unlikely(old_dentry == trap)) {
+		status = -EINVAL;
+		goto done_dput_old;
+	}
+
+	new_dentry = lookup_one_len(new_one, parent_dentry, strlen(new_one));
+	if (unlikely(!new_dentry)) {
+		status = -EINVAL;
+		goto done_dput_old;
+	}
+	if (unlikely(IS_ERR(new_dentry))) {
+		status = PTR_ERR(new_dentry);
+		goto done_dput_old;
+	}
+	if (unlikely(new_dentry == trap)) {
+		status = -EINVAL;
+		goto done_dput_new;
+	}
+
+	delegated_inode = NULL;
+	status = vfs_rename(parent_inode, old_dentry,
+			    parent_inode, new_dentry,
+			    &delegated_inode, 0);
+
+ done_dput_new:
+	dput(new_dentry);
+ done_dput_old:
+	dput(old_dentry);
+ done_parent_unlock:
+	inode_unlock(parent_dentry->d_inode);
+ done_drop:
+	mnt_drop_write(parent_path->mnt);
+ done:
+	return status;
+}
+
+static
+int _mars_rename(const char *old_pathname,
+		 const char *new_pathname)
+{
+	const int lookup_parent_flags =
+		LOOKUP_DIRECTORY;
+	const char *parent_pathname;
+	struct path parent_path;
+	unsigned int parent_pathlen;
+	int status;
+
+	parent_pathname =
+		backskip_replace(old_pathname, '/', false, "");
+	parent_pathlen = strlen(parent_pathname);
+	status = -EINVAL;
+	if (strncmp(new_pathname, parent_pathname, parent_pathlen))
+		goto done;
+	/* strip the common parent prefix */
+	old_pathname += parent_pathlen;
+	if (!*old_pathname || *old_pathname++ != '/' || !*old_pathname)
+		goto done;
+	new_pathname += parent_pathlen;
+	if (!*new_pathname || *new_pathname++ != '/' || !*new_pathname)
+		goto done;
+
+	status = kern_path(parent_pathname, lookup_parent_flags,
+			   &parent_path);
+	if (unlikely(status < 0))
+		goto done;
+
+	status = __mars_rename(&parent_path,
+			       old_pathname, new_pathname);
+
+	path_put(&parent_path);
+ done:
+	brick_string_free(parent_pathname);
+	return status;
+}
+#endif /* USE_NEW_MARS_RENAME */
+
 #else /* MARS_HAS_VFS_GET_LINK */
 
 int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
@@ -1550,7 +1670,9 @@ int mars_rename(const char *oldpath, const char *newpath)
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 #endif
-#ifdef MARS_HAS_PREPATCH
+#if defined(USE_NEW_MARS_RENAME)
+	status = _mars_rename(oldpath, newpath);
+#elif defined(MARS_HAS_PREPATCH)
 	status = sys_rename(oldpath, newpath);
 #else
 	status = __oldcompat_rename(oldpath, newpath);
