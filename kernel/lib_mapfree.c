@@ -32,6 +32,7 @@
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 #include <linux/file.h>
+#include <linux/pagemap.h>
 
 /* needed for symlink checking */
 #include "sy_old/strategy.h"

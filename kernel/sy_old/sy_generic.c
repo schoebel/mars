@@ -38,6 +38,7 @@
 #include <linux/mount.h>
 #include <linux/utsname.h>
 #include <linux/crc32c.h>
+#include <linux/pagemap.h>
 
 #include "strategy.h"
 

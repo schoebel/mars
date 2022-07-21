@@ -35,6 +35,7 @@
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/bio.h>
+#include <linux/pagemap.h>
 
 #include "mars.h"
 #include "lib_timing.h"

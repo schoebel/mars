@@ -25,7 +25,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
-
+#include <linux/pagemap.h>
 
 #include "brick_say.h"
 #include "lamport.h"
