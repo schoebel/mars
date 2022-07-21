@@ -524,7 +524,9 @@ restart:
 		_clear_mref(brick, index, 0);
 		next_state = COPY_STATE_START;
 		/* fallthrough */
+		goto label_COPY_STATE_START;
 	case COPY_STATE_START:
+	label_COPY_STATE_START:
 		/* This is the relgular starting state.
 		 * It must be zero, automatically entered via memset()
 		 */
@@ -561,7 +563,9 @@ restart:
 
 		next_state = COPY_STATE_START2;
 		/* fallthrough */
+		goto label_COPY_STATE_START2;
 	case COPY_STATE_START2:
+	label_COPY_STATE_START2:
 		status = _make_mref(brick, index, 1, NULL,
 				    pos, brick->copy_end,
 				    _make_flags(true, true));
@@ -572,15 +576,19 @@ restart:
 		}
 		next_state = COPY_STATE_READ2;
 		/* fallthrough */
+		goto label_COPY_STATE_READ2;
 	case COPY_STATE_READ2:
+	label_COPY_STATE_READ2:
 		if (READ_ONCE(st->active[1])) {
 			/* idempotence: wait by unchanged state */
 			goto idle;
 		}
 		/* wait for both mrefs to appear */
 		/* fallthrough */
+		goto label_COPY_STATE_READ3;
 	case COPY_STATE_READ1:
 	case COPY_STATE_READ3:
+	label_COPY_STATE_READ3:
 		if (READ_ONCE(st->active[0])) {
 			/* idempotence: wait by unchanged state */
 			goto idle;
@@ -644,7 +652,9 @@ restart:
 		}
 		next_state = COPY_STATE_WRITE;
 		/* fallthrough */
+		goto label_COPY_STATE_WRITE;
 	case COPY_STATE_WRITE:
+	label_COPY_STATE_WRITE:
 		if (is_write_limited(brick))
 			goto idle;
 		/* Obey ordering to get a strict "append" behaviour.
@@ -703,7 +713,9 @@ restart:
 			st->writeout = true;
 		next_state = COPY_STATE_WRITTEN;
 		/* fallthrough */
+		goto label_COPY_STATE_WRITTEN;
 	case COPY_STATE_WRITTEN:
+	label_COPY_STATE_WRITTEN:
 		if (READ_ONCE(st->active[1])) {
 			/* idempotence: wait by unchanged state */
 			MARS_IO("irrelevant\n");
@@ -721,12 +733,16 @@ restart:
 		}
 		next_state = COPY_STATE_CLEANUP;
 		/* fallthrough */
+		goto label_COPY_STATE_CLEANUP;
 	case COPY_STATE_CLEANUP:
+	label_COPY_STATE_CLEANUP:
 		_clear_mref(brick, index, 1);
 		_clear_mref(brick, index, 0);
 		next_state = COPY_STATE_FINISHED;
 		/* fallthrough */
+		goto label_COPY_STATE_FINISHED;
 	case COPY_STATE_FINISHED:
+	label_COPY_STATE_FINISHED:
 		/* Indicate successful completion by remaining in this state.
 		 * Restart of the finite automaton must be done externally.
 		 */
