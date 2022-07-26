@@ -346,11 +346,7 @@ static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 		if (unlikely(mref->ref_len <= 0)) {
 			goto done;
 		}
-		status = -ENOMEM;
 		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
-		if (unlikely(!mref->ref_data)) {
-			goto done;
-		}
 		mref_a->do_dealloc = true;
 	}
 
