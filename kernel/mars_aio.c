@@ -228,13 +228,9 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 		}
 		if (unlikely(mref->ref_len <= 0)) {
 			MARS_ERR("bad ref_len = %d\n", mref->ref_len);
-			return -ENOMEM;
+			return -EBADR;
 		}
 		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
-		if (unlikely(!mref->ref_data)) {
-			MARS_ERR("ENOMEM %d bytes\n", mref->ref_len);
-			return -ENOMEM;
-		}
 		mref_a->do_dealloc = true;
 #ifdef MARS_AIO_DEBUG
 		atomic_inc(&output->total_alloc_count);
@@ -654,7 +650,7 @@ static int aio_event_thread(void *data)
 	struct aio_brick *brick = output->brick;
 	struct aio_threadinfo *other = &output->tinfo[2];
 	struct io_event *events;
-	int err = -ENOMEM;
+	int err = -ESRCH;
 	
 	events = brick_mem_alloc(sizeof(struct io_event) * MARS_MAX_AIO_READ);
 
@@ -938,7 +934,7 @@ int _create_ioctx(struct aio_output *output)
 
 	use_fake_mm();
 
-	err = -ENOMEM;
+	err = -ESRCH;
 	if (unlikely(!current->mm)) {
 		MARS_ERR("cannot fake mm\n");
 		goto done;
