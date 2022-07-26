@@ -153,6 +153,7 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 	int bvec_count;
 	int rest_len = len;
 	int result_len = 0;
+	int ms = 0;
 	int status;
 	int i;
 	struct bio *bio = NULL;
@@ -198,10 +199,11 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 
 	MARS_IO("sector_offset = %d data = %p pos = %lld rest_len = %d page_offset = %d page_len = %d bvec_count = %d\n", sector_offset, data, pos, rest_len, page_offset, page_len, bvec_count);
 
+ retry_bio_alloc:
 	bio = bio_alloc(GFP_MARS, bvec_count);
-	status = -ENOMEM;
 	if (unlikely(!bio)) {
-		goto out;
+		msleep_backoff(&ms);
+		goto retry_bio_alloc;
 	}
 
 	for (i = 0; i < bvec_count && rest_len > 0; i++) {
