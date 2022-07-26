@@ -907,7 +907,7 @@ static int bio_switch(struct bio_brick *brick)
 							    index);
 			}
 			brick->submit_thread = brick_thread_create(bio_submit_thread, brick, "mars_bio_s%d", index);
-			status = -ENOMEM;
+			status = -EBADR;
 			if (likely(brick->submit_thread)) {
 				brick->bdev = inode->i_bdev;
 				brick->mode_ptr = &brick->mf->mf_mode;
