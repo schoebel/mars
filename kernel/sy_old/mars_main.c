@@ -1871,19 +1871,15 @@ static
 int __show_actual(const char *path, const char *name, int val)
 {
 	char *src;
-	char *dst = NULL;
-	int status = -EINVAL;
+	char *dst;
+	int status;
 
 	src = path_make("%d", val);
 	dst = path_make("%s/actual-%s/%s", path, my_id(), name);
-	status = -ENOMEM;
-	if (!dst)
-		goto done;
 
 	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
 	status = ordered_symlink(src, dst, NULL);
 
-done:
 	brick_string_free(src);
 	brick_string_free(dst);
 	return status;
@@ -1895,22 +1891,18 @@ int __show_actual3(const char *path,
 		   int val1, int val2, int val3)
 {
 	char *src;
-	char *dst = NULL;
-	int status = -EINVAL;
+	char *dst;
+	int status;
 
 	if (val3)
 		src = path_make("%d,%d,0x%02x", val1, val2, val3);
 	else
 		src = path_make("%d,%d", val1, val2);
 	dst = path_make("%s/actual-%s/%s", path, my_id(), name);
-	status = -ENOMEM;
-	if (!dst)
-		goto done;
 
 	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
 	status = ordered_symlink(src, dst, NULL);
 
-done:
 	brick_string_free(src);
 	brick_string_free(dst);
 	return status;
@@ -2376,7 +2368,7 @@ int start_peer(struct mars_peerinfo *peer)
 	if (unlikely(!peer->peer_thread)) {
 		peer->has_terminated = true;
 		MARS_ERR("cannot start peer thread '%s'\n", peer->peer);
-		return -ENOMEM;
+		return -EBADR;
 	}
 	MARS_DBG("started peer thread '%s'\n", peer->peer);
 	return 0;
@@ -2539,7 +2531,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	struct key_value_pair *msg_pair;
 	loff_t start_pos;
 	bool do_start = true;
-	int status = -ENOMEM;
+	int status = -EINVAL;
 
 	if (unlikely(!rot || !tmp))
 		goto done;
@@ -4460,19 +4452,8 @@ int make_log_init(struct mars_dent *dent)
 	if (!rot) {
 		const char *fetch_path;
 		rot = brick_zmem_alloc(sizeof(struct mars_rotate));
-		if (unlikely(!rot)) {
-			MARS_ERR("cannot allocate rot structure\n");
-			status = -ENOMEM;
-			goto done;
-		}
 		mutex_init(&rot->inf_mutex);
 		fetch_path = path_make("%s/logfile-update", parent_path);
-		if (unlikely(!fetch_path)) {
-			MARS_ERR("cannot create fetch_path\n");
-			brick_mem_free(rot);
-			status = -ENOMEM;
-			goto done;
-		}
 		rot->fetch_path = fetch_path;
 		parent->d_private = rot;
 		parent->d_private_destruct = rot_destruct;
@@ -4527,11 +4508,6 @@ int make_log_init(struct mars_dent *dent)
 	 * It must exist, and its value will control everything.
 	 */
 	replay_path = path_make("%s/replay-%s", parent_path, my_id());
-	if (unlikely(!replay_path)) {
-		MARS_ERR("cannot make path\n");
-		status = -ENOMEM;
-		goto done;
-	}
 
 	replay_link = mars_find_dent(mars_global, replay_path);
 	rot->repair_log_seq = -1;
@@ -4572,11 +4548,6 @@ int make_log_init(struct mars_dent *dent)
 	if (!aio_path) {
 		aio_path = path_make("%s/%s", parent_path, replay_link->d_argv[0]);
 		MARS_DBG("using logfile '%s' from replay symlink\n", SAFE_STR(aio_path));
-	}
-	if (unlikely(!aio_path)) {
-		MARS_ERR("cannot make path\n");
-		status = -ENOMEM;
-		goto done;
 	}
 
 	aio_dent = mars_find_dent(mars_global, aio_path);
@@ -6340,11 +6311,6 @@ static int _make_direct(struct mars_dent *dent)
 	src_path = dent->d_argv[0];
 	if (src_path[0] != '/') {
 		src_path = path_make("%s/%s", dent->d_parent->d_path, dent->d_argv[0]);
-		if (!src_path) {
-			MARS_DBG("fail\n");
-			status = -ENOMEM;
-			goto done;
-		}
 		do_dealloc = true;
 	}
 
@@ -6412,10 +6378,7 @@ static int _make_copy(struct mars_dent *dent)
 		goto done;
 	}
 	copy_path = backskip_replace(dent->d_path, '/', true, "/copy-");
-	if (unlikely(!copy_path)) {
-		status = -ENOMEM;
-		goto done;
-	}
+
 	// check whether connection is allowed
 	switch_path = path_make("%s/todo-%s/connect", dent->d_parent->d_path, my_id());
 
@@ -6624,9 +6587,6 @@ static int make_sync(struct mars_dent *dent)
 	 */
 	brick_string_free(tmp);
 	tmp = path_make("%s/size", dent->d_parent->d_path);
-	status = -ENOMEM;
-	if (unlikely(!tmp))
-		goto done;
 	size_str = ordered_readlink(tmp, NULL);
 	if (is_deleted_link(size_str)) {
 		MARS_ERR("cannot determine size '%s'\n", tmp);
@@ -6786,7 +6746,7 @@ static int make_sync(struct mars_dent *dent)
 		 copy_path, switch_path,
 		 do_start);
 
-	status = -ENOMEM;
+	status = -EINVAL;
 	if (unlikely(!src || !dst || !copy_path || !switch_path))
 		goto done;
 
@@ -7517,8 +7477,6 @@ int main_checker(struct mars_dent *parent,
 	int status = -2;
 #ifdef MARS_DEBUGGING
 	const char *name = brick_strndup(_name, namlen);
-	if (!name)
-		return -ENOMEM;
 #else
 	const char *name = _name;
 #endif
