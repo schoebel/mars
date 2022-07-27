@@ -93,13 +93,9 @@ static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 			return -EILSEQ;
 		if (unlikely(mref->ref_len <= 0)) {
 			MARS_ERR("bad ref_len = %d\n", mref->ref_len);
-			return -ENOMEM;
+			return -EBADR;
 		}
 		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
-		if (unlikely(!mref->ref_data)) {
-			MARS_ERR("ENOMEM %d bytes\n", mref->ref_len);
-			return -ENOMEM;
-		}
 		mref_a->do_dealloc = true;
 		//atomic_inc(&output->total_alloc_count);
 		//atomic_inc(&output->alloc_count);
