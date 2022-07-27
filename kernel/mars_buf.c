@@ -635,7 +635,7 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 		 ref_flags, start_pos, start_len, bf->bf_flags);
 
 	atomic_set(&bf->bf_io_count, 0);
-	status = -ENOMEM;
+	status = -EINVAL;
 	input = brick->inputs[0];
 
 	while (start_len > 0) {
