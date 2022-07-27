@@ -1460,10 +1460,6 @@ static int if_input_construct(struct if_input *input)
 	int i;
 
 	input->hash_table = brick_block_alloc(0, PAGE_SIZE);
-	if (unlikely(!input->hash_table)) {
-		MARS_ERR("cannot allocate hash table\n");
-		return -ENOMEM;
-	}
 	for (i = 0; i < IF_HASH_MAX; i++) {
 		spin_lock_init(&input->hash_table[i].hash_lock);
 		INIT_LIST_HEAD(&input->hash_table[i].hash_anchor);
