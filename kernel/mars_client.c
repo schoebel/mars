@@ -348,9 +348,8 @@ static int sender_thread(void *data);
 static
 int _setup_bundle(struct client_bundle *bundle, const char *str)
 {
-	int status = -ENOMEM;
+	int status;
 
-	MARS_DBG("\n");
 	_kill_bundle(bundle);
 	brick_string_free(bundle->path);
 
@@ -454,9 +453,6 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 			return -EILSEQ;
 
 		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
-		if (!mref->ref_data)
-			return -ENOMEM;
-
 		mref_a->do_dealloc = true;
 	}
 
@@ -1146,10 +1142,6 @@ static int client_output_construct(struct client_output *output)
 	int i;
 
 	output->hash_table = brick_block_alloc(0, PAGE_SIZE);
-	if (unlikely(!output->hash_table)) {
-		MARS_ERR("cannot allocate hash table\n");
-		return -ENOMEM;
-	}
 
 	for (i = 0; i < CLIENT_HASH_MAX; i++) {
 		INIT_LIST_HEAD(&output->hash_table[i]);
