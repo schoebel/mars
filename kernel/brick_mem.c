@@ -658,6 +658,7 @@ int brick_mem_reserve(void)
 {
 	int order;
 	int status = 0;
+
 	for (order = BRICK_MAX_ORDER; order >= 0; order--) {
 		int max = brick_pre_reserve[order];
 		int i;
@@ -669,11 +670,8 @@ int brick_mem_reserve(void)
 		if (max >= 0) {
 			for (i = 0; i < max; i++) {
 				void *data = __brick_block_alloc(GFP_KERNEL, order, __LINE__);
-				if (likely(data)) {
-					_put_free(data, order);
-				} else {
-					status = -ENOMEM;
-				}
+
+				_put_free(data, order);
 			}
 		} else {
 			for (i = 0; i < -max; i++) {
