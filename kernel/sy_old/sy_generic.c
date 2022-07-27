@@ -671,11 +671,8 @@ int mars_symlink(const char *oldpath, const char *newpath,
 	mm_segment_t oldfs;
 	struct kstat stat = {};
 	struct lamport_time times[2];
-	int status = -ENOMEM;
+	int status;
 	
-	if (unlikely(!tmp))
-		goto done;
-
 	if (stamp)
 		memcpy(&times[0], stamp, sizeof(times[0]));
 	else
@@ -759,8 +756,6 @@ int mars_symlink(const char *oldpath, const char *newpath,
  done_fs:
 	set_fs(oldfs);
 	brick_string_free(tmp);
-
-done:
 	return status;
 }
 
@@ -779,7 +774,7 @@ char *mars_readlink(const char *newpath, struct lamport_time *stamp)
 	mm_segment_t oldfs;
 	struct inode *inode;
 	int len;
-	int status = -ENOMEM;
+	int status;
 
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
@@ -1436,7 +1431,6 @@ int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 			goto done_put;
 		}
 
-		status = -ENOMEM;
 		link = brick_string_alloc(len + 2);
 		MARS_IO("len = %d\n", len);
 #ifdef MARS_HAS_VFS_READLINK
