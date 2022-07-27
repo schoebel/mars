@@ -102,11 +102,6 @@ int mars_recv_dent_list(struct mars_global *global, struct mars_socket *sock)
 		struct list_head *hash_anchor;
 		unsigned int hash;
 
-		if (!dent)
-			return -ENOMEM;
-
-		//MARS_IO("\n");
-
 		INIT_LIST_HEAD(&dent->dent_link);
 		INIT_LIST_HEAD(&dent->dent_hash_link);
 		INIT_LIST_HEAD(&dent->brick_list);
