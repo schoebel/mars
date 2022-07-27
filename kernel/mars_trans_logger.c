@@ -765,9 +765,6 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 
 	// create a new master shadow
 	data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
-	if (unlikely(!data)) {
-		return -ENOMEM;
-	}
 	atomic64_add(mref->ref_len, &brick->shadow_mem_used);
 #ifdef CONFIG_MARS_DEBUG
 	memset(data, 0x11, mref->ref_len);
@@ -3594,10 +3591,6 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 	int i;
 
 	brick->hash_table = brick_block_alloc(0, PAGE_SIZE);
-	if (unlikely(!brick->hash_table)) {
-		MARS_ERR("cannot allocate hash directory table.\n");
-		return -ENOMEM;
-	}
 	memset(brick->hash_table, 0, PAGE_SIZE);
 
 	for (i = 0; i < NR_HASH_PAGES; i++) {
@@ -3613,12 +3606,6 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 
 		sub_table = brick_block_alloc(0, PAGE_SIZE);
 		brick->hash_table[i] = sub_table;
-		if (unlikely(!sub_table)) {
-			MARS_ERR("cannot allocate hash subtable %d.\n", i);
-			_free_pages(brick);
-			return -ENOMEM;
-		}
-
 		memset(sub_table, 0, PAGE_SIZE);
 		for (j = 0; j < HASH_PER_PAGE; j++) {
 			struct trans_logger_hash_anchor *start = &sub_table[j];
