@@ -516,7 +516,7 @@ INLINE void generic_input_exit(struct generic_input *input)
 INLINE int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
 {
 	if (index < 0 || index >= brick->type->max_outputs)
-		return -ENOMEM;
+		return -EINVAL;
 	if (brick->outputs[index])
 		return -EEXIST;
 	_generic_output_init(brick, type, output, output_name);

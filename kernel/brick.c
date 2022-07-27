@@ -132,7 +132,7 @@ int generic_register_brick_type(const struct generic_brick_type *new_type)
 	if (found < 0) {
 		if (nr_brick_types >= MAX_BRICK_TYPES) {
 			BRICK_ERR("sorry, cannot register bricktype %s.\n", new_type->type_name);
-			return -ENOMEM;
+			return -EINVAL;
 		}
 		found = nr_brick_types++;
 	}
@@ -687,9 +687,6 @@ EXPORT_SYMBOL_GPL(free_meta);
 int __init init_brick(void)
 {
 	nr_table = brick_zmem_alloc(nr_max);
-	if (!nr_table) {
-		return -ENOMEM;
-	}
 	return 0;
 }
 
