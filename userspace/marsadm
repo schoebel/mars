@@ -8725,7 +8725,17 @@ sub eval_fn {
       } elsif ($what eq "disk"){
 	my $peer = parse_macro($arg1, $env);
 	$peer = $$env{"host"} unless $peer;
+	my $resdir = $path;
 	$path .= "/actsize-$peer";
+	# ignore any stray actsize link
+	if (link_exists($path)) {
+	  my $corresponding_data_link = "$resdir/data-$peer";
+	  my $corresponding_data = get_link($corresponding_data_link, 1);
+	  if (!$corresponding_data) {
+	    lwarn "ignoring stray actsize link '$path' since '$corresponding_data_link' does not exist\n";
+	    return "";
+	  }
+	}
       } else {
 	$path .= "/size";
       }
