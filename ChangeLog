@@ -182,6 +182,13 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable152
+	(bugfix release)
+	* Critical fix: under rare race conditions, the copy_thread
+	  could stacktrace.
+	* Minor fix: marsadm resize could fail upon stray actsize
+	  symlinks.
+
 mars0.1astable151
 	(bugfix release)
 	* Critical fix: under rare OOM conditions, an allocation failure
