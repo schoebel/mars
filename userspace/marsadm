@@ -7498,10 +7498,20 @@ my %resize_new_size;
 
 sub get_possible_size {
   my ($cmd, $res) = @_;
-  my @actsizes = lamport_glob("$mars/resource-$res/actsize-*");
+  my $resdir = "$mars/resource-$res";
+  my @actsizes = lamport_glob("$resdir/actsize-*");
   lwarn "resource $res has no actsize-* symlinks\n" unless @actsizes;
   my $possible_size = 0;
   foreach my $actsize (@actsizes) {
+    $actsize =~ m:/actsize-(.+):;
+    my $peer = $1;
+    # skip any stray actsize links
+    my $corresponding_data_link = "$resdir/data-$peer";
+    my $corresponding_data = get_link($corresponding_data_link, 1);
+    if (!$corresponding_data) {
+      lwarn "skipping stray actsize link '$actsize' since '$corresponding_data_link' does not exist\n";
+      next;
+    }
     my $this_size = get_link($actsize);
     if (!$possible_size || $this_size < $possible_size) {
       $possible_size = $this_size;
