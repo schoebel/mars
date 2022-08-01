@@ -7580,6 +7580,7 @@ sub resize_phase2 {
       last;
     }
     lprint "Device size $new_device_size has not yet reached the new size $resize_new_size{$res}.\n";
+    last if $dry_run;
     if ($new_device_size != $resize_device_size{$res}) {
       lwarn "The size has changed, but did not reach the correct value.";
       lwarn "Assuming some rounding problems (which may occur at some device types)\n";
