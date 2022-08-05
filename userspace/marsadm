@@ -311,6 +311,9 @@ my $kernel_strategy_version = -1;
 my $kernel_flags_version = ~0x0;
 
 my %known_ips;
+my %known_mounts;
+my %known_fstypes;
+my %known_mountflags;
 
 ##################################################################
 
@@ -4745,6 +4748,25 @@ sub _get_ip {
   ldie "Cannot determine my own IP address ($real_host)\n";
 }
 
+sub _get_known_mounts {
+  my ($cmd, $res) = @_;
+  if (!%known_mounts) {
+    my $proc_mounts = "/proc/mounts";
+    open(my $fh, "<", $proc_mounts)
+      or return "";
+    while (my $line = <$fh>) {
+      chomp $line;
+      next unless $line =~ m:^/dev/mars/([^\s]+)\s+([^\s]+)\s*([^\s]*)\s*([^\s]*):;
+      my ($resname, $mountpoint, $fstype, $mountflags) = ($1, $2, $3, $4);
+      $known_mounts{$resname} = $mountpoint;
+      $known_fstypes{$resname} = $fstype;
+      $known_mountflags{$resname} = $mountflags;
+    }
+    close($fh);
+  }
+  return $known_mounts{$res};
+}
+
 sub _fake_versionlink {
   my ($cmd, $res, $nr_links, $log_nr, $primary) = @_;
   my $basedir = "$mars/resource-$res";
@@ -8502,6 +8524,26 @@ sub eval_fn {
       }
       return $result;
     }
+    if (/^known[-_]?(device)[-_]?(mounted|mountpoint|fstype|mountflags)$/) {
+      my $what = $1;
+      my $op = $2;
+      my $peer = $$env{"host"};
+      if ($peer ne $real_host) {
+	return "";
+      }
+      my $val =_get_known_mounts($$env{"cmd"}, $$env{"res"});
+      if ($val) {
+	if ($op eq "mounted") {
+	  $val = 1;
+	} elsif ($op eq "fstype") {
+	  $val = $known_fstypes{$$env{"res"}};
+	} elsif ($op eq "mountflags") {
+	  $val = $known_mountflags{$$env{"res"}};
+	}
+      }
+      $val = "" unless defined($val);
+      return $val;
+    }
     if (/^is[-_]?split([-_]?brain)?$/) {
       my $split = detect_splitbrain($$env{"res"}, 0);
       return $split ? 0 : 1;
@@ -9159,6 +9201,12 @@ my %complex_macros =
    => ""
    .  "%if{%device-opened{}}{"
    .    "Opened, "
+   .    "%if{%known-device-mounted{}}{"
+   .      "%known-device-mountpoint{}"
+   .      "%if{%{verbose}}{"
+   .        " %known-device-fstype{} %known-device-mountflags{}"
+   .      "}, "
+   .    "}"
    .    "%if{%device-error{}}{"
    .      "DEVICE_ERROR=%device-error{}%errno-text{%device-error{}}, "
    .    "}"
@@ -9633,6 +9681,8 @@ my %trivial_globs =
    "{disk,device}-present"
    => "",
    "device-{opened,nrflying,error,completion-{stamp,age}}"
+   => "",
+   "known-device-{mounted,mountpoint,fstype,mountflags}"
    => "",
    "get-log-status"
    => "",
