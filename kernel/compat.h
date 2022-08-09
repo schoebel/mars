@@ -131,6 +131,15 @@ extern int __oldcompat_unlink(
 #include <linux/backing-dev.h>
 #endif
 
+/* Adapt to 3d745ea5b095a3985129e162900b7e6c22518a9d
+ * detected via 9243c6f3e012a92dd900d97ef45efaf8a8edc448
+ * and see its comment.
+ */
+#if !defined(GENHD_FL_MEDIA_CHANGE_NOTIFY) ||	\
+  defined(IOCB_WAITQ)
+#define MARS_NEW_BLK_ALLOC_QUEUE
+#endif
+
 /* Detect upstream commits
  * 2a842acab109f40f0d7d10b38e9ca88390628996
  * 4e4cbee93d56137ebff722be022cae5f70ef84fb

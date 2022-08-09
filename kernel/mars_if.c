@@ -1066,7 +1066,17 @@ static int if_switch(struct if_brick *brick)
 #endif
 
 		status = -ENOMEM;
+#ifdef MARS_NEW_BLK_ALLOC_QUEUE
+		/* Moved from obsolete blk_queue_make_request() to here.
+		 * See 3d745ea5b095a3985129e162900b7e6c22518a9d
+		 * and many thanks to Christoph Hellwig!
+		 */
+		q = blk_alloc_queue(if_make_request, GFP_MARS);
+#else
+		/* old code before 3d745ea5b095a3985129e162900b7e6c22518a9d
+		 */
 		q = blk_alloc_queue(GFP_MARS);
+#endif
 		if (!q) {
 			MARS_ERR("cannot allocate device request queue\n");
 			goto is_down;
@@ -1093,8 +1103,16 @@ static int if_switch(struct if_brick *brick)
 		capacity = if_get_capacity(brick);
 		MARS_DBG("created device name %s, capacity=%lld\n", disk->disk_name, capacity);
 		if_set_capacity(input, capacity);
-		
+
+#ifdef MARS_NEW_BLK_ALLOC_QUEUE
+		/* No longer called right here.
+		 * Moved to blk_alloc_queue(), see 3d745ea5b095a3985129e162900b7e6c22518a9d
+		 * and many thanks to Christoph Hellwig!
+		 */
+#else
 		blk_queue_make_request(q, if_make_request);
+#endif
+
 #ifdef USE_MAX_SECTORS
 #ifdef MAX_SEGMENT_SIZE
 		MARS_DBG("blk_queue_max_sectors()\n");
