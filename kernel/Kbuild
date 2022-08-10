@@ -83,6 +83,9 @@ endif
 # 3) if a file 'DISTVERSION' exists (out-of-tree tarball), use its content.
 # 4) otherwise "no-buildtag-available"
 #
+# In addition, the suffix -for-$KERNELRELEASE will be useful
+# for sysadmins having to manage a plethora of kernel versions.
+#
 extra-y	+= buildtag.h
 $(obj)/buildtag.h: $(patsubst $(obj)/buildtag.h,,$(wildcard $(obj)/*.[ch])) $(obj)/*/*.[ch]
 	$(Q)$(kecho) "MARS: Generating $@"
@@ -98,6 +101,9 @@ $(obj)/buildtag.h: $(patsubst $(obj)/buildtag.h,,$(wildcard $(obj)/*.[ch])) $(ob
 		BUILDTAG=$$(cat DISTVERSION); \
 	else \
 		BUILDTAG="no-buildtag-available"; \
+	fi; \
+	if [ "$$KERNELRELEASE" != "" ]; then \
+		BUILDTAG="$$BUILDTAG-for-$$KERNELRELEASE"; \
 	fi; \
 	/bin/echo -e "#define BUILDTAG  \"$$BUILDTAG\"";\
 	/bin/echo -e "#define BUILDHOST \"$$USER@`hostname`\"";\
