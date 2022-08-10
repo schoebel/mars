@@ -57,17 +57,12 @@ module_param_named(mars_port, mars_net_default_port, int, 0);
 __u32 enabled_net_compressions = 0;
 __u32 used_net_compression = 0;
 
-/* TODO: allow binding to specific source addresses instead of catch-all.
- * TODO: make all the socket options configurable.
- * TODO: implement signal handling.
- * TODO: add authentication.
- * TODO: add compression / encryption.
- */
-
 struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX] = {
 	[MARS_TRAFFIC_META] = {
 		.ip_tos = IPTOS_LOWDELAY,
+#ifndef MARS_USE_NEW_SETSOCKOPT
 		.tcp_window_size = 8 * 1024 * 1024,
+#endif
 		.tcp_nodelay = 0,
 		.tcp_timeout = 2,
 		.tcp_keepcnt = 3,
@@ -76,7 +71,9 @@ struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX] = {
 	},
 	[MARS_TRAFFIC_REPLICATION] = {
 		.ip_tos = IPTOS_RELIABILITY,
+#ifndef MARS_USE_NEW_SETSOCKOPT
 		.tcp_window_size = 8 * 1024 * 1024,
+#endif
 		.tcp_nodelay = 0,
 		.tcp_timeout = 2,
 		.tcp_keepcnt = 3,
@@ -85,7 +82,9 @@ struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX] = {
 	},
 	[MARS_TRAFFIC_SYNC] = {
 		.ip_tos = IPTOS_MINCOST,
+#ifndef MARS_USE_NEW_SETSOCKOPT
 		.tcp_window_size = 8 * 1024 * 1024,
+#endif
 		.tcp_nodelay = 0,
 		.tcp_timeout = 2,
 		.tcp_keepcnt = 3,
@@ -93,6 +92,60 @@ struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX] = {
 		.tcp_keepidle = 4,
 	},
 };
+
+#ifdef MARS_USE_NEW_SETSOCKOPT
+
+/* New Code. Many thanks to Christoph Hellwig who made adaptation
+ * to newer kernels very simple.
+ */
+static
+void _set_socketopts(struct socket *sock, struct mars_tcp_params *params, bool is_server)
+{
+	struct sock *sk = sock->sk;
+
+	/* extra options, only for server-role sockets */
+	if (is_server) {
+		/* c4e446bf5a06 */
+		ip_sock_set_freebind(sk);
+	}
+	/* 76ee0785f42a */
+	sock_set_sndtimeo(sk, params->tcp_timeout);
+	/* fe31a326a4aa */
+	sock_set_reuseport(sk);
+
+	/* For now, I give up the old params->tcp_window_size.
+	 * Probably it is better to leave such fundamental thingies
+	 * to the kernel upstream experts.
+	 * When necessary, new kernel-internal interfaces can be added
+	 * (e.g. by somebody else).
+	 * I don't want to intrude into important discussions about
+	 * resposibility. Probably, not every tunable from this world
+	 * should be exported to userspace ;)
+	 */
+
+#ifdef CONFIG_MARS_IPv4_TOS
+	/* 6ebf71bab9fb */
+	ip_sock_set_tos(sk, params->ip_tos);
+#endif
+	/* 12abc5ee7873 */
+	if (params->tcp_nodelay)
+		tcp_sock_set_nodelay(sk);
+	/* ce3d9544ceca */
+	sock_set_keepalive(sk);
+	/* 480aeb9639d6 */
+	tcp_sock_set_keepcnt(sk, params->tcp_keepcnt);
+	/* d41ecaac903c */
+	tcp_sock_set_keepintvl(sk, params->tcp_keepintvl);
+	/* 71c48eb81c9e */
+	tcp_sock_set_keepidle(sk, params->tcp_keepidle);
+	/* 76ee0785f42a */
+	sock_set_sndtimeo(sk, params->tcp_timeout);
+	/* I have given up the mirror symmetric rcvtimeo, for now.
+	 * Upon complaints from MARS users, this could be resurrected.
+	 */
+}
+
+#else /* OLD socketopt CODE & sister => to disappear */
 
 static
 void __setsockopt(struct socket *sock, int level, int optname, char *optval, int optsize)
@@ -105,6 +158,8 @@ void __setsockopt(struct socket *sock, int level, int optname, char *optval, int
 }
 
 #define _setsockopt(sock,level,optname,val) __setsockopt(sock, level, optname, (char*)&(val), sizeof(val))
+
+#endif /* OLD socketopt CODE & sister => to disappear */
 
 int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 {
@@ -190,6 +245,8 @@ EXPORT_SYMBOL_GPL(mars_create_sockaddr);
 
 static int current_debug_nr = 0; // no locking, just for debugging
 
+#ifndef MARS_USE_NEW_SETSOCKOPT /* OLD socketopt CODE & sister => to disappear */
+
 static
 void _set_socketopts(struct socket *sock, struct mars_tcp_params *params, bool is_server)
 {
@@ -230,6 +287,8 @@ void _set_socketopts(struct socket *sock, struct mars_tcp_params *params, bool i
 	_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, t);
 #endif
 }
+
+#endif /* OLD socketopt CODE & sister => to disappear */
 
 int mars_create_socket(struct mars_socket *msock,
 		       struct sockaddr_storage *addr,

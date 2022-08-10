@@ -265,6 +265,7 @@ extern int __oldcompat_unlink(
 
 /* for networking */
 #include <net/sock.h>
+#include <linux/netdevice.h>
 
 #ifndef TCP_MAX_REORDERING
 #define __HAS_IOV_ITER
@@ -279,6 +280,20 @@ extern int __oldcompat_unlink(
  */
 #ifdef SO_SNDTIMEO_NEW
 #define MARS_HAS_SO_SNDTIMEO_NEW
+#endif
+
+/* Adapt to the patchstack b58f0e8f38c0..7d7207c2d57
+ * This is usable at upstream kernels from there, and becomes
+ * mandatory after 5a892ff2facb4548c17c05931ed899038a0da63e.
+ * This patch range is not easy to detect from OOT.
+ * As a workaround, we guess via presence of
+ * 9e343b467c70379e66b8b771d96f03ae23eba351 .
+ * HINT: this may be wrong in general, especially for
+ * Frankenstein kernels.
+ */
+#if defined(__READ_ONCE_SCALAR) || \
+  defined(IOCB_WAITQ)
+#define MARS_USE_NEW_SETSOCKOPT
 #endif
 
 /* for crypto stuff */
