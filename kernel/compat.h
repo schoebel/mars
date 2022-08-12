@@ -217,7 +217,19 @@ extern int __oldcompat_unlink(
  * detected via b25de9d6da49b1a8760a89672283128aa8c7
  */
 #ifndef BIO_EOPNOTSUPP
+/* try to bridge some Frankenstein kernels */
+# if									\
+	/* REQ_NOWAIT_INLINE was defined between 893a1c97205a3 and 2771cefeac */ \
+	defined(REQ_NOWAIT_INLINE) ||					\
+	/* RQF_COPY_USER was defined between e806402130c9c and e64a0e16928 */ \
+	defined(RQF_COPY_USER) ||					\
+	/* BIO_CGROUP_ACCT defined since 0376e9efe183 (catch-all-else) */ \
+	!defined(BIO_CGROUP_ACCT) ||					\
+	0
 #define MARS_HAS_GENERIC_BLK_ACCOUNTING
+# else
+# warning Sorry, I cannot support io_account for this kernel
+# endif
 #elif defined(part_stat_lock)
 #define MARS_HAS_OLD_BLK_ACCOUNTING
 #endif
