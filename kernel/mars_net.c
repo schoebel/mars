@@ -481,7 +481,11 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 		int this_len = len;
 		struct socket *sock = msock->s_socket;
 
-		if (unlikely(!sock || !mars_net_is_alive || brick_thread_should_stop())) {
+		if (unlikely(!sock ||
+			     (_socket_not_connected(sock) &&
+			      !_socket_is_connecting(sock)) ||
+			     !mars_net_is_alive ||
+			     brick_thread_should_stop())) {
 			MARS_WRN("interrupting, sent = %d\n", sent);
 			status = -EIDRM;
 			break;
