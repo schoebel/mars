@@ -694,15 +694,40 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		struct socket *sock = msock->s_socket;
 
 		if (unlikely(!sock)) {
-			MARS_WRN("#%d socket has disappeared\n", msock->s_debug_nr);
+			MARS_WRN("#%d socket has disappeared\n",
+				 msock->s_debug_nr);
 			status = -EIDRM;
 			goto err;
 		}
-
-		if (!mars_net_is_alive || brick_thread_should_stop()) {
-			MARS_WRN("#%d interrupting, done = %d\n", msock->s_debug_nr, done);
+		if (!mars_net_is_alive ||
+		    brick_thread_should_stop()) {
+			MARS_WRN("#%d interrupting, done = %d\n",
+				 msock->s_debug_nr, done);
 			status = -EIDRM;
 			goto err;
+		}
+		if (msock->s_connected) {
+			/* Do not try to drain too much TCP buffer when
+			 * no ACK was yet received. It may be too early.
+			 * Consequently, we shouod not overflow _our_
+			 * send buffer until ACK will be received.
+			 */
+			if (unlikely(_socket_is_connecting(sock))) {
+				brick_msleep(sleeptime);
+				cond_resched();
+				if (sleeptime < 50)
+					sleeptime++;
+				continue;
+			}
+			/* This may be induced by RST / REJECT by firewalls,
+			 * or some timeouts, etc.
+			 */
+			if (unlikely(_socket_not_connected(sock))) {
+				MARS_WRN("#%d socket was disconnected\n",
+					 msock->s_debug_nr);
+				status = -EIDRM;
+				goto err;
+			}
 		}
 
 		if (minlen < maxlen) {
