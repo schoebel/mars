@@ -6445,6 +6445,19 @@ sub link_purge_global {
 
   # old deletion method
   # DEPRECATED, to DISAPPEAR (hopefully in a few years)
+  my $rm_glob = "$mars/{,*/,*/*/}.tmp.*";
+  my @rm_links = glob($rm_glob);
+  foreach my $rm_lnk (@rm_links) {
+    my $rm_stamp = get_link_stamp($rm_lnk);
+    next unless $rm_stamp;
+    next if is_recent($rm_stamp, $stuck_seconds);
+    if ($dry_run) {
+      lprint "DRY_RUN: would UNLINK '$rm_lnk'\n";
+    } else {
+      lprint "LOCAL UNLINK '$rm_lnk'\n";
+      unlink($rm_lnk);
+    }
+  }
   my $del_glob = "$mars/{,*/}{.tmp,.deleted,delete,work}-*";
   my $msg_glob = "$mars/actual-*/msg-*";
   _compat_purge_deleted($del_glob, $msg_glob);
