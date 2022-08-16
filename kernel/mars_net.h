@@ -163,6 +163,28 @@ extern long mars_socket_send_space_available(struct mars_socket *msock);
 extern int mars_send_raw(struct mars_socket *msock, const void *buf, int len, bool cork);
 extern int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen);
 
+extern inline bool _socket_is_connecting(struct socket *sock)
+{
+	return (sock->state == SS_CONNECTING);
+}
+
+extern inline bool _socket_not_connected(struct socket *sock)
+{
+	return (sock->state != SS_CONNECTED);
+}
+
+extern inline bool mars_socket_is_connecting(struct mars_socket *msock)
+{
+	return msock->s_socket &&
+		_socket_is_connecting(msock->s_socket);
+}
+
+extern inline bool mars_socket_not_connected(struct mars_socket *msock)
+{
+	return !msock->s_socket ||
+		_socket_not_connected(msock->s_socket);
+}
+
 /* Mid-level generic field data exchange
  */
 extern int mars_send_struct(struct mars_socket *msock, const void *data, const struct meta *meta, bool cork);

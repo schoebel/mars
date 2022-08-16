@@ -431,7 +431,8 @@ bool mars_socket_is_alive(struct mars_socket *msock)
 	ok = mars_get_socket(msock);
 	if (likely(ok)) {
 		struct socket *sock = msock->s_socket;
-		if (sock->state == SS_CONNECTED) {
+
+		if (!_socket_not_connected(sock)) {
 			msock->s_connected = true;
 		} else if (msock->s_connected) {
 			MARS_DBG("#%d remote side hangup %p sock = %p\n", msock->s_debug_nr, msock, msock->s_socket);
