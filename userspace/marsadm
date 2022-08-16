@@ -6686,6 +6686,7 @@ sub cron_phase2 {
 }
 
 my %protected_peers;
+my %reported_peername;
 
 sub get_protected_peers {
   my $ips_dir = "$mars/ips";
@@ -6730,6 +6731,8 @@ sub get_protected_peers {
       $path =~ m:/replay-(.*):;
       my $peer = $1;
       unless ($protected_peers{$peer}) {
+	next if $reported_peername{$peer};
+	$reported_peername{$peer} = 1;
 	lwarn "PLEASE CHECK whether peer '$peer' or resource '$relevant_res' is SOMEHOW misconfigured.\n";
 	# CHECK: should this be added?
 	# Some people might forget stray replaylinks in alive resources.
