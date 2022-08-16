@@ -616,6 +616,8 @@ int handler_thread(void *data)
 							 path, status);
 						goto err;
 					}
+					if (!mars_socket_is_alive(sock))
+						goto err;
 					cond_resched();
 				}
 				/* All right: we can connect to the new brick */
@@ -630,6 +632,8 @@ int handler_thread(void *data)
 			}
 			
 		err:
+			if (!mars_socket_is_alive(sock))
+				break;
 			cmd.cmd_int1 = status;
 			down(&brick->socket_sem);
 			status = mars_send_cmd(sock, &cmd, false);
