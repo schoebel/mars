@@ -529,6 +529,10 @@ int handler_thread(void *data)
 					goto clean_unlock;
 				}
 				brick_msleep(200);
+				if (!mars_socket_is_alive(sock)) {
+					status = -ECONNABORTED;
+					goto clean_unlock;
+				}
 			}
 
 			/* New protocol.
