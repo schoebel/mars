@@ -728,6 +728,9 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 				status = -EIDRM;
 				goto err;
 			}
+		} else if (!_socket_not_connected(sock)) {
+			/* Remember the detected state transition ASAP */
+			msock->s_connected = true;
 		}
 
 		if (minlen < maxlen) {
