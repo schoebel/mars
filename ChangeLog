@@ -182,6 +182,10 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable153
+	* Improved detection and mitigation of remote socket shutdown.
+	* Various other improvements.
+
 mars0.1astable152
 	(bugfix release)
 	* Critical fix: under rare race conditions, the copy_thread
