@@ -489,6 +489,10 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 			MARS_WRN("interrupting, sent = %d\n", sent);
 			status = -EIDRM;
 			break;
+		} else if (!msock->s_connected &&
+			   !_socket_not_connected(sock)) {
+			/* Remember the detected state transition ASAP */
+			msock->s_connected = true;
 		}
 
 #ifdef USE_SENDPAGE // FIXME: does not work, leads to data corruption (probably due to races with asynchrous sending)
