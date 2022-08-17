@@ -1923,7 +1923,11 @@ without
 \family typewriter
 dkms
 \family default
- would be no problem.
+ 
+\emph on
+should
+\emph default
+ be no problem.
  You can check whether some already built 
 \family typewriter
 mars.ko
@@ -1964,7 +1968,7 @@ status open
 
 \begin_layout Plain Layout
 
-io_driver:      aio
+io_driver:      qio
 \end_layout
 
 \begin_layout Plain Layout
@@ -1974,8 +1978,19 @@ prepatch:       has_prepatch
 
 \end_inset
 
-Do not use a kernel module for production if the io_driver either reports
- 
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Do not use a kernel module for 
+\emph on
+production
+\emph default
+ if the io_driver either reports 
 \family typewriter
 sio
 \family default
@@ -1983,7 +1998,75 @@ sio
 \family typewriter
 aio
 \family default
-, or if no pre-patch is detected.
+ or 
+\family typewriter
+qio
+\family default
+, or if no pre-patch had been detected.
+\begin_inset Newline newline
+\end_inset
+
+Notice: before around kernel 5.1.x, the new 
+\family typewriter
+qio
+\family default
+ will not yet work, even if it could be compiled in
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Reason: the upstream kernel has got new internal interfaces between external
+ kernel modules and the kernel core.
+ The newer internal 
+\series bold
+iterators
+\series default
+ are not yet supporting writes, but only reads, unless certain upstream
+ patches are part of your kernel.
+ Further details, and when you are a kernel developer: please contact the
+ author.
+\end_layout
+
+\end_inset
+
+.
+ Starting around LTS kernels 5.10.x and later, the old-fashioned 
+\family typewriter
+aio
+\family default
+ will no longer work as a substitute for the new 
+\family typewriter
+qio
+\family default
+.
+ For intermediate LTS kernels like 5.4.x, you may try both versions via optionally
+ enabling 
+\family typewriter
+MARS_PREFER_QIO
+\family default
+ (see the following general build instructions).
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+Please contribute to OpenSource: by doing so, report your practical experiences
+ 
+\family typewriter
+qio
+\family default
+ vs 
+\family typewriter
+aio
+\family default
+ directly to the author via email.
+ In return, you may get some further tips and tricks beyond this manual.
 \end_layout
 
 \begin_layout Itemize
@@ -2022,6 +2105,15 @@ Makefile.dist
 \family default
  (tested with some older versions of Debian; may need some extra work with
  other distros).
+\begin_inset Newline newline
+\end_inset
+
+Hint: if you get the old-fashioned module_assistant to work, or you have
+ a better DKMS script, please contribute to MARS 
+\family typewriter
+contrib/
+\family default
+.
 \end_layout
 
 \begin_layout Itemize
@@ -2379,18 +2471,17 @@ marsadm
 
 \begin_layout Standard
 With newer versions of MARS, a prepatch for vanilla kernels 3.2 through 4.9
- (or even later) is no longer needed, at least in theory.
- However, 
+ is no longer needed, but only in theory.
+ 
 \series bold
 IO performance
 \series default
- is currently 
+ is 
 \emph on
 much
 \emph default
  worse when the pre-patch is not applied.
- This will be hopefully addressed in a future release.
- At the moment, don't use pre-patch-less MARS on any production system.
+ Don't use pre-patch-less MARS on any production system.
  It has extremely limited IO parallelism because some performance-critical
  kernel interfaces are not accessible without the pre-patch.
  The command 
@@ -2406,7 +2497,7 @@ dkms
 \end_layout
 
 \begin_layout Standard
-Pre-patches for various kernel version can be found in the 
+Pre-patches for various kernel versions can be found in the 
 \family typewriter
 pre-patches/
 \family default
@@ -2435,7 +2526,7 @@ status open
 
 \begin_layout Plain Layout
 
-0001-mars-minimum-pre-patch-for-mars.patch
+0001-mars-v3-minimum-pre-patch-for-mars.patch
 \end_layout
 
 \end_inset
@@ -2443,30 +2534,24 @@ status open
 
 \family default
  or similar.
- Please prefer this one (when present for your kernel version) in front
- of any old / deprecated 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-0001-mars-generic-pre-patch-for-mars.patch
-\end_layout
-
-\end_inset
-
-
-\family default
- or similar.
- The latter should not be used anymore, except for testing or as an emergency
- fallback.
 \end_layout
 
 \begin_layout Itemize
 
 \family typewriter
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+sloppy
+\end_layout
+
+\end_inset
+
+ 
 \begin_inset Flex URL
 status open
 
@@ -2491,7 +2576,7 @@ make
 \family default
  pass.
  For separate external module builds (e.g.
- with 
+ via 
 \family typewriter
 dkms
 \family default
@@ -2513,7 +2598,8 @@ strongly should
 \end_layout
 
 \begin_layout Itemize
-For certain kernels like 4.14, some additional fixes may be necessary.
+For certain kernels like 4.14 and later, some additional (upstream) fixes
+ may be necessary.
  These are in the respective 
 \family typewriter
 vanilla-*/
@@ -2559,12 +2645,29 @@ submodules
 git pull --recurse-submodules=yes
 \family default
  or similar.
- Otherwise you may be missing an important future part of the MARS release,
- without notice (depending on your local 
+ Otherwise you may be missing a future part of the MARS release (depending
+ on your local 
 \family typewriter
 git
 \family default
  version and its local configuration).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+If you don't need any of the submodules, you can ignore the corresponding
+ 
+\family typewriter
+git
+\family default
+ warnings.
 \end_layout
 
 \begin_layout Section
