@@ -32,6 +32,8 @@
 #include <linux/module.h>
 #include <linux/string.h>
 
+#include "brick_wait.h"
+
 #define _STRATEGY
 #include "mars.h"
 #include "mars_bio.h"
@@ -109,7 +111,7 @@ int cb_thread(void *data)
 		goto done;
 
 	brick->cb_running = true;
-	wake_up_interruptible(&brick->startup_event);
+	brick_wake_smp(&brick->startup_event);
 
         while (!brick_thread_should_stop() ||
 	       atomic_read(&brick->in_flight) > 0) {
@@ -121,7 +123,7 @@ int cb_thread(void *data)
 		bool cork;
 
 
-		wait_event_interruptible_timeout(
+		brick_wait_smp(
 			brick->cb_event,
 			atomic_read(&brick->in_flight) > 0,
 			wait_jiffies);
@@ -216,7 +218,7 @@ int cb_thread(void *data)
 
 done:
 	MARS_DBG("---------- cb_thread terminating, status = %d\n", status);
-	wake_up_interruptible(&brick->startup_event);
+	brick_wake_smp(&brick->startup_event);
 	return status;
 }
 
@@ -250,7 +252,7 @@ void server_endio(struct generic_callback *cb)
 	}
 	mutex_unlock(&brick->cb_mutex);
 
-	wake_up_interruptible(&brick->cb_event);
+	brick_wake_smp(&brick->cb_event);
 	return;
 err:
 	MARS_FAT("cannot handle callback - giving up\n");
@@ -431,7 +433,7 @@ int handler_thread(void *data)
 	brick->cb_thread = thread;
 
 	brick->handler_running = true;
-	wake_up_interruptible(&brick->startup_event);
+	brick_wake_smp(&brick->startup_event);
 
         while (!list_empty(&handler_global->brick_anchor) ||
 	       mars_socket_is_alive(sock)) {
