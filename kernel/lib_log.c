@@ -720,6 +720,8 @@ int _check_crc(struct log_header *lh,
 			 check_flags, crc_len);
 		check_flags |= usable_digest_mask;
 		cond_resched();
+		/* safeguard any suspected coherence problems */
+		smp_mb();
 		goto retry;
 	}
 	/* when simple retry failed: try the painful iterative method */
@@ -747,6 +749,8 @@ int _check_crc(struct log_header *lh,
 			goto failed;
 		did_iterative_retry++;
 		cond_resched();
+		/* safeguard any suspected coherence problems */
+		smp_mb();
 		goto retry;
 	failed:
 		MARS_WRN("ITERATIVE RETRY %d failed\n",
