@@ -518,7 +518,7 @@ void log_read_endio(struct generic_callback *cb)
 	CHECK_PTR(logst, err);
 	logst->posix_error_code = cb->cb_error;
 	logst->got = true;
-	wake_up_interruptible(&logst->event);
+	brick_wake_smp(&logst->event);
 	return;
 
 err:
@@ -587,7 +587,9 @@ restart:
 
 		GENERIC_INPUT_CALL_VOID(logst->input, mref_io, mref);
 
-		wait_event_interruptible_timeout(logst->event, logst->got, 60 * HZ);
+		brick_wait_smp(logst->event,
+			       logst->got,
+			       60 * HZ);
 		status = -ETIME;
 		if (!logst->got)
 			goto done_put;
