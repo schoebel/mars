@@ -140,7 +140,8 @@ void log_write_endio(struct generic_callback *cb)
 	atomic_dec(&logst->mref_flying);
 	atomic_dec(&global_mref_flying);
 	if (logst->signal_event && logst->signal_flag)
-		brick_wake(logst->signal_event, *(logst->signal_flag));
+		brick_wake_flagged(logst->signal_event,
+				   *(logst->signal_flag));
 
 	return;
 

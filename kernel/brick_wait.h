@@ -24,10 +24,10 @@
 #ifndef BRICK_WAIT_H
 #define BRICK_WAIT_H
 
-/* Try to abstract from changes of the upstream kernel
- * by using a hopefully stable interface.
+/* Historic adaptor.
+ * To disappear somewhen.
  */
-#define brick_wait(wq, flag, condition, timeout)			\
+#define brick_wait_flagged(wq, flag, condition, timeout)		\
 ({									\
 	long __tmout = (timeout);					\
 	int __old_flag;							\
@@ -52,7 +52,7 @@
 	__tmout;							\
 })
 
-#define brick_wake(wq, flag)						\
+#define brick_wake_flagged(wq, flag)					\
 ({									\
 	smp_rmb();							\
 	(flag)++;							\
