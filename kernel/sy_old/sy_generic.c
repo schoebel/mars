@@ -52,8 +52,7 @@
 
 #define SKIP_BIO false
 
-//      remove_this
-#include <linux/wait.h>
+#include "../brick_wait.h"
 #include <linux/version.h>
 
 #ifndef DCACHE_MISS_TYPE /* define accessors compatible to b18825a7c8e37a7cf6abb97a12a6ad71af160de7 */
@@ -1220,7 +1219,7 @@ void __mars_trigger(int mode)
 	if (global) {
 		global->trigger_mode |= mode;
 		global->main_trigger = true;
-		wake_up_interruptible_all(&global->main_event);
+		brick_wake_smp(&global->main_event);
 	}
 }
 
