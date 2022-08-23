@@ -41,6 +41,7 @@
 #include <linux/wait.h>
 #include <linux/splice.h>
 
+#include "brick_wait.h"
 #include "mars.h"
 
 ///////////////////////// own type definitions ////////////////////////
