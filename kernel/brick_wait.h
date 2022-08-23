@@ -24,6 +24,36 @@
 #ifndef BRICK_WAIT_H
 #define BRICK_WAIT_H
 
+/* New smp operations for brick waiting.
+ */
+#define brick_wait_smp(wq, condition, timeout)				\
+({									\
+	long __tmout = (timeout);					\
+									\
+	might_sleep();							\
+	smp_rmb();							\
+									\
+	while (!(condition)) {						\
+		__tmout = wait_event_interruptible_timeout(		\
+			wq,						\
+			({						\
+				smp_rmb();				\
+				(condition);				\
+			}),						\
+			__tmout);					\
+		if (__tmout <= 1)					\
+			break;						\
+	}								\
+	__tmout;							\
+})
+
+#define brick_wake_smp(wq)						\
+({									\
+	smp_wmb();							\
+	wake_up_interruptible_all(wq);					\
+})
+
+
 /* Historic adaptor.
  * To disappear somewhen.
  */
