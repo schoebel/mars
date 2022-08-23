@@ -56,9 +56,7 @@
 
 #include "strategy.h"
 #include "../buildtag.h"
-
-#include <linux/wait.h>
-
+#include "../brick_wait.h"
 #include "../lib_mapfree.h"
 
 // used brick types
@@ -3495,7 +3493,7 @@ int peer_thread(void *data)
 
 			if (pause_time < mars_propagate_interval)
 				pause_time++;
-			wait_event_interruptible_timeout(remote_event,
+			brick_wait_smp(remote_event,
 							 (peer->to_remote_trigger | peer->from_remote_trigger) ||
 							 !peer_thead_should_run(peer) ||
 							 (old_oneshot != peer->oneshot) ||
@@ -3600,7 +3598,7 @@ void mars_remote_trigger(int code)
 	up_read(&peer_list_lock);
 
 	MARS_DBG("triggered %d peers code=0x%x\n", count, code);
-	wake_up_interruptible_all(&remote_event);
+	brick_wake_smp(&remote_event);
 
 	if (code & MARS_TRIGGER_LOCAL)
 		mars_trigger();
@@ -7663,7 +7661,7 @@ void wait_main_round(void)
 
 	for (i = 2; i > 0; i--) {
 		mars_trigger();
-		wait_event_interruptible_timeout(main_round_event,
+		brick_wait_smp(main_round_event,
 						 old_main_round != main_round,
 						 60 * HZ);
 	}
@@ -7857,12 +7855,12 @@ static int _main_thread(void *data)
 
 		/* main_round point */
 		main_round++;
-		wake_up_interruptible_all(&main_round_event);
+		brick_wake_smp(&main_round_event);
 		launch_all(false);
 
 		brick_msleep(100);
 
-		wait_event_interruptible_timeout(mars_global->main_event,
+		brick_wait_smp(mars_global->main_event,
 						 mars_global->main_trigger,
 						 mars_scan_interval * HZ);
 
