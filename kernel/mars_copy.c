@@ -32,6 +32,7 @@
 #include <linux/module.h>
 #include <linux/string.h>
 
+#include "brick_wait.h"
 #include "mars.h"
 #include "lib_limiter.h"
 
@@ -98,7 +99,7 @@ void _clash(struct copy_brick *brick)
 	set_bit(0, &brick->clash);
 	atomic_inc(&brick->total_clash_count);
 	WRITE_ONCE(brick->trigger, true);
-	wake_up_interruptible(&brick->event);
+	brick_wake_smp(&brick->event);
 }
 
 static inline
@@ -299,7 +300,7 @@ exit:
 		atomic_dec(&global_copy_read_flight);
 	}
 	WRITE_ONCE(brick->trigger, true);
-	wake_up_interruptible(&brick->event);
+	brick_wake_smp(&brick->event);
 	return;
 
 err:
@@ -995,7 +996,7 @@ static int _copy_thread(void *data)
 			}
 		}
 
-		wait_event_interruptible_timeout(brick->event,
+		brick_wait_smp(brick->event,
 						 progress > 0 ||
 						 READ_ONCE(brick->trigger) ||
 						 brick->copy_start != old_start ||
@@ -1064,7 +1065,7 @@ static void copy_ref_put(struct copy_output *output, struct mref_object *mref)
 	GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
 	if (atomic_dec_and_test(&brick->io_flight)) {
 		WRITE_ONCE(brick->trigger, true);
-		wake_up_interruptible(&brick->event);
+		brick_wake_smp(&brick->event);
 	}
 }
 
