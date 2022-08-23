@@ -30,6 +30,7 @@
 
 #define _STRATEGY
 
+#include "brick_wait.h"
 #include "brick.h"
 #include "brick_mem.h"
 
@@ -596,7 +597,7 @@ void set_button(struct generic_switch *sw, bool val, bool force)
 	if (val != oldval) {
 		sw->button = val;
 		//sw->trigger = true;
-		wake_up_interruptible(&sw->event);
+		brick_wake_smp(&sw->event);
 	}
 }
 EXPORT_SYMBOL_GPL(set_button);
@@ -608,7 +609,7 @@ void set_led_on(struct generic_switch *sw, bool val)
 	if (val != oldval) {
 		sw->led_on = val;
 		//sw->trigger = true;
-		wake_up_interruptible(&sw->event);
+		brick_wake_smp(&sw->event);
 	}
 }
 EXPORT_SYMBOL_GPL(set_led_on);
@@ -620,7 +621,7 @@ void set_led_off(struct generic_switch *sw, bool val)
 	if (val != oldval) {
 		sw->led_off = val;
 		//sw->trigger = true;
-		wake_up_interruptible(&sw->event);
+		brick_wake_smp(&sw->event);
 	}
 }
 EXPORT_SYMBOL_GPL(set_led_off);
@@ -631,9 +632,13 @@ void set_button_wait(struct generic_brick *brick, bool val, bool force, int time
 	if (brick->ops)
 		(void)brick->ops->brick_switch(brick);
 	if (val) {
-		wait_event_interruptible_timeout(brick->power.event, brick->power.led_on, timeout);
+		brick_wait_smp(brick->power.event,
+			       brick->power.led_on,
+			       timeout);
 	} else {
-		wait_event_interruptible_timeout(brick->power.event, brick->power.led_off, timeout);
+		brick_wait_smp(brick->power.event,
+			       brick->power.led_off,
+			       timeout);
 	}
 }
 EXPORT_SYMBOL_GPL(set_button_wait);
