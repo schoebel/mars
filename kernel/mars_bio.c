@@ -37,6 +37,7 @@
 #include <linux/bio.h>
 #include <linux/pagemap.h>
 
+#include "brick_wait.h"
 #include "mars.h"
 #include "lib_timing.h"
 #include "lib_mapfree.h"
@@ -132,7 +133,7 @@ void bio_callback(struct bio *bio, int code)
 	atomic_inc(&brick->completed_count);
 	spin_unlock_irqrestore(&brick->lock, flags);
 
-	wake_up_interruptible(&brick->rsp[rsp_nr].response_event);
+	brick_wake_smp(&brick->rsp[rsp_nr].response_event);
 	return;
 
 err:
@@ -578,7 +579,7 @@ void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 		spin_unlock_irqrestore(&brick->lock, flags);
 		brick->submitted = true;
 
-		wake_up_interruptible(&brick->submit_event);
+		brick_wake_smp(&brick->submit_event);
 		return;
 	}
 
@@ -625,7 +626,7 @@ int bio_response_thread(void *data)
 		round++;
 		MARS_IO("%d sleeping %d...\n", round, sleeptime);
 #endif
-		wait_event_interruptible_timeout(
+		brick_wait_smp(
 			rsp->response_event,
 			atomic_read(&brick->completed_count) > 0 ||
 			(brick_thread_should_stop() &&
@@ -736,7 +737,7 @@ int bio_response_thread(void *data)
 
 		if (count) {
 			brick->submitted = true;
-			wake_up_interruptible(&brick->submit_event);
+			brick_wake_smp(&brick->submit_event);
 		}
 	}
 done:
@@ -768,7 +769,7 @@ int bio_submit_thread(void *data)
 		round++;
 		MARS_IO("%d sleeping...\n", round);
 #endif
-		wait_event_interruptible_timeout(
+		brick_wait_smp(
 			brick->submit_event,
 			brick->submitted || brick_thread_should_stop(),
 			HZ / 2);
