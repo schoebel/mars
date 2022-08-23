@@ -31,6 +31,7 @@
 #include <linux/string.h>
 #include <linux/jiffies.h>
 
+#include "brick_wait.h"
 #include "mars.h"
 
 ///////////////////////// own type definitions ////////////////////////
@@ -406,14 +407,16 @@ static int client_get_info(struct client_output *output, struct mars_info *info)
 		if (output->got_info)
 			return 0;
 		output->get_info = true;
-		wake_up_interruptible_all(&output->bundle.sender_event);
+		brick_wake_smp(&output->bundle.sender_event);
 		goto timeout;
 	}
 
 	output->get_info = true;
-	wake_up_interruptible_all(&output->bundle.sender_event);
+	brick_wake_smp(&output->bundle.sender_event);
 	
-	wait_event_interruptible_timeout(output->info_event, output->got_info, io_timeout * HZ);
+	brick_wait_smp(output->info_event,
+		       output->got_info,
+		       io_timeout * HZ);
 timeout:
 	status = -ETIME;
 	if (output->got_info) {
@@ -536,7 +539,7 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 		mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_flags,
 		atomic_read(&output->fly_count));
 
-	wake_up_interruptible_all(&output->bundle.sender_event);
+	brick_wake_smp(&output->bundle.sender_event);
 
 	return;
 
@@ -705,7 +708,7 @@ int receiver_thread(void *data)
 				goto done;
 			}
 			output->got_info = true;
-			wake_up_interruptible_all(&output->info_event);
+			brick_wake_smp(&output->info_event);
 			break;
 		default:
 			MARS_ERR("got bad command %d from remote '%s' @%s, terminating.\n",
@@ -726,7 +729,7 @@ int receiver_thread(void *data)
 			brick_msleep(100);
 		}
 		// wake up sender in any case
-		wake_up_interruptible_all(&output->bundle.sender_event);
+		brick_wake_smp(&output->bundle.sender_event);
 	}
 
 	if (unlikely(status < 0)) {
@@ -881,7 +884,7 @@ static int sender_thread(void *data)
 			_do_timeout_all(output, false);
 		}
 
-		wait_event_interruptible_timeout(output->bundle.sender_event,
+		brick_wait_smp(output->bundle.sender_event,
 						 !list_empty(&output->mref_list) ||
 						 output->get_info,
 						 2 * HZ);
@@ -1013,7 +1016,7 @@ static int sender_thread(void *data)
 	if (!atomic_dec_return(&sender_count))
 		mars_limit_reset(&client_limiter);
 
-	wake_up_interruptible_all(&output->bundle.sender_event);
+	brick_wake_smp(&output->bundle.sender_event);
 	MARS_DBG("sender terminated\n");
 	atomic_dec(&brick->sender_count);
 	return status;
