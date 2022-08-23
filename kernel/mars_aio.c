@@ -37,6 +37,7 @@
 #include <linux/wait.h>
 #include <linux/file.h>
 
+#include "brick_wait.h"
 #include "mars.h"
 #include "lib_timing.h"
 #include "lib_mapfree.h"
@@ -139,7 +140,7 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 	atomic_inc(&tinfo->total_enqueue_count);
 #endif
 
-	wake_up_interruptible_all(&tinfo->event);
+	brick_wake_smp(&tinfo->event);
 }
 
 static inline
@@ -446,7 +447,7 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 	} else {
 		MARS_ERR("error = %d\n", res);
 	}
-	wake_up_interruptible_all(&output->tinfo[1].event);
+	brick_wake_smp(&output->tinfo[1].event);
 
 done:
 	return res;
@@ -522,11 +523,11 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 				unuse_fake_mm();
 			}
 		}
-		wake_up_interruptible_all(&tinfo->event);
+		brick_wake_smp(&tinfo->event);
 
 		// wait for termination
 		MARS_DBG("waiting for thread %d ...\n", i);
-		wait_event_interruptible_timeout(
+		brick_wait_smp(
 			tinfo->terminate_event,
 			tinfo->terminated,
 			(60 - i * 2) * HZ);
@@ -584,7 +585,7 @@ void aio_sync_all(struct aio_output *output, struct list_head *tmp_list)
 	threshold_check(&aio_sync_threshold, latency);
 
 	output->fdsync_active = false;
-	wake_up_interruptible_all(&output->fdsync_event);
+	brick_wake_smp(&output->fdsync_event);
 	if (err < 0) {
 		MARS_ERR("FDSYNC error %d\n", err);
 	}
@@ -611,9 +612,9 @@ int aio_sync_thread(void *data)
 		int i;
 
 		output->fdsync_active = false;
-		wake_up_interruptible_all(&output->fdsync_event);
+		brick_wake_smp(&output->fdsync_event);
 
-		wait_event_interruptible_timeout(
+		brick_wait_smp(
 			tinfo->event,
 			atomic_read(&tinfo->queued_sum) > 0 ||
 			tinfo->should_terminate,
@@ -639,7 +640,7 @@ int aio_sync_thread(void *data)
 
 	MARS_DBG("sync thread has stopped.\n");
 	tinfo->terminated = true;
-	wake_up_interruptible_all(&tinfo->terminate_event);
+	brick_wake_smp(&tinfo->terminate_event);
 	return 0;
 }
 
@@ -710,7 +711,7 @@ static int aio_event_thread(void *data)
 		if (count > 0) {
 			atomic_sub(count, &output->submit_count);
 		} else if (!count) {
-			wait_event_interruptible_timeout(
+			brick_wait_smp(
 				tinfo->event,
 				atomic_read(&output->submit_count) > 0 ||
 				tinfo->should_terminate,
@@ -765,7 +766,7 @@ static int aio_event_thread(void *data)
 	unuse_fake_mm();
 
 	tinfo->terminated = true;
-	wake_up_interruptible_all(&tinfo->terminate_event);
+	brick_wake_smp(&tinfo->terminate_event);
 	brick_mem_free(events);
 	return err;
 }
@@ -1004,7 +1005,7 @@ static int aio_submit_thread(void *data)
 		int sleeptime;
 		int status;
 
-		wait_event_interruptible_timeout(
+		brick_wait_smp(
 			tinfo->event,
 			atomic_read(&tinfo->queued_sum) > 0 ||
 			tinfo->should_terminate,
@@ -1093,7 +1094,7 @@ static int aio_submit_thread(void *data)
 	}
 
 	tinfo->terminated = true;
-	wake_up_interruptible_all(&tinfo->terminate_event);
+	brick_wake_smp(&tinfo->terminate_event);
 	return err;
 }
 
