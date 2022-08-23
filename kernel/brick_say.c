@@ -27,6 +27,7 @@
 #include <linux/string.h>
 #include <linux/pagemap.h>
 
+#include "brick_wait.h"
 #include "brick_say.h"
 #include "lamport.h"
 
@@ -151,10 +152,13 @@ void wait_channel(struct say_channel *ch, int class)
 {
 	if (delay_say_on_overflow && ch->ch_index[class] > SAY_BUF_LIMIT) {
 		bool use_atomic = cannot_schedule();
+
 		if (!use_atomic) {
 			say_dirty = true;
-			wake_up_interruptible(&say_event);
-			wait_event_interruptible_timeout(ch->ch_progress, ch->ch_index[class] < SAY_BUF_LIMIT, HZ / 10);
+			brick_wake_smp(&say_event);
+			brick_wait_smp(ch->ch_progress,
+				       ch->ch_index[class] < SAY_BUF_LIMIT,
+				       HZ / 10);
 		}
 	}
 }
@@ -571,7 +575,7 @@ void say_to(struct say_channel *ch, int class, const char *fmt, ...)
 
 		spin_unlock_irqrestore(&ch->ch_lock[class], flags);
 
-		wake_up_interruptible(&say_event);
+		brick_wake_smp(&say_event);
 	}
 }
 EXPORT_SYMBOL_GPL(say_to);
@@ -656,7 +660,7 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 	if (dump)
 		brick_dump_stack();
 #endif
-	wake_up_interruptible(&say_event);
+	brick_wake_smp(&say_event);
 }
 EXPORT_SYMBOL_GPL(brick_say_to);
 
@@ -819,7 +823,7 @@ void treat_channel(struct say_channel *ch, int class)
 
 	spin_unlock_irqrestore(&ch->ch_lock[class], flags);
 
-	wake_up_interruptible(&ch->ch_progress);
+	brick_wake_smp(&ch->ch_progress);
 
 	ch->ch_status_written += len;
 	out_to_syslog(class, buf, len);
@@ -866,7 +870,7 @@ int _say_thread(void *data)
 		struct say_channel *ch;
 		int i;
 
-		wait_event_interruptible_timeout(say_event, say_dirty, HZ);
+		brick_wait_smp(say_event, say_dirty, HZ);
 		say_dirty = false;
 		
 	restart_rollover:
