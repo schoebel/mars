@@ -653,6 +653,8 @@ done_put:
 		if (*dealloc) {
 			brick_mem_free(*dealloc);
 		}
+		/* safeguard any suspected coherence problems */
+		smp_mb();
 		goto restart;
 	}
 	goto done;
