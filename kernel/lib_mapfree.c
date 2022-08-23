@@ -30,9 +30,10 @@
 #include <linux/list.h>
 #include <linux/types.h>
 #include <linux/spinlock.h>
-#include <linux/wait.h>
 #include <linux/file.h>
 #include <linux/pagemap.h>
+
+#include "brick_wait.h"
 
 /* needed for symlink checking */
 #include "sy_old/strategy.h"
@@ -376,7 +377,7 @@ int mapfree_thread(void *data)
 		long long eldest = 0;
 		bool is_empty = true;
 
-		wait_event_interruptible_timeout(mapfree_event,
+		brick_wait_smp(mapfree_event,
 						 !mapfree_period_sec,
 						 mapfree_sleep_jiffies);
 
@@ -566,7 +567,7 @@ void exit_mars_mapfree(void)
 	MARS_DBG("exit_mapfree()\n");
 	mapfree_period_sec = -1;
 	mapfree_sleep_jiffies = 1;
-	wake_up_interruptible_all(&mapfree_event);
+	brick_wake_smp(&mapfree_event);
 
 	for (i = 0; i < MAPFREE_HASH; i++) {
 		struct task_struct *thread = mf_table[i].hash_thread;
