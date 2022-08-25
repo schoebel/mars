@@ -8147,7 +8147,10 @@ MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
 MODULE_VERSION(BUILDTAG " (" BUILDHOST " " BUILDDATE ")");
 MODULE_LICENSE("GPL");
 
-#ifdef MARS_HAS_PREPATCH_V2
+#if 0 /* never this */
+#elif defined(MARS_HAS_PREPATCH_V3)
+MODULE_INFO(prepatch, "has_prepatch_v3");
+#elif defined(MARS_HAS_PREPATCH_V2)
 MODULE_INFO(prepatch, "has_prepatch_v2");
 #elif defined(MARS_HAS_PREPATCH)
 MODULE_INFO(prepatch, "has_prepatch_v1");
