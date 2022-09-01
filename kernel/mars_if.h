@@ -73,11 +73,11 @@ struct if_input {
 	struct list_head plug_anchor;
 	struct request_queue *q;
 	struct gendisk *disk;
+	loff_t capacity;
 	struct block_device *bdev;
 #ifdef USE_TIMER
 	struct timer_list timer;
 #endif
-	loff_t capacity;
 	atomic_t plugged_count;
 	/* debugging statistics */
 #ifdef CONFIG_MARS_DEBUG
