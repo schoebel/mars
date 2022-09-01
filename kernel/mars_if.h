@@ -74,7 +74,9 @@ struct if_input {
 	struct request_queue *q;
 	struct gendisk *disk;
 	loff_t capacity;
+#ifdef MARS_IF_HAS_BDEV
 	struct block_device *bdev;
+#endif
 #ifdef USE_TIMER
 	struct timer_list timer;
 #endif

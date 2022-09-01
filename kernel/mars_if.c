@@ -1084,9 +1084,11 @@ void if_set_capacity(struct if_input *input, loff_t capacity)
 	MARS_INF("new capacity of '%s': %lld bytes\n", input->disk->disk_name, capacity);
 	input->capacity = capacity;
 	set_capacity(input->disk, capacity >> 9);
+#ifdef MARS_IF_HAS_BDEV
 	if (likely(input->bdev && input->bdev->bd_inode)) {
 		i_size_write(input->bdev->bd_inode, capacity);
 	}
+#endif /*  MARS_IF_HAS_BDEV */
 done:;
 }
 
@@ -1129,10 +1131,11 @@ static int if_switch(struct if_brick *brick)
 	// brick should be switched on
 	if (brick->power.button && brick->power.led_off) {
 		loff_t capacity;
+#ifdef MARS_IF_HAS_BDEV
 #ifdef MARS_HAS_BDI_GET
 		struct backing_dev_info *bdi;
 #endif
-
+#endif
 		mars_power_led_off((void*)brick,  false);
 
 #ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
@@ -1252,10 +1255,11 @@ static int if_switch(struct if_brick *brick)
 		q->queue_lock = &input->req_lock; // needed!
 #endif
 		
+#ifdef MARS_IF_HAS_BDEV
 		input->bdev = bdget(MKDEV(disk->major, minor));
+
 		/* we have no partitions. we contain only ourselves. */
 		input->bdev->bd_contains = input->bdev;
-
 #ifdef MARS_HAS_BDI_GET
 		bdi = input->bdev->bd_bdi;
 #ifdef MODIFY_READAHEAD
@@ -1263,6 +1267,7 @@ static int if_switch(struct if_brick *brick)
 			 bdi->ra_pages, brick->readahead);
 		bdi->ra_pages = brick->readahead;
 #endif
+#endif /*  MARS_IF_HAS_BDEV */
 #ifdef USE_CONGESTED_FN
 		if (!bdi->congested_fn) {
 			MARS_DBG("congested_fn\n");
@@ -1346,6 +1351,7 @@ static int if_switch(struct if_brick *brick)
 		del_gendisk(input->disk);
 		/* There might be subtle races */
 		check_io_done(brick, true);
+#ifdef MARS_IF_HAS_BDEV
 		if (input->bdev) {
 #if defined(USE_CONGESTED_FN) && defined(MARS_HAS_BDI_GET)
 			struct backing_dev_info *bdi;
@@ -1367,6 +1373,7 @@ static int if_switch(struct if_brick *brick)
 			bdput(input->bdev);
 			input->bdev = NULL;
 		}
+#endif /* MARS_IF_HAS_BDEV */
 		MARS_DBG("calling put_disk()\n");
 		put_disk(input->disk);
 		input->disk = NULL;
