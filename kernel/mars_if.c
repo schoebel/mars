@@ -348,12 +348,43 @@ err:
 	MARS_FAT("error in callback, giving up\n");
 }
 
+static
+void _if_start_io(struct if_input *input, struct if_mref_aspect *mref_a)
+{
+	struct if_brick *brick;
+	struct mref_object *mref;
+
+	mref = mref_a->object;
+
+	if (unlikely(mref_a->current_len > mref_a->max_len)) {
+		MARS_ERR("request len %d > %d\n",
+			 mref_a->current_len, mref_a->max_len);
+	}
+	mref->ref_len = mref_a->current_len;
+
+#ifdef CONFIG_MARS_DEBUG
+	atomic_inc(&input->total_fire_count);
+#endif
+	brick = input->brick;
+	if (mref->ref_flags & MREF_WRITE) {
+		atomic_inc(&brick->write_flying_count);
+	} else {
+		atomic_inc(&brick->read_flying_count);
+	}
+#ifdef CONFIG_MARS_DEBUG
+	if (mref->ref_flags & MREF_SKIP_SYNC)
+		atomic_inc(&input->total_skip_sync_count);
+#endif
+
+	GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
+	GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
+}
+
 /* Kick off plugged mrefs
  */
 static
 void _if_unplug(struct if_input *input)
 {
-	struct if_brick *brick = input->brick;
 	LIST_HEAD(tmp_list);
 	unsigned long flags;
 
@@ -386,7 +417,6 @@ void _if_unplug(struct if_input *input)
 
 	while (!list_empty(&tmp_list)) {
 		struct if_mref_aspect *mref_a;
-		struct mref_object *mref;
 		unsigned int hash_index;
 		unsigned long flags;
 
@@ -398,31 +428,7 @@ void _if_unplug(struct if_input *input)
 		list_del_init(&mref_a->hash_head);
 		traced_unlock(&input->hash_table[hash_index].hash_lock, flags);
 
-                mref = mref_a->object;
-
-		if (unlikely(mref_a->current_len > mref_a->max_len)) {
-			MARS_ERR("request len %d > %d\n", mref_a->current_len, mref_a->max_len);
-		}
-		mref->ref_len = mref_a->current_len;
-
-		mars_trace(mref, "if_unplug");
-
-#ifdef CONFIG_MARS_DEBUG
-		atomic_inc(&input->total_fire_count);
-#endif
-		brick = input->brick;
-		if (mref->ref_flags & MREF_WRITE) {
-			atomic_inc(&brick->write_flying_count);
-		} else {
-			atomic_inc(&brick->read_flying_count);
-		}
-#ifdef CONFIG_MARS_DEBUG
-		if (mref->ref_flags & MREF_SKIP_SYNC)
-			atomic_inc(&input->total_skip_sync_count);
-#endif
-
-		GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
-		GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
+		_if_start_io(input, mref_a);
 	}
 #ifdef IO_DEBUGGING
 	{
