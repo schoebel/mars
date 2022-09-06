@@ -1096,7 +1096,7 @@ int ordered_symlink(const char *oldpath,
 		status = mars_symlink(oldpath, newpath, stamp, true);
 
 	/* Automatically create any missing path dirs */
-	while (unlikely(status < 0)) {
+	while (unlikely(status < 0 && status != -EEXIST)) {
 		int old_len;
 		int check;
 
@@ -1104,18 +1104,28 @@ int ordered_symlink(const char *oldpath,
 			dir_path = brick_strdup(newpath);
 			dir_len = strlen(dir_path);
 		}
+		/* skip backwards to the slash */
 		old_len = dir_len;
 		while (dir_len > 0 && dir_path[dir_len] != '/')
 			dir_len--;
 		dir_path[dir_len] = '\0';
 		if (dir_len <= 0 || dir_len >= old_len)
 			break;
+		/* ensure that top-level dir is not created. */
+		dir_len--;
+		while (dir_len > 0 && dir_path[dir_len] != '/')
+			dir_len--;
+		if (dir_len <= 0 || dir_len >= old_len)
+			break;
+		/* create the interim dir */
 		check = mars_mkdir(dir_path);
 		if (check >= 0) {
 			brick_string_free(dir_path);
 			dir_path = NULL;
 			if (nr_retry++ < 3)
 				goto retry;
+			break;
+		} else if (check == -EEXIST) {
 			break;
 		}
 	}
