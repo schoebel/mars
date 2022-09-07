@@ -24,7 +24,12 @@
 #ifndef MARS_CHECK_H
 #define MARS_CHECK_H
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
+/* Historic: additional checks for mref integrity.
+ * Maybe converted to a modern method.
+ */
 #define CHECK_LOCK
+#endif
 
 struct check_mref_aspect {
 	GENERIC_ASPECT(mref);

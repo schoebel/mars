@@ -494,7 +494,9 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	bool assigned = false;
         int error = -EINVAL;
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	bind_to_channel(brick->say_channel, current);
+#endif
 
 	MARS_IO("bio %p "
 		"size = %d "
@@ -855,7 +857,9 @@ err:
 #endif
 
 done:
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	remove_binding_from(brick->say_channel, current);
+#endif
 
 //      remove_this
 /* see dece16353ef47d8d33f5302bc158072a9d65e26f */
@@ -1049,7 +1053,10 @@ static int if_switch(struct if_brick *brick)
 #endif
 
 		mars_power_led_off((void*)brick,  false);
+
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 		brick->say_channel = get_binding(current);
+#endif
 
 		status = -ENOMEM;
 		q = blk_alloc_queue(GFP_MARS);

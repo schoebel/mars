@@ -46,6 +46,19 @@ config MARS_CHECKS
 	performance.
 	If unsure, say Y here.
 
+config MARS_DEBUG_DEVEL_VIA_SAY
+	bool "only for MARS development and testing"
+	depends on MARS
+	default n
+	help
+	To disappear in the long term. Not required for
+	production.
+	Unnecessary logging may also worsen the scalability
+	of bigger Distributed Systems.
+	The content of /mars/**/[0-9].*.log may be only useful
+	upon RTFS = Read The Fucking Sourcecode(tm).
+	If unsure, say N here.
+
 config MARS_DEBUG
 	bool "enable full runtime checks and some tracing in MARS"
 	depends on MARS

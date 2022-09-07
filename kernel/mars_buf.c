@@ -906,11 +906,12 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 		}
 	}
 
-#if 1
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	if (jiffies - brick->last_jiffies >= 30 * HZ) {
 		unsigned long hit = atomic_read(&brick->hit_count);
 		unsigned long miss = atomic_read(&brick->miss_count);
 		unsigned long perc = hit * 100 * 100 / (hit + miss);
+
 		brick->last_jiffies = jiffies;
 		MARS_INF("BUF %p STATISTICS: alloc=%d hashed=%d free=%d forget=%d lru=%d io_pending=%d hit=%lu (%lu.%02lu%%) miss=%lu collisions=%d opt=%d chain=%d post=%d write=%d io=%d\n", brick, atomic_read(&brick->alloc_count), atomic_read(&brick->hashed_count), atomic_read(&brick->list_count[LIST_FREE]), atomic_read(&brick->list_count[LIST_FORGET]), atomic_read(&brick->list_count[LIST_LRU]), atomic_read(&brick->nr_io_pending), hit, perc / 100, perc % 100, miss, atomic_read(&brick->nr_collisions), atomic_read(&brick->opt_count), atomic_read(&brick->chain_count), atomic_read(&brick->post_count), atomic_read(&brick->write_count), atomic_read(&brick->io_count));
 	}

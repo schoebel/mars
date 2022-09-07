@@ -50,6 +50,13 @@
 
 #define INT_ACCESS(ptr,offset) (*(int*)(((char*)(ptr)) + (offset)))
 
+/* This part is historic.
+ * To disappear in the long term.
+ * When CONFIG_MARS_DEBUG_DEVEL_VIA_SAY is unset, and empty .o
+ * should be created.
+ */
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
+
 #define _BRICK_FMT(_fmt,_class)						\
 	"%lld.%09ld %lld.%09ld MEM_%-5s %s[%d] %s:%d %s(): "		\
 		_fmt,							\
@@ -77,6 +84,18 @@
 #define BRICK_ERR(_fmt, _args...) _BRICK_MSG(SAY_ERROR, true,  _fmt, ##_args)
 #define BRICK_WRN(_fmt, _args...) _BRICK_MSG(SAY_WARN,  false, _fmt, ##_args)
 #define BRICK_INF(_fmt, _args...) _BRICK_MSG(SAY_INFO,  false, _fmt, ##_args)
+
+#else /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
+
+/* empty macros, as far as necessary */
+#define _BRICK_FMT(_args...)		/*empty*/
+#define _BRICK_MSG(_args...)		/*empty*/
+#define BRICK_COND_ERR(_args...)	/*empty*/
+#define BRICK_ERR(_args...)		/*empty*/
+#define BRICK_WRN(_args...)		/*empty*/
+#define BRICK_INF(_args...)		/*empty*/
+
+#endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
 
 /////////////////////////////////////////////////////////////////////////
 

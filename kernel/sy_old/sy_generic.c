@@ -1135,6 +1135,11 @@ int ordered_symlink(const char *oldpath,
 
 //////////////////////////////////////////////////////////////
 
+/* This part is historic.
+ * To disappear in the long term.
+ */
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
+
 // thread binding
 
 void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
@@ -1174,6 +1179,12 @@ void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
  fatal: ;
 }
 EXPORT_SYMBOL_GPL(bind_to_dent);
+
+#else /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
+
+#define bind_to_dent(_args...)		/*empty*/
+
+#endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
 
 //////////////////////////////////////////////////////////////
 

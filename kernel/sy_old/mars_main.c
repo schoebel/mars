@@ -114,7 +114,8 @@ static char *_tmp_oneshot_peer = NULL;
 #define inline __attribute__((__noinline__))
 #endif
 
-// TODO: add human-readable timestamps
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
+
 #define MARS_INF_TO(channel, fmt, args...)				\
 	({								\
 		say_to(channel, SAY_INFO, "%s: " fmt, say_class[SAY_INFO], ##args); \
@@ -132,6 +133,14 @@ static char *_tmp_oneshot_peer = NULL;
 		say_to(channel, SAY_ERROR, "%s: " fmt, say_class[SAY_ERROR], ##args); \
 		MARS_ERR(fmt, ##args);					\
 	})
+
+#else /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
+
+#define MARS_INF_TO(args...)		/*empty*/
+#define MARS_WRN_TO(args...)		/*empty*/
+#define MARS_ERR_TO(args...)		/*empty*/
+
+#endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
 
 int mars_min_update = 10;
 
@@ -173,8 +182,10 @@ EXPORT_SYMBOL_GPL(global_sync_nr);
 int global_sync_limit = 0;
 EXPORT_SYMBOL_GPL(global_sync_limit);
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 int mars_rollover_interval = CONFIG_MARS_ROLLOVER_INTERVAL;
 EXPORT_SYMBOL_GPL(mars_rollover_interval);
+#endif
 
 int mars_scan_interval = CONFIG_MARS_SCAN_INTERVAL;
 EXPORT_SYMBOL_GPL(mars_scan_interval);
@@ -871,7 +882,9 @@ struct mars_rotate {
 	const char *parent_path;
 	const char *parent_rest;
 	const char *fetch_next_origin;
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	struct say_channel *log_say;
+#endif
 	struct copy_brick *fetch_brick;
 	struct mars_limiter replay_limiter;
 	struct mars_limiter sync_limiter;
@@ -4392,8 +4405,10 @@ void rot_destruct(void *_rot)
 		up_write(&rot_sem);
 		MARS_DBG("update info links\n");
 		write_info_links(rot);
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 		del_channel(rot->log_say);
 		rot->log_say = NULL;
+#endif
 		assign_dent(&rot->replay_link, NULL);
 		assign_dent(&rot->aio_dent, NULL);
 		assign_dent(&rot->first_log, NULL);
@@ -4491,6 +4506,7 @@ int make_log_init(struct mars_dent *dent)
 		rot->parent_rest = brick_strdup(parent->d_rest);
 	}
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	if (unlikely(!rot->log_say)) {
 		char *name = path_make("%s/logstatus-%s", parent_path, my_id());
 		if (likely(name)) {
@@ -4498,6 +4514,7 @@ int make_log_init(struct mars_dent *dent)
 			brick_string_free(name);
 		}
 	}
+#endif
 	
 	MARS_DBG("update info links\n");
 	write_info_links(rot);
@@ -5637,8 +5654,10 @@ int make_log_finalize(struct mars_dent *dent)
 	/* Handle jamming (a very exceptional state)
 	 */
 	if (IS_JAMMED()) {
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 #ifndef CONFIG_MARS_DEBUG
 		brick_say_logging = 0;
+#endif
 #endif
 		rot->has_emergency = true;
 		/* Report remote errors to clients when they
@@ -7021,6 +7040,8 @@ int kill_res(struct mars_dent *dent)
 		rot->if_brick->killme = true;
 		if (!rot->if_brick->power.led_off) {
 			int status = mars_power_button((void*)rot->if_brick, false, false);
+
+			(void)status;
 			MARS_INF("switching off resource '%s', device status = %d\n", rot->parent_path, status);
 		} else {
 			mars_kill_brick((void*)rot->if_brick);
@@ -7031,6 +7052,8 @@ int kill_res(struct mars_dent *dent)
 		rot->sync_brick->killme = true;
 		if (!rot->sync_brick->power.led_off) {
 			int status = mars_power_button((void*)rot->sync_brick, false, false);
+
+			(void)status;
 			MARS_INF("switching off resource '%s', sync status = %d\n", rot->parent_path, status);
 		}
 	}
@@ -7038,6 +7061,8 @@ int kill_res(struct mars_dent *dent)
 		rot->fetch_brick->killme = true;
 		if (!rot->fetch_brick->power.led_off) {
 			int status = mars_power_button((void*)rot->fetch_brick, false, false);
+
+			(void)status;
 			MARS_INF("switching off resource '%s', fetch status = %d\n", rot->parent_path, status);
 		}
 	}
@@ -7050,6 +7075,8 @@ int kill_res(struct mars_dent *dent)
 		rot->trans_brick->killme = true;
 		if (!rot->trans_brick->power.led_off) {
 			int status = mars_power_button((void*)rot->trans_brick, false, false);
+
+			(void)status;
 			MARS_INF("switching off resource '%s', logger status = %d\n", rot->parent_path, status);
 		}
 	}
@@ -7671,7 +7698,9 @@ void wait_main_round(void)
 
 static int _main_thread(void *data)
 {
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	long long last_rollover = jiffies;
+#endif
 	char *id = my_id();
 	int status = 0;
 
@@ -7694,16 +7723,20 @@ static int _main_thread(void *data)
 			(void *)&bio_brick_type,
 			NULL
 		};
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 		struct kstat dummy;
 		int say_status;
+#endif
 		struct list_head *tmp;
 		int trigger_mode;
 		int status;
 		loff_t memlimit;
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 		say_status = mars_stat(SAY_TEST_STR, &dummy, true);
 		if (!say_status)
 			init_say();
+#endif
 
 		MARS_DBG("-------- %d/%d NEW ROUND %d %d %d ---------\n",
 			 mars_global->global_power.button,
@@ -7841,10 +7874,12 @@ static int _main_thread(void *data)
 		}
 		MARS_DBG("kill any  bricks (when possible) = %d\n", status);
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 		if ((long long)jiffies + mars_rollover_interval * HZ >= last_rollover) {
 			last_rollover = jiffies;
 			rollover_all();
 		}
+#endif
 
 		global_sync_nr = _global_sync_nr;
 		show_vals(gbl_pairs, "/mars", "");
@@ -8018,7 +8053,9 @@ static void exit_main(void)
 	}
 
 	MARS_DBG("====================== stopped everything.\n");
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	exit_say();
+#endif
 	printk(KERN_INFO "stopped MARS\n");
 	/* Workaround for nasty race: some kernel threads have not yet
 	 * really finished even _after_ kthread_stop() and may execute
@@ -8069,10 +8106,12 @@ static int __init init_main(void)
 		printk(KERN_WARNING "Please read mars-user-manual.pdf first.\n");
 	}
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	/* This must come first to be effective */
 	status = mars_stat(SAY_TEST_STR, &dummy, true);
 	if (!status)
 		init_say();
+#endif
 
 #ifdef MARS_HAS_PREPATCH
 	// bump the min_free limit

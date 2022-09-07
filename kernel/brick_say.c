@@ -21,6 +21,14 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+/* This is historic.
+ * To disappear in the long term.
+ * When CONFIG_MARS_DEBUG_DEVEL_VIA_SAY is unset, and empty .o
+ * should be created (for now).
+ * Until it vanishes, the old code may be used as a hint for
+ * debugging alternatives.
+ */
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -971,3 +979,5 @@ void brick_dump_stack(void)
 EXPORT_SYMBOL(brick_dump_stack);
 
 #endif
+
+#endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */

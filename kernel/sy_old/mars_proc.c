@@ -74,9 +74,15 @@ void interpret_user_message(char *msg)
 		rest++;
 
 	switch (cmd) {
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	case 'l': /* write to syslog via say logging */
 		MARS_INF("%s\n", rest);
 		break;
+#else /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
+	case 'l': /* write to syslog via pr_info() */
+		pr_info("%s\n", rest);
+		break;
+#endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
 
 	case 'L': /* write to syslog via printk */
 		printk("%s\n", rest);
@@ -604,11 +610,13 @@ struct ctl_table mars_table[] = {
 	},
 	INT_ENTRY("min_update_seconds",   mars_min_update,        0600),
 	INT_ENTRY("max_lamport_future",   max_lamport_future,     0600),
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	INT_ENTRY("show_log_messages",    brick_say_logging,      0600),
 	INT_ENTRY("show_debug_messages",  brick_say_debug,        0600),
 	INT_ENTRY("show_statistics_global", global_show_statist,  0600),
 	INT_ENTRY("show_statistics_server", server_show_statist,  0600),
 	INT_ENTRY("show_connections",     global_show_connections, 0600),
+#endif
 	INT_ENTRY("aio_sync_mode",        aio_sync_mode,          0600),
 #ifdef CONFIG_MARS_DEBUG
 	INT_ENTRY("debug_crash_mode",     mars_crash_mode,        0600),
@@ -619,12 +627,14 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("logger_completion_semantics", trans_logger_completion_semantics, 0600),
 	INT_ENTRY("logger_allow_compress", trans_logger_allow_compress, 0600),
 	INT_ENTRY("zlib_compress_level",  mars_zlib_compression_level, 0600),
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	INT_ENTRY("syslog_min_class",     brick_say_syslog_min,   0600),
 	INT_ENTRY("syslog_max_class",     brick_say_syslog_max,   0600),
 	INT_ENTRY("syslog_flood_class",   brick_say_syslog_flood_class, 0600),
 	INT_ENTRY("syslog_flood_limit",   brick_say_syslog_flood_limit, 0600),
 	INT_ENTRY("syslog_flood_recovery_s", brick_say_syslog_flood_recovery, 0600),
 	INT_ENTRY("delay_say_on_overflow",delay_say_on_overflow,  0600),
+#endif
 	INT_ENTRY("mapfree_period_sec",   mapfree_period_sec,     0600),
 	INT_ENTRY("mapfree_grace_keep_mb", mapfree_grace_keep_mb, 0600),
 	INT_ENTRY("logger_pressure_limit", trans_logger_pressure_limit, 0600),
@@ -652,7 +662,10 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("copy_write_prio",      mars_copy_write_prio,   0600),
 	INT_ENTRY("copy_read_max_fly",    mars_copy_read_max_fly, 0600),
 	INT_ENTRY("copy_write_max_fly",   mars_copy_write_max_fly,0600),
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
+	/* damm - this historic name was misleading :( */
 	INT_ENTRY("statusfiles_rollover_sec", mars_rollover_interval, 0600),
+#endif
 	INT_ENTRY("scan_interval_sec",    mars_scan_interval,     0600),
 	INT_ENTRY("propagate_interval_sec", mars_propagate_interval, 0600),
 	INT_ENTRY("sync_flip_interval_sec", mars_sync_flip_interval, 0600),

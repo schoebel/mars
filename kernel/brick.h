@@ -48,15 +48,20 @@
 
 #define MAX_BRICK_TYPES 64
 
+#define SAFE_STR(str) ((str) ? (str) : "NULL")
+
 #define brick_msleep(msecs) _brick_msleep(msecs, false)
 extern int _brick_msleep(int msecs, bool shorten);
 #define brick_yield() cond_resched()
 
 /////////////////////////////////////////////////////////////////////////
 
-// printk() replacements
-
-#define SAFE_STR(str) ((str) ? (str) : "NULL")
+/* Historic replacements for printk().
+ * To disappear in the long term.
+ * When CONFIG_MARS_DEBUG_DEVEL_VIA_SAY is unset, and empty .o
+ * should be created.
+ */
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 
 #define _BRICK_MSG(_class, _dump, _fmt, _args...)		\
 	brick_say(_class, _dump, "BRICK", __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args)
@@ -77,6 +82,21 @@ extern int _brick_msleep(int msecs, bool shorten);
 #else
 #define BRICK_IO(_args...) /*empty*/
 #endif
+
+#else /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY is unset */
+
+/* empty macros, as far as necessary */
+#define _BRICK_MSG(_args...)		/*empty*/
+#define BRICK_FAT(_args...)		/*empty*/
+#define BRICK_ERR(_args...)		/*empty*/
+#define BRICK_WRN(_args...)		/*empty*/
+#define BRICK_INF(_args...)		/*empty*/
+#define BRICK_DBG(_args...)		/*empty*/
+#define BRICK_IO(_args...)		/*empty*/
+
+#endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
+
+/************************************************************************/
 
 #include "brick_checking.h"
 
@@ -690,6 +710,22 @@ typedef enum brick_switch {
 	BR_FREE_ALL,
 }  __packed brick_switch_t;
 
+/**********************************************************************/
+/* Historic say_channel, to disappear in the long term.
+ */
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
+#define __BIND_TO_SAY_CHANNEL(__thr__)					\
+	struct say_channel *ch = get_binding(current);			\
+	if (ch)								\
+		bind_to_channel(ch, _thr);
+#define __REMOVE_FROM_SAY_CHANNEL(__thr__)				\
+	remove_binding(__thr__)
+
+#else
+#define __BIND_TO_SAY_CHANNEL(__thr__)		/*empty*/
+#define __REMOVE_FROM_SAY_CHANNEL(__thr__)	/*empty*/
+#endif
+
 /////////////////////////////////////////////////////////////////////////
 
 // threads
@@ -729,9 +765,7 @@ typedef enum brick_switch {
 			break;						\
 		}							\
 		if (_thr) {						\
-			struct say_channel *ch = get_binding(current);	\
-			if (ch)						\
-				bind_to_channel(ch, _thr);		\
+			__BIND_TO_SAY_CHANNEL(_thr);			\
 			get_task_struct(_thr);				\
 			wake_up_process(_thr);				\
 		}							\
@@ -746,7 +780,7 @@ typedef enum brick_switch {
 			BRICK_INF("stopping thread '%s'\n", __thread__->comm); \
 			kthread_stop(__thread__);			\
 			BRICK_INF("thread '%s' finished.\n", __thread__->comm); \
-			remove_binding(__thread__);			\
+			__REMOVE_FROM_SAY_CHANNEL(__thread__);		\
 			put_task_struct(__thread__);			\
 			(_thread) = NULL;				\
 		}							\

@@ -24,6 +24,16 @@
 #ifndef BRICK_SAY_H
 #define BRICK_SAY_H
 
+/* This is historic.
+ * To disappear in the long term.
+ * DEPRECTAED since mars0.1astable155.
+ * When CONFIG_MARS_DEBUG_DEVEL_VIA_SAY is unset, an empty .o
+ * should be created (for now).
+ * Until it vanishes, the old code may be used as a hint for
+ * debugging alternatives.
+ */
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
+
 #ifndef CONFIG_MARS_MODULE
 // when unsure, include faked config file
 #include "mars_config.h"
@@ -97,5 +107,13 @@ extern void brick_dump_stack(void);
 #define brick_dump_stack() /*empty*/
 
 #endif // CONFIG_MARS_DEBUG
+
+#else /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
+
+/* old macros, as far as necessary (also to disappear) */
+#define INLINE static inline
+#define brick_say(_args...)		/*empty*/
+
+#endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
 
 #endif

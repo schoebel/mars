@@ -118,7 +118,9 @@ struct if_brick {
 	int error_code;
 	// private
 	struct semaphore switch_sem;
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	struct say_channel *say_channel;
+#endif
 	struct mars_info info;
 };
 
