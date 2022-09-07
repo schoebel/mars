@@ -3465,6 +3465,8 @@ void update_client_links(struct client_brick *brick)
 
 // statistics
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
+
 int global_show_statist =
 #ifdef CONFIG_MARS_DEBUG_DEFAULT
 	1;
@@ -3617,6 +3619,8 @@ void show_statistics(struct mars_global *global, const char *class)
 	MARS_STAT("==================== %s STATISTICS: %d dents, %d bricks, %lld KB free\n", class, dent_count, brick_count, global_remaining_space);
 }
 EXPORT_SYMBOL_GPL(show_statistics);
+
+#endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
 
 /////////////////////////////////////////////////////////////////////
 

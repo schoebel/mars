@@ -2312,7 +2312,7 @@ static int _kill_peer(struct mars_peerinfo *peer);
 static int run_bones(struct mars_peerinfo *peer);
 
 static
-void show_peers(void)
+void kill_terminated_peers(void)
 {
 	struct mars_peerinfo * to_kill = NULL;
 	struct list_head *tmp;
@@ -7883,8 +7883,10 @@ static int _main_thread(void *data)
 
 		global_sync_nr = _global_sync_nr;
 		show_vals(gbl_pairs, "/mars", "");
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 		show_statistics(mars_global, "main");
-		show_peers();
+#endif
+		kill_terminated_peers();
 
 		MARS_DBG("ban_count = %d ban_renew_count = %d\n", mars_global_ban.ban_count, mars_global_ban.ban_renew_count);
 
@@ -7929,7 +7931,9 @@ done:
 	mars_kill_brick_all(mars_global, &mars_global->brick_anchor, false);
 
 	show_vals(gbl_pairs, "/mars", "");
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	show_statistics(mars_global, "main");
+#endif
 
 	brick_string_free(mars_resource_list);
 	brick_string_free(tmp_resource_list);

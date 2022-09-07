@@ -926,6 +926,8 @@ EXPORT_SYMBOL_GPL(brick_iomap);
 
 // module
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
+
 void brick_mem_statistics(bool final)
 {
 #ifdef BRICK_DEBUG_MEM
@@ -1014,6 +1016,8 @@ void brick_mem_statistics(bool final)
 }
 EXPORT_SYMBOL_GPL(brick_mem_statistics);
 
+#endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
+
 // module init stuff
 
 int __init init_brick_mem(void)
@@ -1044,6 +1048,7 @@ void exit_brick_mem(void)
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	_free_all();
 #endif
-
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	brick_mem_statistics(true);
+#endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
 }

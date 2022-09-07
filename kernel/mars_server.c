@@ -409,7 +409,9 @@ int handler_thread(void *data)
 	char *cb_name;
 	struct mars_socket *sock = &brick->handler_socket;
 	bool ok = mars_get_socket(sock);
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	unsigned long statist_jiffies = jiffies;
+#endif
 	int debug_nr;
 	int old_proto_level = 0;
 	int status = -EINVAL;
@@ -442,10 +444,12 @@ int handler_thread(void *data)
 		handler_global->global_version++;
 
 		if (!list_empty(&handler_global->brick_anchor)) {
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 			if (server_show_statist && !time_is_before_jiffies(statist_jiffies + 10 * HZ)) {
 				show_statistics(handler_global, "handler");
 				statist_jiffies = jiffies;
 			}
+#endif
 			if (!mars_socket_is_alive(sock) &&
 			    atomic_read(&brick->in_flight) <= 0 &&
 			    brick->conn_brick) {
@@ -1011,8 +1015,10 @@ EXPORT_SYMBOL_GPL(server_brick_type);
 
 // strategy layer
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 int server_show_statist = 0;
 EXPORT_SYMBOL_GPL(server_show_statist);
+#endif
 
 static int port_thread(void *data)
 {
@@ -1049,8 +1055,10 @@ static int port_thread(void *data)
 		server_global->global_version++;
 		mars_limit(&server_limiter, 0);
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 		if (server_show_statist)
 			show_statistics(server_global, "server");
+#endif
 
 		status = mars_kill_brick_when_possible(server_global,
 						       NULL, true);

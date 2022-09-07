@@ -338,10 +338,12 @@ extern int  mars_power_button(struct mars_brick *brick, bool val, bool force_off
 
 // statistics
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 extern int global_show_statist;
 extern int global_show_connections;
 
 void show_statistics(struct mars_global *global, const char *class);
+#endif
 
 /////////////////////////////////////////////////////////////////////////
 

@@ -26,9 +26,11 @@
  * 1 Input, 0 Outputs.
  */
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 //#define IO_DEBUGGING
+#endif
 
 #define REQUEST_MERGING
 //#define ALWAYS_UNPLUG false // FIXME: does not work! single requests left over!
@@ -281,6 +283,7 @@ void if_endio(struct generic_callback *cb)
 #ifdef IO_DEBUGGING
 		{
 			char *txt = brick->ops->brick_statistics(brick, false);
+
 			MARS_IO("%s", txt);
 			brick_string_free(txt);
 		}
@@ -372,6 +375,7 @@ void _if_unplug(struct if_input *input)
 	{
 		struct if_brick *brick = input->brick;
 		char *txt = brick->ops->brick_statistics(brick, false);
+
 		MARS_IO("%s", txt);
 		brick_string_free(txt);
 	}
@@ -816,6 +820,7 @@ err:
 #ifdef IO_DEBUGGING
 	{
 		char *txt = brick->ops->brick_statistics(brick, false);
+
 		MARS_IO("%s", txt);
 		brick_string_free(txt);
 	}

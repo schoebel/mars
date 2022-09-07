@@ -246,7 +246,9 @@ extern int brick_mem_reserve(void);
 
 #endif
 
+#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 extern void brick_mem_statistics(bool final);
+#endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
 
 /////////////////////////////////////////////////////////////////////////
 
