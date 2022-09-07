@@ -182,6 +182,15 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable155
+	(housekeeping release)
+	Deprecate historic say logging.
+	It could have led to unnecessary overhead in bigger
+	distributed systems. Anyway, it was not necessary for
+	production.
+	So please do not activate CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
+	unless you read the sourcecode.
+
 mars0.1astable154
 	* Safeguard suspected SMP cache coherence problems.
 	  Inspired by upstream commit d4252071b97d2027d246.
