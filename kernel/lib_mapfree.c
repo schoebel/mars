@@ -228,7 +228,9 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 		struct inode *inode;
 		loff_t length;
 		int i;
+#ifdef MARS_HAS_OLD_BDGET
 		int ra = 1;
+#endif
 		int prot = 0600;
 #ifdef MARS_NEEDS_KERNEL_DS
 		mm_segment_t oldfs;
@@ -306,6 +308,7 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 			mf->mf_length[i].dl_length = length;
 		}
 
+#ifdef MARS_HAS_OLD_BDGET
 		if (S_ISBLK(inode->i_mode)) {
 #ifdef MARS_HAS_BDI_GET
 			struct backing_dev_info *bdi =
@@ -318,6 +321,7 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 			inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages = ra;
 #endif
 		}
+#endif /* MARS_HAS_OLD_BDGET */
 
 		if (flags & O_DIRECT) {	// never share them
 			break;
