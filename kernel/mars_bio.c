@@ -848,7 +848,6 @@ static int bio_switch(struct bio_brick *brick)
 #ifdef MARS_HAS_BDI_GET
 			struct backing_dev_info *bdi;
 #endif
-
 			brick->error = 0;
 			brick->mf = mapfree_get(path, flags, &brick->error);
 			if (unlikely(!brick->mf)) {
@@ -890,7 +889,6 @@ static int bio_switch(struct bio_brick *brick)
 			MARS_INF("'%s' ra_pages OLD=%lu NEW=%d\n", path, q->backing_dev_info.ra_pages, brick->ra_pages);
 			q->backing_dev_info.ra_pages = brick->ra_pages;
 #endif
-
 			q->nr_requests = bio_nr_requests;
 
 			brick->bvec_max = queue_max_hw_sectors(q) >> (PAGE_SHIFT - 9);
