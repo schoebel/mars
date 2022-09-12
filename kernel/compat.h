@@ -348,7 +348,8 @@ extern int __oldcompat_unlink(
  * in place of q->unplug_fn
  */
 #if defined(MARS_HAS_PREPATCH_V3) &&		\
-  !defined(MARS_HAS_PREPATCH_V3a)
+	defined(MARS_HAS_PREPATCH_V3b) &&	\
+	1
 #define MARS_USE_BLK_CHECK_PLUGGER
 #endif
 

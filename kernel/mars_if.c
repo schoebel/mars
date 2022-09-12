@@ -938,6 +938,57 @@ done:
 #endif
 }
 
+#ifdef MARS_USE_BLK_CHECK_PLUGGER
+/* New callback infrastructur from kernel upstream,
+ * mandatory after v5.10.
+ * Prefer the block layer callbacks in place to direct calls.
+ */
+struct mars_plug_cb {
+	struct blk_plug_cb blk_cb;
+	struct bio         *orig_bio;
+	bool                succeeded;
+};
+
+static
+void mars_unplug(struct blk_plug_cb *_blk_cb, bool from_schedule)
+{
+	struct mars_plug_cb *mars_cb;
+	struct gendisk *bi_disk;
+	struct bio *orig_bio;
+	struct request_queue *q;
+
+	mars_cb = container_of(_blk_cb, struct mars_plug_cb, blk_cb);
+	orig_bio = mars_cb->orig_bio;
+	kfree(_blk_cb);
+	if (!orig_bio)
+		return;
+	bi_disk = orig_bio->bi_disk;
+	if (!bi_disk)
+		return;
+	q = bi_disk->queue;
+	if (!q)
+		return;
+#if 1
+	(void)_if_make_request(q, orig_bio);
+	mars_cb->succeeded = true;
+#endif
+}
+
+static
+bool mars_check_plugged(struct if_input *input)
+{
+	struct blk_plug_cb *_blk_cb;
+	struct mars_plug_cb *mars_cb;
+
+	_blk_cb = blk_check_plugged(mars_unplug, input, sizeof(struct mars_plug_cb));
+	if (!_blk_cb)
+		return false;
+	mars_cb = container_of(_blk_cb, struct mars_plug_cb, blk_cb);
+	return mars_cb->succeeded;
+}
+
+#endif /* MARS_USE_BLK_CHECK_PLUGGER */
+
 #if defined(MARS_HAS_NEW_BLK_QUEUE_SPLIT)
 blk_qc_t if_make_request(struct bio *bio)
 {
@@ -946,6 +997,15 @@ blk_qc_t if_make_request(struct bio *bio)
 
 	blk_queue_split(&bio);
 	q = bio->bi_disk->queue;
+#ifdef MARS_USE_BLK_CHECK_PLUGGER
+	{
+		struct if_input *input = q->queuedata;
+		if (input) {
+			if (mars_check_plugged(input))
+				return BLK_QC_T_NONE;
+		}
+	}
+#endif /*  MARS_USE_BLK_CHECK_PLUGGER */
 	res = _if_make_request(q, bio);
 	return res;
 }
@@ -1246,10 +1306,12 @@ static int if_switch(struct if_brick *brick)
 #endif
 		MARS_DBG("blk_queue_bounce_limit()\n");
 		blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
+#ifndef MARS_USE_BLK_CHECK_PLUGGER
 #ifndef BLK_MAX_REQUEST_COUNT
 		MARS_DBG("unplug_fn\n");
 		q->unplug_fn = if_unplug;
 #endif
+#endif /* MARS_USE_BLK_CHECK_PLUGGER */
 #ifdef MARS_HAS_OLD_QUEUE_LOCK
 		MARS_DBG("queue_lock\n");
 		q->queue_lock = &input->req_lock; // needed!
