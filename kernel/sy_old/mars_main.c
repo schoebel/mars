@@ -1738,6 +1738,15 @@ done:;
 }
 
 static
+bool _is_trans_input_initialized(struct trans_logger_input *trans_input)
+{
+	if (!trans_input ||
+	    !trans_input->is_operating)
+		return false;
+	return true;
+}
+
+static
 bool _is_trans_input_fully_working(struct trans_logger_input *trans_input)
 {
 	struct mars_brick *prev_brick;
@@ -4549,7 +4558,19 @@ int make_log_init(struct mars_dent *dent)
 	if (rot->trans_brick) {
 		struct trans_logger_input *trans_input = rot->trans_brick->inputs[rot->trans_brick->old_input_nr];
 
-		if (_is_trans_input_fully_working(trans_input)) {
+		/* There may be initialized inputs, but not yet fully working
+		 * (e.g. after a defective logfile after a crash), or
+		 * not even connected (e.g. due to a non-existing logfile
+		 * or an unusable /mars/ filesystemc, etc).
+		 * Prefer an initialized input, for further setup steps.
+		 * When they cannot be connected for a longer time (for
+		 * whatever reason), they should be
+		 * decommissioned in their current role.
+		 * When nothing helps, the last resort in designated primary
+		 * role may be creation of an empty new logfile.
+		 * If even this fails, we have no chance :(
+		 */
+		if (_is_trans_input_initialized(trans_input)) {
 			aio_path = path_make("%s/log-%09d-%s",
 					     parent_path,
 					     trans_input->inf.inf_sequence,
