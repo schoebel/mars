@@ -182,6 +182,14 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable156
+	Critical fix for recovery after a crash, if it led to a certain
+	type of defective logfile.
+	Workaround was possible by manual creation of an empty next
+	logfile, such as "touch /mars/resource-$mydata/log-$next_nr-$host"
+	where $next_nr must have 9 digits like the other logfiles.
+	Please update to this version in place of manual workarounds.
+
 mars0.1astable155
 	(housekeeping release)
 	Deprecate historic say logging.
