@@ -211,6 +211,16 @@ extern int __oldcompat_unlink(
 #define MARS_HAS_OLD_QUEUE_LOCK
 #endif
 
+/* Adapt to f695ca3886ce72b027af7aa6040cd420cae2088c
+ * (block: remove the request_queue argument from blk_queue_split)
+ * and ed00aabd5eb9fb44d6aff1173234a2e911b9fead
+ * (block: rename generic_make_request to submit_bio_noacct)
+ */
+#if defined(IOCB_WAITQ)
+#define MARS_HAS_NEW_BLK_QUEUE_SPLIT
+#undef  MARS_NEW_BLK_ALLOC_QUEUE
+#endif
+
 /* IO accounting */
 
 /* adapt to 394ffa503bc40e32d7f54a9b817264e81ce131b4

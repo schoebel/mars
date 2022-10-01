@@ -932,6 +932,18 @@ done:
 #endif
 }
 
+#if defined(MARS_HAS_NEW_BLK_QUEUE_SPLIT)
+blk_qc_t if_make_request(struct bio *bio)
+{
+	struct request_queue *q;
+	blk_qc_t res;
+
+	blk_queue_split(&bio);
+	q = bio->bi_disk->queue;
+	res = _if_make_request(q, bio);
+	return res;
+}
+#else
 #ifdef NEED_BIO_SPLIT
 static
 #ifdef BLK_QC_T_NONE
@@ -940,7 +952,9 @@ blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
 void if_make_request(struct request_queue *q, struct bio *bio)
 #endif
 {
-#ifdef MARS_HAS_BIO_SPLIT2
+#ifdef MARS_HAS_NEW_BLK_QUEUE_SPLIT
+	blk_queue_split(&bio);
+#elif defined(MARS_HAS_BIO_SPLIT2)
 	blk_queue_split(q, &bio);
 #else
 	blk_queue_split(q, &bio, q->bio_split);
@@ -953,6 +967,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 }
 
 #endif
+#endif /* defined(MARS_HAS_NEW_BLK_QUEUE_SPLIT) */
 
 #ifndef BLK_MAX_REQUEST_COUNT
 //static
@@ -1119,7 +1134,9 @@ static int if_switch(struct if_brick *brick)
 #endif
 
 		status = -ENOMEM;
-#ifdef MARS_NEW_BLK_ALLOC_QUEUE
+#if defined(MARS_HAS_NEW_BLK_QUEUE_SPLIT)
+		q = blk_alloc_queue(NUMA_NO_NODE);
+#elif defined(MARS_NEW_BLK_ALLOC_QUEUE)
 		/* Moved from obsolete blk_queue_make_request() to here.
 		 * See 3d745ea5b095a3985129e162900b7e6c22518a9d
 		 * and many thanks to Christoph Hellwig!
@@ -1157,7 +1174,8 @@ static int if_switch(struct if_brick *brick)
 		MARS_DBG("created device name %s, capacity=%lld\n", disk->disk_name, capacity);
 		if_set_capacity(input, capacity);
 
-#ifdef MARS_NEW_BLK_ALLOC_QUEUE
+#if defined(MARS_NEW_BLK_ALLOC_QUEUE) ||		\
+		defined(MARS_HAS_NEW_BLK_QUEUE_SPLIT)
 		/* No longer called right here.
 		 * Moved to blk_alloc_queue(), see 3d745ea5b095a3985129e162900b7e6c22518a9d
 		 * and many thanks to Christoph Hellwig!
@@ -1449,6 +1467,9 @@ static const struct block_device_operations if_blkdev_ops = {
 	.owner =   THIS_MODULE,
 	.open =    if_open,
 	.release = if_release,
+#if defined(MARS_HAS_NEW_BLK_QUEUE_SPLIT)
+	.submit_bio = if_make_request,
+#endif
 
 };
 
