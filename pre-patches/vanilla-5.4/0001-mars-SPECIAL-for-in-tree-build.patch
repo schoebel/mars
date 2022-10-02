@@ -4,7 +4,7 @@ Date: Fri, 28 Jun 2013 11:03:14 +0200
 Subject: [PATCH] mars: SPECIAL for in-tree build
 
 ---
- block/Kconfig  | 2 ++
+ block/Kconfig.v5.4  | 2 ++
  block/Makefile | 2 ++
  2 files changed, 4 insertions(+)
 
@@ -12,11 +12,11 @@ diff --git a/block/Kconfig b/block/Kconfig
 index 41c0917ce622..ccf181798cb7 100644
 --- a/block/Kconfig
 +++ b/block/Kconfig
-@@ -183,6 +183,8 @@ source "block/partitions/Kconfig"
+@@ -183,6 +183,8 @@ source "block/partitions/Kconfig.v5.4"
  
  endmenu
  
-+source "block/mars/kernel/Kconfig"
++source "block/mars/kernel/Kconfig.v5.4"
 +
  endif # BLOCK
  
