@@ -1428,7 +1428,11 @@ int mars_symlink(const char *oldpath, const char *newpath,
 	set_fs(KERNEL_DS);
 #endif
 
+#ifdef MARS_USE_VFS_GETATTR
+	status = mars_stat(newpath, &stat, true);
+#else
 	status = vfs_lstat((char*)newpath, &stat);
+#endif
 
 	/* When ordered, obey the Lamport condition.
 	 */
@@ -2316,7 +2320,11 @@ int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 	set_fs(KERNEL_DS);
 #endif
 
+#ifdef MARS_USE_VFS_GETATTR
+	status = mars_stat(newpath, &tmp, true);
+#else
 	status = vfs_lstat(newpath, &tmp);
+#endif
 	if (status < 0) {
 		MARS_WRN("cannot stat '%s', status = %d\n", newpath, status);
 		goto done;
