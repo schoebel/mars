@@ -566,14 +566,20 @@ int _length_paranoia(int len, int line)
 bool mars_is_mountpoint(const char *pathname)
 {
 	struct path path = {};
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 	int status;
 	bool res = false;
 
+#ifndef MARS_NEEDS_KERNEL_DS
+	status = kern_path(pathname, 0, &path);
+#else
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
-
 	status = user_path_at(AT_FDCWD, pathname, 0, &path);
+#endif
+
 	if (unlikely(status < 0)) {
 		MARS_WRN("pathname '%s' does not exist, status = %d\n",
 			 pathname, status);
@@ -597,7 +603,9 @@ done_put:
 	path_put(&path);
 
 done_fs:
+#ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
+#endif
 	return res;
 }
 
@@ -956,17 +964,21 @@ void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining)
 {
 	struct path path = {};
 	struct kstatfs kstatfs = {};
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 	int res;
 
 	*total = *remaining = 0;
 
+#ifndef MARS_NEEDS_KERNEL_DS
+	res = kern_path(fspath, 0, &path);
+#else
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
-
 	res = user_path_at(AT_FDCWD, fspath, 0, &path);
-
 	set_fs(oldfs);
+#endif
 
 	if (unlikely(res < 0)) {
 		MARS_ERR("cannot get fspath '%s', err = %d\n\n", fspath, res);
@@ -1442,12 +1454,16 @@ struct mars_cookie {
 static
 int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 {
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 	int status;
 	struct kstat tmp = {};
 
+#ifdef MARS_NEEDS_KERNEL_DS
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 
 	status = vfs_lstat(newpath, &tmp);
 	if (status < 0) {
@@ -1481,7 +1497,11 @@ int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 		}
 		len = _length_paranoia(len, __LINE__);
 
+#ifndef MARS_NEEDS_KERNEL_DS
+		status = kern_path(newpath, 0, &path);
+#else
 		status = user_path_at(AT_FDCWD, newpath, 0, &path);
+#endif
 		if (unlikely(status < 0)) {
 			MARS_WRN("cannot read link '%s'\n", newpath);
 			goto done;
@@ -1551,7 +1571,9 @@ int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 		MARS_IO("symlink '%s'\n", dent->new_link);
 
  done:
+#ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
+#endif
 	return status;
 }
 
