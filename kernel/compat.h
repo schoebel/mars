@@ -336,6 +336,14 @@ extern int __oldcompat_unlink(
 #define MARS_HAS_VFS_READLINK
 #endif
 
+/* Prefer vfs_getattr() in place of deprecated
+ * vfs_stat() resp vfs_lstat()
+ */
+#if defined(MARS_HAS_PREPATCH_V3) &&		\
+  !defined(MARS_HAS_PREPATCH_V3a)
+#define MARS_USE_VFS_GETATTR 
+#endif
+
 /* for mm stuff, should disappear */
 
 /* adapt to 68e21be2916b359fd8afb536c1911dc014cfd03e
