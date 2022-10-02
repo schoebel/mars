@@ -221,6 +221,16 @@ extern int __oldcompat_unlink(
 #undef  MARS_NEW_BLK_ALLOC_QUEUE
 #endif
 
+/* Ensure that the new _mars_rename()
+ * can be used. Typically around kernel v5.10
+ * or similar for Frankenstein.
+ *
+ */
+#if defined(MARS_HAS_PREPATCH_V3) &&		\
+  defined(IOCB_WAITQ)
+#define USE_NEW_MARS_RENAME
+#endif
+
 /* IO accounting */
 
 /* adapt to 394ffa503bc40e32d7f54a9b817264e81ce131b4
