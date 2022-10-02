@@ -1,0 +1,104 @@
+From ffa9a3c42d05ec2af33756bfabea7717a2299fef Mon Sep 17 00:00:00 2001
+From: Thomas Schoebel-Theuer <tst@1und1.de>
+Date: Fri, 8 Mar 2019 08:21:15 +0100
+Subject: [PATCH] sched/wait: fix endless kthread loop at timeout
+
+Scenario, possible since kernel 4.11.x and later:
+
+1) kthread calls a waiting function with a timeout, and blocks.
+2) kthread_stop() is called by somebody else.
+3) kthread makes some progress, but neither finishes nor timeouts.
+4) Nothing happens => normally the timeout would be reached by the kthread.
+
+However, the condition in wait_woken() now prevents the call to
+schedule_timeout().
+As a consequence, the timeout value will never be decreased, resulting
+in an endless loop.
+
+This fix ensures the following semantics: kthread_should_stop() is treated
+as equivalent to a timeout. This is beneficial because most users do not
+want to wait for the timeout, but to stop the kthread as soon as possible.
+It appears that this semantics was probably intended (otherwise the check
+is_kthread_should_stop() would not make much sense), but just went wrong
+due to the bug.
+
+Here is an example, triggered by external kernel module MARS on a
+production kernel. However, the problem can be also triggered by other
+kthreads and on newer kernels, and also in very different scenarios,
+not only during tcp_revcmsg().
+
+In the following example, the kthread simply waits for network packets
+to arrive, but in the test scenario the network had been blocked
+underneath by a firewall rule in order to trigger the bug:
+
+Mar 08 07:40:08 icpu5133 kernel: watchdog: BUG: soft lockup - CPU#29 stuck for 23s! [mars_receiver8.:8139]
+Mar 08 07:40:08 icpu5133 kernel: Modules linked in: mars(-) ip6table_mangle ip6table_raw iptable_raw ip_set_bitmap_port xt_DSCP xt_multiport ip_set_hash_ip xt_own
+Mar 08 07:40:08 icpu5133 kernel: irq event stamp: 300719885
+Mar 08 07:40:08 icpu5133 kernel: hardirqs last  enabled at (300719883): [<ffffffff81bb96d0>] _raw_spin_unlock_irqrestore+0x3d/0x4f
+Mar 08 07:40:08 icpu5133 kernel: hardirqs last disabled at (300719885): [<ffffffff81c01a02>] apic_timer_interrupt+0x82/0x90
+Mar 08 07:40:08 icpu5133 kernel: softirqs last  enabled at (300719878): [<ffffffff819de0af>] lock_sock_nested+0x50/0x98
+Mar 08 07:40:08 icpu5133 kernel: softirqs last disabled at (300719884): [<ffffffff819df5f2>] release_sock+0x16/0xda
+Mar 08 07:40:08 icpu5133 kernel: CPU: 29 PID: 8139 Comm: mars_receiver8. Not tainted 4.14.104+ #121
+Mar 08 07:40:08 icpu5133 kernel: Hardware name: Dell Inc. PowerEdge R630/02C2CP, BIOS 2.5.5 08/16/2017
+Mar 08 07:40:08 icpu5133 kernel: task: ffff88bf82764fc0 task.stack: ffffc90012430000
+Mar 08 07:40:08 icpu5133 kernel: RIP: 0010:arch_local_irq_restore+0x2/0x8
+Mar 08 07:40:08 icpu5133 kernel: RSP: 0018:ffffc90012433b78 EFLAGS: 00000246 ORIG_RAX: ffffffffffffff10
+Mar 08 07:40:08 icpu5133 kernel: RAX: 0000000000000000 RBX: ffff88bf82764fc0 RCX: 00000000fec792b4
+Mar 08 07:40:08 icpu5133 kernel: RDX: 00000000c18b50d3 RSI: 0000000000000000 RDI: 0000000000000246
+Mar 08 07:40:08 icpu5133 kernel: RBP: 0000000000000001 R08: 0000000000000001 R09: 0000000000000000
+Mar 08 07:40:08 icpu5133 kernel: R10: ffffc90012433b08 R11: ffffc90012433ba8 R12: 0000000000000246
+Mar 08 07:40:08 icpu5133 kernel: R13: ffffffff819df735 R14: 0000000000000001 R15: ffff88bf82765818
+Mar 08 07:40:08 icpu5133 kernel: FS:  0000000000000000(0000) GS:ffff88c05fb80000(0000) knlGS:0000000000000000
+Mar 08 07:40:08 icpu5133 kernel: CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+Mar 08 07:40:08 icpu5133 kernel: CR2: 000055abd12eb688 CR3: 000000000241e006 CR4: 00000000001606e0
+Mar 08 07:40:08 icpu5133 kernel: Call Trace:
+Mar 08 07:40:08 icpu5133 kernel:  lock_release+0x32f/0x33b
+Mar 08 07:40:08 icpu5133 kernel:  release_sock+0x90/0xda
+Mar 08 07:40:08 icpu5133 kernel:  sk_wait_data+0x7f/0x13f
+Mar 08 07:40:08 icpu5133 kernel:  ? prepare_to_wait_exclusive+0xc1/0xc1
+Mar 08 07:40:08 icpu5133 kernel:  tcp_recvmsg+0x4e6/0x91a
+Mar 08 07:40:08 icpu5133 kernel:  ? flush_signals+0x2b/0x6a
+Mar 08 07:40:08 icpu5133 kernel:  ? lock_acquire+0x20a/0x25a
+Mar 08 07:40:08 icpu5133 kernel:  inet_recvmsg+0x8d/0xc0
+Mar 08 07:40:08 icpu5133 kernel:  kernel_recvmsg+0x8f/0xaa
+Mar 08 07:40:08 icpu5133 kernel:  ? ___might_sleep+0xf2/0x256
+Mar 08 07:40:08 icpu5133 kernel:  mars_recv_raw+0x22a/0x4da [mars]
+Mar 08 07:40:08 icpu5133 kernel:  desc_recv_struct+0x40/0x375 [mars]
+Mar 08 07:40:08 icpu5133 kernel:  receiver_thread+0xa2/0x61a [mars]
+Mar 08 07:40:08 icpu5133 kernel:  ? _hash_insert+0x160/0x160 [mars]
+Mar 08 07:40:08 icpu5133 kernel:  ? kthread+0x1a6/0x1ae
+Mar 08 07:40:08 icpu5133 kernel:  kthread+0x1a6/0x1ae
+Mar 08 07:40:08 icpu5133 kernel:  ? __list_del_entry+0x60/0x60
+Mar 08 07:40:08 icpu5133 kernel:  ret_from_fork+0x3a/0x50
+Mar 08 07:40:08 icpu5133 kernel: Code: ee e8 c5 17 00 00 48 85 db 75 0e 31 f6 48 c7 c7 c0 5f 53 82 e8 68 b9 58 00 48 89 5b 58 58 5b 5d c3 9c 58 0f 1f 44 00 00 c3
+
+Signed-off-by: Thomas Schoebel-Theuer <tst@1und1.de>
+---
+ kernel/sched/wait.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/sched/wait.c b/kernel/sched/wait.c
+index c1e566a114ca..08f121154a91 100644
+--- a/kernel/sched/wait.c
++++ b/kernel/sched/wait.c
+@@ -412,8 +412,15 @@ long wait_woken(struct wait_queue_entry *wq_entry, unsigned mode, long timeout)
+ 	 * or woken_wake_function() sees our store to current->state.
+ 	 */
+ 	set_current_state(mode); /* A */
+-	if (!(wq_entry->flags & WQ_FLAG_WOKEN) && !is_kthread_should_stop())
+-		timeout = schedule_timeout(timeout);
++	if (!(wq_entry->flags & WQ_FLAG_WOKEN)) {
++		/*
++		 * Treat kthread stopping as equivalent to a timeout.
++		 */
++		if (is_kthread_should_stop())
++			timeout = 0;
++		else
++			timeout = schedule_timeout(timeout);
++	}
+ 	__set_current_state(TASK_RUNNING);
+ 
+ 	/*
+-- 
+2.26.2
+
