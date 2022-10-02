@@ -242,6 +242,15 @@ extern int __oldcompat_unlink(
 #define MARS_HAS_OLD_BDGET
 #endif
 
+/* Please remove MARS_IF_HAS_BDEV and its uses in future.
+ */
+#if defined(MARS_HAS_PREPATCH) ||		\
+  (defined(MARS_HAS_PREPATCH_V3) &&		\
+   !defined(MARS_HAS_PREPATCH_V3a) &&		\
+   !defined(CONFIG_MARS_CANNOT_USE_AIO_ANYMORE))
+#define MARS_IF_HAS_BDEV
+#endif
+
 /* IO accounting */
 
 /* adapt to 394ffa503bc40e32d7f54a9b817264e81ce131b4
