@@ -905,6 +905,7 @@ int _mars_stat_rwsymlink(/* used for kstat, must be given */
 	bool no_full_path = false;
 	bool want_oldpath_write;
 	bool got_attr = false;
+	bool need_rmdir = false;
 	int status;
 
 	if (likely(use_lstat)) {
@@ -982,6 +983,16 @@ int _mars_stat_rwsymlink(/* used for kstat, must be given */
  just_create:
 	if (want_oldpath_write) {
 		struct lamport_time real_now;
+
+		/* Special case: directories cannot be replaced
+		 * with .deleted (whether ordered or not).
+		 * Use rmdir() later.
+		 */
+		if (S_ISDIR(kstat->mode) &&
+		    strcmp(oldpath_write, MARS_DELETED_STR)) {
+			need_rmdir = true;
+			goto done_full_path;
+		}
 
 		get_real_lamport(&real_now);
 
@@ -1061,6 +1072,12 @@ int _mars_stat_rwsymlink(/* used for kstat, must be given */
 #endif
 		path_put(&parent_path);
 		brick_string_free(parent_pathname);
+	}
+	/* After releasing all internal locks, try the
+	 * rmdir() functionality when requested.
+	 */
+	if (need_rmdir) {
+		status = mars_rmdir(oldpath_write);
 	}
 	return status;
 }
