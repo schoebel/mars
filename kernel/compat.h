@@ -344,6 +344,14 @@ extern int __oldcompat_unlink(
 #define MARS_USE_VFS_GETATTR 
 #endif
 
+/* Prefer new blk_check_plugged()
+ * in place of q->unplug_fn
+ */
+#if defined(MARS_HAS_PREPATCH_V3) &&		\
+  !defined(MARS_HAS_PREPATCH_V3a)
+#define MARS_USE_BLK_CHECK_PLUGGER
+#endif
+
 /* for mm stuff, should disappear */
 
 /* adapt to 68e21be2916b359fd8afb536c1911dc014cfd03e
