@@ -2,6 +2,16 @@
 # Makefile for MARS
 #
 
+# Sorry, this file may live outside of standard build directories
+this-makefile := $(lastword $(MAKEFILE_LIST))
+abs_srctree := $(realpath $(dir $(this-makefile)))
+ifeq ($(abs_objtree),)
+abs_objtree := $(abs_srctree)
+endif
+ifeq ($(abs_objtree),.)
+abs_objtree = $(abs_srctree)
+endif
+
 KBUILD_CFLAGS += -fdelete-null-pointer-checks
 
 # remove_this
@@ -87,7 +97,13 @@ endif
 # for sysadmins having to manage a plethora of kernel versions.
 #
 extra-y	+= buildtag.h
-$(obj)/buildtag.h: $(patsubst $(obj)/buildtag.h,,$(wildcard $(obj)/*.[ch])) $(obj)/*/*.[ch]
+$(obj)/buildtag.h: $(patsubst $(obj)/buildtag.h,,$(wildcard $(obj)/*.[ch]))
+$(obj)/buildtag.h: $(wildcard $(obj)/*/*.[ch])
+$(obj)/buildtag.h: $(wildcard $(abs_srctree)/*.[chsS])
+$(obj)/buildtag.h: $(wildcard $(abs_srctree)/*/*.[chsS])
+$(obj)/buildtag.h: $(wildcard $(abs_objtree)/*.[chsS])
+$(obj)/buildtag.h: $(wildcard $(abs_objtree)/*/*.[chsS])
+$(obj)/buildtag.h: $(wildcard $(abs_objtree)/*/*/*.[chsS])
 	$(Q)$(kecho) "MARS: Generating $@"
 	$(Q)set -e; \
 	exec > $@;\
