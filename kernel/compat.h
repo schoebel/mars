@@ -446,11 +446,12 @@ extern int __oldcompat_unlink(
 #if (defined(CONFIG_LZ4_COMPRESS) || defined(CONFIG_LZ4_COMPRESS_MODULE)) && \
   (defined(CONFIG_LZ4_DECOMPRESS) || defined(CONFIG_LZ4_DECOMPRESS_MODULE))
 #include <linux/lz4.h>
-#define HAS_LZ4
 /* adapt to 4e1a33b105ddf201f66dcc44490c6086a25eca0b
  */
 #ifdef LZ4_ACCELERATION_DEFAULT
 #define HAS_FAST_LZ4
+#else
+#define HAS_LZ4
 #endif
 #endif
 
