@@ -231,6 +231,17 @@ extern int __oldcompat_unlink(
 #define USE_NEW_MARS_RENAME
 #endif
 
+/* Enable MARS_HAS_OLD_BDGET where it was necessary
+ * in the past. Not to b e confused with the old
+ * MARS_HAS_BDI_GET.
+ * Togegther, this should disappear in the long term.
+ */
+#if defined(MARS_HAS_PREPATCH) ||		\
+  (defined(MARS_HAS_PREPATCH_V3) &&		\
+   !defined(MARS_NEW_BLK_ALLOC_QUEUE))
+#define MARS_HAS_OLD_BDGET
+#endif
+
 /* IO accounting */
 
 /* adapt to 394ffa503bc40e32d7f54a9b817264e81ce131b4
