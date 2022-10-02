@@ -48,7 +48,21 @@
 #define USE_MAX_HW_SECTORS      1
 #define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
 
+/* congested_fn() does not work at / around kernel v5.9
+ * but it worked earlier, and it will be
+ * needed later.
+ * Here is a workaround, not intended for Frankenstein.
+ * Since kernel 5.9.x is not in use where I am living,
+ * I only compiled it, but did not test this special case.
+ */
+#if									\
+  !defined(IOCB_WAITQ) /* important new feature starting with 5.9 */ &&	\
+  defined(I_DIRTY_TIME_EXPIRED) /* vanished between v5.8 and v5.9 */ &&	\
+  !defined(SB_I_MULTIROOT) /* vanished between v5.9 and v5.10 */     &&	\
+  1 /* opportunity for future adaptations */
 #define USE_CONGESTED_FN
+#endif
+
 //#define DENY_READA
 
 #include <linux/kernel.h>
@@ -964,6 +978,7 @@ void if_unplug(struct request_queue *q)
 #endif
 
 //static
+#ifdef USE_CONGESTED_FN
 int mars_congested(void *data, int bdi_bits)
 {
 	struct if_input *input = data;
@@ -1001,6 +1016,7 @@ int mars_congested(void *data, int bdi_bits)
  done:
 	return ret;
 }
+#endif
 
 //      remove_this
 #ifdef MARS_HAS_MERGE_BVEC
