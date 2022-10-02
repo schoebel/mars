@@ -1,0 +1,55 @@
+From e3a029a4a6bd0df354570b1118b2e26a87f70758 Mon Sep 17 00:00:00 2001
+From: Thomas Schoebel-Theuer <mars@box>
+Date: Sun, 2 Oct 2022 13:25:10 +0200
+Subject: [PATCH] mars: v3 minimum pre-patch for mars v3b
+
+---
+ include/linux/syscalls.h   | 8 ++++++++
+ include/uapi/linux/major.h | 1 +
+ mm/page_alloc.c            | 1 +
+ 3 files changed, 10 insertions(+)
+
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index aea0ce9f3b74..0c15ea2274b7 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -1371,4 +1371,12 @@ int __sys_getsockopt(int fd, int level, int optname, char __user *optval,
+ 		int __user *optlen);
+ int __sys_setsockopt(int fd, int level, int optname, char __user *optval,
+ 		int optlen);
++
++/* Out of tree:
++ * Report the MARS prepatch version, starting with V3
++ */
++#define MARS_HAS_PREPATCH_V3
++/* The following is an additional subversion info */
++#define MARS_HAS_PREPATCH_V3b
++
+ #endif
+diff --git a/include/uapi/linux/major.h b/include/uapi/linux/major.h
+index 7e5fa8e15c43..edfbce01e4ac 100644
+--- a/include/uapi/linux/major.h
++++ b/include/uapi/linux/major.h
+@@ -149,6 +149,7 @@
+ #define UNIX98_PTY_SLAVE_MAJOR	(UNIX98_PTY_MASTER_MAJOR+UNIX98_PTY_MAJOR_COUNT)
+ 
+ #define DRBD_MAJOR		147
++#define MARS_MAJOR		148
+ #define RTF_MAJOR		150
+ #define RAW_MAJOR		162
+ 
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 43ff22ce7632..6122508178b3 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -345,6 +345,7 @@ compound_page_dtor * const compound_page_dtors[NR_COMPOUND_DTORS] = {
+ };
+ 
+ int min_free_kbytes = 1024;
++EXPORT_SYMBOL(min_free_kbytes);
+ int user_min_free_kbytes = -1;
+ #ifdef CONFIG_DISCONTIGMEM
+ /*
+-- 
+2.35.3
+

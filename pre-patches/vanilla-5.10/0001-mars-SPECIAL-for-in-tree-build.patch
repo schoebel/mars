@@ -1,0 +1,36 @@
+From 74b989c41b47a72725694dfd4613ff6c803e1c72 Mon Sep 17 00:00:00 2001
+From: Thomas Schoebel-Theuer <tst@1und1.de>
+Date: Fri, 28 Jun 2013 11:03:14 +0200
+Subject: [PATCH] mars: SPECIAL for in-tree build
+
+---
+ block/Kconfig  | 2 ++
+ block/Makefile | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/block/Kconfig b/block/Kconfig
+index a2297edfdde8..7a1d06d2087c 100644
+--- a/block/Kconfig
++++ b/block/Kconfig
+@@ -208,6 +208,8 @@ source "block/partitions/Kconfig"
+ 
+ endmenu
+ 
++source "block/mars/kernel/Kconfig.v5.4"
++
+ endif # BLOCK
+ 
+ config BLOCK_COMPAT
+diff --git a/block/Makefile b/block/Makefile
+index 8d841f5f986f..b571e6e87e18 100644
+--- a/block/Makefile
++++ b/block/Makefile
+@@ -38,3 +38,5 @@ obj-$(CONFIG_BLK_SED_OPAL)	+= sed-opal.o
+ obj-$(CONFIG_BLK_PM)		+= blk-pm.o
+ obj-$(CONFIG_BLK_INLINE_ENCRYPTION)	+= keyslot-manager.o blk-crypto.o
+ obj-$(CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK)	+= blk-crypto-fallback.o
++
++obj-$(CONFIG_MARS)		+= mars/kernel/
+-- 
+2.35.3
+
