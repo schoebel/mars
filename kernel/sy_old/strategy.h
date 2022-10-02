@@ -43,8 +43,12 @@
  */
 #define OPTIONAL_STRATEGY_VERSION 5
 
-/* transient, to re-disappear */
+#ifdef MARS_HAS_VFS_GET_LINK
+/* I am praying: go to hell, forever */
+#define compat_deletions 0
+#else /* MARS_HAS_VFS_GET_LINK */
 extern int compat_deletions;
+#endif /* MARS_HAS_VFS_GET_LINK */
 
 extern int usable_features_version;
 extern int usable_strategy_version;
@@ -322,12 +326,12 @@ extern void mars_remaining_space(const char *fspath, loff_t *total, loff_t *rema
 extern char *ordered_readlink(const char *path, struct lamport_time *stamp);
 
 extern int ordered_unlink(const char *path,
-			  const struct lamport_time *stamp,
+			  struct lamport_time *stamp,
 			  int serial,
 			  int mode);
 extern int ordered_symlink(const char *oldpath,
 			   const char *newpath,
-			   const struct lamport_time *stamp);
+			   struct lamport_time *stamp);
 
 /////////////////////////////////////////////////////////////////////////
 

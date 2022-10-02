@@ -46,7 +46,6 @@
 #include "../mars_client.h"
 
 #include "../compat.h"
-#include <linux/namei.h>
 #include <linux/kthread.h>
 #include <linux/statfs.h>
 
@@ -605,6 +604,530 @@ done_fs:
 	return res;
 }
 
+#ifdef MARS_HAS_VFS_GET_LINK
+
+static
+int __check_inode(struct inode *inode, const char *pathname)
+{
+	int status = 0;
+
+	if (unlikely(!inode)) {
+		printk(KERN_WARNING "link '%s' has invalid inode\n",
+		       pathname);
+		status = -EINVAL;
+		goto done;
+	}
+	if (unlikely(IS_ERR(inode))) {
+		status = PTR_ERR(inode);
+		printk(KERN_WARNING "link '%s' has inode status=%d\n",
+		       pathname, status);
+		goto done;
+	}
+	if (S_ISDIR(inode->i_mode)) {
+		/* Fail silently: this max happen during
+		 * deletions of directories
+		 */
+		status = -EINVAL;
+		goto done;
+	}
+	if (unlikely(!S_ISLNK(inode->i_mode))) {
+		printk(KERN_WARNING "inode '%s' is no symlink, i_mode=%x\n",
+		       pathname, inode->i_mode);
+		status = -EINVAL;
+		goto done;
+	}
+ done:
+	return status;
+}
+
+static
+int __mars_readlink(struct path *path,
+		    const char *pathname,
+		    bool skip_lamport_update,
+		    struct lamport_time *stamp,
+		    char **res)
+{
+	DEFINE_DELAYED_CALL(done);
+	const char *link;
+	struct inode *inode;
+	int len;
+	int status;
+
+	link = vfs_get_link(path->dentry, &done);
+	if (IS_ERR(link)) {
+		status = PTR_ERR(link);
+		goto done;
+	}
+
+	/* Since get_link() has not failed until now,
+	 * we should not notice any inode problems anymore.
+	 * However, I have seen very strange thingies on
+	 * defective systems, e.g. hardware defects in BBU
+	 * and much more (e.g. RAM corruptions).
+	 * So we are VERY paranoid here.
+	 */
+	inode = d_inode(path->dentry);
+	status = __check_inode(inode, pathname);
+	if (status < 0)
+		goto done;
+	
+	/* Update the Lamport Clock.
+	 * Any link mtime created from userspace should advance
+	 * the local Lamport Clock (unless it would be senseless).
+	 * Any defective inode information will be handled by the
+	 * Lamport implementation.
+	 */
+	if (!skip_lamport_update) {
+		if (stamp) {
+			set_get_lamport(&inode->i_mtime, NULL, stamp);
+		} else {
+			set_lamport(&inode->i_mtime);
+		}
+	}
+
+	/* copy over the found link, all in kernelspace */
+	len = strlen(link);
+	if (!*res || strlen(*res) < len) {
+		brick_string_free(*res);
+		*res = brick_string_alloc(len + 2);
+	}
+	memcpy(*res, link, len);
+	/* compat to old calling conventions, get_link() => readlink() */
+	status = len;
+
+	do_delayed_call(&done);
+
+ done:
+	return status;
+}
+
+static
+int __check_parent_inode(struct inode *inode, const char *dirname)
+{
+	int status = 0;
+
+	if (unlikely(!inode)) {
+		printk(KERN_WARNING "OOPS directory '%s' has invalid inode\n",
+		       dirname);
+		status = -EINVAL;
+		goto done;
+	}
+	if (unlikely(IS_ERR(inode))) {
+		status = PTR_ERR(inode);
+		printk(KERN_WARNING "OOPS directory '%s' has inode status=%d\n",
+		       dirname, status);
+		goto done;
+	}
+	if (unlikely(!S_ISDIR(inode->i_mode))) {
+		printk(KERN_WARNING
+		       "OOPS diranem '%s' refers to non-dir inode, i_mode=%x\n",
+		       dirname, inode->i_mode);
+		status = -EINVAL;
+		goto done;
+	}
+ done:
+	return status;
+}
+
+/* Some code stolen from vfs_utimes() but don't use it.
+ * We can use notify_change() instead.
+ */
+static
+int __mars_utimes(struct dentry *tmp_dentry,
+		  const struct lamport_time *stamp)
+{
+	struct iattr newattrs = {
+		.ia_valid =
+			ATTR_CTIME | ATTR_MTIME | ATTR_ATIME |
+			ATTR_ATIME_SET | ATTR_MTIME_SET |
+			ATTR_TIMES_SET,
+		.ia_mtime = *stamp,
+		.ia_atime = *stamp,
+	};
+	struct inode *delegated_inode = NULL;
+	struct inode *inode;
+	int status = -EINVAL;
+
+	if (unlikely(!d_is_positive(tmp_dentry)))
+		goto done;
+
+	inode = d_inode(tmp_dentry);
+	if (unlikely(!inode || IS_ERR(inode)))
+		goto done;
+
+retry_deleg:
+	inode_lock(inode);
+	status = notify_change(tmp_dentry, &newattrs, &delegated_inode);
+	inode_unlock(inode);
+
+	if (unlikely(delegated_inode)) {
+		status = break_deleg_wait(&delegated_inode);
+		if (!status)
+			goto retry_deleg;
+	}
+
+ done:
+	return status;
+}
+
+static
+int __mars_writelink(struct path *parent_path,
+		     const char *parent_pathname,
+		     const char *newname,
+		     const char *newval,
+		     const struct lamport_time *stamp,
+		     bool ordered)
+{
+	struct dentry *parent_dentry;
+	struct inode *parent_inode;
+	struct dentry *tmp_dentry;
+	struct dentry *new_dentry = NULL;
+	const char *lastname;
+	const char *tmpname = NULL;
+	int max_retry = 0;
+	int status;
+
+	parent_dentry = parent_path->dentry;
+	parent_inode = d_inode(parent_dentry);
+
+	status = __check_parent_inode(parent_inode, parent_pathname);
+	if (status < 0)
+		goto done;
+
+	/* OK, here we have two full pathnames.
+	 * Extract only the last component.
+	 */
+	lastname = strrchr(newname, '/');
+	if (unlikely(!lastname)) {
+		status = -EINVAL;
+		goto done;
+	}
+	lastname++;
+	tmpname = path_make(".tmp-%s", lastname);
+
+	/* Locking: the whole sequence should act atomically
+	 * as seen by any other (kernel|userspace) task.
+	 */
+ retry_lookup:
+	inode_lock_nested(parent_inode, I_MUTEX_PARENT);
+
+	tmp_dentry = lookup_one_len(tmpname, parent_dentry, strlen(tmpname));
+	if (unlikely(IS_ERR(tmp_dentry))) {
+		status = PTR_ERR(tmp_dentry);
+		goto done_parent_inode_unlock;
+	}
+	if (unlikely(d_is_positive(tmp_dentry) && !max_retry++)) {
+		/* Most filesystem cannot create an updated symlink
+		 * in place of the old one.
+		 */
+		status = __mars_vfs_unlink(parent_inode, tmp_dentry);
+		dput(tmp_dentry);
+		inode_unlock(parent_inode);
+		goto retry_lookup;
+	}
+	new_dentry = lookup_one_len(lastname, parent_dentry, strlen(lastname));
+	if (unlikely(IS_ERR(new_dentry))) {
+		status = PTR_ERR(new_dentry);
+		goto done_put1;
+	}
+
+	status = vfs_symlink(parent_inode, tmp_dentry, newval);
+	if (unlikely(status < 0)) {
+		printk(KERN_WARNING "SYMLINK creation '%s/%s' -> '%s' status=%d\n",
+		       parent_pathname, newname, newval, status);
+		goto done_put2;
+	}
+
+	/*
+	 * Don't forget to update the new mtime.
+	 * Frequently, the local Lamport Clock and/or the
+	 * remote Lamport timestamp is differing from the
+	 * system time.
+	 */
+	status = __mars_utimes(tmp_dentry, stamp);
+	if (unlikely(status < 0))
+		goto done_put2;
+
+	/* So far, so good. We have a new symlink, but
+	 * based on a .tmp- name.
+	 * Now we need rename() for an outside-visible
+	 * atomic operation.
+	 */
+	status = vfs_rename(parent_inode, tmp_dentry,
+			    parent_inode, new_dentry,
+			    NULL, 0);
+	if (status < 0) {
+		goto done_put2;
+	}
+
+	/* Uff, we have passed the examination.
+	 */
+
+ done_put2:
+	dput(new_dentry);
+ done_put1:
+	dput(tmp_dentry);
+ done_parent_inode_unlock:
+	inode_unlock(parent_inode);
+ done:
+	brick_string_free(tmpname);
+	return status;
+}
+
+/* Do some important combinations of stat() with
+ * get_link() and with symlink()
+ * in as less pathname lookups as possible, and
+ * hopefully good enough locking, despite the well-known
+ * POSIX problems.
+ * Whilst on it, get and set the Lamport timestamp,
+ * which means an exchange from/to kstat.mtime .
+ *
+ * This will hopefully disappear some day,
+ * in favor of a future tree, not based on classical symlinks.
+ */
+static
+int _mars_stat_rwsymlink(/* used for kstat, must be given */
+			 const char *pathname,
+			 struct kstat *kstat,
+			 bool use_lstat,
+			 /* only relevant for inspection */
+			 char **oldpath_read,
+			 /* only relevant for updates / creations */
+			 const char *oldpath_write,
+			 struct lamport_time *stamp,
+			 bool ordered)
+{
+	int getattr_flags = 0;
+	int lookup_flags = 0;
+	struct path parent_path;
+	struct path full_path;
+	const char *parent_pathname = NULL;
+	bool no_full_path = false;
+	bool want_oldpath_write;
+	bool got_attr = false;
+	int status;
+
+	if (likely(use_lstat)) {
+		getattr_flags |= AT_SYMLINK_NOFOLLOW;
+		lookup_flags |= LOOKUP_DOWN;
+		lookup_flags |= LOOKUP_OPEN;
+	} else if (unlikely(oldpath_read || oldpath_write)) {
+		return -EINVAL;
+	} else {
+		lookup_flags |= LOOKUP_FOLLOW;
+	}
+
+	if (use_lstat) {
+		/* See 8bcb77fabd7cbabcad49f58750be8683febee92b */
+		const int lookup_parent_flags =
+			LOOKUP_PARENT     |
+			LOOKUP_DIRECTORY  |
+			LOOKUP_MOUNTPOINT |
+			LOOKUP_FOLLOW     |
+			0;
+
+		parent_pathname = 
+			backskip_replace(pathname, '/', false, "");
+
+		status = kern_path(parent_pathname, lookup_parent_flags,
+				   &parent_path);
+		if (unlikely(status < 0)) {
+			brick_string_free(parent_pathname);
+			return status;
+		}
+
+		/* Always lock the parent dir, for race prevention
+		 * against anyone, like unplanned userspace thingies.
+		 * This is conceptually similar to other code like
+		 * \t trap = lock_rename(new_dir, old_dir);
+		 * Sorry for the misuse of I_MUTEX_PARENT2 in a
+		 * corner case.
+		 */
+#if 0
+		inode_lock_nested(parent_path.dentry->d_inode, I_MUTEX_PARENT2);
+#endif
+	}
+
+ retry_full_path:
+	want_oldpath_write = (oldpath_write && parent_pathname);
+
+	status = kern_path(pathname, lookup_flags, &full_path);
+	if (status < 0) {
+		/* Upon pure creation, we need to ignore the
+		 * not yet existing full_path
+		 */
+		if (!oldpath_write || no_full_path)
+			goto done_full_path;
+		no_full_path = true;
+		goto just_create;
+	}
+	no_full_path = false;
+
+	status = vfs_getattr(&full_path,
+			     kstat,
+			     STATX_BASIC_STATS,
+			     getattr_flags | AT_NO_AUTOMOUNT);
+	if (status >= 0)
+		got_attr = true;
+	if (oldpath_read &&
+	    status >= 0 &&
+	    S_ISLNK(kstat->mode)) {
+		status = __mars_readlink(&full_path, pathname,
+					 /* skip senseless Lamport updates */
+					 want_oldpath_write,
+					 stamp,
+					 oldpath_read);
+	}
+
+ just_create:
+	if (want_oldpath_write) {
+		struct lamport_time real_now;
+
+		get_real_lamport(&real_now);
+
+		/* Do not create timestamps from 1970-01-01 */
+		if (!kstat->mtime.tv_sec)
+			kstat->mtime = real_now;
+
+		/* When ordered, obey the given Lamport condition right here.
+		 * This happens regularly when the timestamp originates
+		 * from delayed cluster members.
+		 */
+		if (ordered && stamp && got_attr &&
+		    lamport_time_compare(&kstat->mtime, stamp) > 0) {
+			/* Illegal old link stamps are disobeyed, when
+			 * they are too far in the future.
+			 * Although this leads to a backskip violating
+			 * the Lamport condition, it is a beneficial
+			 * exceptional error correction.
+			 * Such errors have been observed at ShaHoLin
+			 * after fatal hardware crashes, where MARS
+			 * was run for a _short_ time with an illegal
+			 * CMOS hardware clock value, until ntpd
+			 * corrected the system clock, fortunately.
+			 */
+			status = 1;
+			if (likely(kstat->mtime.tv_sec <
+				   real_now.tv_sec + max_lamport_future)) {
+				goto skip_due_to_lamport;
+			}
+			/* Continue, overriding the illegal old
+			 * link stamp by exceptionally disobeying
+			 * the Lamport condition.
+			 * This exception leads to a deliberate violation of
+			 * per-object Lamport (aka back-skip in virtual time),
+			 * in order to self-repair any defective hardware.
+			 * IMPORTANT: this is BEST EFFORT ONLY.
+			 * MARS cannot magically know the real world time when
+			 * your hardware is defective.
+			 * HINT: reduce any residual risk of ERROR PROPAGATION
+			 * from hardware by building small clusters in place of
+			 * BigCluster.
+			 * See architecture-guide-geo-redundancy.pdf
+			 */
+			pr_err("auto-correct mtime %lld.%09ld => %lld.%09ld\n",
+			       kstat->mtime.tv_sec, kstat->mtime.tv_nsec,
+			       real_now.tv_sec, real_now.tv_nsec);
+		}
+
+		/* when creating, the full path may not yet exist */
+		status = __mars_writelink(&parent_path, parent_pathname,
+					  pathname,
+					  oldpath_write,
+					  stamp ? : &real_now,
+					  ordered);
+		if (status >= 0) {
+			/* Upon pure creation, we need to redo
+			 * the missing parts.
+			 */
+			if (no_full_path) {
+				oldpath_write = NULL; /* already done */
+				/* pre-init in case the retrieval would
+				 * fail (again), for whatever reason.
+				 */
+				kstat->mode = S_IFLNK;
+				goto retry_full_path;
+			}
+		}
+	}
+
+ skip_due_to_lamport:
+	if (!no_full_path)
+		path_put(&full_path);
+ done_full_path:
+	if (parent_pathname) {
+#if 0
+		inode_unlock(parent_path.dentry->d_inode);
+#endif
+		path_put(&parent_path);
+		brick_string_free(parent_pathname);
+	}
+	return status;
+}
+
+int mars_stat(const char *pathname, struct kstat *kstat, bool use_lstat)
+{
+	int status;
+
+	status = _mars_stat_rwsymlink(pathname, kstat, use_lstat,
+				      NULL, NULL, NULL, false);
+	return status;
+}
+
+static
+int mars_symlink(const char *oldpath, const char *newpath,
+		 struct lamport_time *stamp,
+		 bool ordered)
+{
+	struct kstat kstat = {};
+	int status;
+
+	status = _mars_stat_rwsymlink(newpath, &kstat, true,
+				      NULL,
+				      oldpath, stamp, ordered);
+	return status;
+}
+
+/* Analogously to do_mkdirat()
+ * but NO userspace.
+ */
+int __mars_mkdir(const char *pathname, int mode)
+{
+	unsigned int lookup_flags = LOOKUP_DIRECTORY;
+	struct path path;
+	struct dentry *dentry;
+	struct inode *inode;
+	int error;
+
+ retry:
+	dentry = kern_path_create(AT_FDCWD, pathname, &path, lookup_flags);
+	if (IS_ERR(dentry))
+		return PTR_ERR(dentry);
+
+	inode = path.dentry->d_inode;
+	error = vfs_mkdir(inode, dentry, mode);
+
+	done_path_create(&path, dentry);
+	if (retry_estale(error, lookup_flags)) {
+		lookup_flags |= LOOKUP_REVAL;
+		goto retry;
+	}
+	return error;
+}
+
+int mars_mkdir(const char *path)
+{
+	int status;
+
+	status = __mars_mkdir(path, 0700);
+	if (status < 0)
+		printk(KERN_WARNING "MKDIR '%s' status=%d\n",
+		       path, status);
+	return status;
+}
+
+#else /* MARS_HAS_VFS_GET_LINK */
+
 int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
 {
 #ifdef MARS_NEEDS_KERNEL_DS
@@ -632,6 +1155,8 @@ int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_stat);
+
+#endif /* MARS_HAS_VFS_GET_LINK */
 
 void mars_sync(void)
 {
@@ -668,6 +1193,8 @@ void mars_sync(void)
 	filp_close(f, NULL);
 }
 
+#ifndef MARS_HAS_VFS_GET_LINK
+
 int mars_mkdir(const char *path)
 {
 #ifdef MARS_NEEDS_KERNEL_DS
@@ -685,7 +1212,6 @@ int mars_mkdir(const char *path)
 #else
 	status = __oldcompat_mkdir(path, 0700);
 #endif
-
 #ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
 #endif
@@ -693,6 +1219,8 @@ int mars_mkdir(const char *path)
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_mkdir);
+
+#endif /* MARS_HAS_VFS_GET_LINK */
 
 int mars_rmdir(const char *path)
 {
@@ -750,6 +1278,8 @@ int mars_unlink(const char *path)
 	return status;
 }
 
+#ifndef MARS_HAS_VFS_GET_LINK
+
 static
 int mars_symlink(const char *oldpath, const char *newpath,
 		 const struct lamport_time *stamp,
@@ -800,8 +1330,9 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		get_real_lamport(&real_now);
 		status = 1;
 		if (likely(stat.mtime.tv_sec <
-			   real_now.tv_sec + max_lamport_future))
+			   real_now.tv_sec + max_lamport_future)) {
 			goto done_fs;
+		}
 		/* Continue, overriding the illegal old
 		 * link stamp by exceptionally disobeying
 		 * the Lamport condition.
@@ -827,8 +1358,17 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		 */
 		times[0].tv_nsec = 1;
 	}
-
-#ifdef MARS_HAS_PREPATCH
+#if defined(MARS_HAS_VFS_GET_LINK)
+	status = _symlink(oldpath, tmp);
+#elif defined(MARS_HAS_PREPATCH_V3)
+	(void)do_unlinkat(AT_FDCWD, getname_kernel(tmp));
+	status = do_symlinkat(oldpath, AT_FDCWD, tmp);
+	if (status >= 0) {
+		ksys_lchown(tmp, 0, 0);
+		memcpy(&times[1], &times[0], sizeof(struct lamport_time));
+		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
+	}
+#elif defined(MARS_HAS_PREPATCH)
 	(void)sys_unlink(tmp);
 	status = sys_symlink(oldpath, tmp);
 	if (status >= 0) {
@@ -842,7 +1382,6 @@ int mars_symlink(const char *oldpath, const char *newpath,
 #else
 #error Build Error - check the sources and/or the pre-patch version
 #endif
-
 	if (status >= 0) {
 		set_lamport(&times[0]);
 		status = mars_rename(tmp, newpath);
@@ -854,6 +1393,51 @@ int mars_symlink(const char *oldpath, const char *newpath,
 	brick_string_free(tmp);
 	return status;
 }
+
+#endif /* !MARS_HAS_VFS_GET_LINK */
+
+#ifdef MARS_HAS_VFS_GET_LINK
+
+static
+int _mars_readlink(const char *pathname, int flags,
+		   struct lamport_time *stamp,
+		   char **res)
+{
+	struct path path = {};
+	int status;
+
+	status = kern_path(pathname, MARS_AT_FLAGS_LSTAT(flags), &path);
+	if (status < 0) {
+		goto done;
+	}
+
+	status = __mars_readlink(&path, pathname, false, stamp, res);
+
+	path_put(&path);
+ done:
+	if (status < 0) {
+		if (unlikely(!*res)) {
+			*res = brick_string_alloc(1);
+		}
+		(*res)[0] = '\0';
+	}
+	return status;
+}
+
+char *mars_readlink(const char *newpath, struct lamport_time *stamp)
+{
+	char *res = NULL;
+	int status;
+
+	status = _mars_readlink(newpath, 0, stamp, &res);
+	if (!res) {
+		res = brick_string_alloc(2);
+		*res = '\0';
+	}
+	return res;
+}
+
+#else /* old code before MARS_HAS_VFS_GET_LINK, to disappear */
 
 /* adapt to ce6595a28a15c874aee374757dcd08f537d7b24d
  * detected via 84a2bd39405ffd5fa6d6d77e408c5b9210da98de
@@ -949,6 +1533,8 @@ done_fs:
 	return res;
 }
 EXPORT_SYMBOL_GPL(mars_readlink);
+
+#endif /* MARS_HAS_VFS_GET_LINK */
 
 int mars_rename(const char *oldpath, const char *newpath)
 {
@@ -1088,13 +1674,16 @@ EXPORT_SYMBOL_GPL(mars_remaining_space);
  * Idea: use a substitute object ".deleted-$object".
  */
 
+#ifndef MARS_HAS_VFS_GET_LINK
+/* I am praying: go to hell, forever */
 int compat_deletions = 1;
+#endif /* !MARS_HAS_VFS_GET_LINK */
 
 static DEFINE_MUTEX(ordered_lock);
 
 static
 int compat_ordered_unlink(const char *path,
-			  const struct lamport_time *stamp,
+			  struct lamport_time *stamp,
 			  int serial, int mode)
 {
 	struct kstat stat;
@@ -1134,7 +1723,7 @@ int compat_ordered_unlink(const char *path,
 static
 int compat_ordered_symlink(const char *oldpath,
 			   const char *newpath,
-			   const struct lamport_time *stamp)
+			   struct lamport_time *stamp)
 {
 	struct kstat stat;
 	struct lamport_time now;
@@ -1192,7 +1781,7 @@ char *ordered_readlink(const char *path, struct lamport_time *stamp)
 }
 
 int ordered_unlink(const char *path,
-		   const struct lamport_time *stamp,
+		   struct lamport_time *stamp,
 		   int serial, int mode)
 {
 	if (compat_deletions)
@@ -1203,7 +1792,7 @@ int ordered_unlink(const char *path,
 
 int ordered_symlink(const char *oldpath,
 		    const char *newpath,
-		    const struct lamport_time *stamp)
+		    struct lamport_time *stamp)
 {
 	char *dir_path = NULL;
 	int dir_len;
@@ -1515,6 +2104,79 @@ struct mars_cookie {
 	bool hit;
 };
 
+#ifdef MARS_HAS_VFS_GET_LINK
+
+static
+int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
+{
+	struct kstat tmp = {};
+	char *linkval = NULL;
+
+	int status;
+
+
+	status = _mars_stat_rwsymlink(newpath, &tmp, true,
+				      &linkval,
+				      NULL, NULL, false);
+
+	/* Correct illegal timestamps */
+	if (unlikely(protect_lamport_time(&tmp.mtime)) &&
+	    S_ISLNK(dent->new_stat.mode)) {
+		char *val = mars_readlink(newpath, NULL);
+		if (val) {
+			mars_symlink(val, newpath, &tmp.mtime, false);
+			brick_string_free(val);
+		}
+	}
+
+	memcpy(&dent->old_stat, &dent->new_stat, sizeof(dent->old_stat)); 
+	memcpy(&dent->new_stat, &tmp, sizeof(dent->new_stat));
+
+	/* S_ISLNK() */
+	if (linkval) {
+		/* remember the found link in the dent */
+		brick_string_free(dent->old_link);
+		dent->old_link = dent->new_link;
+		dent->new_link = linkval;
+		linkval = NULL;
+
+		/* Treat deleted dents as non-existing.
+		 * Killing will be done later via ->killme.
+		 */
+		if (!get_deleted &&
+		    status >= 0 &&
+		    dent->new_link &&
+		    !strcmp(dent->new_link, MARS_DELETED_STR)) {
+			status = -ENOENT;
+		}
+
+	} else if (S_ISREG(dent->new_stat.mode) && dent->d_name &&
+		   !strncmp(dent->d_name, "log-", 4)) {
+		/* Very special treatment of logfiles where
+		 * in-parallel updates may happen.
+		 */
+		loff_t min;
+
+		dent->d_corr_A = 0;
+		dent->d_corr_B = 0;
+		min = mf_get_any_dirty(newpath, DIRTY_COMPLETING);
+		if (min < dent->new_stat.size) {
+			MARS_DBG("file '%s' A size=%lld min=%lld\n", newpath, dent->new_stat.size, min);
+			dent->d_corr_A = min;
+		}
+		min = mf_get_any_dirty(newpath, DIRTY_FINISHED);
+		if (min < dent->new_stat.size) {
+			MARS_DBG("file '%s' B size=%lld min=%lld\n", newpath, dent->new_stat.size, min);
+			dent->d_corr_B = min;
+		}
+	}
+
+	brick_string_free(linkval);
+	return status;
+}
+
+#else /* old code before MARS_HAS_VFS_GET_LINK, to disappear */
+
 static
 int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 {
@@ -1640,6 +2302,8 @@ int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 #endif
 	return status;
 }
+
+#endif /* MARS_HAS_VFS_GET_LINK */
 
 unsigned int dent_hash(const char *str, int len)
 {
@@ -1978,6 +2642,7 @@ void _mars_order_all(struct mars_cookie *cookie)
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		CHECK_PTR(dent, fatal);
 		list_del_init(tmp);
+
 		/* When some_ordered: only sort links spawning
 		 * a .cl_forward action (with some unimportant exceptions).
 		 * In addition, the alive and time links need to

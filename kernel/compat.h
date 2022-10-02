@@ -265,6 +265,30 @@ extern int __oldcompat_unlink(
 
 /* vfs stuff */
 
+#if defined(IOCB_WAITQ) /* starting around v5.9 */			|| \
+  defined(QUEUE_FLAG_NOWAIT) /* starting around v5.10 */
+#define MARS_HAS_VFS_GET_LINK
+#endif
+
+#ifdef MARS_HAS_VFS_GET_LINK
+
+#include <linux/namei.h>
+#include <linux/delayed_call.h>
+
+/* For any future adaptations: only 1 flag per line */
+/* pls check whether LOOKUP_RCU would be a good idea or not */
+/* what will NOT work: ... */
+#define MARS_LOOKUP_FLAGS(flags)		\
+	((flags) |				\
+	 LOOKUP_DOWN |				\
+	 0)
+
+#define MARS_AT_FLAGS_LSTAT(flags)		\
+	((flags) |				\
+	 AT_SYMLINK_NOFOLLOW |			\
+	 0)
+#endif /* MARS_HAS_VFS_GET_LINK */
+
 /* Adapt to
  * eb031849d52e61d24ba54e9d27553189ff328174 and siblings
  * bdd1d2d3d251c65b74ac4493e08db18971c09240

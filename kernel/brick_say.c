@@ -385,27 +385,64 @@ void _del_channel(struct say_channel *ch)
 	atomic_dec(&say_alloc_channels);
 }
 
+#ifdef MARS_HAS_VFS_GET_LINK
+
 static
-struct say_channel *_make_channel(const char *name, bool must_exist)
+int brick_stat(const char *pathname, struct kstat *kstat)
 {
-	struct say_channel *res = NULL;
-	struct kstat kstat = {};
-	int i, j;
+	int getattr_flags = 0;
+	int lookup_flags = LOOKUP_FOLLOW;
+	struct path vfs_path;
+	int status;
+
+	status = kern_path(pathname, lookup_flags, &vfs_path);
+	if (status < 0) {
+		return status;
+	}
+
+	status = vfs_getattr(&vfs_path,
+			     kstat,
+			     STATX_BASIC_STATS,
+			     getattr_flags | AT_NO_AUTOMOUNT);
+
+	path_put(&vfs_path);
+
+	return status;
+}
+
+#else /* MARS_HAS_VFS_GET_LINK */
+
+static
+int brick_stat(const char *pathname, struct kstat *kstat)
+{
 #ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
 #endif
-	bool is_dir = false;
 	int status;
 
 #ifdef MARS_NEEDS_KERNEL_DS
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 #endif
-	status = vfs_stat((char*)name, &kstat);
+	status = vfs_stat((char *)pathname, kstat);
 #ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
 #endif
+	return status;
+}
 
+#endif /* MARS_HAS_VFS_GET_LINK */
+
+static
+struct say_channel *_make_channel(const char *name, bool must_exist)
+{
+	struct say_channel *res = NULL;
+	struct kstat kstat = {};
+	int i, j;
+	bool is_dir = false;
+	int status;
+
+	status = brick_stat(name, &kstat);
 	if (unlikely(status < 0)) {
 		if (must_exist) {
 			say(SAY_ERROR, "cannot create channel '%s', status = %d\n", name, status);
@@ -767,9 +804,15 @@ restart:
 	}
 	atomic_inc(&say_alloc_names);
 	if (ch->ch_is_dir) {
-		snprintf(filename, 1023, "%s/%d.%s.%s%s", ch->ch_name, class, say_class[class], transact ? "status" : "log", add_tmp ? ".tmp" : "");
+		snprintf(filename, 1023, "%s/%d.%s.%s%s",
+			 ch->ch_name, class, say_class[class],
+			 transact ? "status" : "log",
+			 add_tmp ? ".tmp" : "");
 	} else {
-		snprintf(filename, 1023, "%s.%s%s", ch->ch_name, transact ? "status" : "log", add_tmp ? ".tmp" : "");
+		snprintf(filename, 1023, "%s.%s%s",
+			 ch->ch_name,
+			 transact ? "status" : "log",
+			 add_tmp ? ".tmp" : "");
 	}
 	return filename;
 }
