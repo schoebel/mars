@@ -46,6 +46,10 @@
 
 #include "mars_aio.h"
 
+#if !defined(KERNEL_DS) && defined(MARS_NEEDS_KERNEL_DS)
+#error Sorry, the AIO brick cannot be compiled anymore under this kernel. Please substitute AIO with QIO via CONFIG_MARS_PREFER_QIO=y
+#endif
+
 #if !defined(MARS_HAS_PREPATCH_V3) && !defined(MARS_HAS_PREPATCH_V2) && !defined(MARS_HAS_PREPATCH)
 #warning You are compiling without pre-patch, resulting in BAD IO PERFORMANCE
 #endif

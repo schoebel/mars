@@ -611,17 +611,23 @@ done_fs:
 
 int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
 {
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 	int status;
 	
+#ifdef MARS_NEEDS_KERNEL_DS
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 	if (use_lstat) {
 		status = vfs_lstat((char*)path, stat);
 	} else {
 		status = vfs_stat((char*)path, stat);
 	}
+#ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
+#endif
 
 	if (likely(status >= 0)) {
 		set_lamport(&stat->mtime);
@@ -634,12 +640,20 @@ EXPORT_SYMBOL_GPL(mars_stat);
 void mars_sync(void)
 {
 	struct file *f;
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 
+#ifdef MARS_NEEDS_KERNEL_DS
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
+
 	f = filp_open("/mars", O_DIRECTORY | O_RDONLY, 0);
+
+#ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
+#endif
 	if (unlikely(IS_ERR(f)))
 		return;
 
@@ -660,17 +674,25 @@ void mars_sync(void)
 
 int mars_mkdir(const char *path)
 {
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 	int status;
 	
+#ifdef MARS_NEEDS_KERNEL_DS
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
+
 #ifdef MARS_HAS_PREPATCH
 	status = sys_mkdir(path, 0700);
 #else
 	status = __oldcompat_mkdir(path, 0700);
 #endif
+
+#ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
+#endif
 
 	return status;
 }
@@ -679,13 +701,21 @@ EXPORT_SYMBOL_GPL(mars_mkdir);
 int mars_rmdir(const char *path)
 {
 #ifdef MARS_HAS_PREPATCH
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 	int status;
 	
+#ifdef MARS_NEEDS_KERNEL_DS
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
+
 	status = sys_rmdir(path);
+
+#ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
+#endif
 
 	return status;
 #else
@@ -696,11 +726,16 @@ EXPORT_SYMBOL_GPL(mars_rmdir);
 
 int mars_unlink(const char *path)
 {
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 	int status;
 	
+#ifdef MARS_NEEDS_KERNEL_DS
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
+
 #ifdef MARS_HAS_PREPATCH
 	status = sys_unlink(path);
 #elif defined(MARS_NEEDS_OLDCOMPAT_FUNCTIONS)
@@ -708,7 +743,10 @@ int mars_unlink(const char *path)
 #else
 #error Build Error - check the sources and/or the pre-patch version
 #endif
+
+#ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
+#endif
 
 	return status;
 }
@@ -719,7 +757,9 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		 bool ordered)
 {
 	char *tmp = backskip_replace(newpath, '/', true, "/.tmp-"); 
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 	struct kstat stat = {};
 	struct lamport_time times[2];
 	int status;
@@ -734,8 +774,10 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		brick_msleep(100);
 #endif
 
+#ifdef MARS_NEEDS_KERNEL_DS
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 
 	status = vfs_lstat((char*)newpath, &stat);
 
@@ -807,7 +849,9 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		status = mars_rename(tmp, newpath);
 	}
  done_fs:
+#ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
+#endif
 	brick_string_free(tmp);
 	return status;
 }
@@ -824,13 +868,17 @@ char *mars_readlink(const char *newpath, struct lamport_time *stamp)
 {
 	char *res = NULL;
 	struct path path = {};
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 	struct inode *inode;
 	int len;
 	int status;
 
+#ifdef MARS_NEEDS_KERNEL_DS
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 
 	status = user_lpath(newpath, &path);
 	if (unlikely(status < 0)) {
@@ -890,7 +938,9 @@ done_put:
 	path_put(&path);
 	
 done_fs:
+#ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
+#endif
 	if (unlikely(status < 0)) {
 		if (unlikely(!res)) {
 			res = brick_string_alloc(1);
@@ -903,17 +953,24 @@ EXPORT_SYMBOL_GPL(mars_readlink);
 
 int mars_rename(const char *oldpath, const char *newpath)
 {
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 	int status;
 	
+#ifdef MARS_NEEDS_KERNEL_DS
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 #ifdef MARS_HAS_PREPATCH
 	status = sys_rename(oldpath, newpath);
 #else
 	status = __oldcompat_rename(oldpath, newpath);
 #endif
+
+#ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
+#endif
 
 	return status;
 }
@@ -922,13 +979,21 @@ EXPORT_SYMBOL_GPL(mars_rename);
 int mars_chmod(const char *path, mode_t mode)
 {
 #ifdef MARS_HAS_PREPATCH
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 	int status;
 	
+#ifdef MARS_NEEDS_KERNEL_DS
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
+
 	status = sys_chmod(path, mode);
+
+#ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
+#endif
 
 	return status;
 #else
@@ -1975,7 +2040,9 @@ static int _mars_readdir(struct mars_cookie *cookie)
 {
 	struct file *f;
 	struct address_space *mapping;
+#ifdef MARS_NEEDS_KERNEL_DS
         mm_segment_t oldfs;
+#endif
 	loff_t dir_pos, old_dir_pos;
 	int _loop_limit;
 	int i;
@@ -2005,10 +2072,16 @@ static int _mars_readdir(struct mars_cookie *cookie)
 		}
 	}
 
+#ifdef MARS_NEEDS_KERNEL_DS
         oldfs = get_fs();
         set_fs(KERNEL_DS);
+#endif
+
         f = filp_open(cookie->path, O_DIRECTORY | O_RDONLY, 0);
+
+#ifdef MARS_NEEDS_KERNEL_DS
         set_fs(oldfs);
+#endif
 	if (unlikely(IS_ERR(f))) {
 		return PTR_ERR(f);
 	}

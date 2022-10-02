@@ -230,7 +230,9 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 		int i;
 		int ra = 1;
 		int prot = 0600;
+#ifdef MARS_NEEDS_KERNEL_DS
 		mm_segment_t oldfs;
+#endif
 
 		mf = brick_zmem_alloc(sizeof(struct mapfree_info));
 		if (unlikely(!mf)) {
@@ -263,10 +265,14 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 		init_rwsem(&mf->mf_mutex);
 		mf->mf_max = -1;
 
+#ifdef MARS_NEEDS_KERNEL_DS
 		oldfs = get_fs();
 		set_fs(KERNEL_DS);
+#endif
 		mf->mf_filp = filp_open(name, flags, prot);
+#ifdef MARS_NEEDS_KERNEL_DS
 		set_fs(oldfs);
+#endif
 
 		MARS_DBG("file '%s' flags = %d prot = %d filp = %p\n", name, flags, prot, mf->mf_filp);
 

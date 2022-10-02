@@ -298,6 +298,26 @@ extern int __oldcompat_unlink(
 #define MARS_USE_kthread_use_mm
 #endif
 
+/* IMPORTANT! Starting with LTS kernel 5.10, the historic
+ * KERNEL_DS upstream macro is no longer usable, whether somebody
+ * may (re-)define it or not. Frankenstein kernels may run into
+ * trouble when disobeying this.
+ * Since my historic AIO brick was based on userspace pointers
+ * in kernel mode, it now mutates to a NOGO.
+ * Please help me supporting this, in particular by migration
+ * to the new QIO as a (hopefully better) replacement of AIO.
+ */
+/* Adapt to several upstream patches:
+ *   47058bb54b57962b3958a936ddbc59355e4c5504
+ * Please add more upstream dependencies in case I forgot something.
+ */
+#if defined(KERNEL_DS) ||					\
+	defined(__TIF_FSCHECK) /* revoved in 47058bb54b5 */ ||	\
+	0
+/* some old kernels need this... unfortunate... */
+#define MARS_NEEDS_KERNEL_DS
+#endif
+
 /* for networking */
 #include <net/sock.h>
 #include <linux/netdevice.h>

@@ -391,14 +391,20 @@ struct say_channel *_make_channel(const char *name, bool must_exist)
 	struct say_channel *res = NULL;
 	struct kstat kstat = {};
 	int i, j;
+#ifdef MARS_NEEDS_KERNEL_DS
 	mm_segment_t oldfs;
+#endif
 	bool is_dir = false;
 	int status;
 
+#ifdef MARS_NEEDS_KERNEL_DS
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 	status = vfs_stat((char*)name, &kstat);
+#ifdef MARS_NEEDS_KERNEL_DS
 	set_fs(oldfs);
+#endif
 
 	if (unlikely(status < 0)) {
 		if (must_exist) {
@@ -709,11 +715,15 @@ void out_to_file(struct file *file, char *buf, int len)
 			     len,
 			     &log_pos);
 #else
+#ifdef MARS_NEEDS_KERNEL_DS
 		mm_segment_t oldfs = get_fs();
 
 		set_fs(KERNEL_DS);
+#endif
 		(void)vfs_write(file, buf, len, &log_pos);
+#ifdef MARS_NEEDS_KERNEL_DS
 		set_fs(oldfs);
+#endif
 #endif
 	}
 }
@@ -782,7 +792,9 @@ void _rollover_channel(struct say_channel *ch)
 		
 		if (likely(old && new)) {
 			int i;
+#ifdef MARS_NEEDS_KERNEL_DS
 			mm_segment_t oldfs;
+#endif
 			
 			for (i = 0; i < 2; i++) {
 				if (ch->ch_filp[class][i]) {
@@ -791,8 +803,10 @@ void _rollover_channel(struct say_channel *ch)
 				}
 			}
 			
+#ifdef MARS_NEEDS_KERNEL_DS
 			oldfs = get_fs();
 			set_fs(KERNEL_DS);
+#endif
 #if defined(MARS_HAS_PREPATCH_V2) ||		\
 	defined(MARS_HAS_PREPATCH_V3)
 			mars_rename(old, new);
@@ -803,7 +817,9 @@ void _rollover_channel(struct say_channel *ch)
 #else
 #error Build Error - check the sources and/or the pre-patch version
 #endif
+#ifdef MARS_NEEDS_KERNEL_DS
 			set_fs(oldfs);
+#endif
 		}
 		
 		if (likely(old)) {
