@@ -1041,6 +1041,7 @@ void if_unplug(struct request_queue *q)
 {
 	struct if_input *input = q->queuedata;
 	int was_plugged = 1;
+#if !defined(CONFIG_MARS_CANNOT_USE_AIO_ANYMORE)
 #if 1
 	spin_lock_irq(q->queue_lock);
 	was_plugged = blk_remove_plug(q);
@@ -1048,6 +1049,7 @@ void if_unplug(struct request_queue *q)
 #else
 	queue_flag_clear_unlocked(QUEUE_FLAG_PLUGGED, q);
 #endif
+#endif /* !defined(CONFIG_MARS_CANNOT_USE_AIO_ANYMORE) */
 
 	was_plugged += atomic_read(&input->plugged_count);
 
