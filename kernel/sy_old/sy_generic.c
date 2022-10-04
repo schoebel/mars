@@ -1600,9 +1600,6 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	int pathlen;
 	int class;
 	int serial = 0;
-#if 0
-	int i;
-#endif
 	bool use_channel = false;
 
 	cookie->hit = true;
