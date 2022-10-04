@@ -1097,6 +1097,7 @@ int ordered_symlink(const char *oldpath,
 
 	/* Automatically create any missing path dirs */
 	while (unlikely(status < 0 && status != -EEXIST)) {
+		struct kstat test = {};
 		int old_len;
 		int check;
 
@@ -1116,6 +1117,10 @@ int ordered_symlink(const char *oldpath,
 		while (dir_len > 0 && dir_path[dir_len] != '/')
 			dir_len--;
 		if (dir_len <= 0 || dir_len >= old_len)
+			break;
+		/* do not try to tackle existing dir_path */
+		check = mars_stat(dir_path, &test, true);
+		if (check >= 0 && S_ISDIR(test.mode))
 			break;
 		/* create the interim dir */
 		check = mars_mkdir(dir_path);
