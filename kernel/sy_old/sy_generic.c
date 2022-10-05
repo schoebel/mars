@@ -508,11 +508,7 @@ retry:
 		goto exit3;
 #endif
 
-#ifdef FL_DELEG
-	error = vfs_unlink(parent->d_inode, dentry, NULL);
-#else
-	error = vfs_unlink(parent->d_inode, dentry);
-#endif
+	error = __mars_vfs_unlink(parent->d_inode, dentry);
 
 #ifndef __NEW_PATH_CREATE
 	mnt_drop_write(path.mnt);
@@ -724,6 +720,9 @@ int mars_rmdir(const char *path)
 }
 EXPORT_SYMBOL_GPL(mars_rmdir);
 
+/* This is needed for eventual removal for .deleted
+ * and similar uses.
+ */
 int mars_unlink(const char *path)
 {
 #ifdef MARS_NEEDS_KERNEL_DS
