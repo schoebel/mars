@@ -25740,7 +25740,12 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Inquiry of the preceding value.
+Inquiry of the maxium sync concurrency.
+ See also the primitive macro 
+\family typewriter
+%global-sync-limit-value{}
+\family default
+.
 \end_layout
 
 \end_inset
@@ -37763,9 +37768,23 @@ mydata
 \labelwidthstring 00.00.0000
 
 \family typewriter
+global-sync-limit-value
+\family default
+ (global) Report the maxium parallelism degree of sync, as configurable
+ via 
+\family typewriter
+set-global-sync-limit
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 uuid
 \family default
- (global) Show the unique identifier created by 
+ (global) Report the unique identifier created by 
 \family typewriter
 create-cluster
 \family default
