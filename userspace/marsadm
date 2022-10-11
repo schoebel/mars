@@ -8303,6 +8303,12 @@ sub eval_fn {
       my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/msg-$what";
       return get_link($lnk, 1);
     }
+    if (/^global[-_](sync-limit)[-_]value$/) {
+      my $specific = $1;
+      my $lnk = "$mars/defaults-" . $$env{"host"} . "/$specific";
+      my $result = get_link($lnk, 2);
+      return $result;
+    }
     if (/^(all|the)[-_](pretty[-_]?)?(global[-_]?)?((?:err|wrn|inf)[-_])?(msg|count)$/) {
       my $shorten = ($1 eq "the");
       my $pretty = $2;
@@ -9196,6 +9202,9 @@ my %complex_macros =
    .    "  usable: \"%usable-digests{}\"\n"
    .    "  disabled: \"%disabled-net-digests{}\"\n"
    .    "}"
+   .  "%if{%global-sync-limit-value{}}{"
+   .      "   HINT: the global-sync-limit-value is set to \"%global-sync-limit-value{}\"\n"
+   .    "}"
    .  "}",
 
    "default-footer"
@@ -9767,6 +9776,8 @@ my %trivial_globs =
    "used-{log,net}-{digest,compression}"
    => "",
    "{tree,features}-version"
+   => "",
+   "global-sync-limit-value"
    => "",
 
 
