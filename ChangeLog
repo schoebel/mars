@@ -182,6 +182,11 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable157
+	* Suppress annoying kernel stacktraces when RAM is short.
+	* Imvprove annoying KBuild failures.
+	* marsadm: hint on forgotten global-sync-limit-value settings.
+
 mars0.1astable156
 	Critical fix for recovery after a crash, if it led to a certain
 	type of defective logfile.
