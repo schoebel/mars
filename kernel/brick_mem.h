@@ -56,6 +56,7 @@
 	  ~__GFP_RECLAIM		&	\
 	  ~0x0u)			|	\
 	 __GFP_NORETRY			|	\
+	 __GFP_NOWARN			|	\
 	 0x0u)
 #else
 #define GFP_BRICK GFP_NOIO /* otherwise people may get alarmed by massses of stacktraces */
