@@ -23,13 +23,14 @@
 
 /* HISTORIC - please avoid this ASAP
  */
+#include <linux/module.h>
+#if !defined(CONFIG_MARS_CANNOT_USE_AIO_ANYMORE)
 
 //#define BRICK_DEBUGGING
 #define MARS_DEBUGGING
 //#define IO_DEBUGGING
 
 #include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/version.h>
 #include <linux/string.h>
 #include <linux/list.h>
@@ -1438,3 +1439,17 @@ void exit_mars_aio(void)
 	MARS_DBG("exit_aio()\n");
 	aio_unregister_brick_type();
 }
+
+#else /* !CONFIG_MARS_CANNOT_USE_AIO_ANYMORE */
+
+int __init init_mars_aio(void)
+{
+	/* empty */
+	return 0;
+}
+
+void exit_mars_aio(void)
+{
+}
+
+#endif /* !CONFIG_MARS_CANNOT_USE_AIO_ANYMORE */

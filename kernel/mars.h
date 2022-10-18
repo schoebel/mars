@@ -473,6 +473,10 @@ extern const struct generic_brick_type *_qio_brick_type;
 extern const struct generic_brick_type *_aio_brick_type;
 extern const struct generic_brick_type *_sio_brick_type;
 
+#if defined(CONFIG_MARS_CANNOT_USE_AIO_ANYMORE) /* starting with kernel v5.10 */
+#define ENABLE_MARS_QIO
+#else /* !defined(CONFIG_MARS_CANNOT_USE_AIO_ANYMORE) */
+/* QIO may only work for kernels 5.1 <= $to_check <= 5.9 but Frankensteins are unknown */
 #if defined(IOCB_NOWAIT)			&&			\
 	/* see dde0c2e79848298cc25621ad080d47f94dbd7cce */		\
 	defined(IOCB_DSYNC)			&&			\
@@ -481,15 +485,16 @@ extern const struct generic_brick_type *_sio_brick_type;
 	!defined(CONFIG_MARS_PREFER_SIO)	&&			\
 	1
 #define ENABLE_MARS_QIO
-#else
+#else /* check whether AIO can be used in addition at kernels < v5.10 */
 #if !defined(CONFIG_MARS_PREFER_SIO)		&&			\
 	(defined(MARS_HAS_PREPATCH)		||			\
 	 defined(MARS_HAS_PREPATCH_V2)		||			\
 	 defined(MARS_HAS_PREPATCH_V3a)		||			\
-	 1)
+	 0) /* When there is no prepatch, AIO cannot work anymore */
 #define ENABLE_MARS_AIO
 #endif
 #endif
+#endif /* !CONFIG_MARS_CANNOT_USE_AIO_ANYMORE */
 
 #if defined(ENABLE_MARS_QIO)
 # define any_io_brick_type qio_brick_type

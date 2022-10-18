@@ -533,10 +533,12 @@ struct ctl_table io_tuning_table[] = {
 	THRESHOLD_ENTRIES(&bio_submit_threshold, "bio_submit"),
 	THRESHOLD_ENTRIES(&bio_io_threshold[0],  "bio_io_r"),
 	THRESHOLD_ENTRIES(&bio_io_threshold[1],  "bio_io_w"),
+#if !defined(CONFIG_MARS_CANNOT_USE_AIO_ANYMORE)
 	THRESHOLD_ENTRIES(&aio_submit_threshold, "aio_submit"),
 	THRESHOLD_ENTRIES(&aio_io_threshold[0],  "aio_io_r"),
 	THRESHOLD_ENTRIES(&aio_io_threshold[1],  "aio_io_w"),
 	THRESHOLD_ENTRIES(&aio_sync_threshold,   "aio_sync"),
+#endif /* !CONFIG_MARS_CANNOT_USE_AIO_ANYMORE */
 	INT_ENTRY("if_nr_requests", if_nr_requests, 0600),
 #if defined(MARS_HAS_BIO_IO_ACCT) || defined(MARS_HAS_GENERIC_BLK_ACCOUNTING)
 	INT_ENTRY("if_io_acct", mars_io_acct, 0600),
@@ -620,7 +622,9 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("show_statistics_server", server_show_statist,  0600),
 	INT_ENTRY("show_connections",     global_show_connections, 0600),
 #endif
+#if !defined(CONFIG_MARS_CANNOT_USE_AIO_ANYMORE)
 	INT_ENTRY("aio_sync_mode",        aio_sync_mode,          0600),
+#endif /* !CONFIG_MARS_CANNOT_USE_AIO_ANYMORE */
 #ifdef CONFIG_MARS_DEBUG
 	INT_ENTRY("debug_crash_mode",     mars_crash_mode,        0600),
 	INT_ENTRY("debug_hang_mode",      mars_hang_mode,         0600),

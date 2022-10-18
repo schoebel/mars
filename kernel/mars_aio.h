@@ -25,6 +25,8 @@
  */
 #ifndef MARS_AIO_H
 #define MARS_AIO_H
+#include <linux/module.h>
+#if !defined(CONFIG_MARS_CANNOT_USE_AIO_ANYMORE)
 
 #include <linux/aio.h>
 #include <linux/syscalls.h>
@@ -124,4 +126,5 @@ struct aio_output {
 
 MARS_TYPES(aio);
 
+#endif /* !CONFIG_MARS_CANNOT_USE_AIO_ANYMORE */
 #endif
