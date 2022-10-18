@@ -24,6 +24,7 @@
 #ifndef _MARS_COMPAT
 #define _MARS_COMPAT
 
+#include <linux/syscalls.h>
 #include <linux/major.h>
 
 /* Detect 5c0ba4e0762e6dabd14a5c276652e2defec38de7
@@ -46,6 +47,7 @@
  * and the new wrappers around vfs_*().
  */
 #ifdef MARS_MAJOR
+#if !defined(MARS_HAS_PREPATCH_V3)
 /*
  * Obey 819671ff849b07b9831b91de879ddc5da4b333d4 as much as possible,
  * detected via 57b56ac6fecb05c3192586e4892572dd13d972de
@@ -56,19 +58,34 @@
 /* old prepatch (to disappear), using deprecated sys_*() calls */
 #define MARS_HAS_PREPATCH
 #endif
-#else
+#endif /* !defined(MARS_HAS_PREPATCH_V3) */
+#else /* MARS_MAJOR */
 #define MARS_MAJOR (DRBD_MAJOR + 1)
-#endif
+#endif /* MARS_MAJOR */
 
 #if defined(MARS_HAS_PREPATCH_V2) || defined(MARS_HAS_PREPATCH)
-
-#include <linux/syscalls.h>
 
 #else /* MARS_HAS_PREPATCH */
 
 #include <linux/compiler.h>
 #include <linux/time.h>
 #include "lamport.h"
+
+/* The __oldcompat_*() functions were originally needed for OLD out-of-tree
+ * versions of MARS for adapdation to OLD kernel versions.
+ * After some v4.xxx kernels, the out-of-tree compile did not
+ * really work anymore.
+ * Even some combinations of in-tree mars.ko with some (Frankenstein) kernels
+ * were requiring this code.
+ *
+ * This crap should VANISH in the long term, by integration of MARS
+ * into the upstream kernel.
+ *
+ * Since kernel v5.10 and later, it should be possible to compile (and run!)
+ * even an out-of-tree mars.ko without the following compat_*()
+ * historics.
+ */
+#define MARS_NEEDS_OLDCOMPAT_FUNCTIONS
 
 extern int __oldcompat_symlink(
 	const char __user *oldname,
