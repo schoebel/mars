@@ -105,7 +105,7 @@ EXPORT_SYMBOL_GPL(mars_dent_meta);
 #ifndef MARS_HAS_PREPATCH
 /////////////////////////////////////////////////////////////////////
 
-/* The _compat_*() functions are needed for the out-of-tree version
+/* The __oldcompat_*() functions are needed for the out-of-tree version
  * of MARS for adapdation to different kernel version.
  */
 
@@ -160,7 +160,7 @@ static int __path_parent(const char *name, struct path *path, unsigned flags)
 /* code is blindly stolen from symlinkat()
  * and later adapted to various kernels
  */
-int _compat_symlink(const char __user *oldname,
+int __oldcompat_symlink(const char __user *oldname,
 		    const char __user *newname,
 		    struct lamport_time *mtime)
 {
@@ -231,7 +231,7 @@ out_putname:
 
 /* code is stolen from mkdirat()
  */
-int _compat_mkdir(const char __user *pathname,
+int __oldcompat_mkdir(const char __user *pathname,
 		  int mode)
 {
 	const int dfd = AT_FDCWD;
@@ -278,7 +278,7 @@ out_dput:
  *  - standard case, no mountpoints inbetween
  *  - no security checks (we are anyway called from kernel code)
  */
-int _compat_rename(const char *oldname,
+int __oldcompat_rename(const char *oldname,
 		   const char *newname)
 {
 	struct path oldpath;
@@ -408,7 +408,7 @@ exit:
  *  - standard case, no mountpoints inbetween
  *  - no security checks (we are anyway called from kernel code)
  */
-int _compat_unlink(const char *pathname)
+int __oldcompat_unlink(const char *pathname)
 {
 	struct path path;
 	struct dentry *parent;
@@ -619,7 +619,7 @@ int mars_mkdir(const char *path)
 #ifdef MARS_HAS_PREPATCH
 	status = sys_mkdir(path, 0700);
 #else
-	status = _compat_mkdir(path, 0700);
+	status = __oldcompat_mkdir(path, 0700);
 #endif
 	set_fs(oldfs);
 
@@ -655,7 +655,7 @@ int mars_unlink(const char *path)
 #ifdef MARS_HAS_PREPATCH
 	status = sys_unlink(path);
 #else
-	status = _compat_unlink(path);
+	status = __oldcompat_unlink(path);
 #endif
 	set_fs(oldfs);
 
@@ -745,8 +745,8 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
 	}
 #else
-	(void)_compat_unlink(tmp);
-	status = _compat_symlink(oldpath, tmp, &times[0]);
+	(void)__oldcompat_unlink(tmp);
+	status = __oldcompat_symlink(oldpath, tmp, &times[0]);
 #endif
 
 	if (status >= 0) {
@@ -858,7 +858,7 @@ int mars_rename(const char *oldpath, const char *newpath)
 #ifdef MARS_HAS_PREPATCH
 	status = sys_rename(oldpath, newpath);
 #else
-	status = _compat_rename(oldpath, newpath);
+	status = __oldcompat_rename(oldpath, newpath);
 #endif
 	set_fs(oldfs);
 

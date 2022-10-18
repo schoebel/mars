@@ -70,20 +70,20 @@
 #include <linux/time.h>
 #include "lamport.h"
 
-extern int _compat_symlink(
+extern int __oldcompat_symlink(
 	const char __user *oldname,
 	const char __user *newname,
 	struct lamport_time *mtime);
 
-extern int _compat_mkdir(
+extern int __oldcompat_mkdir(
 	const char __user *pathname,
 	int mode);
 
-extern int _compat_rename(
+extern int __oldcompat_rename(
 	const char __user *oldname,
 	const char __user *newname);
 
-extern int _compat_unlink(
+extern int __oldcompat_unlink(
 	const char __user *pathname);
 
 #endif /* MARS_HAS_PREPATCH */
