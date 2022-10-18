@@ -58,7 +58,8 @@
 
 #include "compat.h"
 
-#ifdef MARS_HAS_PREPATCH_V2
+#if defined(MARS_HAS_PREPATCH_V2) ||		\
+	defined(MARS_HAS_PREPATCH_V3)
 /* needed for mars_rename() */
 #include "sy_old/strategy.h"
 #endif
@@ -786,7 +787,8 @@ void _rollover_channel(struct say_channel *ch)
 			
 			oldfs = get_fs();
 			set_fs(KERNEL_DS);
-#ifdef MARS_HAS_PREPATCH_V2
+#if defined(MARS_HAS_PREPATCH_V2) ||		\
+	defined(MARS_HAS_PREPATCH_V3)
 			mars_rename(old, new);
 #elif defined(MARS_HAS_PREPATCH)
 			sys_rename(old, new);
