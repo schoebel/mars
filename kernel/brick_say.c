@@ -793,7 +793,7 @@ void _rollover_channel(struct say_channel *ch)
 #elif defined(MARS_HAS_PREPATCH)
 			sys_rename(old, new);
 #else
-			_compat_rename(old, new);
+			__oldcompat_rename(old, new);
 #endif
 			set_fs(oldfs);
 		}
