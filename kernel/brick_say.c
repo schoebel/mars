@@ -792,8 +792,10 @@ void _rollover_channel(struct say_channel *ch)
 			mars_rename(old, new);
 #elif defined(MARS_HAS_PREPATCH)
 			sys_rename(old, new);
-#else
+#elif defined(MARS_NEEDS_OLDCOMPAT_FUNCTIONS)
 			__oldcompat_rename(old, new);
+#else
+#error Build Error - check the sources and/or the pre-patch version
 #endif
 			set_fs(oldfs);
 		}

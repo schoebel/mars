@@ -101,13 +101,56 @@ const struct meta mars_dent_meta[] = {
 };
 EXPORT_SYMBOL_GPL(mars_dent_meta);
 
-//      remove_this
-#ifndef MARS_HAS_PREPATCH
+/* This interfaces to vfs_unlink() for eventual removal for .deleted
+ * and similar uses.
+ */
+int __mars_vfs_unlink(struct inode *parent_inode, struct dentry *dentry)
+{
+	int error;
+
+#ifdef FL_DELEG
+	error = vfs_unlink(parent_inode, dentry, NULL);
+#else
+	error = vfs_unlink(parent_inode, dentry);
+#endif
+	return error;
+}
+
 /////////////////////////////////////////////////////////////////////
 
-/* The __oldcompat_*() functions are needed for the out-of-tree version
- * of MARS for adapdation to different kernel version.
+/* The __oldcompat_*() functions were originally needed for OLD out-of-tree
+ * versions of MARS for adapdation to OLD kernel versions.
+ * After some v4.xxx kernels, the out-of-tree compile did not
+ * really work anymore.
+ * Even some combinations of in-tree mars.ko with some (Frankenstein) kernels
+ * were requiring this code.
+ *
+ * This crap should VANISH in the long term, by integration of MARS
+ * into the upstream kernel.
+ *
+ * Since kernel v5.10 and later, it should be possible to compile (and run!)
+ * even an out-of-tree mars.ko without the following compat_*()
+ * historics.
  */
+#if defined(MARS_HAS_PREPATCH) ||					\
+	defined(MARS_HAS_PREPATCH_V2) ||				\
+	(defined(MARS_HAS_PREPATCH_V3) &&				\
+	 !defined(MARS_HAS_PREPATCH_V3b) &&				\
+	 !defined(MARS_HAS_PREPATCH_V4) &&				\
+	 1)
+#define MARS_HAS_HISTORIC_PREPATCH
+#define MARS_NEEDS_OLDCOMPAT_FUNCTIONS
+#endif
+
+#if !defined(MARS_HAS_PREPATCH) &&					\
+	!defined(MARS_HAS_PREPATCH_V2) &&				\
+	defined(MARS_HAS_PREPATCH_V3) &&				\
+	defined(MARS_HAS_PREPATCH_V3b) &&				\
+	1
+#define MARS_NEEDS_OLDCOMPAT_FUNCTIONS
+#endif
+
+#ifdef MARS_NEEDS_OLDCOMPAT_FUNCTIONS
 
 #ifdef SB_FREEZE_LEVELS
 /* since kernel 3.6 */
@@ -502,8 +545,8 @@ exit:
 	return error;
 }
 
-#endif
-//      end_remove_this
+#endif /* MARS_NEEDS_OLDCOMPAT_FUNCTIONS */
+
 /////////////////////////////////////////////////////////////////////
 
 // some helpers
@@ -654,8 +697,10 @@ int mars_unlink(const char *path)
 	set_fs(KERNEL_DS);
 #ifdef MARS_HAS_PREPATCH
 	status = sys_unlink(path);
-#else
+#elif defined(MARS_NEEDS_OLDCOMPAT_FUNCTIONS)
 	status = __oldcompat_unlink(path);
+#else
+#error Build Error - check the sources and/or the pre-patch version
 #endif
 	set_fs(oldfs);
 
@@ -744,9 +789,11 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		memcpy(&times[1], &times[0], sizeof(struct lamport_time));
 		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
 	}
-#else
+#elif defined(MARS_NEEDS_OLDCOMPAT_FUNCTIONS)
 	(void)__oldcompat_unlink(tmp);
 	status = __oldcompat_symlink(oldpath, tmp, &times[0]);
+#else
+#error Build Error - check the sources and/or the pre-patch version
 #endif
 
 	if (status >= 0) {
