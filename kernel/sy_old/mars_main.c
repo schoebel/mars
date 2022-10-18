@@ -8270,8 +8270,12 @@ MODULE_VERSION(BUILDTAG " (" BUILDHOST " " BUILDDATE ")");
 MODULE_LICENSE("GPL");
 
 #if 0 /* never this */
+#elif defined(MARS_HAS_PREPATCH_V3b)
+MODULE_INFO(prepatch, "has_prepatch_v3b");
+#elif defined(MARS_HAS_PREPATCH_V3a)
+MODULE_INFO(prepatch, "has_prepatch_v3a");
 #elif defined(MARS_HAS_PREPATCH_V3)
-MODULE_INFO(prepatch, "has_prepatch_v3");
+MODULE_INFO(prepatch, "has_prepatch_v3 (!!!PLEASE_USE_v3a_or_v3b_instead!!!)");
 #elif defined(MARS_HAS_PREPATCH_V2)
 MODULE_INFO(prepatch, "has_prepatch_v2");
 #elif defined(MARS_HAS_PREPATCH)
