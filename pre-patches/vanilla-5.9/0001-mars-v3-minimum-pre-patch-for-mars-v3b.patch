@@ -1,0 +1,348 @@
+From e08e25db4afed350b022b2766711bf6ca1871c9c Mon Sep 17 00:00:00 2001
+From: Thomas Schoebel-Theuer <mars@box>
+Date: Mon, 24 Oct 2022 09:34:31 +0200
+Subject: [PATCH] mars: v3 minimum pre-patch for mars v3b
+
+---
+ fs/aio.c                   | 47 ++++++++++++++++++++++++++++++--------
+ fs/namei.c                 | 12 +++++++---
+ fs/open.c                  |  4 +++-
+ fs/utimes.c                |  2 ++
+ include/linux/aio.h        |  1 +
+ include/linux/syscalls.h   | 21 +++++++++++++++++
+ include/uapi/linux/major.h |  1 +
+ mm/page_alloc.c            |  2 ++
+ 8 files changed, 77 insertions(+), 13 deletions(-)
+
+diff --git a/fs/aio.c b/fs/aio.c
+index d5ec30385566..5de102172fd8 100644
+--- a/fs/aio.c
++++ b/fs/aio.c
+@@ -222,6 +222,7 @@ struct aio_kiocb {
+ static DEFINE_SPINLOCK(aio_nr_lock);
+ unsigned long aio_nr;		/* current system wide number of aio requests */
+ unsigned long aio_max_nr = 0x10000; /* system wide maximum number of aio requests */
++EXPORT_SYMBOL_GPL(aio_max_nr);
+ /*----end sysctl variables---*/
+ 
+ static struct kmem_cache	*kiocb_cachep;
+@@ -1309,7 +1310,7 @@ static long read_events(struct kioctx *ctx, long min_nr, long nr,
+  *	pointer is passed for ctxp.  Will fail with -ENOSYS if not
+  *	implemented.
+  */
+-SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
++long ksys_io_setup(unsigned nr_events, aio_context_t *ctxp)
+ {
+ 	struct kioctx *ioctx = NULL;
+ 	unsigned long ctx;
+@@ -1338,6 +1339,12 @@ SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
+ out:
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(ksys_io_setup);
++
++SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
++{
++	return ksys_io_setup(nr_events, ctxp);
++}
+ 
+ #ifdef CONFIG_COMPAT
+ COMPAT_SYSCALL_DEFINE2(io_setup, unsigned, nr_events, u32 __user *, ctx32p)
+@@ -1378,7 +1385,7 @@ COMPAT_SYSCALL_DEFINE2(io_setup, unsigned, nr_events, u32 __user *, ctx32p)
+  *	implemented.  May fail with -EINVAL if the context pointed to
+  *	is invalid.
+  */
+-SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
++long ksys_io_destroy(aio_context_t ctx)
+ {
+ 	struct kioctx *ioctx = lookup_ioctx(ctx);
+ 	if (likely(NULL != ioctx)) {
+@@ -1407,6 +1414,12 @@ SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
+ 	pr_debug("EINVAL: invalid context id\n");
+ 	return -EINVAL;
+ }
++EXPORT_SYMBOL_GPL(ksys_io_destroy);
++
++SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
++{
++	return ksys_io_destroy(ctx);
++}
+ 
+ static void aio_remove_iocb(struct aio_kiocb *iocb)
+ {
+@@ -1911,8 +1924,8 @@ static int io_submit_one(struct kioctx *ctx, struct iocb __user *user_iocb,
+  *	are available to queue any iocbs.  Will return 0 if nr is 0.  Will
+  *	fail with -ENOSYS if not implemented.
+  */
+-SYSCALL_DEFINE3(io_submit, aio_context_t, ctx_id, long, nr,
+-		struct iocb __user * __user *, iocbpp)
++long ksys_io_submit(aio_context_t ctx_id, long nr,
++		    struct iocb __user *__user *iocbpp)
+ {
+ 	struct kioctx *ctx;
+ 	long ret = 0;
+@@ -1951,6 +1964,13 @@ SYSCALL_DEFINE3(io_submit, aio_context_t, ctx_id, long, nr,
+ 	percpu_ref_put(&ctx->users);
+ 	return i ? i : ret;
+ }
++EXPORT_SYMBOL_GPL(ksys_io_submit);
++
++SYSCALL_DEFINE3(io_submit, aio_context_t, ctx_id, long, nr,
++		struct iocb __user * __user *, iocbpp)
++{
++	return ksys_io_submit(ctx_id, nr, iocbpp);
++}
+ 
+ #ifdef CONFIG_COMPAT
+ COMPAT_SYSCALL_DEFINE3(io_submit, compat_aio_context_t, ctx_id,
+@@ -2081,11 +2101,11 @@ static long do_io_getevents(aio_context_t ctx_id,
+  */
+ #ifdef CONFIG_64BIT
+ 
+-SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
+-		long, min_nr,
+-		long, nr,
+-		struct io_event __user *, events,
+-		struct __kernel_timespec __user *, timeout)
++int ksys_io_getevents(aio_context_t ctx_id,
++		      long min_nr,
++		      long nr,
++		      struct io_event __user * events,
++		      struct __kernel_timespec __user * timeout)
+ {
+ 	struct timespec64	ts;
+ 	int			ret;
+@@ -2098,7 +2118,16 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
+ 		ret = -EINTR;
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(ksys_io_getevents);
+ 
++SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
++		long, min_nr,
++		long, nr,
++		struct io_event __user *, events,
++		struct __kernel_timespec __user *, timeout)
++{
++	return ksys_io_getevents(ctx_id, min_nr, nr, events, timeout);
++}
+ #endif
+ 
+ struct __aio_sigset {
+diff --git a/fs/namei.c b/fs/namei.c
+index e99e2a9da0f7..57bffbc46d57 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -208,6 +208,7 @@ getname(const char __user * filename)
+ {
+ 	return getname_flags(filename, 0, NULL);
+ }
++EXPORT_SYMBOL(getname); /* required for ksys_unlink() */
+ 
+ struct filename *
+ getname_kernel(const char * filename)
+@@ -3653,7 +3654,7 @@ int vfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
+ }
+ EXPORT_SYMBOL(vfs_mkdir);
+ 
+-static long do_mkdirat(int dfd, const char __user *pathname, umode_t mode)
++long do_mkdirat(int dfd, const char __user *pathname, umode_t mode)
+ {
+ 	struct dentry *dentry;
+ 	struct path path;
+@@ -3677,6 +3678,7 @@ static long do_mkdirat(int dfd, const char __user *pathname, umode_t mode)
+ 	}
+ 	return error;
+ }
++EXPORT_SYMBOL(do_mkdirat); /* required for ksys_mkdir() */
+ 
+ SYSCALL_DEFINE3(mkdirat, int, dfd, const char __user *, pathname, umode_t, mode)
+ {
+@@ -3785,6 +3787,7 @@ long do_rmdir(int dfd, struct filename *name)
+ 	putname(name);
+ 	return error;
+ }
++EXPORT_SYMBOL(do_rmdir); /* required for ksys_rmdir() */
+ 
+ SYSCALL_DEFINE1(rmdir, const char __user *, pathname)
+ {
+@@ -3926,6 +3929,7 @@ long do_unlinkat(int dfd, struct filename *name)
+ 		error = -ENOTDIR;
+ 	goto exit2;
+ }
++EXPORT_SYMBOL(do_unlinkat); /* required for ksys_unlink() */
+ 
+ SYSCALL_DEFINE3(unlinkat, int, dfd, const char __user *, pathname, int, flag)
+ {
+@@ -3963,7 +3967,7 @@ int vfs_symlink(struct inode *dir, struct dentry *dentry, const char *oldname)
+ }
+ EXPORT_SYMBOL(vfs_symlink);
+ 
+-static long do_symlinkat(const char __user *oldname, int newdfd,
++long do_symlinkat(const char __user *oldname, int newdfd,
+ 		  const char __user *newname)
+ {
+ 	int error;
+@@ -3993,6 +3997,7 @@ static long do_symlinkat(const char __user *oldname, int newdfd,
+ 	putname(from);
+ 	return error;
+ }
++EXPORT_SYMBOL(do_symlinkat); /* required for ksys_symlink() */
+ 
+ SYSCALL_DEFINE3(symlinkat, const char __user *, oldname,
+ 		int, newdfd, const char __user *, newname)
+@@ -4345,7 +4350,7 @@ int vfs_rename(struct inode *old_dir, struct dentry *old_dentry,
+ }
+ EXPORT_SYMBOL(vfs_rename);
+ 
+-static int do_renameat2(int olddfd, const char __user *oldname, int newdfd,
++int do_renameat2(int olddfd, const char __user *oldname, int newdfd,
+ 			const char __user *newname, unsigned int flags)
+ {
+ 	struct dentry *old_dentry, *new_dentry;
+@@ -4484,6 +4489,7 @@ static int do_renameat2(int olddfd, const char __user *oldname, int newdfd,
+ exit:
+ 	return error;
+ }
++EXPORT_SYMBOL(do_renameat2);
+ 
+ SYSCALL_DEFINE5(renameat2, int, olddfd, const char __user *, oldname,
+ 		int, newdfd, const char __user *, newname, unsigned int, flags)
+diff --git a/fs/open.c b/fs/open.c
+index 9af548fb841b..b1ca97e4e19d 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -610,7 +610,7 @@ SYSCALL_DEFINE2(fchmod, unsigned int, fd, umode_t, mode)
+ 	return err;
+ }
+ 
+-static int do_fchmodat(int dfd, const char __user *filename, umode_t mode)
++int do_fchmodat(int dfd, const char __user *filename, umode_t mode)
+ {
+ 	struct path path;
+ 	int error;
+@@ -627,6 +627,7 @@ static int do_fchmodat(int dfd, const char __user *filename, umode_t mode)
+ 	}
+ 	return error;
+ }
++EXPORT_SYMBOL(do_fchmodat);
+ 
+ SYSCALL_DEFINE3(fchmodat, int, dfd, const char __user *, filename,
+ 		umode_t, mode)
+@@ -712,6 +713,7 @@ int do_fchownat(int dfd, const char __user *filename, uid_t user, gid_t group,
+ out:
+ 	return error;
+ }
++EXPORT_SYMBOL(do_fchownat); /* required for ksys_chown() */
+ 
+ SYSCALL_DEFINE5(fchownat, int, dfd, const char __user *, filename, uid_t, user,
+ 		gid_t, group, int, flag)
+diff --git a/fs/utimes.c b/fs/utimes.c
+index fd3cc4226224..5096ac33b070 100644
+--- a/fs/utimes.c
++++ b/fs/utimes.c
+@@ -1,4 +1,5 @@
+ // SPDX-License-Identifier: GPL-2.0
++#include <linux/module.h>
+ #include <linux/file.h>
+ #include <linux/mount.h>
+ #include <linux/namei.h>
+@@ -142,6 +143,7 @@ long do_utimes(int dfd, const char __user *filename, struct timespec64 *times,
+ 		return do_utimes_fd(dfd, times, flags);
+ 	return do_utimes_path(dfd, filename, times, flags);
+ }
++EXPORT_SYMBOL(do_utimes);
+ 
+ SYSCALL_DEFINE4(utimensat, int, dfd, const char __user *, filename,
+ 		struct __kernel_timespec __user *, utimes, int, flags)
+diff --git a/include/linux/aio.h b/include/linux/aio.h
+index b83e68dd006f..62061e975682 100644
+--- a/include/linux/aio.h
++++ b/include/linux/aio.h
+@@ -12,6 +12,7 @@ typedef int (kiocb_cancel_fn)(struct kiocb *);
+ 
+ /* prototypes */
+ #ifdef CONFIG_AIO
++#define HAS_AIO_MAX
+ extern void exit_aio(struct mm_struct *mm);
+ void kiocb_set_cancel_fn(struct kiocb *req, kiocb_cancel_fn *cancel);
+ #else
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index 75ac7f8ae93c..5c3b0bcb5704 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -1235,6 +1235,16 @@ asmlinkage long sys_ni_syscall(void);
+  * Instead, use one of the functions which work equivalently, such as
+  * the ksys_xyzyyz() functions prototyped below.
+  */
++long ksys_io_submit(aio_context_t ctx_id, long nr,
++		    struct iocb __user *__user *iocbpp);
++int ksys_io_getevents(aio_context_t ctx_id,
++		      long min_nr,
++		      long nr,
++		      struct io_event __user * events,
++		      struct __kernel_timespec __user * timeout);
++long ksys_io_setup(unsigned nr_events, aio_context_t *ctxp);
++long ksys_io_destroy(aio_context_t ctx);
++
+ ssize_t ksys_write(unsigned int fd, const char __user *buf, size_t count);
+ int ksys_fchown(unsigned int fd, uid_t user, gid_t group);
+ ssize_t ksys_read(unsigned int fd, char __user *buf, size_t count);
+@@ -1322,6 +1332,9 @@ static inline unsigned int ksys_personality(unsigned int personality)
+ 	return old;
+ }
+ 
++extern int do_renameat2(int olddfd, const char __user *oldname, int newdfd,
++			const char __user *newname, unsigned int flags);
++
+ /* for __ARCH_WANT_SYS_IPC */
+ long ksys_semtimedop(int semid, struct sembuf __user *tsops,
+ 		     unsigned int nsops,
+@@ -1345,4 +1358,12 @@ int __sys_getsockopt(int fd, int level, int optname, char __user *optval,
+ 		int __user *optlen);
+ int __sys_setsockopt(int fd, int level, int optname, char __user *optval,
+ 		int optlen);
++
++/* Out of tree:
++ * Report the MARS prepatch version, starting with V3
++ */
++#define MARS_HAS_PREPATCH_V3
++/* The following is an additional subversion info */
++#define MARS_HAS_PREPATCH_V3b
++
+ #endif
+diff --git a/include/uapi/linux/major.h b/include/uapi/linux/major.h
+index 7e5fa8e15c43..edfbce01e4ac 100644
+--- a/include/uapi/linux/major.h
++++ b/include/uapi/linux/major.h
+@@ -149,6 +149,7 @@
+ #define UNIX98_PTY_SLAVE_MAJOR	(UNIX98_PTY_MASTER_MAJOR+UNIX98_PTY_MAJOR_COUNT)
+ 
+ #define DRBD_MAJOR		147
++#define MARS_MAJOR		148
+ #define RTF_MAJOR		150
+ #define RAW_MAJOR		162
+ 
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 8a86bb70b343..37f52315e0aa 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -316,6 +316,7 @@ compound_page_dtor * const compound_page_dtors[NR_COMPOUND_DTORS] = {
+ };
+ 
+ int min_free_kbytes = 1024;
++EXPORT_SYMBOL(min_free_kbytes);
+ int user_min_free_kbytes = -1;
+ #ifdef CONFIG_DISCONTIGMEM
+ /*
+@@ -7845,6 +7846,7 @@ static void __setup_per_zone_wmarks(void)
+ 	/* update totalreserve_pages */
+ 	calculate_totalreserve_pages();
+ }
++EXPORT_SYMBOL(setup_per_zone_wmarks);
+ 
+ /**
+  * setup_per_zone_wmarks - called when min_free_kbytes changes
+-- 
+2.35.3
+
