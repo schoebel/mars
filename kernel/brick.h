@@ -43,6 +43,7 @@
 #include "mars_config.h"
 #endif
 
+#include "brick_say.h"
 #include "brick_locks.h"
 #include "meta.h"
 

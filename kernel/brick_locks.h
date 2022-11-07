@@ -26,8 +26,6 @@
 
 #include <linux/spinlock.h>
 
-#include "brick_say.h"
-
 #if 1
 # define traced_lock(spinlock,flags)   spin_lock_irqsave(spinlock,flags)
 # define traced_unlock(spinlock,flags) spin_unlock_irqrestore(spinlock,flags)
