@@ -359,7 +359,6 @@ struct generic_output {
 
 #define _GENERIC_OUTPUT_CALL(OUTPUT,OP,ARGS...)				\
 	({								\
-		(void)LOCK_CHECK(OP);					\
 		(OUTPUT) && (OUTPUT)->ops->OP ?				\
 		(OUTPUT)->ops->OP(OUTPUT, ##ARGS) :			\
 		-ENOTCONN;						\
@@ -385,7 +384,6 @@ struct generic_output {
 
 #define _GENERIC_INPUT_CALL(INPUT,OP,ARGS...)				\
 	({								\
-		(void)LOCK_CHECK(OP);					\
 		(INPUT) && (INPUT)->connect ?				\
 		_GENERIC_OUTPUT_CALL((INPUT)->connect, OP, ##ARGS) :	\
 		-ENOTCONN;						\

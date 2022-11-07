@@ -28,8 +28,6 @@
 
 #include "brick_say.h"
 
-# define LOCK_CHECK(OP) 0
-
 #if 1
 # define traced_lock(spinlock,flags)   spin_lock_irqsave(spinlock,flags)
 # define traced_unlock(spinlock,flags) spin_unlock_irqrestore(spinlock,flags)
