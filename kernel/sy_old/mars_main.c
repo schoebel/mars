@@ -8094,7 +8094,9 @@ static void exit_main(void)
 
 static int __init init_main(void)
 {
-#ifdef MARS_HAS_PREPATCH
+#if defined(MARS_HAS_PREPATCH) ||		\
+	defined(MARS_HAS_PREPATCH_V2) ||	\
+	defined(MARS_HAS_PREPATCH_V3a)
 	extern int min_free_kbytes;
 	int new_limit = 4096;
 #endif
@@ -8137,8 +8139,12 @@ static int __init init_main(void)
 	if (!status)
 		init_say();
 #endif
-
-#ifdef MARS_HAS_PREPATCH
+	/* Well, newer kernels should not need stone-aged tweaking anymore,
+	 * and we want to compile them without any prepatch...
+	 */
+#if defined(MARS_HAS_PREPATCH) ||		\
+	defined(MARS_HAS_PREPATCH_V2) ||	\
+	defined(MARS_HAS_PREPATCH_V3a)
 	// bump the min_free limit
 	if (min_free_kbytes < new_limit)
 		min_free_kbytes = new_limit;
