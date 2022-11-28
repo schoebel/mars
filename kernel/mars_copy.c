@@ -213,7 +213,10 @@ void copy_endio(struct generic_callback *cb)
 	struct copy_state *st;
 	struct mref_object *old_mref;
 	unsigned index;
+#ifdef CONFIG_MARS_DEBUG
 	unsigned check_index;
+	unsigned check_offset;
+#endif
 	unsigned queue;
 	int error = 0;
 
@@ -235,6 +238,8 @@ void copy_endio(struct generic_callback *cb)
 
 	queue = mref_a->saved_queue;
 	index = mref_a->saved_index;
+
+#ifdef CONFIG_MARS_DEBUG
 	/* index paranoia */
 	check_index = GET_INDEX(mref_a->orig_ref_pos);
 	if (unlikely(check_index != index)) {
@@ -247,6 +252,24 @@ void copy_endio(struct generic_callback *cb)
 		error = -EEXIST;
 		goto exit;
 	}
+	/* length and offset paranoia */
+	check_offset = GET_OFFSET(mref_a->orig_ref_pos);
+	if (unlikely(check_offset >= COPY_CHUNK ||
+		     check_offset + mref_a->orig_ref_len > COPY_CHUNK ||
+		     check_offset + mref->ref_len > COPY_CHUNK ||
+		     mref->ref_len > mref_a->orig_ref_len ||
+		     mref->ref_len < 0)) {
+		MARS_ERR("bad length or offset=%u at %lld+%d (%d) on queue=%u: mref=%p mref_a=%p cb=%p err=%d\n",
+			 check_offset,
+			 mref_a->orig_ref_pos, mref->ref_len,
+			 mref_a->orig_ref_len,
+			 queue,
+			 mref, mref_a,
+			 cb, cb->cb_error);
+		error = -EBADF;
+		goto exit;
+	}
+#endif
 
 	st = &GET_STATE(brick, index);
 
@@ -389,7 +412,6 @@ int _make_mref(struct copy_brick *brick,
 	input = brick->inputs[input_index];
 	mref_a->input = input;
 	mref_a->brick = brick;
-	mref_a->orig_ref_pos = current_pos;
 	mref_a->saved_queue = queue;
 	mref_a->saved_index = index;
 
@@ -412,6 +434,23 @@ int _make_mref(struct copy_brick *brick,
 		mars_copy_read_prio;
 	if (mref->ref_prio < MARS_PRIO_HIGH || mref->ref_prio > MARS_PRIO_LOW)
 		mref->ref_prio = brick->io_prio;
+
+#ifdef CONFIG_MARS_DEBUG
+	/* paranoia, only for testing */
+	mref_a->orig_ref_pos = current_pos;
+	mref_a->orig_ref_len = len;
+	{
+		unsigned index_A = GET_INDEX(current_pos);
+		loff_t last_pos = current_pos + len - 1;
+		unsigned index_B = GET_INDEX(last_pos);
+
+		if (index_A != index_B) {
+			MARS_ERR("internal index %u != %u at %lld+%d\n",
+				 index_A, index_B,
+				 current_pos, len);
+		}
+	}
+#endif
 
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
 	if (unlikely(status < 0)) {

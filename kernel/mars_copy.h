@@ -68,7 +68,11 @@ struct copy_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct copy_input *input;
 	struct copy_brick *brick;
+#ifdef CONFIG_MARS_DEBUG
+	/* paranoia, only for testing */
 	loff_t orig_ref_pos;
+	int orig_ref_len;
+#endif
 	unsigned saved_queue;
 	unsigned saved_index;
 };
