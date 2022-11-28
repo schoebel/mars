@@ -1167,9 +1167,14 @@ static int if_switch(struct if_brick *brick)
 		bdi->ra_pages = brick->readahead;
 #endif
 #ifdef USE_CONGESTED_FN
-		MARS_DBG("congested_fn\n");
-		bdi->congested_fn = mars_congested;
-		bdi->congested_data = input;
+		if (!bdi->congested_fn) {
+			MARS_DBG("congested_fn\n");
+			bdi->congested_fn = mars_congested;
+			bdi->congested_data = input;
+		} else {
+			MARS_WRN("cannot assign congested_fn to %p %p\n",
+				 bdi->congested_fn, bdi->congested_data);
+		}
 #endif
 
 #else
@@ -1179,9 +1184,14 @@ static int if_switch(struct if_brick *brick)
 		q->backing_dev_info.ra_pages = brick->readahead;
 #endif
 #ifdef USE_CONGESTED_FN
-		MARS_DBG("congested_fn\n");
-		q->backing_dev_info.congested_fn = mars_congested;
-		q->backing_dev_info.congested_data = input;
+		if (!q->backing_dev_info.congested_fn) {
+			MARS_DBG("congested_fn\n");
+			q->backing_dev_info.congested_fn = mars_congested;
+			q->backing_dev_info.congested_data = input;
+		} else {
+			MARS_WRN("cannot assign congested_fn to %p %p\n",
+				 q->backing_dev_info.congested_fn, q->backing_dev_info.congested_data);
+		}
 #endif
 #endif
 //      remove_this
@@ -1247,8 +1257,13 @@ static int if_switch(struct if_brick *brick)
 			MARS_DBG("unregister congested_fn\n");
 			bdi = input->bdev->bd_bdi;
 			if (bdi) {
-				bdi->congested_fn = NULL;
-				bdi->congested_data = NULL;
+				if (bdi->congested_fn == mars_congested) {
+					bdi->congested_fn = NULL;
+					bdi->congested_data = NULL;
+				} else {
+					MARS_WRN("connot clear congested_fn %p %p",
+						 bdi->congested_fn, bdi->congested_data);
+				}
 			}
 #endif
 			MARS_DBG("calling bdput()\n");
@@ -1262,9 +1277,14 @@ static int if_switch(struct if_brick *brick)
 		if (q) {
 #if defined(USE_CONGESTED_FN) && !defined(MARS_HAS_BDI_GET)
 			/* ensure that callbacks will stop */
-			MARS_DBG("unregister congested_fn\n");
-			q->backing_dev_info.congested_fn = NULL;
-			q->backing_dev_info.congested_data = NULL;
+			if (q->backing_dev_info.congested_fn == mars_congested) {
+				MARS_DBG("unregister congested_fn\n");
+				q->backing_dev_info.congested_fn = NULL;
+				q->backing_dev_info.congested_data = NULL;
+			} else {
+				MARS_WRN("connot clear congested_fn %p %p",
+					 q->backing_dev_info.congested_fn, q->backing_dev_info.congested_data);
+			}
 #endif
 			blk_cleanup_queue(q);
 			input->q = NULL;
