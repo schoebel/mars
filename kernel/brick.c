@@ -367,7 +367,7 @@ struct generic_object *generic_alloc(struct generic_brick *brick, struct generic
 	void *data;
 	int object_size;
 	int aspect_nr_max;
-	int total_size;
+	unsigned total_size;
 	int hint_size;
 
 	CHECK_PTR_NULL(object_type, err);
@@ -382,6 +382,7 @@ struct generic_object *generic_alloc(struct generic_brick *brick, struct generic
 	} else { // usually happens only at the first time
 		object_layout->size_hint = total_size;
 	}
+	total_size = BRICK_ALIGN(total_size);
 
 	data = brick_zmem_alloc(total_size);
 	if (!data)

@@ -48,6 +48,15 @@
 
 #define MAX_BRICK_TYPES 64
 
+#define BRICK_ALIGN(object_size)					\
+	((object_size) < 32 * 2 ?					\
+	 (DIV_ROUND_UP((object_size), 32) * 32) :			\
+	 ((object_size) < 128 * 2 ?					\
+	  (DIV_ROUND_UP((object_size), 128) * 128) :			\
+	  ((object_size) < 512 * 2 ?					\
+	   (DIV_ROUND_UP((object_size), 512) * 512) :			\
+	   (DIV_ROUND_UP((object_size), 4096) * 4096))))
+
 #define SAFE_STR(str) ((str) ? (str) : "NULL")
 
 #define brick_msleep(msecs) _brick_msleep(msecs, false)
