@@ -421,12 +421,13 @@ int _make_mref(struct copy_brick *brick,
 	/* In general, mref_get() may deliver a shorter buffer,
 	 * and even EOF.
 	 */
-	WRITE_ONCE(st->len, len);
 	ref_len = mref->ref_len;
 	if (ref_len >= 0 && ref_len < len) {
 		WRITE_ONCE(st->len, ref_len);
 		MARS_DBG("shorten len %d < %u at queue=%d index=%u\n",
 			 ref_len, len, queue, index);
+	} else {
+		WRITE_ONCE(st->len, len);
 	}
 	SETUP_CALLBACK(mref, copy_endio, mref_a);
 
