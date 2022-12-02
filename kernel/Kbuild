@@ -57,6 +57,8 @@ mars-objs :=				\
 	mars_net.o			\
 	mars_server.o			\
 	mars_client.o			\
+	mars_qio.o			\
+	lib_qio_rw.o			\
 	mars_aio.o			\
 	mars_sio.o			\
 	mars_bio.o			\
