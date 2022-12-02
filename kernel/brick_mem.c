@@ -836,6 +836,7 @@ void _brick_block_free(void *data, int len, int cline)
 	}
 #endif
 #ifdef BRICK_DEBUG_MEM
+	(void)prev_line; /* silence annoying compiler warning */
 	if (order > 1) {
 		void *test = data - PAGE_SIZE;
 		int magic = INT_ACCESS(test, 0);
