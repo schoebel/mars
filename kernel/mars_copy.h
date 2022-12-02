@@ -90,6 +90,7 @@ struct copy_brick {
 	loff_t copy_last; // current working position
 	loff_t copy_dirty; // end of current working area
 	struct lamport_time copy_last_stamp;
+	struct lamport_time copy_shutdown_started;
 	int copy_error;
 	int copy_error_count;
 	int verify_ok_count;

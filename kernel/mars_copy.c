@@ -491,6 +491,7 @@ int _next_state(struct copy_brick *brick, unsigned index, loff_t pos)
 	enum _copy_state state;
 	enum _copy_state next_state;
 	bool do_restart = false;
+	bool wait_for_requests_finished;
 	int progress = 0;
 	int status;
 
@@ -521,8 +522,39 @@ restart:
 		/* This state is only entered after errors or
 		 * in restarting situations.
 		 */
+		wait_for_requests_finished = brick->power.button;
+		if (!wait_for_requests_finished &&
+		    brick->copy_shutdown_started.tv_sec) {
+			struct lamport_time force_when;
+
+			/* We use the force alrady after mars_copy_timeout / 2
+			 * because the shutdown itself may take some
+			 * further time (e.g. over network).
+			 */
+			get_real_lamport(&force_when);
+			force_when.tv_sec += mars_copy_timeout / 2;
+			wait_for_requests_finished =
+				lamport_time_compare(&force_when,
+						     &brick->copy_shutdown_started) > 0;
+		}
+		if (wait_for_requests_finished) {
+			/* Wait until old requests have vanished.
+			 */
+			if ((READ_ONCE(st->active[0]) |
+			     READ_ONCE(st->active[1])) ||
+			    ((unsigned long)READ_ONCE(st->table[0]) |
+			     (unsigned long)READ_ONCE(st->table[1]))) {
+				progress = -EAGAIN;
+				goto idle;
+			}
+			goto startable;
+		}
+		/* Only upon shutdown of the brick, we will "kill"
+		 * any running requests.
+		 */
 		_clear_mref(brick, index, 1);
 		_clear_mref(brick, index, 0);
+	startable:
 		next_state = COPY_STATE_START;
 		/* fallthrough */
 		goto label_COPY_STATE_START;
@@ -1087,6 +1119,7 @@ static int copy_switch(struct copy_brick *brick)
 		if (brick->power.led_on || brick->thread)
 			goto done;
 		mars_power_led_off((void*)brick, false);
+		brick->copy_shutdown_started.tv_sec = 0;
 		brick->is_aborting = false;
 		if (!brick->thread) {
 			brick->copy_last = brick->copy_start;
@@ -1110,8 +1143,20 @@ static int copy_switch(struct copy_brick *brick)
 			/* Notice: this will be reported by the thread */
 			if (!brick->terminated)
 				goto done;
+			if (!brick->copy_shutdown_started.tv_sec) {
+				get_real_lamport(&brick->copy_shutdown_started);
+				mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE);
+
+			}
+			/* Only wait for thread termmination if the
+			 * thread will stop soon.
+			 */
+			if (atomic_read(&brick->copy_read_flight) +
+			    atomic_read(&brick->copy_write_flight) > 0)
+				goto done;
 			MARS_INF("stopping thread...\n");
 			brick_thread_stop(brick->thread);
+			mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE);
 		}
 		/* for safety, and when the thread was not started */
 		mars_power_led_off((void*)brick, true);
