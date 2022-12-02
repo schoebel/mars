@@ -1,6 +1,9 @@
 #
 # MARS configuration
 #
+# This version uses new features like $(shell,$command) etc.
+# An old version without such features can be found in then plain old
+# Kconfig file.
 
 config MARS
 	tristate "block storage replication MARS"
@@ -434,5 +437,47 @@ config MARS_PREFER_SIO
 	depends on MARS
 	default n
 	help
+	BAD_PERFORMANCE
 	Normally OFF for production systems.
 	Only use as alternative for testing.
+
+config MARS_CANNOT_USE_AIO_ANYMORE
+	bool
+# AFAICS the old aio brick cannot be used anymore, starting with
+# LTS kernels >= 5.10.
+# Maybe that certain Frankenstein kernels can play a different game,
+# but suchalike is not my game.
+# So I exclude the historic AIO right here, as best as I can at the moment.
+# Maybe there is a bug at Kconfig level I did not notice yet.
+# Hopefully this will continue to work with future upstream kernel releases.
+# When it fails with old / Frankenstein kernel, only a warning should appear,
+# which should then be ignored.
+	default y if $(shell,/bin/sh -c "if grep -q -s QUEUE_FLAG_STABLE_WRITES $abs_srctree/include/linux/blkdev.h; then echo y; else echo n; fi")
+
+config MARS_PREFER_QIO
+	bool "prefer future qio brick instead of historic aio"
+	depends on MARS
+	depends on !MARS_CANNOT_USE_AIO_ANYMORE
+	depends on $(shell,/bin/sh -c "if grep -q -s QUEUE_FLAG_BIDI $abs_srctree/include/linux/blkdev.h; then echo NONE_NONE; else echo MARS; fi")
+	default n
+	help
+	EXPERIMENTAL
+	Normally OFF for kernels < 5.10.x.
+	Only use as alternative for testing with those
+	kernels where it MAY work.
+	At the moment, this has not yet the maturity
+	you might expect.
+	AFAICS this is not usable before 8b3238cabd50e2715b6544e724e74685209b190a
+	(and maybe some more upstream patches, dto for Frankenstein kernels)
+
+config MARS_TESTING_QIO_UNSAFE_PERFORMANCE
+	bool "DANGEROUS - only for testing"
+	depends on MARS_PREFER_QIO
+	default n
+	help
+	EXPERIMENTAL
+	Please do not enable this unless you know exactly what you are doing.
+	Although it passes all my other tests, a primary crash will
+	easily lead to corrupt transaction logfiles. So you will always
+	need a forced primary somewhere, losing data.
+	NEVER FOR PRODUCTION!

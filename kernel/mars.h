@@ -469,11 +469,34 @@ extern int mars_throttle_end;
  */
 extern const struct generic_brick_type *_client_brick_type;
 extern const struct generic_brick_type *_bio_brick_type;
+extern const struct generic_brick_type *_qio_brick_type;
 extern const struct generic_brick_type *_aio_brick_type;
 extern const struct generic_brick_type *_sio_brick_type;
 
-#if !defined(CONFIG_MARS_PREFER_SIO) && (defined(MARS_HAS_PREPATCH) || defined(MARS_HAS_PREPATCH_V2))
+#if defined(IOCB_NOWAIT)			&&			\
+	/* see dde0c2e79848298cc25621ad080d47f94dbd7cce */		\
+	defined(IOCB_DSYNC)			&&			\
+	/* temporary CONFIG option, only for kernels ~5.1 to ~5.7, to disappear after 5.10 goes EOL */ \
+	defined(CONFIG_MARS_PREFER_QIO)		&&			\
+	!defined(CONFIG_MARS_PREFER_SIO)	&&			\
+	1
+#define ENABLE_MARS_QIO
+#else
+#if !defined(CONFIG_MARS_PREFER_SIO)		&&			\
+	(defined(MARS_HAS_PREPATCH)		||			\
+	 defined(MARS_HAS_PREPATCH_V2)		||			\
+	 defined(MARS_HAS_PREPATCH_V3a)		||			\
+	 1)
 #define ENABLE_MARS_AIO
+#endif
+#endif
+
+#if defined(ENABLE_MARS_QIO)
+# define any_io_brick_type qio_brick_type
+#elif defined(ENABLE_MARS_AIO)
+# define any_io_brick_type aio_brick_type
+#else
+# define any_io_brick_type sio_brick_type
 #endif
 
 #ifdef ENABLE_MARS_AIO
@@ -481,10 +504,7 @@ extern const struct generic_brick_type *_sio_brick_type;
  * for stuff like ioctx_alloc() / aio_setup_ring() etc
  * which expect userspace resources.
  * We fake one.
- * TODO: factor out the userspace stuff from AIO such that
- * this fake is no longer necessary.
- * Even better: replace do_mmap() in AIO stuff by something
- * more friendly to kernelspace apps.
+ * TODO: REMOVE THIS in favor of QIO
  */
 #include <linux/mmu_context.h>
 

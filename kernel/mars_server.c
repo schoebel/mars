@@ -37,6 +37,7 @@
 #define _STRATEGY
 #include "mars.h"
 #include "mars_bio.h"
+#include "mars_qio.h"
 #include "mars_aio.h"
 #include "mars_sio.h"
 
@@ -367,11 +368,13 @@ void _clean_list(struct server_brick *brick, struct list_head *start, bool was_w
 	}
 }
 
+#ifdef CONFIG_MARS_PREFER_SIO /* Historic, to disappear, ONLY FOR TESTING */
 static
 int _set_server_sio_params(struct mars_brick *_brick, void *private)
 {
-	struct sio_brick *sio_brick = (void*)_brick;
-	if (_brick->type != (void*)_sio_brick_type) {
+	struct sio_brick *sio_brick = (void *)_brick;
+
+	if (_brick->type != (void *)_sio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
@@ -380,15 +383,27 @@ int _set_server_sio_params(struct mars_brick *_brick, void *private)
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }
+#endif
 
+#ifdef ENABLE_MARS_QIO
+static
+int _set_server_qio_params(struct mars_brick *_brick, void *private)
+{
+	struct qio_brick *qio_brick = (void *)_brick;
+
+	qio_brick->o_creat = false;
+	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+	return 1;
+}
+#endif
+
+#ifdef ENABLE_MARS_AIO
 static
 int _set_server_aio_params(struct mars_brick *_brick, void *private)
 {
-	struct aio_brick *aio_brick = (void*)_brick;
-	if (_brick->type == (void*)_sio_brick_type) {
-		return _set_server_sio_params(_brick, private);
-	}
-	if (_brick->type != (void*)_aio_brick_type) {
+	struct aio_brick *aio_brick = (void *)_brick;
+
+	if (_brick->type != (void *)_aio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
@@ -398,22 +413,33 @@ int _set_server_aio_params(struct mars_brick *_brick, void *private)
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }
+#endif
 
 static
 int _set_server_bio_params(struct mars_brick *_brick, void *private)
 {
 	struct bio_brick *bio_brick;
-	if (_brick->type == (void*)_aio_brick_type) {
-		return _set_server_aio_params(_brick, private);
-	}
+
+#ifdef CONFIG_MARS_PREFER_SIO /* Historic, to disappear, ONLY FOR TESTING */
 	if (_brick->type == (void*)_sio_brick_type) {
 		return _set_server_sio_params(_brick, private);
 	}
-	if (_brick->type != (void*)_bio_brick_type) {
+#endif
+#ifdef ENABLE_MARS_QIO
+	if (_brick->type == (void *)_qio_brick_type) {
+		return _set_server_qio_params(_brick, private);
+	}
+#endif
+#ifdef ENABLE_MARS_AIO
+	if (_brick->type == (void *)_aio_brick_type) {
+		return _set_server_aio_params(_brick, private);
+	}
+#endif
+	if (_brick->type != (void *)_bio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
-	bio_brick = (void*)_brick;
+	bio_brick = (void *)_brick;
 	bio_brick->ra_pages = 0;
 	bio_brick->do_sync = true;
 	bio_brick->do_unplug = true;
@@ -619,6 +645,9 @@ int handler_thread(void *data)
 			status = -EINVAL;
 			CHECK_PTR(path, err);
 			CHECK_PTR_NULL(_bio_brick_type, err);
+#ifdef ENABLE_MARS_QIO
+			CHECK_PTR_NULL(_qio_brick_type, err);
+#endif
 
 			prev = make_brick_all(
 				handler_global,
@@ -626,8 +655,8 @@ int handler_thread(void *data)
 				_set_server_bio_params,
 				NULL,
 				path,
-				(const struct generic_brick_type*)_bio_brick_type,
-				(const struct generic_brick_type*[]){},
+				(const struct generic_brick_type *)_bio_brick_type,
+				(const struct generic_brick_type *[]){},
 				2, // start always
 				path,
 				(const char *[]){},

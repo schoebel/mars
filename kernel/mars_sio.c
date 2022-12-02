@@ -486,7 +486,7 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 	list_add_tail(&mref_a->io_head, &tinfo->mref_list);
 	traced_unlock(&tinfo->lock, flags);
 
-	wake_up_interruptible(&tinfo->event);
+	brick_wake_smp(&tinfo->event);
 }
 
 static int sio_thread(void *data)
@@ -502,7 +502,7 @@ static int sio_thread(void *data)
 		struct sio_mref_aspect *mref_a;
 		unsigned long flags;
 
-		wait_event_interruptible_timeout(
+		brick_wait_smp(
 			tinfo->event,
 			!list_empty(&tinfo->mref_list) || brick_thread_should_stop(),
 			HZ);

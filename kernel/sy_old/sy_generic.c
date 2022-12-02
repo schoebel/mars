@@ -50,8 +50,6 @@
 #include <linux/kthread.h>
 #include <linux/statfs.h>
 
-#define SKIP_BIO false
-
 #include "../brick_wait.h"
 #include <linux/version.h>
 
@@ -3292,6 +3290,8 @@ const struct generic_brick_type *_client_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_client_brick_type);
 const struct generic_brick_type *_bio_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_bio_brick_type);
+const struct generic_brick_type *_qio_brick_type = NULL;
+EXPORT_SYMBOL_GPL(_qio_brick_type);
 const struct generic_brick_type *_aio_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_aio_brick_type);
 const struct generic_brick_type *_sio_brick_type = NULL;
@@ -3413,7 +3413,10 @@ struct mars_brick *make_brick_all(
 
 	// some generic brick replacements (better performance / network functionality)
 	brick = NULL;
-	if ((new_brick_type == _bio_brick_type || new_brick_type == _aio_brick_type)
+	if ((new_brick_type == _bio_brick_type ||
+	     new_brick_type == _qio_brick_type ||
+	     new_brick_type == _aio_brick_type ||
+	     false)
 	   && _client_brick_type != NULL) {
 		char *remote = strchr(new_name, '@');
 		if (remote) {
@@ -3427,20 +3430,61 @@ struct mars_brick *make_brick_all(
 			}
 		}
 	}
-	if (!brick && new_brick_type == _bio_brick_type && _aio_brick_type) {
+	/* Important: never use bio on a non-blockdev.
+	 * Omly logfiles are subject of [qas]io.
+	 * Qio is the new default, when present.
+	 */
+	if (!brick) {
 		struct kstat test = {};
-		int status = mars_stat(new_path, &test, false);
-		if (SKIP_BIO || status < 0 || !S_ISBLK(test.mode)) {
-			new_brick_type = _aio_brick_type;
-			MARS_DBG("substitute bio by aio\n");
+		int test_status = mars_stat(new_path, &test, false);
+		bool subst_file =
+			(test_status < 0 || !S_ISBLK(test.mode));
+
+		if (test_status >= 0) {
+			if (S_ISREG(test.mode))
+				subst_file = true;
+			if (S_ISLNK(test.mode))
+				subst_file = false;
+		} else if (!strstr(new_path, "/log-")) {
+			/* We cannot stat, thus we need to assume that
+			 * only log-* is a regular file where qio
+			 * (or the historic aio / sio) can work on.
+			 */
+			subst_file = false;
 		}
-	}
-#ifndef ENABLE_MARS_AIO
-	if (!brick && new_brick_type == _aio_brick_type && _sio_brick_type) {
-		new_brick_type = _sio_brick_type;
-		MARS_DBG("substitute aio by sio\n");
-	}
+#if defined(ENABLE_MARS_AIO)
+		/* Old variant, to disappear.
+		 */
+		if (subst_file &&
+		    _aio_brick_type &&
+		    new_brick_type != _aio_brick_type) {
+			MARS_DBG("substitute %s by aio\n",
+				 new_brick_type->type_name);
+			new_brick_type = _aio_brick_type;
+		}
 #endif
+#ifdef ENABLE_MARS_QIO
+		if (subst_file &&
+		    _qio_brick_type &&
+		    new_brick_type != _qio_brick_type) {
+			MARS_DBG("substitute %s by qio\n",
+				 new_brick_type->type_name);
+			new_brick_type = _qio_brick_type;
+		}
+#endif
+#ifdef CONFIG_MARS_PREFER_SIO /* Historic, to disappear, ONLY FOR TESTING */
+		if (subst_file &&
+		    _sio_brick_type &&
+		    new_brick_type != _sio_brick_type) {
+			MARS_DBG("substitute any (%s) by sio for TESTING\n",
+				 new_brick_type->type_name);
+			new_brick_type = _sio_brick_type;
+		}
+		if (subst_file && new_brick_type != _sio_brick_type) {
+			MARS_ERR("CONFIG_MARS_PREFER_SIO: cannot substitute anything by sio\n");
+		}
+#endif /* CONFIG_MARS_PREFER_SIO, ONLY FOR TESTING */
+	}
 
 	// create it...
 	if (!brick)

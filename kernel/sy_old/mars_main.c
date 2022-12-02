@@ -65,6 +65,7 @@
 #include "../mars_copy.h"
 #include "../mars_bio.h"
 #include "../mars_sio.h"
+#include "../mars_qio.h"
 #include "../mars_aio.h"
 #include "../mars_trans_logger.h"
 #include "../mars_if.h"
@@ -1020,8 +1021,9 @@ int mars_mem_gb = 16;
 static
 int _set_trans_params(struct mars_brick *_brick, void *private)
 {
-	struct trans_logger_brick *trans_brick = (void*)_brick;
-	if (_brick->type != (void*)&trans_logger_brick_type) {
+	struct trans_logger_brick *trans_brick = (void *)_brick;
+
+	if (_brick->type != (void *)&trans_logger_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
@@ -1059,8 +1061,9 @@ struct client_cookie {
 static
 int _set_client_params(struct mars_brick *_brick, void *private)
 {
-	struct client_brick *client_brick = (void*)_brick;
+	struct client_brick *client_brick = (void *)_brick;
 	struct client_cookie *clc = private;
+
 	client_brick->limit_mode = clc ? clc->limit_mode : false;
 	client_brick->killme = true;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
@@ -1070,11 +1073,12 @@ int _set_client_params(struct mars_brick *_brick, void *private)
 static
 int _set_sio_params(struct mars_brick *_brick, void *private)
 {
-	struct sio_brick *sio_brick = (void*)_brick;
-	if (_brick->type == (void*)&client_brick_type) {
+	struct sio_brick *sio_brick = (void *)_brick;
+
+	if (_brick->type == (void *)&client_brick_type) {
 		return _set_client_params(_brick, private);
 	}
-	if (_brick->type != (void*)&sio_brick_type) {
+	if (_brick->type != (void *)&sio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
@@ -1085,18 +1089,25 @@ int _set_sio_params(struct mars_brick *_brick, void *private)
 	return 1;
 }
 
+#ifdef ENABLE_MARS_AIO
 static
 int _set_aio_params(struct mars_brick *_brick, void *private)
 {
-	struct aio_brick *aio_brick = (void*)_brick;
+	struct aio_brick *aio_brick = (void *)_brick;
 	struct client_cookie *clc = private;
-	if (_brick->type == (void*)&client_brick_type) {
+
+	if (_brick->type == (void *)&client_brick_type) {
 		return _set_client_params(_brick, private);
 	}
-	if (_brick->type == (void*)&sio_brick_type) {
+#ifdef ENABLE_MARS_QIO
+	if (_brick->type == (void *)&qio_brick_type) {
+		return _set_qio_params(_brick, private);
+	}
+#endif
+	if (_brick->type == (void *)&sio_brick_type) {
 		return _set_sio_params(_brick, private);
 	}
-	if (_brick->type != (void*)&aio_brick_type) {
+	if (_brick->type != (void *)&aio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
@@ -1107,25 +1118,68 @@ int _set_aio_params(struct mars_brick *_brick, void *private)
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }
+#else
+#define _set_aio_params _set_sio_params
+#endif
+
+#ifdef ENABLE_MARS_QIO
+static
+int _set_qio_params(struct mars_brick *_brick, void *private)
+{
+	struct qio_brick *qio_brick = (void *)_brick;
+	struct client_cookie *clc = private;
+
+	if (_brick->type == (void *)&client_brick_type) {
+		return _set_client_params(_brick, private);
+	}
+#ifdef ENABLE_MARS_AIO
+	if (_brick->type == (void *)&aio_brick_type) {
+		return _set_aio_params(_brick, private);
+	}
+#endif
+	if (_brick->type == (void *)&sio_brick_type) {
+		return _set_sio_params(_brick, private);
+	}
+	if (_brick->type != (void *)&qio_brick_type) {
+		MARS_ERR("bad qio brick type\n");
+		return -EINVAL;
+	}
+	qio_brick->o_creat = clc && clc->create_mode;
+	qio_brick->killme = true;
+	MARS_INF("name = '%s' path = '%s'\n",
+		 _brick->brick_name, _brick->brick_path);
+	return 1;
+}
+#else
+#define _set_qio_params _set_aio_params
+#endif
 
 static
 int _set_bio_params(struct mars_brick *_brick, void *private)
 {
 	struct bio_brick *bio_brick;
-	if (_brick->type == (void*)&client_brick_type) {
+
+	if (_brick->type == (void *)&client_brick_type) {
 		return _set_client_params(_brick, private);
 	}
-	if (_brick->type == (void*)&aio_brick_type) {
+#ifdef ENABLE_MARS_QIO
+	if (_brick->type == (void *)&qio_brick_type) {
+		return _set_qio_params(_brick, private);
+	}
+#endif
+#ifdef ENABLE_MARS_AIO
+	if (_brick->type == (void *)&aio_brick_type) {
 		return _set_aio_params(_brick, private);
 	}
-	if (_brick->type == (void*)&sio_brick_type) {
+#endif
+	if (_brick->type == (void *)&sio_brick_type) {
 		return _set_sio_params(_brick, private);
 	}
-	if (_brick->type != (void*)&bio_brick_type) {
+	if (_brick->type != (void *)&bio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
-	bio_brick = (void*)_brick;
+	bio_brick = (void *)_brick;
 	bio_brick->ra_pages = BIO_READAHEAD;
 	bio_brick->do_sync = BIO_SYNC;
 	bio_brick->do_unplug = BIO_UNPLUG;
@@ -1137,9 +1191,10 @@ int _set_bio_params(struct mars_brick *_brick, void *private)
 static
 int _set_if_params(struct mars_brick *_brick, void *private)
 {
-	struct if_brick *if_brick = (void*)_brick;
+	struct if_brick *if_brick = (void *)_brick;
 	struct mars_rotate *rot = private;
-	if (_brick->type != (void*)&if_brick_type) {
+
+	if (_brick->type != (void *)&if_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
@@ -1179,11 +1234,11 @@ struct copy_cookie {
 static
 int _set_copy_params(struct mars_brick *_brick, void *private)
 {
-	struct copy_brick *copy_brick = (void*)_brick;
+	struct copy_brick *copy_brick = (void *)_brick;
 	struct copy_cookie *cc = private;
 	int status = 1;
 
-	if (_brick->type != (void*)&copy_brick_type) {
+	if (_brick->type != (void *)&copy_brick_type) {
 		MARS_ERR("bad brick type\n");
 		status = -EINVAL;
 		goto done;
@@ -2104,8 +2159,8 @@ int __make_copy(struct mars_dent *belongs,
 				       _set_bio_params,
 				       &clc[i],
 				       NULL,
-				       (const struct generic_brick_type*)&bio_brick_type,
-				       (const struct generic_brick_type*[]){},
+				       (const struct generic_brick_type *)&bio_brick_type,
+				       (const struct generic_brick_type *[]){},
 				       switch_copy || (copy && !copy->power.led_off) ? 2 : -1,
 				       cc.fullpath[i],
 				       (const char *[]){},
@@ -4637,11 +4692,11 @@ int make_log_init(struct mars_dent *dent)
 	aio_brick =
 		make_brick_all(mars_global,
 			       aio_dent,
-			       _set_aio_params,
+			       _set_qio_params,
 			       NULL,
 			       aio_path,
-			       (const struct generic_brick_type*)&aio_brick_type,
-			       (const struct generic_brick_type*[]){},
+			       (const struct generic_brick_type *)&any_io_brick_type,
+			       (const struct generic_brick_type *[]){},
 			       switch_on ||
 			        (rot->trans_brick &&
 				 !rot->trans_brick->power.led_off) ? 2 : -1,
@@ -4664,7 +4719,8 @@ int make_log_init(struct mars_dent *dent)
 	output = aio_brick->outputs[0];
 	status = output->ops->mars_get_info(output, &rot->aio_info);
 	if (status < 0) {
-		MARS_ERR("cannot get info on '%s'\n", aio_path);
+		MARS_ERR("cannot get info on '%s', status=%d\n",
+			 aio_path, status);
 		goto done;
 	}
 	MARS_DBG("logfile '%s' size = %lld\n", aio_path, rot->aio_info.current_size);
@@ -5406,11 +5462,11 @@ void _rotate_trans(struct mars_rotate *rot)
 		rot->next_relevant_brick =
 			make_brick_all(mars_global,
 				       rot->next_relevant_log,
-				       _set_aio_params,
+				       _set_qio_params,
 				       NULL,
 				       rot->next_relevant_log->d_path,
-				       (const struct generic_brick_type*)&aio_brick_type,
-				       (const struct generic_brick_type*[]){},
+				       (const struct generic_brick_type *)&any_io_brick_type,
+				       (const struct generic_brick_type *[]){},
 				       2, // create + activate
 				       rot->next_relevant_log->d_path,
 				       (const char *[]){},
@@ -5554,11 +5610,11 @@ int _start_trans(struct mars_rotate *rot)
 	rot->relevant_brick =
 		make_brick_all(mars_global,
 			       rot->relevant_log,
-			       _set_aio_params,
+			       _set_qio_params,
 			       NULL,
 			       rot->relevant_log->d_path,
-			       (const struct generic_brick_type*)&aio_brick_type,
-			       (const struct generic_brick_type*[]){},
+			       (const struct generic_brick_type *)&any_io_brick_type,
+			       (const struct generic_brick_type *[]){},
 			       2, // start always
 			       rot->relevant_log->d_path,
 			       (const char *[]){},
@@ -6180,10 +6236,18 @@ int make_bio(struct mars_dent *dent)
 		__show_actual(rot->parent_path,
 			      "disk-error",
 			      ((struct bio_brick *)brick)->error);
+#ifdef ENABLE_MARS_QIO
+	else if (brick->type == (void *)&qio_brick_type)
+		__show_actual(rot->parent_path,
+			      "disk-error",
+			      ((struct qio_brick *)brick)->error);
+#endif
+#ifdef ENABLE_MARS_AIO
 	else if (brick->type == (void *)&aio_brick_type && brick->outputs[0])
 		__show_actual(rot->parent_path,
 			      "disk-error",
 			      ((struct aio_brick *)brick)->outputs[0]->error);
+#endif
 	else if (brick->type == (void *)&sio_brick_type && brick->outputs[0])
 		__show_actual(rot->parent_path,
 			      "disk-error",
@@ -7777,7 +7841,12 @@ static int _main_thread(void *data)
 		static const struct mars_brick_type *type_list[] = {
 			(void *)&copy_brick_type,
 			(void *)&client_brick_type,
+#ifdef ENABLE_MARS_QIO
+			(void *)&qio_brick_type,
+#endif
+#ifdef ENABLE_MARS_AIO
 			(void *)&aio_brick_type,
+#endif
 			(void *)&sio_brick_type,
 			(void *)&bio_brick_type,
 			NULL
@@ -8219,7 +8288,10 @@ static int __init init_main(void)
 #endif
 	DO_INIT(mars_net);
 	DO_INIT(mars_client);
+	DO_INIT(mars_qio);
+#ifdef ENABLE_MARS_AIO
 	DO_INIT(mars_aio);
+#endif
 	DO_INIT(mars_sio);
 	DO_INIT(mars_bio);
 	DO_INIT(mars_server);
@@ -8283,7 +8355,9 @@ MODULE_INFO(prepatch, "has_prepatch_v1");
 #else
 MODULE_INFO(prepatch, "no_prepatch");
 #endif
-#ifdef ENABLE_MARS_AIO
+#if defined(ENABLE_MARS_QIO)
+MODULE_INFO(io_driver, "qio");
+#elif defined(ENABLE_MARS_AIO)
 MODULE_INFO(io_driver, "aio");
 #else
 MODULE_INFO(io_driver, "sio");
@@ -8297,7 +8371,9 @@ MODULE_INFO(io_driver, "sio");
  * sysadmin informations. Sysadmins should not react
  * surprised, as far as possible.
  */
-#if defined(CONFIG_KASAN)
+#if defined(CONFIG_MARS_TESTING_QIO_UNSAFE_PERFORMANCE)
+#define KERN_DEBUG_INFO "DAMGEROUS_not_for_production_leads_to_CORRUPTED_DATA"
+#elif defined(CONFIG_KASAN)
 #define KERN_DEBUG_INFO "CONFIG_KASAN"
 #elif defined(CONFIG_DEBUG_PAGEALLOC)
 #define KERN_DEBUG_INFO "CONFIG_DEBUG_PAGEALLOC"
