@@ -1062,6 +1062,7 @@ static int client_switch(struct client_brick *brick)
 		output->got_info = false;
 		brick->connection_state = 0;
 		mars_power_led_off((void*)brick, !output->bundle.sender.thread);
+		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE);
 	}
 done:
 	return status;
