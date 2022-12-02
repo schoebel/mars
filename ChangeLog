@@ -182,6 +182,15 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable158
+	* Major fixes: rare races on copy brick internal state.
+	  By the way, reduce internal state footprint and improve
+	  performance.
+	* Improve trigger responsitivity.
+	* Minor safeguard: congestion control from various
+	  upstream kernel versions.
+	* Minor compiler compatibilities.
+
 mars0.1astable157
 	* Suppress annoying kernel stacktraces when RAM is short.
 	* Imvprove annoying KBuild failures.
