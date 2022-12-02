@@ -1342,6 +1342,7 @@ cleanup:
 			mapfree_put(output->mf);
 			output->mf = NULL;
 		}
+		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE);
 	}
 	return status;
 }
