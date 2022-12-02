@@ -3332,6 +3332,7 @@ int trans_logger_switch(struct trans_logger_brick *brick)
 				MARS_INF("stopping thread...\n");
 				brick_thread_stop(brick->thread);
 				brick->thread = NULL;
+				mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE);
 			} else if (!brick->power.led_off) {
 				return -EAGAIN;
 			}
