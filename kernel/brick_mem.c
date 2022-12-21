@@ -800,9 +800,7 @@ void _brick_block_free(void *data, int len, int cline)
 	char *real_data;
 #endif
 #ifdef BRICK_DEBUG_MEM
-#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	int prev_line = 0;
-#endif
 #ifdef BRICK_DEBUG_ORDER0
 	const int plus0 = PAGE_SIZE;
 #else
@@ -838,9 +836,7 @@ void _brick_block_free(void *data, int len, int cline)
 	}
 #endif
 #ifdef BRICK_DEBUG_MEM
-#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	(void)prev_line; /* silence annoying compiler warning */
-#endif
 	if (order > 1) {
 		void *test = data - PAGE_SIZE;
 		int magic = INT_ACCESS(test, 0);
@@ -896,7 +892,7 @@ void _brick_block_free(void *data, int len, int cline)
 		atomic_dec(&block_count[line]);
 		atomic_inc(&block_free[line]);
 	}
-#endif
+#endif /*  BRICK_DEBUG_MEM */
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	if (order > 0 && brick_allow_freelist && atomic_read(&freelist_count[order]) <= brick_mem_freelist_max[order]) {
 		_put_free(data, order);
