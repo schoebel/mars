@@ -34,6 +34,9 @@ extern int mars_client_abort;
 extern int max_client_channels;
 extern int max_client_bulk;
 
+extern atomic_t client_sender_count;
+extern atomic_t client_receiver_count;
+
 #define MAX_CLIENT_CHANNELS 4
 
 struct client_mref_aspect {

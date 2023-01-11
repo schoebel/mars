@@ -34,6 +34,9 @@
 #include "brick_wait.h"
 #include "mars.h"
 
+atomic_t client_sender_count = ATOMIC_INIT(0);
+atomic_t client_receiver_count = ATOMIC_INIT(0);
+
 ///////////////////////// own type definitions ////////////////////////
 
 #include "mars_client.h"
@@ -180,6 +183,7 @@ int _setup_channel(struct client_bundle *bundle, int ch_nr)
 		goto done;
 	}
 	ch->is_used = true;
+	atomic_inc(&client_receiver_count);
 
 done:
 	if (status < 0) {
@@ -374,6 +378,8 @@ int _setup_bundle(struct client_bundle *bundle, const char *str)
 		status = -ENOENT;
 		goto done;
 	}
+
+	atomic_inc(&client_sender_count);
 
 	status = 0;
 
@@ -741,6 +747,7 @@ int receiver_thread(void *data)
 
 	mars_shutdown_socket(&ch->socket);
 	atomic_dec(&brick->receiver_count);
+	atomic_dec(&client_receiver_count);
 	mars_trigger();
 	return status;
 }
@@ -1019,6 +1026,7 @@ static int sender_thread(void *data)
 	brick_wake_smp(&output->bundle.sender_event);
 	MARS_DBG("sender terminated\n");
 	atomic_dec(&brick->sender_count);
+	atomic_dec(&client_sender_count);
 	return status;
 }
 

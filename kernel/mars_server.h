@@ -36,6 +36,7 @@ extern int dent_limit;
 extern int dent_retry;
 extern int handler_limit;
 
+extern atomic_t server_callback_count;
 extern atomic_t server_handler_count;
 
 struct server_mref_aspect {
