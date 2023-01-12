@@ -941,6 +941,7 @@ struct mars_rotate {
 	bool log_is_really_damaged;
 	struct mutex inf_mutex;
 	bool infs_is_dirty[INFS_MAX];
+	struct lamport_time error_report_stamp;
 	struct trans_logger_info infs[INFS_MAX];
 	struct trans_logger_info current_inf;
 	struct key_value_pair msgs[NR_ROT_KEYS];
@@ -5863,6 +5864,16 @@ int make_log_finalize(struct mars_dent *dent)
 	rot->retry_recovery = 0;
 
  skip_retry_recovery:
+	/* Do not report temporary errors immediately */
+	if (rot->replay_code < 0 &&
+	    rot->error_report_stamp.tv_sec) {
+		struct lamport_time report_time;
+
+		get_real_lamport(&report_time);
+		report_time.tv_sec -= 5;
+		if (lamport_time_compare(&report_time, &rot->error_report_stamp) <= 0)
+			goto stop_on_errors;
+	}
 	if (rot->replay_code && rot->mars_error_code)
 		__show_actual3(parent->d_path,
 			       "replay-code",
@@ -5876,6 +5887,9 @@ int make_log_finalize(struct mars_dent *dent)
 
 	/* Stopping is also possible in case of errors
 	 */
+ stop_on_errors:
+	if (rot->replay_code >= 0)
+		get_real_lamport(&rot->error_report_stamp);
 	if (rot->stop_logger) {
 		status = _stop_trans(rot);
 	} else if (trans_brick->power.button &&
