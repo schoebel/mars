@@ -102,6 +102,7 @@ int cb_thread(void *data)
 	struct server_brick *brick = data;
 	struct mars_socket *sock = &brick->handler_socket;
 	int max_wait;
+	int backoff_ms = -1;
 	bool aborted = false;
 	bool ok = mars_get_socket(sock);
 	int status = -EINVAL;
@@ -155,8 +156,10 @@ int cb_thread(void *data)
 		if (!tmp) {
 			/* nothing to do for now */
 			brick_yield();
+			msleep_backoff(&backoff_ms);
 			continue;
 		}
+		backoff_ms = -1;
 
 		mref_a = container_of(tmp, struct server_mref_aspect, cb_head);
 		mref = mref_a->object;
