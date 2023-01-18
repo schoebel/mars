@@ -120,9 +120,32 @@ void get_total_ram(void)
 	BRICK_INF("total RAM = %lld [KiB]\n", brick_global_memavail);
 }
 
+/* Use the safe msleep_interruptible() from the upstream kernel.
+ * In addition to a linear backoff algorithms for dynamic
+ * CPU giveup, we allow negative arguments at the very first start
+ * of a polling-like cycle, more similar to cond_resched() behaviour.
+ *
+ * This is very useful in OOM-like situations, in order to allow
+ * other parts of the system to recover their operations.
+ * CAVEAT: the sleeps are rather long, so please use this only
+ * in desperate situations (when other measures have failed).
+ */
 void msleep_backoff(int *ms)
 {
-	msleep(*ms);
+	if (*ms < 0) {
+		*ms = 0;
+		return;
+	}
+
+	flush_signals(current);
+	msleep_interruptible(*ms);
+
+	/* Normally, we add only 1 jiffie per round, speculating
+	 * that this will catch practically all usual cases in
+	 * contemporary hardware stuff.
+	 * Only when this speculation has proven wrong, we
+	 * accelerate the linear slope somewhat.
+	 */
 	if (*ms < 100)
 		*ms += 1000 / HZ;
 	else if (*ms < 1000)
