@@ -253,6 +253,7 @@ void _kill_bundle(struct client_bundle *bundle)
 	MARS_DBG("\n");
 	_kill_thread(&bundle->sender, "sender");
 	_kill_all_channels(bundle);
+	bundle->bundle_state = CL_BUNDLE_INITIALIZED;
 }
 
 static
@@ -294,6 +295,7 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 	}
 	/* Use higher channels only when the first one is fully established */
 	if (max_channel > 1 &&
+	    bundle->bundle_state >= CL_BUNDLE_RESPONSE_GOT &&
 	    (bundle->channel[0].ch_state < CL_CHANNEL_CONNECTED)) {
 		max_channel = 1;
 		min_channel = 0;
@@ -670,6 +672,7 @@ int receiver_thread(void *data)
 					 status);
 				goto done;
 			}
+			output->bundle.bundle_state = CL_BUNDLE_RESPONSE_GOT;
 			break;
 		case CMD_CB:
 		{

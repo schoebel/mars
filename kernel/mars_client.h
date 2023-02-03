@@ -94,12 +94,18 @@ struct client_channel {
 	enum CL_CHANNEL_STATE ch_state;
 };
 
+enum CL_BUNDLE_STATE {
+	CL_BUNDLE_INITIALIZED,
+	CL_BUNDLE_RESPONSE_GOT,
+};
+
 struct client_bundle {
 	char *host;
 	char *path;
 	struct mars_tcp_params *params;
 	int last_thread_nr;
-	int old_channel;
+	short old_channel;
+	enum CL_BUNDLE_STATE bundle_state;
 	wait_queue_head_t sender_event;
 	struct client_threadinfo sender;
 	struct client_channel channel[MAX_CLIENT_CHANNELS];
