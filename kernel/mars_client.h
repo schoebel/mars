@@ -75,6 +75,13 @@ struct client_threadinfo {
 	struct task_struct *thread;
 };
 
+enum CL_CHANNEL_STATE {
+	CL_CHANNEL_INITIALIZED,
+	CL_CHANNEL_OPEN,	/* socket is estabished */
+	CL_CHANNEL_USED,	/* receiver thread has been created */
+	CL_CHANNEL_CONNECTED,	/* first communication had no error */
+};
+
 struct client_channel {
 	struct mars_socket socket;
 	struct client_threadinfo receiver;
@@ -84,9 +91,7 @@ struct client_channel {
 	int recv_error;
 	int thread_restart_count;
 	int ch_nr;
-	bool is_used;
-	bool is_open;
-	bool is_connected;
+	enum CL_CHANNEL_STATE ch_state;
 };
 
 struct client_bundle {
