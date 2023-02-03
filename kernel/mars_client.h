@@ -81,8 +81,8 @@ struct client_channel {
 	struct list_head wait_list;
 	struct client_output *output;
 	long current_space;
-	int thread_count;
 	int recv_error;
+	int thread_restart_count;
 	int ch_nr;
 	bool is_used;
 	bool is_open;
@@ -93,7 +93,7 @@ struct client_bundle {
 	char *host;
 	char *path;
 	struct mars_tcp_params *params;
-	int thread_count;
+	int last_thread_nr;
 	int old_channel;
 	wait_queue_head_t sender_event;
 	struct client_threadinfo sender;
