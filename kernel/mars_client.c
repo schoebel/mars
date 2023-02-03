@@ -292,6 +292,13 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 		if (unlikely(min_channel < 0))
 			min_channel = 0;
 	}
+	/* Use higher channels only when the first one is fully established */
+	if (max_channel > 1 &&
+	    (!bundle->channel[0].is_connected ||
+	     !bundle->channel[0].is_open)) {
+		max_channel = 1;
+		min_channel = 0;
+	    }
 
 	/* Fast path.
 	 * Speculate that the next channel is already usable,
