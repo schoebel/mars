@@ -513,6 +513,11 @@ int handler_thread(void *data)
 		case CMD_GETINFO:
 		{
 			struct mars_info info = {};
+
+			if (!brick->conn_brick) {
+				/* we cannot work when unconnected */
+				break;
+			}
 			status = GENERIC_INPUT_CALL(brick->inputs[0], mars_get_info, &info);
 			if (status < 0) {
 				break;
@@ -656,6 +661,10 @@ int handler_thread(void *data)
 		}
 		case CMD_MREF:
 		{
+			if (!brick->conn_brick) {
+				/* we cannot work when unconnected */
+				break;
+			}
 			status = server_io(brick, sock, &cmd);
 			break;
 		}
