@@ -182,6 +182,16 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable160
+	* Minor non-functional improvements of client/server bricks
+	  and their communicatiopn behaviour. Testing did not reveal
+	  a functional difference. The only observation was that rmmod
+	  could hang when the internal client/server communication got an
+	  error-injected stuck at a certain internal phase, which AFAIK
+	  should not occur in practice.
+	  If you observe suchalike in operations, and you want to avoid
+	  a reboot, then this release may be for you.
+
 mars0.1astable159
 	* Major fix: the server part gives up the CPU usage much
 	  more aggressively when it turns out that there is no clue
