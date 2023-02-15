@@ -718,7 +718,8 @@ int _check_crc(struct log_header *lh,
 		did_simple_retry = true;
 		MARS_WRN("RETRY crc check flags=0x%x crc_len=%d\n",
 			 check_flags, crc_len);
-		check_flags |= usable_digest_mask;
+		check_flags |=
+			(usable_digest_mask & MREF_CHKSUM_ANY);
 		cond_resched();
 		/* safeguard any suspected coherence problems */
 		smp_mb();

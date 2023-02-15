@@ -7841,8 +7841,13 @@ static int _main_thread(void *data)
 
 		usable_features_version = _tmp_features_version;
 		usable_strategy_version = _tmp_strategy_version;
-		usable_digest_mask = _tmp_digest_mask;
-		usable_compression_mask = (_tmp_compression_mask & available_compression_mask);
+		usable_digest_mask =
+			(_tmp_digest_mask &
+			 MREF_CHKSUM_ANY);
+		usable_compression_mask =
+			(_tmp_compression_mask &
+			 available_compression_mask &
+			 MREF_COMPRESS_ANY);
 		_tmp_features_version = OPTIONAL_FEATURES_VERSION;
 		_tmp_strategy_version = OPTIONAL_STRATEGY_VERSION;
 		_tmp_digest_mask = available_digest_mask;
