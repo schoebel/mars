@@ -680,7 +680,7 @@ int _check_crc(struct log_header *lh,
 	bool is_invalid = false;
 	bool did_simple_retry = false;
 	int did_iterative_retry = 0;
-	int bit;
+	int bit = 0;
 	int res;
 
  retry:
@@ -733,6 +733,8 @@ int _check_crc(struct log_header *lh,
 		if (!did_iterative_retry) {
 			bit = find_first_bit((void *)&usable_digest_mask,
 					     sizeof(usable_digest_mask));
+		} else if (bit >= _MREF_COMPRESS_LAST) {
+			goto failed;
 		} else {
 			int next_bit =
 				find_next_bit((void *)&usable_digest_mask,
