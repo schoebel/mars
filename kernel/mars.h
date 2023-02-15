@@ -197,19 +197,37 @@ enum _MREF_FLAGS {
 #define MREF_CHKSUM_CRC32C   (1UL << _MREF_CHKSUM_CRC32C)
 #define MREF_CHKSUM_CRC32    (1UL << _MREF_CHKSUM_CRC32)
 #define MREF_CHKSUM_SHA1     (1UL << _MREF_CHKSUM_SHA1)
-#define MREF_CHKSUM_LAST     (1UL << _MREF_CHKSUM_LAST)
 #define MREF_COMPRESS_LZO    (1UL << _MREF_COMPRESS_LZO)
 #define MREF_COMPRESS_LZ4    (1UL << _MREF_COMPRESS_LZ4)
 #define MREF_COMPRESS_ZLIB   (1UL << _MREF_COMPRESS_ZLIB)
+
+/* combined flags in groups */
+
+#define MREF_FLAGS_ANY		(MREF_UPTODATE |		\
+				 MREF_READING |			\
+				 MREF_WRITING |			\
+				 MREF_WRITE |			\
+				 MREF_MAY_WRITE |		\
+				 MREF_SKIP_SYNC |		\
+				 MREF_NODATA |			\
+				 0)
+
 #define MREF_CHKSUM_ANY      (MREF_CHKSUM_MD5_OLD |	\
 			      MREF_CHKSUM_MD5 |		\
 			      MREF_CHKSUM_CRC32C |	\
 			      MREF_CHKSUM_CRC32 |	\
 			      MREF_CHKSUM_SHA1 |	\
-			      MREF_CHKSUM_LAST)
+			      0)
+
 #define MREF_COMPRESS_ANY     (MREF_COMPRESS_LZO |	\
 			       MREF_COMPRESS_LZ4 |	\
-			       MREF_COMPRESS_ZLIB)
+			       MREF_COMPRESS_ZLIB |	\
+			       0)
+
+#define MREF_ALL_FLAGS		(MREF_FLAGS_ANY |		\
+				 MREF_CHKSUM_ANY |		\
+				 MREF_COMPRESS_ANY |		\
+				 0)
 
 #define MREF_OBJECT(OBJTYPE)						\
 	CALLBACK_OBJECT(OBJTYPE);					\
