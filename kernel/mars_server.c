@@ -1202,6 +1202,12 @@ void exit_mars_server(void)
 	server_unregister_brick_type();
 
 	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
+		struct mars_socket *server_socket = &server_cookie[i].server_socket;
+
+		mars_shutdown_socket(server_socket);
+	}
+
+	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
 		if (server_thread[i]) {
 			MARS_INF("stopping server thread %d...\n", i);
 			brick_thread_stop(server_thread[i]);
