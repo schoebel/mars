@@ -281,6 +281,7 @@ int mars_create_socket(struct mars_socket *msock,
 			MARS_WRN("#%d listen failed, status = %d\n", msock->s_debug_nr, status);
 		}
 	} else {
+		/* according to net/socket.c the correct spelling is O_NONBLOCK */
 		status = kernel_connect(sock, sockaddr, sizeof(*sockaddr), O_NONBLOCK);
 		/* Treat non-blocking connects as successful.
 		 * Any potential errors will show up later during traffic.
@@ -322,7 +323,8 @@ int mars_accept_socket(struct mars_socket *new_msock,
 			goto err;
 		}
 
-		status = kernel_accept(sock, &new_socket, O_NONBLOCK);
+		/* according to net/socket.c the correct spelling is SOCK_NONBLOCK */
+		status = kernel_accept(sock, &new_socket, SOCK_NONBLOCK);
 		if (unlikely(status < 0)) {
 			goto err;
 		}
@@ -740,8 +742,10 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		if (minlen < maxlen) {
 			/* Use nonblocking reads to consume as much data
 			 * as possible
+			 * See include/linux/socket.h, it is named MSG_DONTWAIT
+			 * not O_NONBLOCK (which would yield MSG_CONFIRM)
 			 */
-			msg.msg_flags |= O_NONBLOCK;
+			msg.msg_flags |= MSG_DONTWAIT;
 		}
 
 		MARS_LOW("#%d done %d, fetching %d bytes\n", msock->s_debug_nr, done, maxlen-done);
