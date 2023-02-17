@@ -54,6 +54,7 @@ struct server_output {
 
 struct server_brick {
 	MARS_BRICK(server);
+	struct list_head server_head;
 	struct semaphore socket_sem;
 	struct mars_socket handler_socket;
 	struct mars_tcp_params *handler_params;

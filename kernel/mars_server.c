@@ -75,6 +75,12 @@ EXPORT_SYMBOL_GPL(server_callback_count);
 atomic_t server_handler_count = ATOMIC_INIT(0);
 EXPORT_SYMBOL_GPL(server_handler_count);
 
+/* Internal list of all running server brick instances.
+ * This is used for mass shutdown during rmmod.
+*/
+static struct rw_semaphore server_mutex = __RWSEM_INITIALIZER(server_mutex);
+static struct list_head server_anchor = LIST_HEAD_INIT(server_anchor);
+
 ///////////////////////// own helper functions ////////////////////////
 
 #define HANDLER_LIMIT 1024
@@ -237,6 +243,10 @@ int cb_thread(void *data)
 	mars_put_socket(sock);
 
 done:
+	down_write(&server_mutex);
+	list_del_init(&brick->server_head);
+	up_write(&server_mutex);
+
 	MARS_DBG("---------- cb_thread terminating, status = %d\n", status);
 	brick_wake_smp(&brick->startup_event);
 	atomic_dec(&server_callback_count);
@@ -764,6 +774,10 @@ int handler_thread(void *data)
 	mars_put_socket(sock);
 
  done:
+	down_write(&server_mutex);
+	list_del_init(&brick->server_head);
+	up_write(&server_mutex);
+
 	MARS_DBG("#%d handler_thread terminating, status = %d\n", sock->s_debug_nr, status);
 
 	mars_kill_brick_all(handler_global, &handler_global->brick_anchor, false);
@@ -980,6 +994,7 @@ MARS_MAKE_STATICS(server);
 
 static int server_brick_construct(struct server_brick *brick)
 {
+	INIT_LIST_HEAD(&brick->server_head);
 	init_waitqueue_head(&brick->startup_event);
 	init_waitqueue_head(&brick->cb_event);
 	sema_init(&brick->socket_sem, 1);
@@ -1154,6 +1169,10 @@ static int port_thread(void *data)
 			MARS_ERR("cannot switch on server brick, status = %d\n", status);
 			goto err;
 		}
+
+		down_write(&server_mutex);
+		list_add_tail(&brick->server_head, &server_anchor);
+		up_write(&server_mutex);
 
 		// further references are usually held by the threads
 		mars_put_socket(&brick->handler_socket);
