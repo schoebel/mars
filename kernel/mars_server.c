@@ -1219,6 +1219,7 @@ EXPORT_SYMBOL_GPL(server_limiter);
 
 void exit_mars_server(void)
 {
+	struct list_head *tmp;
 	int i;
 
 	MARS_INF("exit_server()\n");
@@ -1229,6 +1230,17 @@ void exit_mars_server(void)
 
 		mars_shutdown_socket(server_socket);
 	}
+
+	down_read(&server_mutex);
+	for (tmp = server_anchor.next; tmp && tmp != &server_anchor; tmp = tmp->next) {
+		struct server_brick *running_brick = container_of(tmp, struct server_brick, server_head);
+		struct mars_socket *handler_socket = &running_brick->handler_socket;
+		if (!handler_socket)
+			continue;
+		mars_shutdown_socket(handler_socket);
+	}
+	up_read(&server_mutex);
+
 
 	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
 		if (server_thread[i]) {
