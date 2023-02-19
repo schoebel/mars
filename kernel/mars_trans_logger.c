@@ -764,7 +764,8 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 #endif
 
 	// create a new master shadow
-	data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
+	mref_a->alloc_len = mref->ref_len;
+	data = brick_block_alloc(mref->ref_pos, mref->ref_len);
 	atomic64_add(mref->ref_len, &brick->shadow_mem_used);
 #ifdef CONFIG_MARS_DEBUG
 	memset(data, 0x11, mref->ref_len);
