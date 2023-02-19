@@ -524,7 +524,8 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 		if (!mref_a)
 			return -EILSEQ;
 
-		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
+		mref_a->alloc_len = mref->ref_len;
+		mref->ref_data = brick_block_alloc(mref->ref_pos, mref->ref_len);
 		mref_a->do_dealloc = true;
 	}
 
