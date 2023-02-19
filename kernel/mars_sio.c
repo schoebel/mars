@@ -96,7 +96,8 @@ static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 			MARS_ERR("bad ref_len = %d\n", mref->ref_len);
 			return -EBADR;
 		}
-		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
+		mref_a->alloc_len = mref->ref_len;
+		mref->ref_data = brick_block_alloc(mref->ref_pos, mref->ref_len);
 		mref_a->do_dealloc = true;
 		//atomic_inc(&output->total_alloc_count);
 		//atomic_inc(&output->alloc_count);
