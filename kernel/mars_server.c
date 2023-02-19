@@ -45,20 +45,24 @@
 #include "mars_server.h"
 
 struct server_cookie {
-	struct mars_socket server_socket;
+	struct mars_socket *server_socket;
 	struct mars_tcp_params *server_params;
+	struct mars_socket _server_socket;
 	int port_nr;
 	int thread_nr;
 };
 
 static struct server_cookie server_cookie[MARS_TRAFFIC_MAX] = {
 	[MARS_TRAFFIC_META] = {
+		.server_socket = &server_cookie[MARS_TRAFFIC_META]._server_socket,
 		.server_params = &mars_tcp_params[MARS_TRAFFIC_META],
 	},
 	[MARS_TRAFFIC_REPLICATION] = {
+		.server_socket = &server_cookie[MARS_TRAFFIC_REPLICATION]._server_socket,
 		.server_params = &mars_tcp_params[MARS_TRAFFIC_REPLICATION],
 	},
 	[MARS_TRAFFIC_SYNC] = {
+		.server_socket = &server_cookie[MARS_TRAFFIC_SYNC]._server_socket,
 		.server_params = &mars_tcp_params[MARS_TRAFFIC_SYNC],
 	},
 };
@@ -1062,7 +1066,7 @@ static int port_thread(void *data)
 {
 	struct mars_global *server_global = alloc_mars_global();
 	struct server_cookie *cookie = data;
-	struct mars_socket *my_socket = &cookie->server_socket;
+	struct mars_socket *my_socket = cookie->server_socket;
 	struct mars_tcp_params *my_params = cookie->server_params;
 #ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	char *id = my_id();
@@ -1202,7 +1206,7 @@ void exit_mars_server(void)
 	server_unregister_brick_type();
 
 	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
-		struct mars_socket *server_socket = &server_cookie[i].server_socket;
+		struct mars_socket *server_socket = server_cookie[i].server_socket;
 
 		mars_shutdown_socket(server_socket);
 	}
@@ -1213,7 +1217,7 @@ void exit_mars_server(void)
 			brick_thread_stop(server_thread[i]);
 		}
 		MARS_INF("closing server socket %d...\n", i);
-		mars_put_socket(&server_cookie[i].server_socket);
+		mars_put_socket(server_cookie[i].server_socket);
 	}
 }
 
@@ -1237,7 +1241,7 @@ int __init init_mars_server(void)
 			return status;
 		}
 
-		status = mars_create_socket(&server_cookie[i].server_socket,
+		status = mars_create_socket(server_cookie[i].server_socket,
 					    &sockaddr,
 					    server_cookie[i].server_params,
 					    true);
