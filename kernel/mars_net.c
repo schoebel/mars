@@ -1276,7 +1276,7 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 			goto err;
 		}
 
-		mc = _brick_block_alloc(0, PAGE_SIZE, line);
+		mc = brick_block_alloc(0, PAGE_SIZE);
 		if (unlikely(!mc)) {
 			MARS_WRN("#%d called from line %d out of memory\n", msock->s_debug_nr, line);
 			status = -ENOMEM;
