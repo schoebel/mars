@@ -8118,6 +8118,9 @@ static int __init init_main(void)
 	int round = 0;
 	int status;
 
+	/* First init the internal memory debugging */
+	DO_INIT(brick_mem);
+
 	/* Disallow /mars residing on the root filesystem.
 	 * Suchalike may cause a plethora of interferences
 	 * between the block layer and higher layers.
@@ -8136,7 +8139,8 @@ static int __init init_main(void)
 			continue;
 		}
 		printk(KERN_ERR "/mars is no mountpoint\n");
-		return -EINVAL;
+		status = -EINVAL;
+		goto done;
 	}
 
 	status = mars_stat("/mars/uuid", &dummy, true);
@@ -8168,7 +8172,6 @@ static int __init init_main(void)
 
 	/* be careful: order is important!
 	 */
-	DO_INIT(brick_mem);
 	DO_INIT(global_mem);
 	DO_INIT(brick);
 	DO_INIT(mars);
