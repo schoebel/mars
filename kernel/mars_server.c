@@ -1106,6 +1106,9 @@ static int port_thread(void *data)
 		const char *ini_path;
 		struct mars_socket handler_socket = {};
 
+		smp_mb();
+		brick_yield();
+
 		change_sem(&handler_limit_sem, &handler_limit, &handler_nr);
 		change_sem(&dent_limit_sem, &dent_limit, &dent_nr);
 
