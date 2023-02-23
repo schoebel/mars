@@ -62,7 +62,7 @@
 
 #define brick_msleep(msecs) _brick_msleep(msecs, false)
 extern int _brick_msleep(int msecs, bool shorten);
-#define brick_yield() cond_resched()
+#define brick_yield() ({ barrier(); cond_resched(); })
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -754,6 +754,7 @@ typedef enum brick_switch {
 			int _err;					\
 									\
 			flush_signals(current);				\
+			smp_mb();					\
 			_thr = kthread_create(_thread_fn, _data, _fmt, ##_args); \
 			if (likely(!IS_ERR(_thr)))			\
 				break;					\
@@ -777,6 +778,7 @@ typedef enum brick_switch {
 			get_task_struct(_thr);				\
 			wake_up_process(_thr);				\
 		}							\
+		smp_mb();						\
 		_thr;							\
 	})
 
@@ -791,6 +793,7 @@ typedef enum brick_switch {
 			__REMOVE_FROM_SAY_CHANNEL(__thread__);		\
 			put_task_struct(__thread__);			\
 			(_thread) = NULL;				\
+			smp_mb();					\
 		}							\
 	} while (0)
 
