@@ -197,11 +197,13 @@ static
 void _call_bio_endio(struct if_brick *brick, struct bio *bio, int error)
 {
 #ifdef MARS_HAS_BI_STATUS
-	bio->bi_status = errno_to_blk_status(error);
+	if (unlikely(error))
+		bio->bi_status = errno_to_blk_status(error);
 	bio_endio(bio);
 #else
 #ifdef MARS_HAS_BI_ERROR
-	bio->bi_error = error;
+	if (unlikely(error))
+		bio->bi_error = error;
 	bio_endio(bio);
 #else
 	bio_endio(bio, error);
