@@ -182,6 +182,17 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable161
+	(bugfix release)
+	* Major fix: rmmod could hang when certain preconditions were met.
+	  Rarely observed in thorough testing was an rmmod during sync.
+	  Workaround was possible by anything closing the established state
+	  of a leftover TCP conncetion, like rmmod at the other side.
+	  Now socket shutdown is done by mars.ko.
+	* Major fix: modprobe could lead to an unfortunate initialization
+	  order, potentially resulting in some kernel memory issues.
+	* Minor cleanups.
+
 mars0.1astable160
 	* Minor non-functional improvements of client/server bricks
 	  and their communicatiopn behaviour. Testing did not reveal
