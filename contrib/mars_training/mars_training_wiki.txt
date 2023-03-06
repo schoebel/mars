@@ -31,7 +31,7 @@ This document including all attachments is under GNU FDL.
 ---++ 3. Processes
 %IMAGE{"processes.png" size="1000"}%
 
-After the initial synchronzation of the secondary with the primary the data written on the mars device /dev/mars/<resource-name> of a primary is at first written to sequential logfiles (residing in primary's directory /mars/resource-<resource-name>/) and then copied to the primary's underlying device. The secondary fetches the primary's logfiles in it's /mars/resource-<resource-name>/ directory and then copies the data to it's underlying device. %BR%
+After the initial synchronzation of the secondary with the primary the data written on the mars device /dev/mars/<resource-name> of a primary is at first written to sequential logfiles (residing in primary's directory /mars/resource-<resource-name>/) and then copied to the primary's underlying device. The secondary fetches the primary's logfiles in its /mars/resource-<resource-name>/ directory and then copies the data to its underlying device. %BR%
 We distinguish the following subprocesses of a replication:
 
    * Sync: Synchronizes the underlying device of the secondary with the data of the underlying device of the primary. Triggered by: <verbatim>marsadm invalidate <resource-name></verbatim> <verbatim>marsadm join-resource <resource-name> /dev/...</verbatim> During sync the data on the secondary's underlying device is inconsistent, i.e. unusable.
@@ -40,7 +40,7 @@ We distinguish the following subprocesses of a replication:
 
 #ChapterFour
 ---++ 4. Process state
-Mars works asynchronously. This means that each of the processes mentioned above does it's job without waiting for the others.%BR% Examples:
+Mars works asynchronously. This means that each of the processes mentioned above does its job without waiting for the others.%BR% Examples:
    * An application may write on the mars device on the primary (process 1) thereby filling the logfiles (process 2) independent from the process (the replay (process 3)) which writes the logfile data to the underlying device. If there is a gap between the writer and the replay (which occurs very rarely) this can be shown with <verbatim>marsadm view-1and1 <resource-name>|all</verbatim> or more specific <verbatim>marsadm view-replay-line-1and1 <resource-name>|all</verbatim> or if you are interested in numbers given in bytes  <verbatim>marsadm view-replay-rest <resource-name>|all</verbatim>
    * If the network connection between primary and secondary is slow the fetch process (process 4) lags behind, i.e. there are more logfile data on the primary than on the secondary. Replacing "replay" with "fetch" in the commands given above shows the relevant information for the fetch process.
    * As you already guessed probably: The sync process can be watched by replacing "replay" with "sync" in the mentioned commands.

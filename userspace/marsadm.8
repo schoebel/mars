@@ -18,7 +18,7 @@ It is tailored for long\-distance replication and through network
 bottlenecks.
 By default, it works asynchronously (in contrast to DRBD).
 .br
-More infomation on concepts and differences to DRDB can be found at
+More information on concepts and differences to DRDB can be found at
 https://github.com/schoebel/mars/blob/master/docu/MARS_LinuxTag2014.pdf?raw=true
 
 .SH OPTIONS
@@ -38,11 +38,11 @@ https://github.com/schoebel/mars/blob/master/docu/MARS_LinuxTag2014.pdf?raw=true
     When empty, disable syslogging.
   \fB\-\-timeout\fR=\fIseconds\fR
     Abort safety checks after timeout with an error.
-    When giving 'all' as resource agument, this works for each
+    When giving 'all' as resource argument, this works for each
     resource independently.
   \fB\-\-window\fR=\fIseconds\fR
-    Treat other cluster nodes as healthy when some communcation has
-    occured during the given time window.
+    Treat other cluster nodes as healthy when some communication has
+    occurred during the given time window.
   \fB\-\-threshold\fR=\fIbytes\fR
     Some macros like 'fetch\-threshold\-reached' use this for determining
     their sloppyness.
@@ -211,12 +211,12 @@ https://github.com/schoebel/mars/blob/master/docu/MARS_LinuxTag2014.pdf?raw=true
     which is known to be superfluous, i.e. all secondaries no longer
     need to replay it.
     Hint: use this only for testing and manual inspection.
-    For regular maintainance cron jobs, please prefer log\-delete\-all.
+    For regular maintenance cron jobs, please prefer log\-delete\-all.
 
 \fB  log\-delete\-all\fR
     usage: log\-delete\-all \fIresource_name\fR
     When possible, globally delete all old transaction logfiles which
-    are known to be superflous, i.e. all secondaries no longer need
+    are known to be superfluous, i.e. all secondaries no longer need
     to replay them.
     This must be regularly called by a cron job or similar, in order
     to prevent overflow of the /mars/ directory.

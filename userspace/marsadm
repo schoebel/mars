@@ -364,7 +364,7 @@ sub device_exists {
     # Silent fallback to local detection for old kernel module versions
     my $buildtag = get_alive_link("buildtag", $peer, 1);
     if (!$buildtag) {
-      # VERY old MARS modules dont report their version
+      # VERY old MARS modules don't report their version
       $buildtag = `cut -d' ' -f1 < /proc/sys/mars/version`;
       # Sometimes "never touch a running system" is a BAD strategy...
       lwarn "Please upgrade your EXTREMELY OLD module version '$buildtag'\n" if $buildtag;
@@ -815,7 +815,7 @@ sub _scan_caches {
 	  lhint "Peer '$this_peer' looks like decommissioned (or we are in split-cluster).\n";
 	}
       }
-      # ABOLUTE NOGO: the currently running host CANNOT be deleted
+      # ABSOLUTE NOGO: the currently running host CANNOT be deleted
       if ($this_peer eq $real_host &&
 	  (!$raw_ip || get_link_stamp($path) < $now - $window)) {
 	lwarn "IMPORTANT: this script is running under the REAL hostname '$real_host'\n";
@@ -854,7 +854,7 @@ sub _scan_caches {
 	next;
       }
     }
-    # All has been checked now: rember this peer.
+    # All has been checked now: remember this peer.
     $total_peers{$this_peer} = {};
   }
   # Add all known resources to %total_resources but _not_ to %any_resources.
@@ -1145,7 +1145,7 @@ my $generated_scripts_subdir = defined($ENV{SYSTEMD_SCRIPTS_SUBDIR}) ?
 my $predefined_unit_path = "/etc/systemd/system,/run/systemd/system,/usr/lib/systemd/system";
 
 my $systemd_system_dirs =
-  # prefer the "offical" systemd path as documented in "man systemd.unit"
+  # prefer the "official" systemd path as documented in "man systemd.unit"
   defined($ENV{SYSTEMD_UNIT_PATH}) ?
   join(",", split(":", $ENV{SYSTEMD_UNIT_PATH})) .
   (
@@ -2113,7 +2113,7 @@ sub systemd_commit {
 # At the moment, the complete transitive closure is re-computed once
 # a small detail has changed. This is on the safe side, but not optimal.
 # There is certainly room for improvement. However be cautious
-# with respect to correctness under all cirumstances.
+# with respect to correctness under all circumstances.
 #
 # Knuth is cited: "I can do it in half the time if it doesn't have
 # to be correct".
@@ -2144,7 +2144,7 @@ sub __systemd_generate {
     @res_list = ($res);
   } else {
     @res_list = get_any_resources($host);
-    # We can only delete when the full set of transitive dependecies is known.
+    # We can only delete when the full set of transitive dependencies is known.
     $do_delete = ($make_want && $make_watcher);
   }
   # Create initial systemd units
@@ -2607,7 +2607,7 @@ sub get_global_versions {
       lwarn "using different minor versions is possible, but you should upgrade your kernel module ASAP\n";
     }
   }
-  # compute the mimimum of kernel features capabilities
+  # compute the minimum of kernel features capabilities
   my $start_time = mars_time();
   my $stone_age = $start_time;
   if ($cron_autoclean_days) {
@@ -2689,7 +2689,7 @@ sub get_alive_links {
     next if $peer =~ $match_reserved_id;
     # After join-cluster & co, links may take a while to appear
     $peers{$peer} = 1 if $non_participating_peers;
-    # peer must be a candiate matching the hosts spec
+    # peer must be a candidate matching the hosts spec
     if ($hosts && $hosts ne "*") {
       next unless $peer =~ m/(^|[+,{}])$hosts($|[+,{}])/;
     }
@@ -3384,7 +3384,7 @@ sub check_not_primary {
   if (!$is_primary_recent || $desginated_primary_recent) {
     if ($max_retry-- < 0) {
       lwarn "Sorry, the primary status on resource '$res' is UNSTABLE or FLIPPING AROUND\n";
-      ldie "Please check whether there are DISTRIBUED RACES or amok-running scripts etc.\n" unless $force;
+      ldie "Please check whether there are DISTRIBUTED RACES or amok-running scripts etc.\n" unless $force;
       lwarn "You said --force, I will continue AT YOUR RISK\n"
     } else {
       _trigger();
@@ -4893,7 +4893,7 @@ sub senseless_cmd {
 
 sub forbidden_cmd {
   my ($cmd, $res) = @_;
-  ldie "command '$cmd' on resource '$res' cannot be used with MARS (migth affect too many hosts, lead to undesired consequences)\n";
+  ldie "command '$cmd' on resource '$res' cannot be used with MARS (might affect too many hosts, lead to undesired consequences)\n";
 }
 
 sub nyi_cmd {
@@ -5318,11 +5318,11 @@ sub merge_cluster_old {
   if ($other_uuid eq $uuid) {
     lprint "Other cluster peer '$peer' has the same UUID.\n";
     lprint "No resource name checking necessary.\n";
-    lprint "Operation '$cmd' will therfore work logically idempotent.\n";
+    lprint "Operation '$cmd' will therefore work logically idempotent.\n";
   } else {
     if (link_exists("$mars/tree-$peer")) {
       lwarn "A valid tree signature '$mars/tree-$peer' already exists, thus it appears to be already merged!\n";
-      ldie "Aborting for saftey. Override via --force only if you know what you are doing!\n" unless $force;
+      ldie "Aborting for safety. Override via --force only if you know what you are doing!\n" unless $force;
     }
     # Check that both sets of resources are disjoint
     lprint "Other cluster peer '$peer' has a different UUID, checking for resource name conflicts.\n";
@@ -5344,7 +5344,7 @@ sub merge_cluster_old {
       foreach my $res (@conflicts) {
 	lprint "\t$res\n";
       }
-      ldie "Cannot $cmd: some resource directories exist at both clusters with same name.\nThis cannot be overriden.\nPlease resolve the conflict by hand.\n";
+      ldie "Cannot $cmd: some resource directories exist at both clusters with same name.\this cannot be overridden.\nPlease resolve the conflict by hand.\n";
     }
     lprint "List of total resources:\n";
     foreach my $res (keys(%total_res)) {
@@ -6134,7 +6134,7 @@ sub logrotate_res {
     lwarn "logfile '$next' already exists - nothing to do\n";
     return 0;
   }
-  # safeguard defective /mars: the corresonding versionlink must exist.
+  # safeguard defective /mars: the corresponding versionlink must exist.
   if (!is_link_recent($last)) {
     my $vers_path = $last;
     $vers_path =~ s:/log-:/version-:;
@@ -6432,7 +6432,7 @@ sub link_purge_global {
   # removal, because this would induce a _plethora_ of further changes to
   # many reports / commands / interfaces / etc etc.
   # Thus we _cannot_ use the _get_min_time() protection  against dead / decommissioned
-  # peers here, UNFORTUNATLY :(
+  # peers here, UNFORTUNATELY :(
   # Reason: this protection can only protect at more fine-grained layers, but it
   # cannot protect the _base_ of all of this.
   # Example: if you destroy the _foundation_ of a building, you have agreed to
@@ -6567,7 +6567,7 @@ sub logdelete_res {
     my $next = shift(@paths);
     # never delete the very last logfile
     last unless $next;
-    # safeguard: only delete logfiles having a minium age
+    # safeguard: only delete logfiles having a minimum age
     last if !$force && is_link_recent($first);
     $nr = $first;
     $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
@@ -7822,7 +7822,7 @@ sub progress_bar {
 sub make_numeric {
   my $number = shift;
   return 0 if (!defined($number) || $number eq "");
-  # skip followin parts of comma-separated lists
+  # skip following parts of comma-separated lists
   $number =~ s/,.*//;
   return $number;
 }
@@ -9742,7 +9742,7 @@ my %trivial_globs =
    "occupied-size"
    => "",
    "replay-code"
-   => "When negative, this indidates that a replay/recovery error has occurred.",
+   => "When negative, this indicates that a replay/recovery error has occurred.",
    "errno-text"
    => "Convert errno numbers (positive or negative) into human readable text.",
    "{sync,fetch,replay,work,syncpos}-{size,pos}"
@@ -10235,7 +10235,7 @@ my %cmd_table =
        "Deprecated.",
        "Please use \"marsadm cron\" instead.",
        "When possible, globally delete all old transaction logfiles which",
-       "are known to be superflous, i.e. all secondaries no longer need",
+       "are known to be superfluous, i.e. all secondaries no longer need",
        "to replay them.",
        "This must be regularly called by a cron job or similar, in order",
        "to prevent overflow of the /mars/ directory.",
@@ -10933,7 +10933,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   --verbose
     Increase speakyness of some commands.
   --parallel
-    Only resonable when combined with \"all\".
+    Only reasonable when combined with \"all\".
     For each resource, fork() a sub-process running independently
     from other resources. May seepd up handover a lot.
     However, several cluster managers are known to have problems
@@ -10974,13 +10974,13 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   --timeout=<seconds>
     Current default: $timeout
     Abort safety checks and waiting loops after timeout with an error.
-    When giving 'all' as resource agument, this works for each
+    When giving 'all' as resource argument, this works for each
     resource independently.
     The special value -1 means \"infinite\".
   --window=<seconds>
     Current default: $window
-    Treat other cluster nodes as healthy when some communcation has
-    occured during the given time window.
+    Treat other cluster nodes as healthy when some communication has
+    occurred during the given time window.
   --stuck-seconds=<seconds>
     Current default: $stuck_seconds
     Some warnings, like stucking fetch or replay, will appear in
@@ -11732,7 +11732,7 @@ if (ref($func) eq "ARRAY") {
       sleep(1);
       my $now = mars_time();
       if ($now - $start_time > $timeout) {
-	lwarn "Condition '$headline' for resources '$res' not reached withing $timeout s\n";
+	lwarn "Condition '$headline' for resources '$res' not reached within $timeout s\n";
 	last;
       }
     }
