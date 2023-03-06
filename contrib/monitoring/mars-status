@@ -257,7 +257,7 @@ sub display_partner {
         print_screen "$SStatus$SSpeed\n";
         print_screen "\t\t---> WORK: Sync in progress = ($SStatus% < 100.00%)", "$Color_blue";
         if ( "$SConnect" ne "OK" ){
-            print_screen ", transfered from $SConnect\n", "$Color_blue";
+            print_screen ", transferred from $SConnect\n", "$Color_blue";
         } else {
             print_screen "\n";
         }
@@ -333,7 +333,7 @@ sub display_partner {
         print_screen "$RStatus$RSpeed\n";
         print_screen "\t\t---> WORK: Replay in progress = ($RStatus% < 100.00%)", "$Color_blue";
         if ( "$RConnect" ne "OK" ){
-            print_screen ", transfered from $RConnect\n", "$Color_blue";
+            print_screen ", transferred from $RConnect\n", "$Color_blue";
         } else {
             print_screen "\n";
         }
@@ -353,7 +353,7 @@ sub display_partner {
 
    ### replay - hints
    if ($PLogFile[2] != 0) {
-       print_screen "\t\t---> WORK: Replay-Todo is actualy $PLogFile[2], ", "$Color_blue";
+       print_screen "\t\t---> WORK: Replay-Todo is actually $PLogFile[2], ", "$Color_blue";
        if ( $PLogFile[2] < 0 ) {
            print_screen "replaying backwards ??? Check this !!!\n", "$Color_red";
        } elsif ( $PLogFile[2] > 0 ) {
@@ -930,7 +930,7 @@ sub info_version {
     
     ### status
     print_screen "MARS Status - $himself, $version", "$Color_blue";
-    if ( $params->{'resource'}  ) { print_screen ", Ressource: $params->{'resource'}", "$Color_blue"; }
+    if ( $params->{'resource'}  ) { print_screen ", Resource: $params->{'resource'}", "$Color_blue"; }
     print_screen "\n";
     
     ### marsadm
@@ -1061,14 +1061,14 @@ sub check_limit {
             print_screen "$mars_limit_sol $LimitSolEin,";
         ### restliches
         } elsif ( $mars_limit_sol < 1 ) {
-            print_screen "is now unsed,", "$Color_green";
+            print_screen "is now unused,", "$Color_green";
         } else {
             print_screen "is set to ";
             print_screen "$mars_limit_sol $LimitSolEin,", "$Color_red";
         }
     } elsif ( !($LimitSolVar) && ($LimitIstVar) ) {
         ### only ist
-        print_screen "is actualy ";
+        print_screen "is actually ";
 
         if ( $mars_limit_ist < 1 ) {
             if ( $LimitIstEin eq "on/off" ) {
@@ -1086,12 +1086,12 @@ sub check_limit {
 # TODO fixen !
 #    } elsif ( ($LimitSolVar) && ($LimitIstVar) && ($mars_limit_sol < 1) ) {    
 #        ### sol & ist = 0
-#        print_screen "is actualy unused(X),";
+#        print_screen "is actually unused(X),";
     } else {
         ### sol & ist / rest ...
         print_screen "is set to ";
         print_screen "$mars_limit_sol $LimitSolEin", "$Color_red";
-        print_screen ", actualy used ";
+        print_screen ", actually used ";
         print_screen "$mars_limit_ist $LimitIstEin,", "$Color_red";
     }
         
@@ -1147,7 +1147,7 @@ sub check_systemstatus {
 
     my $mars_disk_space = `df '$mars_dir' | grep '$mars_dir'| awk '{print \$2}'`;
     $mars_disk_space = sprintf("%01.2f", $mars_disk_space / 1024);
-    check_limit "-> Free-Space-Limit on /mars", "required_free_space_1_gb", 	"mb (actualy $mars_disk_space mb used)";
+    check_limit "-> Free-Space-Limit on /mars", "required_free_space_1_gb", 	"mb (actually $mars_disk_space mb used)";
     print "\n";
 }
 

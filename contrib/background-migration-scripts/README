@@ -18,7 +18,7 @@ Finally we have [4/4] replicas.
 3) handover the primary to one node of the _new_ pair.
 
 4) use "marsadm leave-resource" to get rid of the _old_ two replicas.
-New replica status is again [2/4], but the the replicas have been
+New replica status is again [2/4], but the replicas have been
 migrated to the new pair in the meantime.
 
 5) Finally, use "marsadm split-cluster" to go back to [2/2].
