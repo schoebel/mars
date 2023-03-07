@@ -86,8 +86,6 @@ static struct list_head server_anchor = LIST_HEAD_INIT(server_anchor);
 #define HANDLER_LIMIT 1024
 
 int handler_limit = HANDLER_LIMIT;
-int handler_nr = HANDLER_LIMIT;
-static struct semaphore handler_limit_sem = __SEMAPHORE_INITIALIZER(handler_limit_sem, HANDLER_LIMIT);
 
 #define DENT_LIMIT 2
 #define DENT_RETRY 5
@@ -516,16 +514,11 @@ int handler_thread(void *data)
 			MARS_DBG("#%d is dead\n", sock->s_debug_nr);
 			goto clean;
 		}
-		if (down_trylock(&handler_limit_sem)) {
-			MARS_DBG("#%d handler limit reached\n", sock->s_debug_nr);
-			status = -EUSERS;
-			goto clean;
-		}
 
 		status = mars_recv_cmd(sock, &cmd);
 		if (unlikely(status < 0)) {
 			MARS_WRN("#%d recv cmd status = %d\n", sock->s_debug_nr, status);
-			goto clean_unlock;
+			goto clean;
 		}
 
 		MARS_IO("#%d cmd = %d\n", sock->s_debug_nr, cmd.cmd_code);
@@ -533,7 +526,7 @@ int handler_thread(void *data)
 		if (unlikely(!brick->global || !mars_global || !mars_global->global_power.button)) {
 			MARS_WRN("#%d system is not alive\n", sock->s_debug_nr);
 			status = -EINTR;
-			goto clean_unlock;
+			goto clean;
 		}
 
 		status = -EPROTO;
@@ -576,12 +569,12 @@ int handler_thread(void *data)
 				if (max_retry-- <= 0) {
 					MARS_DBG("#%d dent limit reached\n", sock->s_debug_nr);
 					status = -EUSERS;
-					goto clean_unlock;
+					goto clean;
 				}
 				brick_msleep(200);
 				if (!mars_socket_is_alive(sock)) {
 					status = -ECONNABORTED;
-					goto clean_unlock;
+					goto clean;
 				}
 			}
 
@@ -759,8 +752,6 @@ int handler_thread(void *data)
 		default:
 			MARS_ERR("#%d unknown command %d\n", sock->s_debug_nr, cmd.cmd_code);
 		}
-	clean_unlock:
-		up(&handler_limit_sem);
 	clean:
 		brick_string_free(cmd.cmd_str1);
 		brick_string_free(cmd.cmd_str2);
@@ -1111,7 +1102,6 @@ static int port_thread(void *data)
 		smp_mb();
 		brick_yield();
 
-		change_sem(&handler_limit_sem, &handler_limit, &handler_nr);
 		change_sem(&dent_limit_sem, &dent_limit, &dent_nr);
 
 		server_global->global_version++;
