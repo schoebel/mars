@@ -1105,6 +1105,8 @@ static int port_thread(void *data)
 		struct server_brick *brick = NULL;
 		const char *ini_path;
 		struct mars_socket handler_socket = {};
+		int this_handler_limit;
+		bool limit_reached;
 
 		smp_mb();
 		brick_yield();
@@ -1144,6 +1146,21 @@ static int port_thread(void *data)
 
 		MARS_DBG("got new connection #%d\n", handler_socket.s_debug_nr);
 
+		this_handler_limit = handler_limit;
+		if (cookie->port_nr <= MARS_TRAFFIC_META)
+			this_handler_limit *= 2;
+		limit_reached =
+			atomic_inc_return(&server_handler_count) > this_handler_limit;
+		if (unlikely(limit_reached)) {
+			atomic_dec(&server_handler_count);
+			MARS_ERR("max server processes %d reached\n",
+				 handler_limit);
+			mars_shutdown_socket(&handler_socket);
+			mars_put_socket(&handler_socket);
+			brick_msleep(100);
+			continue;
+		}
+
 		ini_path = path_make("mars_h:%d.%d",
 				     cookie->port_nr,
 				     ++cookie->thread_nr);
@@ -1153,6 +1170,7 @@ static int port_thread(void *data)
 					       ini_path);
 		brick_string_free(ini_path);
 		if (!brick) {
+			atomic_dec(&server_handler_count);
 			MARS_ERR("cannot create server instance\n");
 			mars_shutdown_socket(&handler_socket);
 			mars_put_socket(&handler_socket);
@@ -1160,8 +1178,6 @@ static int port_thread(void *data)
 			continue;
 		}
 		memcpy(&brick->handler_socket, &handler_socket, sizeof(struct mars_socket));
-
-		atomic_inc(&server_handler_count);
 
 		/* TODO: check authorization.
 		 */
@@ -1188,6 +1204,7 @@ static int port_thread(void *data)
 		continue;
 
 	err:
+		atomic_dec(&server_handler_count);
 		if (brick) {
 			mars_shutdown_socket(&brick->handler_socket);
 			mars_put_socket(&brick->handler_socket);
@@ -1196,7 +1213,6 @@ static int port_thread(void *data)
 				BRICK_ERR("kill status = %d, giving up\n", status);
 			}
 			brick = NULL;
-			atomic_dec(&server_handler_count);
 		}
 		brick_msleep(200);
 	}
