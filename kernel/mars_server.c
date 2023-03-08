@@ -83,7 +83,7 @@ static struct list_head server_anchor = LIST_HEAD_INIT(server_anchor);
 
 ///////////////////////// own helper functions ////////////////////////
 
-#define HANDLER_LIMIT 1024
+#define HANDLER_LIMIT 512
 
 int handler_limit = HANDLER_LIMIT;
 
