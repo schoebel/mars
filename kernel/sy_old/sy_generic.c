@@ -2805,7 +2805,16 @@ int mars_free_brick(struct mars_brick *brick)
 	status = generic_brick_exit_full((void*)brick);
 
 	if (status >= 0) {
-		brick_mem_free(brick);
+		void **delegate_free = brick->delegate_free;
+
+		/* When set, the resposibility for final freeing
+		 * is delegated to elsewhere.
+		 */
+		if (delegate_free) {
+			*delegate_free = brick;
+		} else {
+			brick_mem_free(brick);
+		}
 		mars_trigger();
 	} else {
 		MARS_ERR("error freeing brick, status = %d\n", status);
