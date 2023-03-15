@@ -229,10 +229,6 @@ int cb_thread(void *data)
 	mars_put_socket(sock);
 
 done:
-	down_write(&server_mutex);
-	list_del_init(&brick->server_head);
-	up_write(&server_mutex);
-
 	MARS_DBG("---------- cb_thread terminating, status = %d\n", status);
 	brick_wake_smp(&brick->startup_event);
 	atomic_dec(&server_callback_count);
@@ -457,6 +453,7 @@ int handler_thread(void *data)
 		status = -ENOENT;
 		goto done;
 	}
+	brick->delegate_free = &brick->delegated_brick;
 	brick->cb_thread = thread;
 
 	brick->handler_running = true;
@@ -754,10 +751,6 @@ int handler_thread(void *data)
 	mars_put_socket(sock);
 
  done:
-	down_write(&server_mutex);
-	list_del_init(&brick->server_head);
-	up_write(&server_mutex);
-
 	MARS_DBG("#%d handler_thread terminating, status = %d\n", sock->s_debug_nr, status);
 
 	mars_kill_brick_all(handler_global, &handler_global->brick_anchor, false);
@@ -836,6 +829,7 @@ static int server_switch(struct server_brick *brick)
 			status = -ENOENT;
 			goto err;
 		}
+		brick->delegate_free = &brick->delegated_brick;
 
 		mars_power_led_on((void*)brick, true);
 	} else if (!brick->power.led_off) {
@@ -1057,6 +1051,35 @@ int server_show_statist = 0;
 EXPORT_SYMBOL_GPL(server_show_statist);
 #endif
 
+static
+void check_bricks(void)
+{
+	struct list_head *tmp;
+
+	down_write(&server_mutex);
+	for (tmp = server_anchor.next; tmp && tmp != &server_anchor; tmp = tmp->next) {
+		struct server_brick *running_brick = container_of(tmp, struct server_brick, server_head);
+		struct mars_socket *handler_socket = &running_brick->handler_socket;
+
+		if (!running_brick->delegated_brick)
+			continue;
+		if (!handler_socket)
+			continue;
+		brick_yield();
+		if (mars_socket_is_alive(handler_socket)) {
+			mars_shutdown_socket(handler_socket);
+			/* only once per round */
+			break;
+		} else if (!running_brick->handler_thread && !running_brick->cb_thread) {
+			list_del_init(&running_brick->server_head);
+			brick_mem_free(running_brick);
+			/* only once per round */
+			break;
+		}
+	}
+	up_write(&server_mutex);
+}
+
 static int port_thread(void *data)
 {
 	struct mars_global *server_global = alloc_mars_global();
@@ -1090,6 +1113,7 @@ static int port_thread(void *data)
 
 		smp_mb();
 		brick_yield();
+		check_bricks();
 
 		server_global->global_version++;
 		mars_limit(&server_limiter, 0);

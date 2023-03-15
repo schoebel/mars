@@ -61,6 +61,7 @@ struct server_brick {
 	struct mars_brick *conn_brick;
 	struct task_struct *handler_thread;
 	struct task_struct *cb_thread;
+	void *delegated_brick;
 	wait_queue_head_t startup_event;
 	wait_queue_head_t cb_event;
 	struct mutex cb_mutex;
