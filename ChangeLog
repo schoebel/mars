@@ -182,6 +182,11 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable162
+	(bugfix release)
+	* Fix counting of server processes.
+	  More to come.
+
 mars0.1astable161
 	(bugfix release)
 	* Major fix: rmmod could hang when certain preconditions were met.
