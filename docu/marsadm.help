@@ -30,7 +30,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   --verbose
     Increase speakyness of some commands.
   --parallel
-    Only resonable when combined with "all".
+    Only reasonable when combined with "all".
     For each resource, fork() a sub-process running independently
     from other resources. May seepd up handover a lot.
     However, several cluster managers are known to have problems
@@ -71,13 +71,13 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   --timeout=<seconds>
     Current default: 600
     Abort safety checks and waiting loops after timeout with an error.
-    When giving 'all' as resource agument, this works for each
+    When giving 'all' as resource argument, this works for each
     resource independently.
     The special value -1 means "infinite".
   --window=<seconds>
     Current default: 60
-    Treat other cluster nodes as healthy when some communcation has
-    occured during the given time window.
+    Treat other cluster nodes as healthy when some communication has
+    occurred during the given time window.
   --stuck-seconds=<seconds>
     Current default: 3600
     Some warnings, like stucking fetch or replay, will appear in
@@ -132,7 +132,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
 
 <hostname> =
   [a-z][-a-z0-9]*
-  with the exception of reserved names: none|all|any|local|localhost
+  with the exception of reserved names: none|all|any|full|empty|undefined|remote|local|localhost
 
 <command> =
   activate-guest
@@ -667,6 +667,8 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
 
 
 <primitive_macroname> =
+  configured-peers
+  count-configured-peers
   count-{cluster,resource,guest}-members
     deprecated
   count-{cluster,resource,guest}-peers
@@ -682,15 +684,17 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   get-log-status
   get-resource-{fat,err,wrn}{,-count}
   get-{disk,device}
+  global-sync-limit-value
   is-{alive}
   is-{member,guest}
   is-{split-brain,consistent,emergency,orphan}
+  known-device-{mounted,mountpoint,fstype,mountflags}
   occupied-size
   present-{disk,device}
     (deprecated, use *-present instead)
   replay-basenr
   replay-code
-    When negative, this indidates that a replay/recovery error has occurred.
+    When negative, this indicates that a replay/recovery error has occurred.
   resource-possible-size
   summary-vector
   systemd-unit
