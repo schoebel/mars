@@ -526,7 +526,6 @@ err:
 }
 
 int log_read(struct log_status *logst,
-	     bool sloppy,
 	     struct log_header *lh,
 	     void **payload, int *payload_len,
 	     void **dealloc)
@@ -609,7 +608,6 @@ restart:
 			  mref->ref_len - logst->offset,
 			  mref->ref_pos,
 			  logst->offset,
-			  sloppy,
 			  lh,
 			  payload,
 			  payload_len,
@@ -827,7 +825,6 @@ int log_scan(void *buf,
 	     int len,
 	     loff_t file_pos,
 	     int file_offset,
-	     bool sloppy,
 	     struct log_header *lh,
 	     void **payload, int *payload_len,
 	     void **dealloc,
@@ -863,7 +860,7 @@ int log_scan(void *buf,
 
 
 		offset = i;
-		if (unlikely(i > 0 && !sloppy)) {
+		if (unlikely(i > 0)) {
 			MARS_ERR(SCAN_TXT "detected a hole / bad data >= %d\n",
 				 SCAN_PAR, i);
 			RECORD_ERR(-MARS_ERR_SCAN_HOLE);

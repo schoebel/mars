@@ -126,7 +126,6 @@ extern int log_scan(void *buf,
 		    int len,
 		    loff_t file_pos,
 		    int file_offset,
-		    bool sloppy,
 		    struct log_header *lh,
 		    void **payload, int *payload_len,
 		    void **dealloc,
@@ -191,7 +190,6 @@ void *log_reserve(struct log_status *logst, struct log_header *lh);
 bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private, int error), void *private);
 
 int log_read(struct log_status *logst,
-	     bool sloppy,
 	     struct log_header *lh,
 	     void **payload, int *payload_len,
 	     void **dealloc);

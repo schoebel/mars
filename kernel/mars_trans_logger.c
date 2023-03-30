@@ -3068,7 +3068,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		}
 		brick_mem_free(dealloc);
 
-		status = log_read(&input->logst, false, &lh,
+		status = log_read(&input->logst, &lh,
 				  &buf, &len, &dealloc);
 
 		/* only catch the very first mars_error_code */
