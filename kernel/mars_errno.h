@@ -55,6 +55,7 @@
 #define MARS_ERR_SCAN_SEQ_FW	10010	/* Illegal record sequence skip forward */
 #define MARS_ERR_SCAN_SEQ_BW	10011	/* Record sequence skip backwards */
 #define MARS_ERR_SCAN_SIZE	10012	/* Internal size mismatch */
+#define MARS_ERR_SCAN_MAGIC	10013	/* Unrecognized record */
 
 #define MARS_ERR_MAGIC_BAD	10020	/* Bad magic  */
 #define MARS_ERR_MAGIC_REPEATED	10021	/* Bad magic has repeated pattern */

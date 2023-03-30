@@ -869,23 +869,10 @@ int log_scan(void *buf,
 
 		DATA_GET(buf, offset, start_magic);
 		if (unlikely(start_magic != START_MAGIC)) {
-			/* Skip any zeros without notice.
-			 * This may be used for future extensions, like
-			 * padding at certain places of logfiles.
-			 */
-			if (start_magic != 0) {
-				dirty = true;
-				classify_bad_magic(start_magic,
-						   &start_byte_code,
-						   mars_error_code);
-				if (start_byte_code && !*byte_code) {
-					*byte_code = start_byte_code;
-					MARS_WRN(SCAN_TXT "found repeated byte pattern 0x%02x",
-						 SCAN_PAR,
-						 start_byte_code);
-				}
-			}
-			continue;
+			MARS_ERR(SCAN_TXT "bad start magic 0x%llx\n",
+				 SCAN_PAR, start_magic);
+			RECORD_ERR(-MARS_ERR_SCAN_MAGIC);
+			return -EBADMSG;
 		}
 
 		restlen = len - i;
