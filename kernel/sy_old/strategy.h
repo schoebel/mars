@@ -68,6 +68,7 @@ extern int mars_rollover_interval;
 extern int mars_scan_interval;
 extern int mars_propagate_interval;
 extern int mars_sync_flip_interval;
+extern int mars_alive_window;
 extern int mars_running_additional_peers;
 extern int mars_run_additional_peers;
 extern int mars_peer_abort;

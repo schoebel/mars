@@ -607,6 +607,7 @@ struct ctl_table mars_table[] = {
 		.proc_handler	= &lamport_sysctl_handler,
 #endif
 	},
+	INT_ENTRY("alive_window",         mars_alive_window,      0600),
 	INT_ENTRY("min_update_seconds",   mars_min_update,        0600),
 	INT_ENTRY("max_lamport_future",   max_lamport_future,     0600),
 #ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY

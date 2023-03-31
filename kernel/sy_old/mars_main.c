@@ -229,6 +229,8 @@ EXPORT_SYMBOL_GPL(mars_reset_emergency);
 int mars_keep_msg = 10;
 EXPORT_SYMBOL_GPL(mars_keep_msg);
 
+int mars_alive_window = 30; /* seconds */
+
 #ifdef CONFIG_MARS_DEBUG
 #include <linux/reboot.h>
 
@@ -490,7 +492,7 @@ bool is_alive(const char *peer)
 	struct lamport_time peer_time = {};
 
 	get_real_lamport(&now);
-	now.tv_sec -= 30;
+	now.tv_sec -= mars_alive_window;
 	get_alivelink_stamp("alive", peer, &peer_time);
 	return peer_time.tv_sec &&
 		lamport_time_compare(&now, &peer_time) < 0;
@@ -5870,7 +5872,7 @@ int make_log_finalize(struct mars_dent *dent)
 		struct lamport_time report_time;
 
 		get_real_lamport(&report_time);
-		report_time.tv_sec -= 5;
+		report_time.tv_sec -= mars_alive_window;
 		if (lamport_time_compare(&report_time, &rot->error_report_stamp) <= 0)
 			goto stop_on_errors;
 	}
