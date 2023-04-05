@@ -5699,7 +5699,7 @@ description-text
 \labelwidthstring 00.00.0000
 
 \family typewriter
-InitializedLogRecord[
+UnInitializedLogRecord[
 \emph on
 description-text
 \emph default
