@@ -17188,7 +17188,7 @@ primary
 \emph default
  side, you may choose to resolve the inconsistencies by 
 \family typewriter
-marsadm invalid $res
+marsadm invalidate $res
 \family default
  on 
 \emph on
