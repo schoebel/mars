@@ -182,6 +182,12 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable163
+	(bugfix release)
+	* Improved robustness at log scanning.
+	* Some minor code cleanups.
+	* Typos fixed by Andrea Gelmini, many thanks!
+
 mars0.1astable162
 	(bugfix release)
 	* Fix counting of server processes.
