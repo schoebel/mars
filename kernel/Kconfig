@@ -65,7 +65,7 @@ config MARS_DEBUG
 	default n
 	help
 	Some of these checks and some additional error tracing may
-	consume noticable amounts of memory.
+	consume noticeable amounts of memory.
 	OFF for production systems. ON for testing!
 
 config MARS_DEBUG_DEFAULT
@@ -111,7 +111,7 @@ config MARS_DEFAULT_PORT
 	default 7777
 	help
 	Best practice is to uniformly use the same port number
-	in a cluster. Therefore, this is a compiletime constant.
+	in a cluster. Therefore, this is a compile time constant.
 	You may override this at insmod time via the mars_port= parameter.
 
 config MARS_SEPARATE_PORTS
@@ -175,24 +175,24 @@ config MARS_ROLLOVER_INTERVAL
 	depends on MARS
 	default 3
 	help
-	May influence the system load; dont use too low nubmers.
+	May influence the system load; don't use too low numbers.
 
 config MARS_SCAN_INTERVAL
 	int "re-scanning of symlinks in /mars/ (in seconds)"
 	depends on MARS
 	default 5
 	help
-	May influence the system load; dont use too low nubmers.
+	May influence the system load; don't use too low numbers.
 
 config MARS_PROPAGATE_INTERVAL
 	int "network propagation delay of changes in /mars/ (in seconds)"
 	depends on MARS
 	default 5
 	help
-	May influence the system load; dont use too low nubmers.
+	May influence the system load; don't use too low numbers.
 
 config MARS_SYNC_FLIP_INTERVAL
-	int "interrpt sync by logfile update after (seconds)"
+	int "interrupt sync by logfile update after (seconds)"
 	depends on MARS
 	default 60
 	help

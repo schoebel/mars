@@ -383,7 +383,7 @@ int _make_mref(struct copy_brick *brick,
 	st = &GET_STATE(brick, index);
 	old_mref = READ_ONCE(st->table[queue]);
 	if (unlikely(old_mref)) {
-		MARS_ERR("cannot overrride old_mref=%p at index=%u queue=%d pos=%lld+%lld flags=%d\n",
+		MARS_ERR("cannot override old_mref=%p at index=%u queue=%d pos=%lld+%lld flags=%d\n",
 			 old_mref,
 			 index, queue,
 			 current_pos, diff, flags);
@@ -570,7 +570,7 @@ restart:
 		    brick->copy_shutdown_started.tv_sec) {
 			struct lamport_time force_when;
 
-			/* We use the force alrady after mars_copy_timeout / 2
+			/* We use the force already after mars_copy_timeout / 2
 			 * because the shutdown itself may take some
 			 * further time (e.g. over network).
 			 */
@@ -743,7 +743,7 @@ restart:
 		 * _starting_ the writes is in order.
 		 * This is only correct when all lower bricks obey the
 		 * order of ref_io() operations.
-		 * Currenty, bio and aio are obeying this. Be careful when
+		 * Currently, bio and aio are obeying this. Be careful when
 		 * implementing new IO bricks!
 		 */
 		if (mars_copy_strict_write_order &&

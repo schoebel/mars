@@ -172,7 +172,7 @@ Scope
 \end_layout
 
 \begin_layout Standard
-The following topics are covered withing this document:
+The following topics are covered within this document:
 \end_layout
 
 \begin_layout Itemize
@@ -568,7 +568,7 @@ transaction logfile
 \emph on
 Any
 \emph default
- write reqeuest is treated like a transaction which changes the contents
+ write request is treated like a transaction which changes the contents
  of your LV.
 \end_layout
 
@@ -717,7 +717,7 @@ fsync()
 \family typewriter
 /dev/mars/mydata
 \family default
- is signalled that the write was successful
+ is signaled that the write was successful
 \begin_inset Foot
 status open
 
@@ -1309,7 +1309,7 @@ https://github.com/schoebel/blkreplay/raw/master/doc/blkreplay.pdf
 \end_layout
 
 \begin_layout Standard
-For many application workloads, RAID-6 provides a good compromize between
+For many application workloads, RAID-6 provides a good compromise between
  cost and performance.
  Reads are very fast due to RAID-6 striping, while the slow RAID-6 writes
  are partially compensated by the MARS kernel memory buffer (see section
@@ -1530,7 +1530,7 @@ dedicated HDD
  with a capacity of 4 TB or more.
  Typically, this will provide you with plenty of headroom even for bigger
  networking incidents.
- Performace of a single HDD over a BBU is typically good enough for 
+ Performance of a single HDD over a BBU is typically good enough for 
 \family typewriter
 /mars
 \family default
@@ -1565,7 +1565,7 @@ mars
 \end_layout
 
 \begin_layout Enumerate
-For extemely high performance, separate SSD sets for the user data VG and
+For extremely high performance, separate SSD sets for the user data VG and
  for 
 \family typewriter
 /mars
@@ -1578,7 +1578,7 @@ For extemely high performance, separate SSD sets for the user data VG and
 exist
 \emph default
  some workloads where sequntial IO to HDDs is faster than to SSDs.
- Sometimes, there are hidden performance bottlenecks, such as SAS busses,
+ Sometimes, there are hidden performance bottlenecks, such as SAS buses,
  or some old-generation RAID controllers.
 \end_layout
 
@@ -1587,7 +1587,7 @@ Dedicated HDDs for
 \family typewriter
 /mars/
 \family default
- have another advantage: their mechanical head movement is completely independen
+ have another advantage: their mechanical head movement is completely independent
 t from your data head movements.
  For best performance, attach the corresponding disks to your hardware RAID
  controller with BBU, building a separate RAID set (even if it consists
@@ -4188,7 +4188,7 @@ netstat --tcp | grep 777
 
 
 \family default
-Both variants should show up some healty connections.
+Both variants should show up some healthy connections.
  If not, fix your network configuration and/or firewalling etc.
  Details are outside of the scope of this manual.
 \end_layout
@@ -4277,7 +4277,7 @@ noprefix "false"
 \emph on
 some dynamic behaviour
 \emph default
- like growth and hardware lifecyle.
+ like growth and hardware lifecycle.
  Thus they need 
 \emph on
 updates
@@ -4666,7 +4666,7 @@ huge
 \family typewriter
 Football
 \family default
- for hardware lifecyle or for long-term load balancing over a very long
+ for hardware lifecycle or for long-term load balancing over a very long
  time): newer versions of 
 \family typewriter
 marsadm
@@ -4839,7 +4839,7 @@ standalone mode
 \end_inset
 
 ).
- But you can also do so later after setup of (one ore many) secondaries.
+ But you can also do so later after setup of (one or many) secondaries.
 \end_layout
 
 \begin_layout Enumerate
@@ -5720,7 +5720,7 @@ description-text
 \family typewriter
 %replay-code{}
 \family default
-) Typicially this indicates a checksum error in a transaction logfile, or
+) Typically this indicates a checksum error in a transaction logfile, or
  another (hardware / filesystem) defect.
  This occurs extremely rarely in practice, but has been observed more frequently
  during a massive failure of air conditioning in a datacenter, when disk
@@ -5805,7 +5805,7 @@ When the damage is only at one of your secondaries, and the primary continues
 \family typewriter
 marsadm cron
 \family default
-, wait for the secondary to get this knowlege over the network, and try
+, wait for the secondary to get this knowledge over the network, and try
  
 \family typewriter
 marsadm invalidate
@@ -5998,7 +5998,7 @@ marsadm invalidate
 \begin_inset Newline newline
 \end_inset
 
-There is an execption: shortly after 
+There is an exception: shortly after 
 \family typewriter
 join-resource
 \family default
@@ -6375,7 +6375,7 @@ UnResponsive
 \family typewriter
 mars_main
 \family default
- did not do any noticable work for more than 
+ did not do any noticeable work for more than 
 \family typewriter
 %{window}
 \family default
@@ -6776,7 +6776,7 @@ fetch:
 \family typewriter
 F
 \family default
- = according to knowlege, fetched logfiles are up-to-date, 
+ = according to knowledge, fetched logfiles are up-to-date, 
 \family typewriter
 f
 \family default
@@ -7469,7 +7469,7 @@ This will reduce the risk of
 hanging umounts
 \series default
  leading to long-lasting waits at the future primary hostB.
- Such problems will be detected earlier, so you have more possibilties for
+ Such problems will be detected earlier, so you have more possibilities for
  fixing them.
 \begin_inset Newline newline
 \end_inset
@@ -7639,7 +7639,7 @@ right
 \emph on
 actual
 \emph default
- primary mode during that time, and the secondaries will sync therefrom.
+ primary mode during that time, and the secondaries will sync there from.
  As soon as the local 
 \family typewriter
 /dev/mars/mydata
@@ -7892,7 +7892,7 @@ individually
 \emph default
 .
  Slow resources will no longer retard fast ones, minimizing total downtime.
- However, check that your cluster manager can deal with a rather high parallelis
+ However, check that your cluster manager can deal with a rather high parallelism
 m degree.
  At the moment, the 
 \family typewriter
@@ -8097,7 +8097,7 @@ status open
 \begin_layout Plain Layout
 Notice: in certain network outage scenarios, you may not be able to remotely
  login to the console and to check whether a server is running.
- Therefore it may happen that you erronously think hostA is dead, while
+ Therefore it may happen that you erroneously think hostA is dead, while
  in reality it continues running.
  Even if you would know it, you might not be able to remotely kill it in
  a STONITH-like manner.
@@ -8292,7 +8292,7 @@ connection loss
 \emph default
  (e.g.
  networking problems / network partitions), you may not be able to reliably
- detect whether a split brain has actually occured, or not.
+ detect whether a split brain has actually occurred, or not.
 \end_layout
 
 \begin_layout Paragraph
@@ -8490,7 +8490,7 @@ marsadm primary --force all --parallel
 \family default
 .
  This may potentially speed up startup.
- However, check that your cluster manager can deal with a rather high parallelis
+ However, check that your cluster manager can deal with a rather high parallelism
 m degree.
  At the moment, the 
 \family typewriter
@@ -8747,7 +8747,7 @@ In rare cases (when
 \family typewriter
 /mars
 \family default
- is almost full somewhere, or when emergency mode has occured somewhere),
+ is almost full somewhere, or when emergency mode has occurred somewhere),
  you may need to run 
 \family typewriter
 marsadm cron
@@ -8821,7 +8821,7 @@ On those cluster nodes where you want to retain some SPLIT BRAIN version
 \begin_inset Quotes eld
 \end_inset
 
-emergengy backup
+emergency backup
 \begin_inset Quotes erd
 \end_inset
 
@@ -9079,7 +9079,7 @@ first
 one
 \emph default
  of them.
- Leave the other one intact, by not umounting 
+ Leave the other one intact, by not unmounting 
 \family typewriter
 /dev/mars/mydata
 \family default
@@ -10471,7 +10471,7 @@ write_throttle_start_percent
 slowly
 \emph default
 .
- Defaul value is 0, which means 
+ Default value is 0, which means 
 \begin_inset Quotes eld
 \end_inset
 
@@ -10480,7 +10480,7 @@ off
 \end_inset
 
 .
- Practical values for this coule be around 80%.
+ Practical values for this could be around 80%.
 \end_layout
 
 \begin_layout Description
@@ -10504,7 +10504,7 @@ write_throttle_start_percent
 write_throttle_end_percent
 \family default
 , the strength of throttling will be interpolated linearly between the extremes.
- In practice, this should lead to an equilibrum between new input flow into
+ In practice, this should lead to an equilibrium between new input flow into
  
 \family typewriter
 /mars/
@@ -10844,7 +10844,7 @@ marsadm cron
 \end_layout
 
 \begin_layout Enumerate
-As soon as emough space has been freed everywhere to leave the 
+As soon as enough space has been freed everywhere to leave the 
 \family typewriter
 EMEGENCY MODE HYSTERESIS
 \family default
@@ -10914,7 +10914,7 @@ Wait until sync has finished at hostB.
 \begin_layout Enumerate
 If you have more than 2 replicas in total: proceed with step 4 at hostC,
  and so on.
- This time, you could join multipe resources in parallel, because you already
+ This time, you could join multiple resources in parallel, because you already
  have a life replica at hostB.
 \end_layout
 
@@ -11182,7 +11182,7 @@ Don't use in scripts! Only use by hand!
 \begin_layout Plain Layout
 
 \size scriptsize
-This option does not change the internal waiting logic for thois commands
+This option does not change the internal waiting logic for this commands
  which emulate synchronous behaviour on top of the asynchronous communication
  paradigm.
  Many commands are waiting until the desired effect has succeeded.
@@ -11679,7 +11679,7 @@ planned
 
 \end_inset
 
-Careful when using this on extremely huge LVs where the sync may take serveral
+Careful when using this on extremely huge LVs where the sync may take several
  days, or weeks.
  It is your sysadmin decision what you want to prefer: restarting the sync,
  or planned handover.
@@ -12819,7 +12819,7 @@ status open
 \size scriptsize
 Avoid any potential timeouts / hangs caused by networks or firewalls, by
  explicitly disabling the old ssh-based communication method, and relying
- on the new MARS communication protocol (by defaut on port 7777).
+ on the new MARS communication protocol (by default on port 7777).
 \end_layout
 
 \end_inset
@@ -13008,7 +13008,7 @@ all local network interfaces are scanned by
 \family typewriter
 /sbin/ip
 \family default
- for IPv4 adresses, and the 
+ for IPv4 addresses, and the 
 \emph on
 first
 \emph default
@@ -13327,7 +13327,7 @@ Postcondition: the initial symlink tree is created in
 /mars/uuid
 \family default
  symlink is created for later distribution in the cluster.
- It uniquely indentifies the cluster in the world.
+ It uniquely identifies the cluster in the world.
 \end_layout
 
 \begin_layout Plain Layout
@@ -13631,7 +13631,7 @@ In ancient MARS versions before mars0.1astable101 the kernel module
 \emph on
 must not
 \emph default
- be loaded, and a working ssh connecttion to 
+ be loaded, and a working ssh connection to 
 \family typewriter
 $host
 \family default
@@ -13823,7 +13823,7 @@ marsadm leave-resource
 \family default
 ).
  The kernel module should be loaded and the network should be operating
- in order to also propogate the effect to the other cluster nodes.
+ in order to also propagate the effect to the other cluster nodes.
 \end_layout
 
 \begin_layout Plain Layout
@@ -13898,7 +13898,7 @@ rmmod
 
 \end_inset
 
- passivley fetching the symlink tree.
+ passively fetching the symlink tree.
  In order to really stop all communication, the kernel module should be
  unloaded afterwards (rmmod mars).
  The local 
@@ -13926,7 +13926,7 @@ zombies
 
 \size scriptsize
 In case of an unintended hardware destruction (e.g.
- fire, water, ...) this command should be used on another healty cluster node
+ fire, water, ...) this command should be used on another healthy cluster node
  $helper in order to finally remove $damaged from the cluster via the command
  
 \family typewriter
@@ -14902,7 +14902,7 @@ Postcondition: the
 /mars/uuid
 \family default
  symlink is created for later distribution in the cluster.
- It uniquely indentifies the cluster in the world.
+ It uniquely identifies the cluster in the world.
 \end_layout
 
 \begin_layout Plain Layout
@@ -14967,7 +14967,7 @@ Instead of executing
 \family typewriter
 marsadm
 \family default
- commands serveral times for each resource argument, you may give the special
+ commands several times for each resource argument, you may give the special
  resource argument 
 \family typewriter
 all
@@ -15328,8 +15328,8 @@ Postcondition: the resource
 \family typewriter
 $res
 \family default
- is created, the inital role of the current node is primary.
- The corresponding symlink tree information is asynchonously distributed
+ is created, the initial role of the current node is primary.
+ The corresponding symlink tree information is asynchronously distributed
  in the cluster (in the background).
  The device 
 \family typewriter
@@ -15544,7 +15544,7 @@ Postcondition: the current node becomes a member of resource
 \family typewriter
 $res
 \family default
-, the inital role is secondary.
+, the initial role is secondary.
  The initial full sync should start after a while.
 \end_layout
 
@@ -15693,7 +15693,7 @@ marsadm down
 \family default
 ).
  The kernel module should be loaded and the network should be operating
- in order to also propogate the effect to the other cluster nodes.
+ in order to also propagate the effect to the other cluster nodes.
 \end_layout
 
 \begin_layout Plain Layout
@@ -15931,7 +15931,7 @@ leave-resource
 --host=somebodyelse
 \family default
  argument in order to desperately try to destroy remains of incomplete or
- pysically damaged hardware.
+ physically damaged hardware.
 \end_layout
 
 \begin_layout Plain Layout
@@ -16113,7 +16113,7 @@ half-dead
 \begin_inset Quotes erd
 \end_inset
 
- zombie nodes (beware of shapshot / restores on virtual machines!!).
+ zombie nodes (beware of snapshot / restores on virtual machines!!).
  MARS does its best to avoid problems even in case the new resource name
  should equal the old one, but there can be 
 \emph on
@@ -16422,7 +16422,7 @@ marsadm cron
 \emph on
 temporary
 \emph default
- purposes (in constrast to 
+ purposes (in contrast to 
 \emph on
 full
 \emph default
@@ -17121,7 +17121,7 @@ pause-sync-global
 
 
 \size scriptsize
-WARNING! After this, and ather having paused any remote data access, you
+WARNING! After this, and other having paused any remote data access, you
  might use the underlying disk for your own purposes, such as test-mounting
  it in 
 \emph on
@@ -17130,7 +17130,7 @@ readonly
  mode.
  
 \series bold
-Don't modifiy
+Don't modify
 \series default
  its contents in any way! Not even by an 
 \family typewriter
@@ -17188,7 +17188,7 @@ primary
 \emph default
  side, you may choose to resolve the inconsistencies by 
 \family typewriter
-marsadm invalide $res
+marsadm invalid $res
 \family default
  on 
 \emph on
@@ -20738,7 +20738,7 @@ marsadm secondary
 not recommended
 \emph default
 ), at least the old primary must be reachable.
- The (old) primarie's virutal device 
+ The (old) primarie's virtual device 
 \family typewriter
 /dev/mars/mydata
 \family default
@@ -20797,7 +20797,7 @@ Handover
 systemctl stop $stop_unit
 \family default
 .
- Otherwise, you are resposible for stopping the load yourself, and you dhoulf
+ Otherwise, you are responsible for stopping the load yourself, and you dhoulf
  use 
 \family typewriter
 marsadm wait-umount
@@ -21628,7 +21628,7 @@ reference "subsec:Forced-Switching"
 \emph on
 really
 \emph default
- need this command: before finally destroying a resouce via the 
+ need this command: before finally destroying a resource via the 
 \emph on
 last
 \emph default
@@ -22005,7 +22005,7 @@ This command
 \emph on
 might
 \emph default
- destroy some valuable logfiles / other information in case the local informatio
+ destroy some valuable logfiles / other information in case the local information
 n is outdated or otherwise incorrect, as could be the case during very awkward
  disaster scenarios, such as corrupted 
 \family typewriter
@@ -23399,7 +23399,7 @@ marked
 
 
 \size scriptsize
-THIS IS HIGLY DANGEROUS FOR DATA CONSISTENCY!
+THIS IS HIGHLY DANGEROUS FOR DATA CONSISTENCY!
 \end_layout
 
 \begin_layout Plain Layout
@@ -23954,7 +23954,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated, will vanish.
+Deprecated, will vanish.
  Use 
 \family typewriter
 view-role
@@ -24067,7 +24067,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated, will vanish.
+Deprecated, will vanish.
  Use 
 \family typewriter
 view-state
@@ -24180,7 +24180,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated, will vanish.
+Deprecated, will vanish.
  Use 
 \family typewriter
 view-cstate
@@ -24293,7 +24293,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated, will vanish.
+Deprecated, will vanish.
  Use 
 \family typewriter
 view-dstate
@@ -24406,7 +24406,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated.
+Deprecated.
  Use 
 \family typewriter
 view-status
@@ -24550,7 +24550,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated, will vanish.
+Deprecated, will vanish.
  Don't use it.
  Use 
 \family typewriter
@@ -24664,7 +24664,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated, will vanish.
+Deprecated, will vanish.
  Don't use it.
  Use 
 \family typewriter
@@ -24778,7 +24778,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated, will vanish.
+Deprecated, will vanish.
  Don't use it.
  Implement your own macros instead.
 \end_layout
@@ -24888,7 +24888,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated, will vanish.
+Deprecated, will vanish.
  Use 
 \family typewriter
 view-the-err-msg
@@ -25005,7 +25005,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Write the file content to stdout, but replace all occurences of numeric
+Write the file content to stdout, but replace all occurrences of numeric
  timestamps converted to a human-readable format.
  Thus is most useful for inspection of status and log files, e.g.
  
@@ -25740,7 +25740,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Inquiry of the maxium sync concurrency.
+Inquiry of the maximum sync concurrency.
  See also the primitive macro 
 \family typewriter
 %global-sync-limit-value{}
@@ -26787,7 +26787,7 @@ marsadm
 \emph on
 tries
 \emph default
- to achieves the intended result (typicially, you may use this after the
+ to achieves the intended result (typically, you may use this after the
  
 \family typewriter
 is-
@@ -28800,7 +28800,7 @@ Senseless Commands (from DRBD)
 \begin_layout Standard
 For completeness, here is a list of commands which do not make sense with
  MARS.
- Some of them are syntactically parsed for scrpting compatibility, but are
+ Some of them are syntactically parsed for scripting compatibility, but are
  not doing anything.
 \end_layout
 
@@ -30319,7 +30319,7 @@ Now we come to benchmarking
 \end_layout
 
 \begin_layout Standard
-So you might expect that performace of 
+So you might expect that performance of 
 \family typewriter
 /dev/mars/lv-0
 \family default
@@ -30411,7 +30411,7 @@ dd
 dd
 \family default
  is no appropriate benchmarking tool, and has almost nothing to do with
- real workloads occuring in datacenters, which typically are neither sequential,
+ real workloads occurring in datacenters, which typically are neither sequential,
  nor do they have a parallelism degree of only 1.
 \end_layout
 
@@ -30467,7 +30467,7 @@ actual workload behaviour
 \end_layout
 
 \begin_layout Standard
-Notice: the writeback optimization of MARS can typically only improve performanc
+Notice: the writeback optimization of MARS can typically only improve performance
 e of HDDs, but not of SSDs.
 \end_layout
 
@@ -30607,7 +30607,7 @@ modprobe mars
  in units of nanoseconds.
  Smaller numbers are better.
  Notice that results may depend on your processor model, and on availability
- of hardware acceleration (as supported by the crypto infrastucture of your
+ of hardware acceleration (as supported by the crypto infrastructure of your
  kernel).
 \end_layout
 
@@ -30630,7 +30630,7 @@ compressibility
 \family typewriter
 CONFIG_MARS_BENCHMARK
 \family default
- uses a rather artifical test data pattern, which may deviate from the compressi
+ uses a rather artificial test data pattern, which may deviate from the compressi
 bility of your real productive data.
  Take the results with similar caution than BOGOMIPS, which are also not
  comparable with other benchmarks in general.
@@ -31193,7 +31193,7 @@ socket bundling
 \end_layout
 
 \begin_layout Standard
-It is mostly intendend for lines showing high packet loss.
+It is mostly intended for lines showing high packet loss.
  By using multiple TCP sockets in parallel for emulating a single logical
  connection, throughput can be significantly increased.
 \end_layout
@@ -31273,7 +31273,7 @@ random
 \begin_layout Standard
 The next graphics shows the same, but over a medium distance of about 50km.
  This line is even more heavily loaded with respect to the number of TCP
- connections running in parallel (probly some 10,000 or even 100,000 if
+ connections running in parallel (probably some 10,000 or even 100,000 if
  not more), and there is some kind of 
 \begin_inset Quotes eld
 \end_inset
@@ -31517,7 +31517,7 @@ $class.*.status
 
 \end_inset
 
-Beware, any permamently present 
+Beware, any permanently present 
 \family typewriter
 *.log
 \family default
@@ -31566,7 +31566,7 @@ syslog_min_class
 \family default
  (rw) The 
 \emph on
-mimimum
+minimum
 \emph default
  class number for 
 \emph on
@@ -31574,7 +31574,7 @@ permanent
 \emph default
  syslogging.
  By default, this is set to -1 in order to switch off perment logging completely.
- Permament logging can easily flood your syslog with such huge amounts of
+ Permanent logging can easily flood your syslog with such huge amounts of
  messages (in particular when class=0), that your system as a whole may
  become unusable (because vital kernel threads may be blocked too long or
  too often by the userspace syslog daemon).
@@ -31605,7 +31605,7 @@ permanent
 \family typewriter
 syslog_flood_class
 \family default
- (rw) The mimimum class of flood-protected syslogging.
+ (rw) The minimum class of flood-protected syslogging.
  The maximum class is always 4.
 \end_layout
 
@@ -31615,9 +31615,9 @@ syslog_flood_class
 \family typewriter
 syslog_flood_limit
 \family default
- (rw) The maxmimum number of messages after which the flood protection will
+ (rw) The maximum number of messages after which the flood protection will
  start.
- This is a hard limit for the the number of messages written to the syslog.
+ This is a hard limit for the number of messages written to the syslog.
 \end_layout
 
 \begin_layout Labeling
@@ -32845,7 +32845,7 @@ $HOME/.marsadm/systemd-templates/
 /usr/local/lib/marsadm/systemd-templates/
 \family default
 .
- Futher places can be defined by overriding the $
+ Further places can be defined by overriding the $
 \family typewriter
 MARS_PATH
 \family default
@@ -34203,7 +34203,7 @@ man systemd
  to fail seem to be different from general conflicts in unit dependencies.
  Although not precisely documented, the observed behaviour luckily appears
  to make HA more likely.
- There remains some uncertainity caused by the documented failure possibility.
+ There remains some uncertainty caused by the documented failure possibility.
  A new option called 
 \family typewriter
 --job-mode=append
@@ -34226,7 +34226,7 @@ unnecessary
 
 \end_inset
 
-, which resulted in some behavioural improvements) the 
+, which resulted in some behavioral improvements) the 
 \family typewriter
 --job-mode=fail
 \family default
@@ -34291,7 +34291,7 @@ is-failed
 \begin_layout Enumerate
 Systemd lacks an important property called Idempotence.
  Idempotence is a very common feature in big industry plants, where hundreds
- of human workers may act on controlling hundrets of facilities.
+ of human workers may act on controlling hundreds of facilities.
  Each alarm call may cause a different person to try to 
 \begin_inset Quotes eld
 \end_inset
@@ -34416,7 +34416,7 @@ controlled abortion
  at all.
  Care must be taken that failures caused by aborts will not occur too frequently
  for HA.
- When failures caused by aborts are occuring too frequently, the concept
+ When failures caused by aborts are occurring too frequently, the concept
  of abort should be disabled.
 \end_layout
 
@@ -35268,7 +35268,7 @@ BindsTo=
 \family typewriter
 PartOf=
 \family default
- dependencies, peferably augmented with 
+ dependencies, preferably augmented with 
 \family typewriter
 After=
 \family default
@@ -35427,7 +35427,7 @@ ordinary
 \emph on
 automatically
 \emph default
- restart the old start unit at the old primary side where the the device
+ restart the old start unit at the old primary side where the device
  was not released.
 \begin_inset Newline newline
 \end_inset
@@ -35897,7 +35897,7 @@ marsadm
 \family typewriter
 {all,the}-global-{inf,wrn,err}-msg
 \family default
- Dito, but more specific.
+ Ditto, but more specific.
 \end_layout
 
 \begin_layout Labeling
@@ -35906,7 +35906,7 @@ marsadm
 \family typewriter
 {all,the}-pretty-{global-,}{inf-,wrn-,err-,}msg
 \family default
- Dito, but show numerical timestamps in a human readable form.
+ Ditto, but show numerical timestamps in a human readable form.
 \end_layout
 
 \begin_layout Labeling
@@ -35961,7 +35961,7 @@ todo-primary
 get-primary
 \family default
  is equal to the current host.
- Similary, 
+ Similarly, 
 \family typewriter
 todo-secondary
 \family default
@@ -36014,7 +36014,7 @@ get-resource-{fat,err,wrn}
 \family typewriter
 get-resource-{fat,err,wrn}-count
 \family default
- Dito, but get the number of lines instead of the text.
+ Ditto, but get the number of lines instead of the text.
 \end_layout
 
 \begin_layout Labeling
@@ -36362,7 +36362,7 @@ device-opened
 \family typewriter
 /dev/mars/mydata
 \family default
- has been actually openend, e.g.
+ has been actually opened, e.g.
  by 
 \family typewriter
 mount
@@ -36392,7 +36392,7 @@ device-nrflying
 \family default
  Show the number of currently flying IO requests.
  This is an indicator of queueing at the low-level device.
- When it is permenantly very high, it may point at IO problems, such as
+ When it is permanently very high, it may point at IO problems, such as
  RAID degradation.
 \end_layout
 
@@ -36408,10 +36408,10 @@ disk-error
 \emph on
 known
 \emph default
- IO error, as reported upwards to applications, and before it was resetted
+ IO error, as reported upwards to applications, and before it was reset
  for whatever reason.
  For example, it may be the last open() error on the underlying disk, or
- something else may have occured during operations, and sometimes it may
+ something else may have occurred during operations, and sometimes it may
  have corrected itself.
  Normally, this should be always zero.
  When < 0 according to return-code conventions as explained at 
@@ -36433,7 +36433,7 @@ device-error
 \emph on
 known
 \emph default
- IO error, as reported upwards to applications, and before it was resetted
+ IO error, as reported upwards to applications, and before it was reset
  for whatever reason.
  Normally, this should be always zero.
  When < 0 according to return-code conventions as explained at 
@@ -36927,8 +36927,8 @@ true state
 \end_inset
 
  does not exist at all in a distributed system.
- Anything you can know in a distributed system is always local knowlege,
- which races with other (remote) knowlege, and may be outdated at 
+ Anything you can know in a distributed system is always local knowledge,
+ which races with other (remote) knowledge, and may be outdated at 
 \emph on
 any
 \emph default
@@ -37169,7 +37169,7 @@ told
 \emph on
 believes
 \emph default
- it has commited the data in a reboot-safe way.
+ it has committed the data in a reboot-safe way.
  Whether this is 
 \emph on
 really
@@ -37770,7 +37770,7 @@ mydata
 \family typewriter
 global-sync-limit-value
 \family default
- (global) Report the maxium parallelism degree of sync, as configurable
+ (global) Report the maximum parallelism degree of sync, as configurable
  via 
 \family typewriter
 set-global-sync-limit
@@ -37901,7 +37901,7 @@ in order to additionally get some primitive macros which could be customized
 \end_layout
 
 \begin_layout Standard
-Any modfied or new macro file should be placed either into the current working
+Any modified or new macro file should be placed either into the current working
  directory 
 \family typewriter
 ./
@@ -38550,7 +38550,7 @@ delimiter
 index
 \family default
 \emph default
-'th list element is the assigend to, or substituted by, 
+'th list element is the assigned to, or substituted by, 
 \family typewriter
 \emph on
 expression
@@ -38582,7 +38582,7 @@ arg2
 \emph default
 } 
 \family default
-Evaluates the arguments, inteprets them as numbers, and adds them together.
+Evaluates the arguments, interprets them as numbers, and adds them together.
 \end_layout
 
 \begin_layout Itemize
@@ -39936,7 +39936,7 @@ arg1
 argn
 \family default
 \emph default
- are evaluted in the 
+ are evaluated in the 
 \emph on
 old
 \emph default
@@ -40340,7 +40340,7 @@ The value given by the
 \family typewriter
 --timeout=
 \family default
- option, or the corresonding default value.
+ option, or the corresponding default value.
 \end_layout
 
 \begin_layout Itemize
@@ -40352,7 +40352,7 @@ The value given by the
 \family typewriter
 --threshold=
 \family default
- option, or the corresonding default value.
+ option, or the corresponding default value.
 \end_layout
 
 \begin_layout Itemize
@@ -40364,7 +40364,7 @@ The value given by the
 \family typewriter
 --window=
 \family default
- option, or the corresonding default value (60s).
+ option, or the corresponding default value (60s).
 \end_layout
 
 \begin_layout Itemize
@@ -41988,7 +41988,7 @@ marsadm view-flags all
 \family default
 , it is known to be inconsistent (e.g.
  during a sync).
- When there is a dash instead, it usually means that the disk is detatched
+ When there is a dash instead, it usually means that the disk is detached
  or misconfigured or the kernel module is not started.
  Please fix these problems first before believing that your local disk is
  unusable.
@@ -42379,7 +42379,7 @@ fully
 
 \begin_layout Standard
 In very complex scenarios, when the primary roles of different resources
- are spread over diffent hosts (aka mixed operation), you may need to repeat
+ are spread over different hosts (aka mixed operation), you may need to repeat
  the whole cycle iteratively for a few cycles until the complex jam is fully
  resolved in the full Distributed System.
 \end_layout
@@ -42498,7 +42498,7 @@ old snapshot
 \family typewriter
 /mars/
 \family default
- and/or of some underly resource disk / 
+ and/or of some underlie resource disk / 
 \emph on
 underlying
 \emph default
@@ -42527,7 +42527,7 @@ some(!)
 \family default
  has survived and the storage is operational again.
  For exampley, any defective RAID disks have been already replaced and the
- underlaying RAID is now 
+ underlying RAID is now 
 \emph on
 rebuilt
 \emph default
@@ -43154,7 +43154,7 @@ longer
 
  Do not blame MARS for anything which is outside its scope residing at kernel
  level.
- Wheter and when a failover is needed for whatever reason, and in which
+ Whether and when a failover is needed for whatever reason, and in which
  parallelism degree, is clearly outside the scope of a 
 \emph on
 component
@@ -43558,7 +43558,7 @@ good
  for emergency cases), don't re-join them all in parallel, but rather start
  with the oldest / most outdated / worst / inconsistent version first.
  It is recommended to start the next one only when the previous one has
- sucessfully finished.
+ successfully finished.
 \end_layout
 
 \begin_layout Chapter
@@ -43775,7 +43775,7 @@ It should be very hard to finally trash a secondary, because the transaction
 md5
 \family default
  checksums for all data records.
- Any attempt to replay currupted logfiles is refused by MARS.
+ Any attempt to replay corrupted logfiles is refused by MARS.
  In addition, the sequence numbers of rotated logfiles (e.g.
  via 
 \family typewriter
@@ -44211,7 +44211,7 @@ The following is a further alternative for
 experts
 \series default
  who really know what they are doing.
- The method is very simple and therefore well-suited for coping with mass
+ The method is very simple and therefore well-suited for copying with mass
  failures, e.g.
  
 \series bold
@@ -44499,7 +44499,7 @@ name "chap:Creating-Backups-via"
 \end_layout
 
 \begin_layout Standard
-When all your secondaries are all homogenously located in a standby datacenter,
+When all your secondaries are all homogeneously located in a standby datacenter,
  they will be almost idle all the time.
  This is a waste of computing resources.
 \end_layout
@@ -44542,12 +44542,12 @@ pause-fetch
 \family default
 .
  This way, your secondary replica (block device) will stay frozen for a
- limited time, without loosing your redundancy: since the transaction logs
+ limited time, without losing your redundancy: since the transaction logs
  will continue to replicate in the meantime, you can start 
 \family typewriter
 resume-replay
 \family default
- at any time, in particular when a primary-side incident should happen unexpecte
+ at any time, in particular when a primary-side incident should happen unexpected
 dly.
  The former secondary will just catch up by replaying the outstanding parts
  of the transaction logs in order to become recent.

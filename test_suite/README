@@ -2,7 +2,7 @@ GPLed software AS IS, sponsored by 1&1 Internet AG (www.1und1.de).
 
 The test suite is work in progress.
 
-The test suite was developped by Frank Liepold during his stay at 1&1.
+The test suite was developed by Frank Liepold during his stay at 1&1.
 
 The email address frank.liepold@1und1.de will no longer work, since Frank has
 left 1&1 since May 2014.
@@ -51,7 +51,7 @@ Contents
 1.1. Global settings
 ------------------
 The directory where this README resides (normally <git-repo>/test_suite) is
-called base directory in the following. If relativ paths are given they refer to
+called base directory in the following. If relative paths are given they refer to
 this base directory.
 
 The frame work of the test suite consists of the files README,
@@ -119,11 +119,11 @@ subdirectory (we call it start directory) as follows:
      branch start directory -> test directory) by default. It may be changed by
      the option --config_root_dir=<my dir>.
      If the start directory coincides with the test directory the file 
-     <test directory name>.conf is included for conveniance (in the strict
+     <test directory name>.conf is included for convenience (in the strict
      sense there are no true subdirectories of the start directory residing
      above the test directory).
      The <subdirnam>.conf files may reside in the test directory or any of
-     it's parent directories (up to 20 levels).
+     its parent directories (up to 20 levels).
 
 
      Examples: 
@@ -212,7 +212,7 @@ The output consists of the following sections:
 --------------------------------------
 Calling start_test.sh --help from a test directory doesn't start a test but
 gives you the output mentioned in 1.2.1 without the sections produced during
-real test excecution.
+real test execution.
 In particular the section "Configuration variables" is printed. So you can
 determine which functions are called via the variable run_list. These functions
 should be commented extensively enough to be able to understand the test's 

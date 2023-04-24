@@ -16,7 +16,7 @@ the time to fully analyze all distros / distro versions and their udev
 rules.
 
 Since I am not an expert in writing udev rules (and I just needed
-a quickfix for my own work), the files in this directoy should
+a quickfix for my own work), the files in this directory should
 be regarded as examples.
 
 For example, the file 65-mars.rules should be copied to /lib/udev/rules.d/
