@@ -677,7 +677,6 @@ int _check_crc(struct log_header *lh,
 	__u32 invalid_check_flags;
 	bool is_invalid = false;
 	bool did_simple_retry = false;
-	int did_iterative_retry = 0;
 	int res;
 
  retry:
@@ -706,7 +705,7 @@ int _check_crc(struct log_header *lh,
 		old_crc = *(int*)checksum;
 		if (old_crc == lh->l_crc_old)
 			res = 0;
-	} else if (!did_iterative_retry) {
+	} else {
 		invalid_check_flags = check_flags;
 		is_invalid = true;
 	}
@@ -725,9 +724,9 @@ int _check_crc(struct log_header *lh,
 	if (is_invalid) {
 		if (!*mars_error_code)
 			*mars_error_code = -MARS_ERR_CRC_FLAGS;
-		MARS_ERR("Found invalid crc flags=0x%x retried=%d+%d\n",
+		MARS_ERR("Found invalid crc flags=0x%x retried=%d\n",
 			 invalid_check_flags,
-			 did_simple_retry, did_iterative_retry);
+			 did_simple_retry);
 	} else if (res < 0 && !*mars_error_code)
 		*mars_error_code = -MARS_ERR_CRC_MISMATCH;
 
