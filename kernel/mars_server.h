@@ -62,6 +62,7 @@ struct server_brick {
 	struct task_struct *handler_thread;
 	struct task_struct *cb_thread;
 	void *delegated_brick;
+	unsigned long shutdown_jiffies;
 	wait_queue_head_t startup_event;
 	wait_queue_head_t cb_event;
 	struct mutex cb_mutex;

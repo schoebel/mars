@@ -1067,6 +1067,13 @@ void check_bricks(void)
 			continue;
 		brick_yield();
 		if (mars_socket_is_alive(handler_socket)) {
+			if (!running_brick->shutdown_jiffies) {
+				running_brick->shutdown_jiffies = jiffies;
+				continue;
+			}
+			/* Minimum connection duration, for better sysadmin detection */
+			if (running_brick->shutdown_jiffies + 3 * HZ <= jiffies)
+				continue;
 			mars_shutdown_socket(handler_socket);
 			/* only once per round */
 			break;
