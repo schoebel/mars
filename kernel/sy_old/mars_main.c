@@ -247,11 +247,29 @@ void _crashme(int mode, bool do_sync)
 		emergency_restart();
 	}
 }
-
 #endif
+
+#define MARS_MEMRESERVE_ORDER		 5
+#define MEMRESERVE_FACTOR_5		32
 
 int nr_affected_resources;
 int tmp_nr_affected_resources;
+
+void update_brick_mem_freelist_max(void)
+{
+#ifdef CONFIG_MARS_MEM_MAX_RESERVE
+	int order;
+
+	for (order = 0; order <= BRICK_MAX_ORDER; order++) {
+		int max = 0;
+
+		if (order == MARS_MEMRESERVE_ORDER) {
+			max = nr_affected_resources * MEMRESERVE_FACTOR_5;
+		}
+		set_brick_mem_freelist_max(max, order);
+	}
+#endif
+}
 
 void invalidate_user_cache(void)
 {
@@ -7903,6 +7921,8 @@ static int _main_thread(void *data)
 
 		__make_alivelink("compat-alivelinks", compat_alivelinks, true);
 
+		update_brick_mem_freelist_max();
+
 		down_read(&rot_sem);
 		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
 			struct mars_rotate *rot = container_of(tmp, struct mars_rotate, rot_head);
@@ -8213,7 +8233,7 @@ static int __init init_main(void)
 	DO_INIT(mars_proc);
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
-	brick_pre_reserve[5] = 64;
+	brick_pre_reserve[MARS_MEMRESERVE_ORDER] = 64;
 	brick_mem_reserve();
 #endif
 

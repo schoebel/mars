@@ -735,6 +735,22 @@ int brick_mem_reserve(void)
 #endif
 EXPORT_SYMBOL_GPL(brick_mem_reserve);
 
+#ifdef CONFIG_MARS_MEM_MAX_RESERVE
+void set_brick_mem_freelist_max(int max, int order)
+{
+	if (max > brick_mem_freelist_max[order]) {
+		brick_mem_freelist_max[order] = max;
+	} else if (max < brick_mem_freelist_max[order] / 2 &&
+		   brick_mem_freelist_max[order] > 0) {
+		brick_mem_freelist_max[order]--;
+	}
+}
+#else
+void set_brick_mem_freelist_max(int max, int order)
+{
+}
+#endif
+
 void *_brick_block_alloc(loff_t pos, int len, int line)
 {
 	void *data;

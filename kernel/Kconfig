@@ -223,6 +223,17 @@ config MARS_MEM_PREALLOC
 	help
 	Normally ON. Switch off only for EXPERIMENTS!
 
+config MARS_MEM_MAX_RESERVE
+	bool "avoid memory fragmentation by preallocation"
+	depends on MARS_MEM_PREALLOC
+	default n
+	help
+	Higher preallocation reserve, for avoidance of
+	too frequent higher-order memory allocations on
+	highly loaded servers with a lot of resources.
+	May be enabled when encountering suchalike problems
+	(known as accurring very rare, but may happen).
+
 config MARS_FAST_FULLSYNC
 	bool "decrease network traffic at initial sync"
 	depends on MARS
