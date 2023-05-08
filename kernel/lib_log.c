@@ -678,7 +678,6 @@ int _check_crc(struct log_header *lh,
 	bool is_invalid = false;
 	bool did_simple_retry = false;
 	int did_iterative_retry = 0;
-	int bit = 0;
 	int res;
 
  retry:
@@ -722,40 +721,6 @@ int _check_crc(struct log_header *lh,
 		/* safeguard any suspected coherence problems */
 		smp_mb();
 		goto retry;
-	}
-	/* when simple retry failed: try the painful iterative method */
-	if (unlikely(res)) {
-		/* We are desperate. We want to recover as much data
-		 * as possible. Performance does no longer matter.
-		 * Try to _wildly_ _guess_ what check_flags might by usable.
-		 */
-		if (!did_iterative_retry) {
-			bit = find_first_bit((void *)&usable_digest_mask,
-					     sizeof(usable_digest_mask));
-		} else if (bit >= _MREF_COMPRESS_LAST) {
-			goto failed;
-		} else {
-			int next_bit =
-				find_next_bit((void *)&usable_digest_mask,
-					      sizeof(usable_digest_mask),
-					      bit + 1);
-			if (next_bit <= bit)
-				goto failed;
-			bit = next_bit;
-		}
-		if (bit >= 32)
-			goto failed;
-		check_flags = (1 << bit);
-		if (!(check_flags & usable_digest_mask))
-			goto failed;
-		did_iterative_retry++;
-		cond_resched();
-		/* safeguard any suspected coherence problems */
-		smp_mb();
-		goto retry;
-	failed:
-		MARS_WRN("ITERATIVE RETRY %d failed\n",
-			 did_iterative_retry);
 	}
 	if (is_invalid) {
 		if (!*mars_error_code)
