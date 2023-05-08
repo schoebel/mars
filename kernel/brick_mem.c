@@ -727,7 +727,7 @@ int brick_mem_reserve(void)
 	return status;
 }
 #else
-int brick_mem_reserve(struct mem_reservation *r)
+int brick_mem_reserve(void)
 {
 	BRICK_INF("preallocation is not compiled in\n");
 	return 0;
