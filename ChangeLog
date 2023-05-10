@@ -182,6 +182,16 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable164
+	(bugfix release)
+	* Improved memory preallocation. This should reduce
+	  the probability of order:5 allocation failures (if
+	  you see them on very highly loaded servers).
+	* Improved detection of short-living sockets.
+	* Improved CPU consumption in an extremely rare
+	  corner case.
+	* Minor code cleanups.
+
 mars0.1astable163
 	(bugfix release)
 	* Improved robustness at log scanning.
