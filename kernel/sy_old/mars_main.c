@@ -250,6 +250,9 @@ void _crashme(int mode, bool do_sync)
 
 #endif
 
+int nr_affected_resources;
+int tmp_nr_affected_resources;
+
 void invalidate_user_cache(void)
 {
 	const char *path;
@@ -6112,6 +6115,7 @@ int make_bio(struct mars_dent *dent)
 	if (!rot)
 		goto done;
 
+	tmp_nr_affected_resources++;
 	rot->tmp_members++;
 
 	/* for detach, both the logger and the bio must be gone */
@@ -7781,6 +7785,10 @@ static int _main_thread(void *data)
 			 atomic_read(&server_handler_count),
 			 peer_count,
 			 !list_empty(&mars_global->brick_anchor));
+
+		/* swizzle indicator */
+		nr_affected_resources = tmp_nr_affected_resources;
+		tmp_nr_affected_resources = 0;
 
 		/* Static memlimit */
 		if (mars_mem_percent < 0)
