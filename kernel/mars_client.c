@@ -546,29 +546,46 @@ static void client_ref_put(struct client_output *output, struct mref_object *mre
 }
 
 static
-void _hash_insert(struct client_output *output,
-		  struct client_mref_aspect *mref_a,
-		  bool refresh_completed)
+void __io_insert(struct client_output *output,
+		 struct client_mref_aspect *mref_a)
+{
+	list_del(&mref_a->io_head);
+	list_add_tail(&mref_a->io_head, &output->mref_list);
+}
+
+static
+void __hash_insert(struct client_output *output,
+		   struct client_mref_aspect *mref_a)
 {
 	struct mref_object *mref = mref_a->object;
 	int ref_id;
 	unsigned int hash_index;
 
-	mutex_lock(&output->mutex);
-	if (refresh_completed)
-		mref_a->has_completed = false;
-	list_del(&mref_a->io_head);
-	list_add_tail(&mref_a->io_head, &output->mref_list);
 	list_del(&mref_a->hash_head);
 	ref_id = READ_ONCE(mref->ref_id);
-	while (!ref_id) {
+	if (!ref_id) {
 		/* This may wrap around without harm */
 		ref_id = READ_ONCE(output->last_id) + 1;
+		if (!ref_id)
+			ref_id++;
 		WRITE_ONCE(output->last_id, ref_id);
 		WRITE_ONCE(mref->ref_id, ref_id);
 	}
 	hash_index = CLIENT_HASH_FN(ref_id);
 	list_add_tail(&mref_a->hash_head, &output->hash_table[hash_index]);
+}
+
+static
+void _hash_insert(struct client_output *output,
+		  struct client_mref_aspect *mref_a,
+		  bool refresh_completed)
+{
+	mb();
+	mutex_lock(&output->mutex);
+	if (refresh_completed)
+		mref_a->has_completed = false;
+	__io_insert(output, mref_a);
+	__hash_insert(output, mref_a);
 	mutex_unlock(&output->mutex);
 }
 
