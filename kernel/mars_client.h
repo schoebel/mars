@@ -48,6 +48,7 @@ struct client_mref_aspect {
 	int alloc_len;
 	bool do_dealloc;
 	bool has_completed;
+	bool is_hashed;
 };
 
 struct client_brick {

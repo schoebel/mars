@@ -563,6 +563,9 @@ void __hash_insert(struct client_output *output,
 	int ref_id;
 	unsigned int hash_index;
 
+	if (mref_a->is_hashed)
+		return;
+
 	list_del(&mref_a->hash_head);
 	ref_id = READ_ONCE(mref->ref_id);
 	if (!ref_id) {
@@ -575,6 +578,7 @@ void __hash_insert(struct client_output *output,
 	}
 	hash_index = CLIENT_HASH_FN(ref_id);
 	list_add_tail(&mref_a->hash_head, &output->hash_table[hash_index]);
+	mref_a->is_hashed = true;
 }
 
 static
@@ -729,6 +733,7 @@ int receiver_thread(void *data)
 				mref_a = tmp_mref_a;
 				mref = tmp_mref;
 				list_del_init(&mref_a->hash_head);
+				mref_a->is_hashed = false;
 				list_del_init(&mref_a->io_head);
 				/* Networking produces inherent races between re-submission and
 				 * completion. Compensate them here.
@@ -890,6 +895,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 			continue;
 		
 		list_del_init(&mref_a->hash_head);
+		mref_a->is_hashed = false;
 		list_del_init(&mref_a->io_head);
 		mref_a->has_completed = true;
 
