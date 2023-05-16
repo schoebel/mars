@@ -1221,6 +1221,7 @@ static void client_mref_aspect_exit_fn(struct generic_aspect *_ini)
 
 	CHECK_HEAD_EMPTY(&ini->io_head);
 	CHECK_HEAD_EMPTY(&ini->hash_head);
+	CHECK_HEAD_EMPTY(&ini->tmp_head);
 }
 
 MARS_MAKE_STATICS(client);
