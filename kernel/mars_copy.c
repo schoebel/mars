@@ -770,7 +770,7 @@ restart:
 			break;
 		}
 		if (unlikely(brick->is_aborting)) {
-			progress = -EINTR;
+			progress = -ECANCELED;
 			break;
 		}
 		/* Wait until any previous writeouts have finished.
