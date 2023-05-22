@@ -270,6 +270,7 @@ int mars_create_socket(struct mars_socket *msock,
 
 	_set_socketopts(sock, params, is_server);
 
+	mb();
 	if (is_server) {
 		status = kernel_bind(sock, sockaddr, sizeof(*sockaddr));
 		if (unlikely(status < 0)) {
@@ -348,6 +349,7 @@ err:
 		mars_put_socket(old_msock);
 	}
  final:
+	mb();
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_accept_socket);
@@ -362,6 +364,7 @@ bool mars_get_socket(struct mars_socket *msock)
 
 	atomic_inc(&msock->s_count);
 
+	mb();
 	if (unlikely(!msock->s_socket || !msock->s_alive)) {
 		mars_put_socket(msock);
 		return false;
@@ -402,6 +405,7 @@ void mars_shutdown_socket(struct mars_socket *msock)
 {
 	MARS_IO("#%d shutdown socket %p s_count=%d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
 
+	mb();
 	if (msock->s_socket) {
 		bool ok = mars_get_socket(msock);
 		if (likely(ok)) {
@@ -424,6 +428,7 @@ bool mars_socket_is_alive(struct mars_socket *msock)
 
 	if (!mars_net_is_alive)
 		goto done;
+	mb();
 	if (!msock->s_socket || !msock->s_alive)
 		goto done;
 	if (unlikely(atomic_read(&msock->s_count) <= 0)) {
