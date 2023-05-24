@@ -94,15 +94,11 @@ atomic_t global_copy_write_flight;
  * For now, the output is never used, so this cannot do harm.
  */
 static inline
-void notify_clash(struct copy_brick *brick, bool do_wake)
+void notify_clash(struct copy_brick *brick)
 {
 	WRITE_ONCE(brick->clash, true);
 	smp_mb();
 	atomic_inc(&brick->total_clash_count);
-	if (!do_wake)
-		return;
-	WRITE_ONCE(brick->trigger, true);
-	brick_wake_smp(&brick->event);
 }
 
 static inline
@@ -314,7 +310,7 @@ void copy_endio(struct generic_callback *cb)
 exit:
 	if (unlikely(error < 0)) {
 		WRITE_ONCE(st->error, error);
-		notify_clash(brick, false);
+		notify_clash(brick);
 	}
 	WRITE_ONCE(st->active[queue], false);
 	if (mref->ref_flags & MREF_WRITE) {
@@ -844,7 +840,7 @@ idle:
 			WRITE_ONCE(st->error, progress);
 		MARS_DBG("progress = %d\n", progress);
 		progress = 0;
-		notify_clash(brick, false);
+		notify_clash(brick);
 	} else if (do_restart) {
 		goto restart;
 	} else if (st->state != next_state) {
@@ -1022,7 +1018,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 	if (READ_ONCE(brick->clash)) {
 		if (wait_reset_clash(brick)) {
 			brick_msleep(100);
-			notify_clash(brick, true);
+			notify_clash(brick);
+			WRITE_ONCE(brick->trigger, true);
+			brick_wake_smp(&brick->event);
 		} else {
 			MARS_DBG("clash\n");
 			_clear_all_mref(brick);
