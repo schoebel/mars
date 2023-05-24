@@ -106,13 +106,9 @@ void notify_clash(struct copy_brick *brick, bool do_wake)
 }
 
 static inline
-bool clear_clash(struct copy_brick *brick)
+void clear_clash(struct copy_brick *brick)
 {
-	bool cleared;
-
-	cleared = cmpxchg(&brick->clash, true, false);
-	smp_mb();
-	return cleared;
+	cmpxchg(&brick->clash, true, false);
 }
 
 /* Current semantics (NOT REALLY IMPLEMENTED because OUTPUT IS NOT IN USE)
@@ -1031,6 +1027,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			MARS_DBG("clash\n");
 			_clear_all_mref(brick);
 			_clear_state_table(brick);
+			smp_mb();
 			clear_clash(brick);
 		}
 	}
