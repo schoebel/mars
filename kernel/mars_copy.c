@@ -874,22 +874,12 @@ idle:
 }
 
 static
-bool wait_reset_clash(struct copy_brick *brick, bool do_reset)
+bool wait_reset_clash(struct copy_brick *brick)
 {
-	if (!READ_ONCE(brick->clash))
-		return false;
-
 	if (atomic_read(&brick->copy_read_flight) + atomic_read(&brick->copy_write_flight) > 0) {
 		/* wait until all pending copy IO has finished
 		 */
 		return true;
-	}
-
-	if (do_reset) {
-		MARS_DBG("clash\n");
-		_clear_all_mref(brick);
-		_clear_state_table(brick);
-		clear_clash(brick);
 	}
 	return false;
 }
@@ -904,7 +894,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 	bool is_first;
 
 	if (READ_ONCE(brick->clash) &&
-	    wait_reset_clash(brick, false))
+	    wait_reset_clash(brick))
 		return 0;
 
 	if (this_start < brick->copy_last)
@@ -1033,10 +1023,16 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 		}
 	}
 	/* when necessary, reset and allow restart */
-	if (READ_ONCE(brick->clash) &&
-	    wait_reset_clash(brick, true)) {
-		brick_msleep(100);
-		notify_clash(brick, true);
+	if (READ_ONCE(brick->clash)) {
+		if (wait_reset_clash(brick)) {
+			brick_msleep(100);
+			notify_clash(brick, true);
+		} else {
+			MARS_DBG("clash\n");
+			_clear_all_mref(brick);
+			_clear_state_table(brick);
+			clear_clash(brick);
+		}
 	}
 	return progress;
 }
