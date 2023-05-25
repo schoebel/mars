@@ -1060,6 +1060,8 @@ static int _copy_thread(void *data)
 		int progress = 0;
 		loff_t check_hint;
 
+		brick_yield();
+
 		old_start = brick->stable_copy_start;
 		old_end = brick->stable_copy_end;
 		if (old_end > 0) {
