@@ -1360,7 +1360,10 @@ int mars_symlink(const char *oldpath, const char *newpath,
 	}
 #if defined(MARS_HAS_VFS_GET_LINK)
 	status = _symlink(oldpath, tmp);
-#elif defined(MARS_HAS_PREPATCH_V3)
+#elif defined(MARS_HAS_PREPATCH_V3) &&				\
+	(defined(MARS_HAS_PREPATCH_V3a) ||			\
+	 defined(MARS_HAS_PREPATCH_V3b) ||			\
+	 0)
 	(void)do_unlinkat(AT_FDCWD, getname_kernel(tmp));
 	status = do_symlinkat(oldpath, AT_FDCWD, tmp);
 	if (status >= 0) {
