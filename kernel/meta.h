@@ -66,9 +66,10 @@ enum field_type {
 	FIELD_UINT,
 } __packed;
 
+/* This should be instantiated statically.
+ */
 struct meta {
-	//char  field_name[MAX_FIELD_LEN];
-	char *field_name;
+	const char *field_name;
 	int   field_type;
 	int   field_size;
 	int   field_offset;
@@ -108,6 +109,5 @@ struct meta {
 #define META_INI_SUB(NAME,STRUCT,SUB) { _META_INI_SUB(NAME,STRUCT,SUB) }
 
 extern const struct meta *find_meta(const struct meta *meta, const char *field_name);
-//extern void free_meta(void *data, const struct meta *meta);
 
 #endif
