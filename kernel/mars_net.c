@@ -472,7 +472,8 @@ long mars_socket_send_space_available(struct mars_socket *msock)
 		goto done;
 	}
 
-	res = raw_sock->sk->sk_sndbuf - raw_sock->sk->sk_wmem_queued;
+	res = READ_ONCE(raw_sock->sk->sk_sndbuf) -
+	      READ_ONCE(raw_sock->sk->sk_wmem_queued);
 	if (res < 0)
 		res = 0;
 	res += msock->s_pos;
