@@ -91,6 +91,7 @@ struct mars_socket {
 };
 
 struct mars_tcp_params {
+	int sk_priority;
 	int ip_tos;
 	int tcp_window_size;
 	int tcp_nodelay;

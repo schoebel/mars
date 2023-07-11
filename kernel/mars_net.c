@@ -66,6 +66,7 @@ __u32 used_net_compression = 0;
 
 struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX] = {
 	[MARS_TRAFFIC_META] = {
+		.sk_priority = TC_PRIO_INTERACTIVE_BULK,
 		.ip_tos = IPTOS_LOWDELAY,
 		.tcp_window_size = 8 * 1024 * 1024,
 		.tcp_nodelay = 0,
@@ -75,6 +76,7 @@ struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX] = {
 		.tcp_keepidle = 4,
 	},
 	[MARS_TRAFFIC_REPLICATION] = {
+		.sk_priority = TC_PRIO_INTERACTIVE,
 		.ip_tos = IPTOS_RELIABILITY,
 		.tcp_window_size = 8 * 1024 * 1024,
 		.tcp_nodelay = 0,
@@ -84,6 +86,7 @@ struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX] = {
 		.tcp_keepidle = 4,
 	},
 	[MARS_TRAFFIC_SYNC] = {
+		.sk_priority = TC_PRIO_BULK,
 		.ip_tos = IPTOS_MINCOST,
 		.tcp_window_size = 8 * 1024 * 1024,
 		.tcp_nodelay = 0,
@@ -213,6 +216,7 @@ void _set_socketopts(struct socket *sock, struct mars_tcp_params *params, bool i
 	sock->sk->sk_rcvtimeo = sock->sk->sk_sndtimeo = params->tcp_timeout * HZ;
 	sock->sk->sk_reuse = SK_CAN_REUSE;
 	sock->sk->sk_allocation = GFP_NOIO;
+	sock->sk->sk_priority = params->sk_priority;
 	_setsockopt(sock, SOL_SOCKET, SO_SNDBUFFORCE, params->tcp_window_size);
 	_setsockopt(sock, SOL_SOCKET, SO_RCVBUFFORCE, params->tcp_window_size);
 #ifdef CONFIG_MARS_IPv4_TOS
