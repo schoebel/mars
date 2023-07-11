@@ -213,10 +213,12 @@ void _set_socketopts(struct socket *sock, struct mars_tcp_params *params, bool i
 		/* extra options for server sockets */
 		_setsockopt(sock, SOL_SOCKET, IP_FREEBIND, x_true);
 	}
+	lock_sock(sock->sk);
 	sock->sk->sk_rcvtimeo = sock->sk->sk_sndtimeo = params->tcp_timeout * HZ;
 	sock->sk->sk_reuse = SK_CAN_REUSE;
 	sock->sk->sk_allocation = GFP_NOIO;
 	sock->sk->sk_priority = params->sk_priority;
+	release_sock(sock->sk);
 	_setsockopt(sock, SOL_SOCKET, SO_SNDBUFFORCE, params->tcp_window_size);
 	_setsockopt(sock, SOL_SOCKET, SO_RCVBUFFORCE, params->tcp_window_size);
 #ifdef CONFIG_MARS_IPv4_TOS
