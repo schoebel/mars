@@ -6645,7 +6645,7 @@ sub logdelete_res {
       $max_age = $sibl_age if $sibl_age > $max_age;
     }
     my $recent = is_recent($max_age);
-    if (!$recent) {
+    if ($recent) {
       last;
     }
     _create_delete($versionlink);
