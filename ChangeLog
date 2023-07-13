@@ -182,6 +182,13 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable167
+	* Major fix: marsadm cron was not deleting versionlinks
+	  in importnat cases. Regression from 70880946c.
+	  Please update marsadm ASAP if you have a version after
+	  mars0.1astable141.
+	  Thanks to Ingvar Gilbert for reporting this bug!
+
 mars0.1astable166
 	* Rework some parts of the copy brick.
 	  This should make it more robust, and improve
