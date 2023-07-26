@@ -48,7 +48,6 @@ my $window = 60;
 my $stuck_seconds = 3600;
 my $keep_backup_hours = 24 * 7;
 my $verbose = 0;
-my $max_deletions = 512;
 my $thresh_logfiles = 10;
 my $thresh_logsize = 5; # GB
 my $dry_run = 0;
@@ -4988,7 +4987,6 @@ sub _create_cluster {
   set_link("0", "$mars/defaults-$host/sync-limit");
   set_link("(none)", "$mars/defaults-$host/sync-pref-list");
   set_link($ip, "$mars/ips/ip-$host");
-  set_link("1", "$mars/todo-global/deleted-$host");
 }
 
 sub create_cluster {
@@ -5063,8 +5061,6 @@ sub join_cluster {
       set_link($ip, "$mars/ips/ip-$host");
       set_link("0", "$mars/defaults-$host/sync-limit");
       set_link("(none)", "$mars/defaults-$host/sync-pref-list");
-      my $deleted_path = "$mars/todo-global/deleted-$host";
-      set_link("1", $deleted_path) unless link_exists($deleted_path);
       finish_links();
       _push_link($peer, $ip, "$mars/ips/ip-$host");
       lprint "Checking uuid\n";
@@ -6157,120 +6153,16 @@ sub _get_deletable_logfiles {
   return ($min, $max);
 }
 
-# for old deletion method (to disappear)
-my %delete_nrs;
-
-sub _get_delete_nr {
-  my ($basedir, $total) = @_;
-  return @{$delete_nrs{$basedir}} if defined($delete_nrs{$basedir});
-  _scan_caches() unless %total_peers;
-  my $min_nr = 0;
-  my $max_nr = 0;
-  foreach my $path (lamport_glob("$basedir/deleted-*")) {
-    $path =~ m:/deleted-(.+):;
-    my $peer = $1;
-    next unless $peer;
-    next unless $total || $peer eq $real_host || $any_peers{$peer};
-    my $link = get_link($path, 1);
-    $link =~ m/0*([0-9]+)/;
-    $min_nr = $1 if (defined($1) && ($1 < $min_nr || !$min_nr));
-    $max_nr = $1 if (defined($1) && $1 > $max_nr);
-  }
-  my @deletes = lamport_glob("$basedir/delete-*");
-  foreach my $path (@deletes) {
-    $path =~ m:/delete-0*([0-9]+)-(.+):;
-    my $nr = $1;
-    my $peer = $2;
-    next unless $peer;
-    next unless $total || $peer eq $real_host || $any_peers{$peer};
-    $max_nr = $nr if (defined($nr) && $nr > $max_nr);
-  }
-  my $nr_links = $max_nr - $min_nr;
-  if ($nr_links > $max_deletions / 2) {
-    $verbose = 1 if $verbose <= 0;
-    lwarn "Too many deletion links have accumulated into directory $basedir/.\n";
-    lwarn "Probably your networking / your firewall rules / another setup problem is causing this, and your monitoring does not notice it.\n";
-    lwarn "Please fix it.\n";
-    lwarn "When necessary, remove $basedir/delete-* link by hand.\n";
-    # There might be holes in the sequence numbers of delete-* links.
-    # Don't account for them when it comes to aborts.
-    if (scalar(@deletes) > $max_deletions) {
-      lwarn "URGENT: please fix it.\n";
-      ldie "Aborting for safety reasons\n" if $cron_mode && !$force;
-    }
-  }
-  $delete_nrs{$basedir} = [$min_nr, $max_nr];
-  return @{$delete_nrs{$basedir}};
-}
-
-sub _set_delete_nr {
-  my ($basedir, $min_nr, $max_nr) = @_;
-  $delete_nrs{$basedir} = [$min_nr, $max_nr];
-}
-
-my %del_dirs;
-my %del_targets;
-
-sub _replace_delete {
-  my ($basedir, $target) = @_;
-  if (!$del_dirs{$basedir}) {
-    foreach my $link (lamport_glob("$basedir/delete-*")) {
-      my $targ = readlink($link);
-      next unless $targ;
-      $del_targets{$targ} = $link;
-    }
-    $del_dirs{$basedir} = 1;
-  }
-  my ($min_nr, $delete_nr) = _get_delete_nr($basedir, 1);
-  if (defined($del_targets{$target})) {
-    my $old = $del_targets{$target};
-    $old =~ m:/delete-([0-9]+)-:;
-    my $old_nr = $1;
-    return $old if $old_nr >= $min_nr;
-  }
-  my $new = sprintf("$basedir/delete-%09d-$real_host", ++$delete_nr);
-  _set_delete_nr($basedir, $min_nr, $delete_nr);
-  return $new;
-}
-
-my $nr_deletions = 0;
-
 sub _create_delete {
   my ($target) = @_;
   ldie "cannot delete: '$target' is no absolute path\n" unless $target =~ m:^/:;
-  if (!$compat_deletions) {
-    lprint "delete '$target'\n" if $verbose;
-    set_link(".deleted", $target);
-    return;
-  }
-  my $global_path = "$mars/todo-global";
-  my $new = _replace_delete($global_path, $target);
-  lprint "create symlink $new -> $target\n" if $verbose;
-  set_link($target, $new);
-  $nr_deletions++;
+  lprint "delete '$target'\n" if $verbose;
+  set_link(".deleted", $target);
 }
 
 sub _wait_delete {
   return if $dry_run;
-  lwarn "Do not run this in --parallel mode\n" if $child_prefix;
   finish_links();
-  return if !$nr_deletions;
-  $nr_deletions = 0;
-  for (;;) {
-    my $del_link = "$mars/todo-global/deleted-$real_host";
-    my $deleted = get_link($del_link, 1);
-    if (!$deleted) {
-      return if !$compat_deletions;
-      lwarn "Old deletions: '$del_link' does not exist\n";
-      sleep_timeout();
-      return;
-    }
-    $deleted =~ s/^0+//;
-    my ($min_nr, $delete_nr) = _get_delete_nr("$mars/todo-global");
-    last if $deleted >= $delete_nr;
-    lprint "waiting for deletions to apply locally....\n";
-    sleep_timeout();
-  }
 }
 
 sub delete_file_cmd {
@@ -6324,54 +6216,6 @@ sub _get_min_time {
   return $min_time;
 }
 
-# old deletion method, hopefully to disappear somewhen in future
-sub _compat_purge_deleted {
-  my ($del_glob, $msg_glob) = @_;
-  my $start_time = mars_time();
-  foreach my $leftlink (lamport_glob($del_glob)) {
-    # remove outdated .deleted-* markers
-    if ($leftlink =~ m:/.deleted-:) {
-      my $info = get_link($leftlink, 2);
-      if ($info =~ m/^[0-9]+,[0-9]+$/) {
-	my ($serial, $mode) = split(/,/, $info);
-	my $todo_glob = "$mars/todo-global/deleted-*";
-	if ($mode) {
-	  $leftlink =~ m:/resource-([^/]+)/:;
-	  my $res = $1;
-	  $todo_glob = "$mars/resource-$res/todo-$real_host/deleted-*"
-	}
-	# compute the minimum border
-	my $border = 0;
-	foreach my $deleted_link (lamport_glob($todo_glob)) {
-	  my $limit = get_link($deleted_link, 2);
-	  next if !$limit || $limit <= 1;
-	  $border = $limit if (!$border || $limit < $border);
-	}
-	if ($serial < $border && $serial > 1) {
-	  unlink($leftlink);
-	  next;
-	}
-      }
-    }
-    my $stamp = get_link_stamp($leftlink);
-    next unless $stamp + 3600 * 24 < $start_time;
-    lprint "  unlink '$leftlink'\n" if $verbose;
-    unlink($leftlink);
-  }
-  foreach my $leftlink (lamport_glob($msg_glob)) {
-    # cleanup historic msg-*
-    if ($leftlink =~ m:/msg-(conncetion-from-|additional-connection-):) {
-      lprint "  unlink deprecated '$leftlink'\n" if $verbose;
-      unlink($leftlink);
-      next;
-    }
-    my $stamp = get_link_stamp($leftlink);
-    next unless $stamp + 3600 * 4 < $start_time;
-    lprint "  unlink '$leftlink'\n" if $verbose;
-    unlink($leftlink);
-  }
-}
-
 my $purged_globally = 0;
 
 sub link_purge_global {
@@ -6420,9 +6264,6 @@ sub link_purge_global {
       unlink($rm_lnk);
     }
   }
-  my $del_glob = "$mars/{,*/}{.tmp,.deleted,delete,work}-*";
-  my $msg_glob = "$mars/actual-*/msg-*";
-  _compat_purge_deleted($del_glob, $msg_glob);
   # keep internal backups for at least 1 hour
   if ($keep_backup_hours < 1) {
     $keep_backup_hours = 1;
@@ -6487,10 +6328,6 @@ sub link_purge_res {
   # new deletion method
   my $clean_glob = "$mars/resource-$res/{,*/}{.*,*}";
   _purge_dot_deleted($clean_glob, $min_time);
-  # old deletion method
-  my $del_glob = "$mars/resource-$res/{,*/}{.tmp,.deleted,delete,work}-*";
-  my $msg_glob = "$mars/resource-$res/actual-*/msg-*";
-  _compat_purge_deleted($del_glob, $msg_glob);
 }
 
 sub logdelete_res {
@@ -6567,14 +6404,6 @@ sub logdelete_res {
     }
   }
   my @versionlinks = lamport_glob("$mars/resource-$res/version-*");
-  # When join-resource is humming, or during split-brain,
-  # don't remove versionlinks as far as possible.
-  if (scalar(@versionlinks) < $max_deletions / 8 &&
-      ($transient_join ||
-       !detect_splitbrain($res, 1))) {
-    lwarn "Keeping some versionlinks\n";
-    return 0 unless $force;
-  }
   # Well, be careful due to Distributed Races(tm)
   lprint "Removing left-over versionlinks...\n" if $verbose;
   foreach my $versionlink (@versionlinks) {
@@ -10909,11 +10738,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Use an alternative syslog messenger.
     When empty, disable syslogging.
   --max-deletions=<number>
-    When your network or your firewall rules are defective over a
-    longer time, too many deletion links may accumulate at
-    /mars/todo-global/delete-* and sibling locations.
-    This limit is preventing overflow of the filesystem as well
-    as overloading the worker threads.
+    Not needed anymore. Ignoring.
   --thresh-logfiles=<number>
   --thresh-logsize=<number>
     Prevention of too many small logfiles when secondaries are not
@@ -11076,7 +10901,7 @@ foreach my $arg (@ARGV) {
     $dry_run++;
     next;
   } elsif ($arg =~ m/--max-deletions\s*=\s*(-?[0-9]+)/) {
-    $max_deletions = $1;
+    # ignore obsolete option
     next;
   } elsif ($arg =~ m/--thresh-logfiles\s*=\s*([0-9]+)/) {
     $thresh_logfiles = $1;
