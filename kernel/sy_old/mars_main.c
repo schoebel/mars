@@ -741,8 +741,6 @@ enum {
 	/* subdir items */
 	CL_DEFAULTS_ITEMS0,
 	CL_DEFAULTS_ITEMS,
-	CL_GLOBAL_TODO_DELETE,
-	CL_GLOBAL_TODO_DELETED,
 	CL_PEERS,
 	/* Resource items */
 	CL_RESOURCE_USERSPACE,
@@ -2816,15 +2814,6 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 			to_free = path_make("%s/%s",
 				    peer->rebase_dir, remote_path);
 		remote_path = to_free;
-	}
-	if (remote_dent->new_link &&
-	    !strncmp(remote_path, "/mars/todo-global/delete-", 25)) {
-		if (remote_dent->d_serial < mars_global->deleted_my_border) {
-			MARS_DBG("ignoring deletion '%s' at border %d\n",
-				 remote_path,
-				 mars_global->deleted_my_border);
-			goto done;
-		}
 	}
 
 	/* Skip unwanted directories */
@@ -6861,133 +6850,6 @@ done:
 	return 0;
 }
 
-static int prepare_delete(struct mars_dent *dent)
-{
-	struct kstat stat;
-	struct kstat *to_delete = NULL;
-	struct mars_dent *target;
-	struct mars_dent *response;
-	const char *response_path = NULL;
-	struct mars_brick *brick;
-	int max_serial = 0;
-	int status;
-
-	if (!dent || !dent->new_link || !dent->d_path) {
-		goto err;
-	}
-
-	brick = mars_find_brick(mars_global, NULL, dent->new_link);
-	if (brick &&
-	    unlikely((brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected) ||
-		     (brick->type == (void*)&if_brick_type && !brick->power.led_off))) {
-		MARS_WRN("target '%s' cannot be deleted, its brick '%s' in use\n", dent->new_link, SAFE_STR(brick->brick_name));
-		goto done;
-	}
-
-	status = 0;
-	target = mars_find_dent(mars_global, dent->new_link);
-	if (target) {
-		if (lamport_time_compare(&target->new_stat.mtime, &dent->new_stat.mtime) > 0) {
-			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
-			status = -EAGAIN;
-			goto ok;
-		}
-		if (target->d_child_count) {
-			MARS_WRN("target '%s' has %d children, cannot kill\n", dent->new_link, target->d_child_count);
-			goto done;
-		}
-		target->d_killme = true;
-		MARS_DBG("target '%s' marked for removal\n", dent->new_link);
-		to_delete = &target->new_stat;
-	} else if (mars_stat(dent->new_link, &stat, true) >= 0) {
-		if (lamport_time_compare(&stat.mtime, &dent->new_stat.mtime) > 0) {
-			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
-			status = -EAGAIN;
-			goto ok;
-		}
-		to_delete = &stat;
-	} else {
-		status = -EAGAIN;
-		MARS_DBG("target '%s' does no longer exist\n", dent->new_link);
-	}
-	if (to_delete) {
-		if (S_ISDIR(to_delete->mode)) {
-			status = mars_rmdir(dent->new_link);
-			MARS_DBG("rmdir '%s', status = %d\n", dent->new_link, status);
-		} else {
-			status = ordered_unlink(dent->new_link,
-						&dent->new_stat.mtime,
-						dent->d_serial,
-						0);
-			MARS_DBG("unlink '%s', status = %d\n", dent->new_link, status);
-		}
-	}
-
- ok:	
-	if (status < 0) {
-		MARS_DBG("deletion '%s' to target '%s' is accomplished\n",
-			 dent->d_path, dent->new_link);
-		if (dent->d_serial <= mars_global->deleted_border) {
-			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
-			dent->d_killme = true;
-			mars_unlink(dent->d_path);
-		}
-	}
-
- done:
-	// tell the world that we have seen this deletion... (even when not yet accomplished)
-	response_path = path_make("/mars/todo-global/deleted-%s", my_id());
-	response = mars_find_dent(mars_global, response_path);
-	if (response && response->new_link) {
-		sscanf(response->new_link, "%d", &max_serial);
-	}
-	if (dent->d_serial > max_serial) {
-		char response_val[16];
-		max_serial = dent->d_serial;
-		mars_global->deleted_my_border = max_serial;
-		snprintf(response_val, sizeof(response_val), "%09d", max_serial);
-		ordered_symlink(response_val, response_path, NULL);
-	}
-
- err:
-	brick_string_free(response_path);
-	return 0;
-}
-
-static int check_deleted(struct mars_dent *dent)
-{
-	int serial = 0;
-	int status;
-
-	if (!dent || !dent->new_link) {
-		goto done;
-	}
-
-	status = sscanf(dent->new_link, "%d", &serial);
-	if (status != 1 || serial <= 0) {
-		MARS_WRN("cannot parse symlink '%s' -> '%s'\n", dent->d_path, dent->new_link);
-		goto done;
-	}
-
-	if (!strcmp(dent->d_rest, my_id())) {
-		mars_global->deleted_my_border = serial;
-		if (mars_global->deleted_my_border != mars_global->old_deleted_my_border) {
-			mars_global->old_deleted_my_border = mars_global->deleted_my_border;
-			mars_remote_trigger(MARS_TRIGGER_TO_REMOTE);
-		}
-	}
-
-	/* Compute the minimum of the deletion progress among
-	 * the resource members.
-	 */
-	if (serial < mars_global->deleted_min || !mars_global->deleted_min)
-		mars_global->deleted_min = serial;
-
-	
- done:
-	return 0;
-}
-
 static
 int make_res(struct mars_dent *dent)
 {
@@ -7180,7 +7042,6 @@ static const struct main_class main_classes[] = {
 		.cl_name = "todo-global",
 		.cl_len = 11,
 		.cl_type = 'd',
-		.cl_childs = CL_GLOBAL_TODO_DELETE,
 		.cl_hostcontext = false,
 		.cl_father = CL_ROOT,
 	},
@@ -7232,23 +7093,6 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'l',
 		.cl_father = CL_DEFAULTS,
 		.cl_forward = make_defaults,
-	},
-
-	[CL_GLOBAL_TODO_DELETE] = {
-		.cl_name = "delete-",
-		.cl_len = 7,
-		.cl_type = 'l',
-		.cl_serial = true,
-		.cl_hostcontext = false, // ignore context, although present
-		.cl_father = CL_GLOBAL_TODO,
-		.cl_prepare = prepare_delete,
-	},
-	[CL_GLOBAL_TODO_DELETED] = {
-		.cl_name = "deleted-",
-		.cl_len = 8,
-		.cl_type = 'l',
-		.cl_father = CL_GLOBAL_TODO,
-		.cl_prepare = check_deleted,
 	},
 
 	/* Anyone participating in a MARS cluster must
@@ -7766,7 +7610,6 @@ static int _main_thread(void *data)
 		up_write(&mars_resource_sem);
 		tmp_resource_list = brick_strdup(GLOBAL_PATH_LIST);
 
-		mars_global->deleted_min = 0;
 		if (start_full_fetch &&
 		    mars_running_additional_peers <= mars_run_additional_peers) {
 			tmp_full_fetch = true;
@@ -7781,9 +7624,7 @@ static int _main_thread(void *data)
 					3, true);
 
 		tmp_full_fetch = false;
-		mars_global->deleted_border = mars_global->deleted_min;
-		MARS_DBG("-------- worker deleted_min = %d status = %d\n",
-			 mars_global->deleted_min, status);
+		MARS_DBG("-------- worker status=%d\n", status);
 
 		usable_features_version = _tmp_features_version;
 		usable_strategy_version = _tmp_strategy_version;

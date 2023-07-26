@@ -163,10 +163,6 @@ struct mars_global {
 	struct list_head brick_anchor;
 	wait_queue_head_t main_event;
 	int global_version;
-	int deleted_my_border;
-	int old_deleted_my_border;
-	int deleted_border;
-	int deleted_min;
 	int trigger_mode;
 	/* statistics */
 	int nr_readdir;
