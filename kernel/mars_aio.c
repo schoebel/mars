@@ -338,7 +338,9 @@ void _complete_all(struct list_head *tmp_list, struct aio_output *output, int er
 	while (!list_empty(tmp_list)) {
 		struct list_head *tmp = tmp_list->next;
 		struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
+
 		list_del_init(tmp);
+		mb();
 		_complete(output, mref_a, err);
 	}
 }
