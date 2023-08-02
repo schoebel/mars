@@ -422,7 +422,6 @@ EXPORT_SYMBOL_GPL(_brick_string_free);
 
 // block memory allocation
 
-static
 int len2order(int len)
 {
 	int order = 0;

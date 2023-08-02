@@ -292,7 +292,9 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 		mref->ref_len = logst->chunk_size ? logst->chunk_size : total_len;
 		mref->ref_flags = MREF_MAY_WRITE;
 		mref->ref_prio = logst->io_prio;
-
+#ifdef CONFIG_MARS_MEM_MAX_RESERVE
+		set_brick_mem_freelist_max(mref->ref_len, len2order(mref->ref_len));
+#endif
 		for (;;) {
 			status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
 			if (likely(status >= 0)) {
