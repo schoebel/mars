@@ -743,8 +743,8 @@ restart:
 		 */
 		if (mars_copy_strict_write_order &&
 		    !is_first) {
-			unsigned mask = COPY_CHUNK - 1;
-			unsigned prev_index = (index + mask) & mask;
+			const unsigned wrap = STATES_PER_PAGE * MAX_SUB_TABLES;
+			unsigned prev_index =  (index + (wrap - 1)) % wrap;
 			struct copy_state *prev_st;
 
 			prev_st = &GET_STATE(brick, prev_index);
