@@ -182,6 +182,12 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable168
+	* Major fix: there was an unnecessary internal abort of
+	  the copy brick. It was compenated by the higher layer,
+	  but it could unnecessarily reduce the performance
+	  of the replication.
+
 mars0.1astable167
 	* Major fix: marsadm cron was not deleting versionlinks
 	  in importnat cases. Regression from 70880946c.
