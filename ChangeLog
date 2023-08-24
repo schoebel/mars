@@ -182,6 +182,11 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable169
+	* Minor update: remove old code on obsolete deletion
+	  method. When this was unnecessarily actived, it
+	  consumed unnecessary resources.
+
 mars0.1astable168
 	* Major fix: there was an unnecessary internal abort of
 	  the copy brick. It was compenated by the higher layer,
