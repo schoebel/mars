@@ -42,7 +42,6 @@ my $match_reserved_id = qr{^$match_reserved_substr$};
 my $parallel = -999;
 my $single_step = 0;
 my $inject_phase = 0;
-my $compat_deletions = 1;
 my $threshold = 10 * 1024 * 1024;
 my $window = 60;
 my $stuck_seconds = 3600;
@@ -2622,12 +2621,6 @@ sub get_global_versions {
   if ($kernel_strategy_version >= 5) {
     $ssh_port = 0;
   }
-  # determine cluster-wide $compat_* values
-  my $compat_path = "$mars/compat-deletions";
-  $compat_deletions = get_link($compat_path, 2);
-  if ($kernel_features_version < 3) {
-    $compat_deletions = 1;
-  }
 }
 
 sub get_alive_links {
@@ -4823,12 +4816,10 @@ sub lowlevel_delete_host {
   my $path = "$mars/ips/ip-$peer";
   my $old = get_link($path);
   lprint "Removing host '$peer' old IP '$old'\n";
-  if (!$compat_deletions) {
     foreach my $peer2 (get_total_peers()) {
       next if $peer2 eq $peer;
       _push_link($peer2, ".deleted", $path);
     }
-  }
   _create_delete($path);
 }
 
@@ -5992,10 +5983,6 @@ sub leave_res_phase3 {
     log_purge_res($cmd, $res);
   }
   err_purge_res($cmd, $res);
-  # deprecated: hindering for new deletion method
-  if ($compat_deletions && $host eq $real_host) {
-    system("rm -f $mars/resource-$res/log-*");
-  }
   return 0;
 }
 
@@ -10729,11 +10716,6 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     Turns off --parallel.
   --error-injection-phase=<number>
     Only for testing. NEVER use in production.
-  --delete-method=<code>
-    EXPERIMENTAL! Only for testing! This option will disappear again!
-    <code> == 0: Use new deletion method
-    <code> == 1: Use old deletion method
-    default is 1 for compatibility.
   --logger=/path/to/usr/bin/logger
     Use an alternative syslog messenger.
     When empty, disable syslogging.
@@ -10921,18 +10903,7 @@ foreach my $arg (@ARGV) {
     $inject_phase = $1;
     next;
   } elsif ($arg =~ m/--delete-method\s*=\s*([0-9]+)/) {
-    $compat_deletions = $1;
-    my $compat_path = "$mars/compat-deletions";
-    my $old = get_link($compat_path, 2);
-    if (!defined($old) || $old ne $compat_deletions) {
-      if (-d "/mars" && !$dry_run) {
-	lprint "Setting '$compat_path' to '$compat_deletions'\n";
-	set_link($compat_deletions, $compat_path);
-	finish_links();
-      } else {
-	lwarn "Cannot set '$compat_path' to '$compat_deletions'\n";
-      }
-    }
+    lprint "historic option --delete-method is now obsolete.\n";
     next;
   } elsif ($arg =~ s/--verbose\s*=\s*(-?[0-9]+)/$1/) {
     $verbose = $arg;
