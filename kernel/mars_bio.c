@@ -534,6 +534,7 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 		);
 #endif
 #endif
+	cond_resched();
 
 	threshold_check(&bio_submit_threshold, latency);
 
