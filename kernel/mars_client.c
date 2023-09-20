@@ -111,16 +111,12 @@ void _do_resubmit(struct client_channel *ch)
 
 	mb();
 	mutex_lock(&output->mutex);
-	if (!list_empty(&ch->wait_list)) {
+	while (!list_empty(&ch->wait_list)) {
 		struct list_head *first = READ_ONCE(ch->wait_list.next);
-		struct list_head *last = READ_ONCE(ch->wait_list.prev);
-		struct list_head *old_start = READ_ONCE(output->mref_list.next);
 
-#define list_connect __list_del // the original routine has a misleading name: in reality it is more general
-
-		list_connect(&output->mref_list, first);
-		list_connect(last, old_start);
-		INIT_LIST_HEAD(&ch->wait_list);
+		list_del_init(first);
+		list_add(first, &output->mref_list);
+		cond_resched();
 	}
 	mb();
 	mutex_unlock(&output->mutex);
