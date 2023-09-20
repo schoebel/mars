@@ -562,7 +562,7 @@ void __hash_insert(struct client_output *output,
 	if (mref_a->is_hashed)
 		return;
 
-	list_del(&mref_a->hash_head);
+	list_del_init(&mref_a->hash_head);
 	ref_id = READ_ONCE(mref->ref_id);
 	if (!ref_id) {
 		/* This may wrap around without harm */
