@@ -182,6 +182,14 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable171
+	* Minor fix: give up the CPU more often in a rare
+	  corner case.
+	* Minor improvement: when the replication network is
+	  interrupted at random places, the internal error propagation
+	  is more finegrained. Typically not visible, but the reaction
+	  should be smoother.
+
 mars0.1astable170
 	(housekeeping release)
 	* marsadm update: also remove very old code, which may trigger
