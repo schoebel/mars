@@ -254,6 +254,8 @@ void _crashme(int mode, bool do_sync)
 
 int nr_affected_resources;
 int tmp_nr_affected_resources;
+int nr_prosumer_resources;
+int tmp_nr_prosumer_resources;
 
 void update_brick_mem_freelist_max(void)
 {
@@ -264,7 +266,8 @@ void update_brick_mem_freelist_max(void)
 		int max = 0;
 
 		if (order == MARS_MEMRESERVE_ORDER) {
-			max = nr_affected_resources * MEMRESERVE_FACTOR_5;
+			max = nr_affected_resources + nr_prosumer_resources;
+			max *= MEMRESERVE_FACTOR_5;
 		}
 		set_brick_mem_freelist_max(max, order);
 	}
@@ -6215,6 +6218,7 @@ int make_dev(struct mars_dent *dent)
 		MARS_DBG("nothing to do\n");
 		goto err;
 	}
+	tmp_nr_prosumer_resources++;
 	if (!rot->trans_brick) {
 		MARS_DBG("transaction logger does not exist\n");
 		goto done;
@@ -7569,6 +7573,8 @@ static int _main_thread(void *data)
 		/* swizzle indicator */
 		nr_affected_resources = tmp_nr_affected_resources;
 		tmp_nr_affected_resources = 0;
+		nr_prosumer_resources = tmp_nr_prosumer_resources;
+		tmp_nr_prosumer_resources = 0;
 
 		/* Static memlimit */
 		if (mars_mem_percent < 0)

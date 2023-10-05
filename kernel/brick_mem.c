@@ -740,9 +740,6 @@ void set_brick_mem_freelist_max(int max, int order)
 {
 	if (max > brick_mem_freelist_max[order]) {
 		brick_mem_freelist_max[order] = max;
-	} else if (max < brick_mem_freelist_max[order] / 2 &&
-		   brick_mem_freelist_max[order] > 0) {
-		brick_mem_freelist_max[order]--;
 	}
 }
 #else
