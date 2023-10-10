@@ -576,7 +576,9 @@ void __brick_block_free(void *data, int order, int cline)
 	struct mem_block_info *inf = _find_block_info(data, true);
 	if (likely(inf)) {
 		int inf_len = inf->inf_len;
-		int inf_line = inf->inf_line;
+		int inf_line;
+
+		inf_line = inf->inf_line;
 		kfree(inf);
 		if (unlikely(inf_len != (PAGE_SIZE << order))) {
 			BRICK_ERR("line %d: address %p: bad freeing size %d (correct should be %d, previous line = %d)\n", cline, data, (int)(PAGE_SIZE << order), inf_len, inf_line);
