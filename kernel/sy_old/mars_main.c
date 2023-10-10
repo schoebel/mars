@@ -332,8 +332,9 @@ void _show_vals(struct key_value_pair *start,
 		}
 		if (silent) {
 			const char *check = ordered_readlink(dst, NULL);
-			bool gone = (!check || !*check);
+			bool gone;
 
+			gone = (!check || !*check);
 			brick_string_free(check);
 			brick_string_free(start->val);
 			/* remove old message with minimum update frequency */
