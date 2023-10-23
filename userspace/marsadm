@@ -5388,6 +5388,10 @@ sub create_res {
     use Fcntl 'SEEK_END', 'O_RDONLY', 'O_RDWR', 'O_EXCL';
     my $flags = O_RDWR | O_EXCL;
     if ($force) {
+      sysopen(TEST, $dev, $flags) or
+	lwarn "Cannot open disk device '$dev' for exclusive rw access. "
+	  . "I will retry due to --force, hopefully you know the risk, like filesystem corruption.\n";
+      close(TEST);
       $flags = O_RDONLY;
     }
     sysopen(TEST, $dev, $flags) or ldie "cannot open device '$dev' for exclusive rw access\n";
