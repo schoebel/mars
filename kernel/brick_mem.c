@@ -691,6 +691,7 @@ void _free_all(void)
 			void *data = _get_free(order, __LINE__);
 			if (!data)
 				break;
+			cond_resched();
 			__brick_block_free(data, order, __LINE__);
 		}
 	}
