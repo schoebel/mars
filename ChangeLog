@@ -182,6 +182,13 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable172
+	* Major improvement: avoid some odd pointer addresses,
+	  leading to unnecessary performance loss.
+	* Minor fix: give up the CPU more often during rmmod.
+	* Minor fixes: silence some compiler warnings.
+	* marsadm improvement: clarify warning on create-resource --force.
+
 mars0.1astable171
 	* Minor fix: give up the CPU more often in a rare
 	  corner case.
