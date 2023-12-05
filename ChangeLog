@@ -182,6 +182,10 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable173
+	* Minor fix: do not spawn many server kthreads on
+	  recpetion of masses of connections.
+
 mars0.1astable172
 	* Major improvement: avoid some odd pointer addresses,
 	  leading to unnecessary performance loss.
