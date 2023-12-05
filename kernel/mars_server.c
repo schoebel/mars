@@ -94,6 +94,7 @@ int dent_limit = DENT_LIMIT;
 int dent_retry = DENT_RETRY;
 atomic_t running_dent = ATOMIC_INIT(0);
 
+int server_start_delay_ms = 1000;
 
 static
 int cb_thread(void *data)
@@ -1087,6 +1088,20 @@ void check_bricks(void)
 	up_write(&server_mutex);
 }
 
+static
+void _limit_handler_rate(struct server_cookie *cookie)
+{
+	int below =
+		nr_affected_resources * max_client_channels * 2;
+	int rate =
+		atomic_read(&server_handler_count) - below;
+
+	if (rate <= 0)
+		return;
+	rate *= server_start_delay_ms;
+	brick_msleep(rate);
+}
+
 static int port_thread(void *data)
 {
 	struct mars_global *server_global = alloc_mars_global();
@@ -1153,6 +1168,9 @@ static int port_thread(void *data)
 		handler_socket.s_shutdown_on_err = true;
 
 		MARS_DBG("got new connection #%d\n", handler_socket.s_debug_nr);
+
+		if (cookie->port_nr > MARS_TRAFFIC_META)
+			_limit_handler_rate(cookie);
 
 		this_handler_limit = handler_limit;
 		if (cookie->port_nr <= MARS_TRAFFIC_META)

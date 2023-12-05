@@ -692,6 +692,7 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("client_receiver_count", client_receiver_count,  0400),
 	INT_ENTRY("server_callback_count", server_callback_count,  0400),
 	INT_ENTRY("server_handler_count",  server_handler_count,   0400),
+	INT_ENTRY("server_start_delay_ms", server_start_delay_ms,  0400),
 	INT_ENTRY("mars_emergency_mode",  mars_emergency_mode,    0600),
 	INT_ENTRY("mars_reset_emergency", mars_reset_emergency,   0600),
 	INT_ENTRY("mars_keep_msg_s",      mars_keep_msg,          0600),

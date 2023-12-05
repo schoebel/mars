@@ -51,6 +51,10 @@ extern int usable_strategy_version;
 extern int usable_marsadm_version_major;
 extern int usable_marsadm_version_minor;
 
+extern int nr_affected_resources;
+extern int max_client_channels;
+extern int server_start_delay_ms;
+
 extern int mars_min_update;
 
 extern loff_t global_total_space;
