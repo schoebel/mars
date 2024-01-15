@@ -932,8 +932,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 	int progress;
 	bool is_first;
 
-	if (READ_ONCE(brick->clash) &&
-	    wait_reset_clash(brick))
+	if (READ_ONCE(brick->clash))
 		return 0;
 
 	if (this_start < brick->copy_last)
