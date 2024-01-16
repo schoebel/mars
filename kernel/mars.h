@@ -403,7 +403,8 @@ EXPORT_SYMBOL_GPL(BRITYPE##_brick_nr);			                \
 static const struct generic_aspect_type BRITYPE##_mref_aspect_type = {  \
 	.aspect_type_name = #BRITYPE "_mref_aspect_type",		\
 	.object_type = &mref_type,					\
-	.aspect_size = sizeof(struct BRITYPE##_mref_aspect),		\
+	.aspect_size = DIV_ROUND_UP(sizeof(struct BRITYPE##_mref_aspect), \
+				    sizeof(void *)) * sizeof(void *),	\
 	.init_fn = BRITYPE##_mref_aspect_init_fn,			\
 	.exit_fn = BRITYPE##_mref_aspect_exit_fn,			\
 };									\
