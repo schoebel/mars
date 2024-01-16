@@ -159,6 +159,7 @@ int generic_brick_init_full(
 	const char **names)
 {
 	struct generic_brick *brick = data;
+	int brick_size;
 	int status;
 	int i;
 
@@ -173,8 +174,10 @@ int generic_brick_init_full(
 	status = generic_brick_init(brick_type, brick, names ? *names++ : NULL);
 	if (status)
 		return status;
-	data += brick_type->brick_size;
-	size -= brick_type->brick_size;
+	brick_size = brick_type->brick_size;
+	brick_size = DIV_ROUND_UP(brick_size, sizeof(void *)) * sizeof(void *);
+	data += brick_size;
+	size -= brick_size;
 	if (size < 0) {
 		BRICK_ERR("Not enough MEMORY\n");
 		return -ENOMEM;

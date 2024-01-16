@@ -557,6 +557,8 @@ INLINE int generic_size(const struct generic_brick_type *brick_type)
 {
 	int size = brick_type->brick_size;
 	int i;
+
+	size = DIV_ROUND_UP(size, sizeof(void *)) * sizeof(void *);
 	size += brick_type->max_inputs * sizeof(void*);
 	for (i = 0; i < brick_type->max_inputs; i++) {
 		size += brick_type->default_input_types[i]->input_size;

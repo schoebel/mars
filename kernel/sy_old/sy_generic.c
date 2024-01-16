@@ -2842,7 +2842,9 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 		return NULL;
 	}
 
-	size = brick_type->brick_size +
+	size = brick_type->brick_size;
+	size = DIV_ROUND_UP(size, sizeof(void *)) * sizeof(void *);
+	size +=
 		(brick_type->max_inputs + brick_type->max_outputs) * sizeof(void*);
 	input_types = brick_type->default_input_types;
 	for (i = 0; i < brick_type->max_inputs; i++) {
