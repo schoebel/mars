@@ -2849,15 +2849,20 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 	input_types = brick_type->default_input_types;
 	for (i = 0; i < brick_type->max_inputs; i++) {
 		const struct generic_input_type *type = *input_types++;
+		int input_size;
+
 		if (unlikely(!type)) {
 			MARS_ERR("input_type %d is missing\n", i);
 			goto err_name;
 		}
-		if (unlikely(type->input_size <= 0)) {
+		input_size = type->input_size;
+		if (unlikely(input_size <= 0)) {
 			MARS_ERR("bad input_size at %d\n", i);
 			goto err_name;
 		}
-		size += type->input_size;
+		input_size = DIV_ROUND_UP(input_size,
+					  sizeof(void *)) * sizeof(void *);
+		size += input_size;
 	}
 	output_types = brick_type->default_output_types;
 	for (i = 0; i < brick_type->max_outputs; i++) {
