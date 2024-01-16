@@ -569,7 +569,11 @@ INLINE int generic_size(const struct generic_brick_type *brick_type)
 	}
 	size += brick_type->max_outputs * sizeof(void*);
 	for (i = 0; i < brick_type->max_outputs; i++) {
-		size += brick_type->default_output_types[i]->output_size;
+		int output_size = brick_type->default_output_types[i]->output_size;
+
+		output_size = DIV_ROUND_UP(output_size,
+					   sizeof(void *)) * sizeof(void *);
+		size += output_size;
 	}
 	return size;
 }

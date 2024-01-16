@@ -236,6 +236,7 @@ int generic_brick_init_full(
 	for (i = 0; i < brick_type->max_outputs; i++) {
 		struct generic_output *output = data;
 		const struct generic_output_type *type = *output_types++;
+		int output_size;
 
 		if (!type || type->output_size <= 0) {
 			return -EINVAL;
@@ -244,8 +245,11 @@ int generic_brick_init_full(
 		generic_output_init(brick, i, type, output, (names && *names) ? *names++ : type->type_name);
 		if (status < 0)
 			return status;
-		data += type->output_size;
-		size -= type->output_size;
+		output_size = type->output_size;
+		output_size = DIV_ROUND_UP(output_size,
+					   sizeof(void *)) * sizeof(void *);
+		data += output_size;
+		size -= output_size;
 		if (size < 0)
 			return -ENOMEM;
 	}

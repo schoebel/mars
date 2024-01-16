@@ -2867,15 +2867,20 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 	output_types = brick_type->default_output_types;
 	for (i = 0; i < brick_type->max_outputs; i++) {
 		const struct generic_output_type *type = *output_types++;
+		int output_size;
+
 		if (unlikely(!type)) {
 			MARS_ERR("output_type %d is missing\n", i);
 			goto err_name;
 		}
-		if (unlikely(type->output_size <= 0)) {
+		output_size = type->output_size;
+		if (unlikely(output_size <= 0)) {
 			MARS_ERR("bad output_size at %d\n", i);
 			goto err_name;
 		}
-		size += type->output_size;
+		output_size = DIV_ROUND_UP(output_size,
+					   sizeof(void *)) * sizeof(void *);
+		size += output_size;
 	}
 	
 	res = brick_zmem_alloc(size);
