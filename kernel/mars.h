@@ -473,7 +473,11 @@ extern const struct generic_brick_type *_bio_brick_type;
 extern const struct generic_brick_type *_aio_brick_type;
 extern const struct generic_brick_type *_sio_brick_type;
 
-#if !defined(CONFIG_MARS_PREFER_SIO) && (defined(MARS_HAS_PREPATCH) || defined(MARS_HAS_PREPATCH_V2))
+#if !defined(CONFIG_MARS_PREFER_SIO)		&&			\
+	(defined(MARS_HAS_PREPATCH)		||			\
+	 defined(MARS_HAS_PREPATCH_V2)		||			\
+	 defined(MARS_HAS_PREPATCH_V3a)		||			\
+	 1)
 #define ENABLE_MARS_AIO
 #endif
 
