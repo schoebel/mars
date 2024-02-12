@@ -855,6 +855,7 @@ struct mars_rotate {
 	struct mars_limiter sync_limiter;
 	struct mars_limiter fetch_limiter;
 	struct lamport_time found_double_logfile;
+	unsigned long sync_jiffies;
 	int inf_prev_sequence;
 	int inf_old_sequence;
 	long long flip_start;
@@ -6760,6 +6761,18 @@ static int make_sync(struct mars_dent *dent)
 	if (unlikely(!src || !dst || !copy_path || !switch_path))
 		goto done;
 
+	if (do_start && rot->sync_jiffies) {
+		unsigned long delta_jiffies =
+#ifdef CONFIG_MARS_SYNC_FLIP_INTERVAL
+			CONFIG_MARS_SYNC_FLIP_INTERVAL * (HZ + HZ/2);
+#else
+			120 * HZ;
+#endif
+		if (jiffies > rot->sync_jiffies + delta_jiffies) {
+			do_start = false;
+		}
+	}
+
 	/* Informational
 	 */
 	MARS_DBG("start_pos = %lld end_pos = %lld sync_finish_stamp=%lld do_start=%d\n",
@@ -6788,6 +6801,16 @@ static int make_sync(struct mars_dent *dent)
 		if (copy) {
 			copy->kill_ptr = (void**)&rot->sync_brick;
 			copy->copy_limiter = &rot->sync_limiter;
+			if (!status &&
+			    copy->copy_last == copy->copy_start) {
+				if (!rot->sync_jiffies) {
+					rot->sync_jiffies = jiffies;
+				}
+			} else {
+				rot->sync_jiffies = 0;
+			}
+		} else {
+			rot->sync_jiffies = 0;
 		}
 		rot->sync_brick = copy;
 	}
