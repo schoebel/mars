@@ -856,6 +856,7 @@ struct mars_rotate {
 	struct mars_limiter fetch_limiter;
 	struct lamport_time found_double_logfile;
 	unsigned long sync_jiffies;
+	unsigned long fetch_jiffies;
 	int inf_prev_sequence;
 	int inf_old_sequence;
 	long long flip_start;
@@ -2564,6 +2565,15 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		make_msg(msg_pair, "disabling fetch due to disconnect");
 		do_start = false;
 	}
+	if (do_start && rot->fetch_jiffies) {
+		unsigned long delta_jiffies =
+			120 * HZ;
+		if (jiffies > rot->fetch_jiffies + delta_jiffies) {
+			do_start = false;
+		}
+	} else if (rot->fetch_jiffies) {
+		rot->fetch_jiffies = 0;
+	}
 
 	/* Self-correct logfile when necessary
 	 */
@@ -2600,11 +2610,21 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 			copy->copy_end = end_pos;
 		}
 #endif
+		if (copy->copy_last == copy->copy_start &&
+		    (copy->copy_end < 0 ||
+		     copy->copy_end > copy->copy_start)) {
+			if (!rot->fetch_jiffies)
+				rot->fetch_jiffies = jiffies;
+		} else {
+			rot->fetch_jiffies = 0;
+		}
 		/* When done, immediately trigger next fetch from peers */
 		if (rot->old_fetch_on && !copy->power.led_on) {
 			mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE);
 		}
 		rot->old_fetch_on = copy->power.led_on;
+	} else {
+		rot->fetch_jiffies = 0;
 	}
 
 done:
