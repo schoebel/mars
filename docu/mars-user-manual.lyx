@@ -2239,7 +2239,32 @@ m
 
 \begin_layout Enumerate
 A lot of sub-options for MARS will pop up.
- Leave them at their default.
+ Leave them at their default
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+CONFIG_MARS_DEFAULT_PORT is defaulted to 7777 or 7776.
+ Please change it when needed (to an 
+\emph on
+unsed
+\emph default
+ port range of at least 4 consecutive ports), although 
+\family typewriter
+insmod
+\family default
+ can be used for overriding it dynamically via the 
+\family typewriter
+mars_port=
+\family default
+ parameter.
+ Notice that using different ports in a bigger production setup isn't a
+ good idea, leading to confusion on firewall level etc.
+\end_layout
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Enumerate
