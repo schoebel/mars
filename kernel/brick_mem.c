@@ -708,7 +708,7 @@ int brick_mem_reserve(void)
 		int i;
 
 		brick_mem_freelist_max[order] += max;
-		BRICK_INF("preallocating %d at order %d (new maxlevel = %d)\n", max, order, brick_mem_freelist_max[order]);
+		brick_pre_reserve[order] = 0;
 
 		max = brick_mem_freelist_max[order] - atomic_read(&freelist_count[order]);
 		if (max >= 0) {
