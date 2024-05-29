@@ -534,6 +534,7 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 			(60 - i * 2) * HZ);
 		if (likely(tinfo->terminated)) {
 			brick_thread_stop(tinfo->thread);
+			mutex_destroy(&tinfo->mutex);
 		} else {
 			MARS_ERR("thread %d did not terminate - leaving a zombie\n", i);
 		}
