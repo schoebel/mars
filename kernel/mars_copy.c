@@ -128,42 +128,6 @@ void clear_clash(struct copy_brick *brick)
 	cmpxchg(&brick->clash, true, false);
 }
 
-/* Current semantics (NOT REALLY IMPLEMENTED because OUTPUT IS NOT IN USE)
- *
- * All writes from the OUTPUT are always going to the original input A. They are _not_
- * replicated to B.
- *
- * In order to get B really uptodate, you have to replay the right
- * transaction logs there (at the right time).
- * [If you had no writes on A at all during the copy, of course
- * this is not necessary]
- *
- * When utilize_mode is on, reads can utilize the already copied
- * region from B, but only as long as this region has not been
- * invalidated by writes (indicated by low_dirty).
- *
- * TODO: implement replicated writes, together with some transaction
- * replay logic applying the transaction logs _only_ after
- * crashes during inconsistency caused by partial replication of writes.
- */
-
-static
-struct copy_input *_determine_input(struct copy_brick *brick, struct mref_object *mref)
-{
-	struct copy_mref_aspect *mref_a;
-
-	mref_a = copy_mref_get_aspect(brick, mref);
-	if (unlikely(!mref_a)) {
-		MARS_FAT("cannot get own aspect from %p %p\n",
-			 brick, mref);
-		return NULL;
-	}
-	/* TODO: implement the new logic, for the envisioned
-	 * new use cases.
-	 */
-	return mref_a->input;
-}
-
 #define GET_INDEX(pos)    (((__u64)(pos) / COPY_CHUNK) % NR_COPY_REQUESTS)
 #define GET_OFFSET(pos)   ((__u64)(pos) % COPY_CHUNK)
 
@@ -1198,43 +1162,6 @@ static int copy_get_info(struct copy_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int copy_ref_get(struct copy_output *output, struct mref_object *mref)
-{
-	struct copy_input *input;
-	int status;
-
-	input = _determine_input(output->brick, mref);
-
-	status = GENERIC_INPUT_CALL(input, mref_get, mref);
-	if (status >= 0) {
-		atomic_inc(&output->brick->io_flight);
-	}
-	return status;
-}
-
-static void copy_ref_put(struct copy_output *output, struct mref_object *mref)
-{
-	struct copy_brick *brick = output->brick;
-	struct copy_input *input;
-
-	input = _determine_input(brick, mref);
-
-	GENERIC_INPUT_CALL_VOID(input, mref_put, mref);
-	if (atomic_dec_and_test(&brick->io_flight)) {
-		WRITE_ONCE(brick->trigger, true);
-		brick_wake_smp(&brick->event);
-	}
-}
-
-static void copy_ref_io(struct copy_output *output, struct mref_object *mref)
-{
-	struct copy_input *input;
-
-	input = _determine_input(output->brick, mref);
-
-	GENERIC_INPUT_CALL_VOID(input, mref_io, mref);
-}
-
 static int copy_switch(struct copy_brick *brick)
 {
 	static int version = 0;
@@ -1456,9 +1383,6 @@ static struct copy_brick_ops copy_brick_ops = {
 
 static struct copy_output_ops copy_output_ops = {
 	.mars_get_info = copy_get_info,
-	.mref_get = copy_ref_get,
-	.mref_put = copy_ref_put,
-	.mref_io = copy_ref_io,
 };
 
 const struct copy_input_type copy_input_type = {
