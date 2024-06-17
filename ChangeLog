@@ -182,6 +182,9 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable176
+	* Minor fix in aio code.
+
 mars0.1astable175
 	* Minor improvement: pre-allocation of higher-order
 	  pages.
