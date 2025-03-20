@@ -252,6 +252,7 @@ void _crashme(int mode, bool do_sync)
 #define MARS_MEMRESERVE_ORDER		 5
 #define MEMRESERVE_FACTOR_5		32
 
+int expected_resources;
 int nr_affected_resources;
 int tmp_nr_affected_resources;
 int nr_prosumer_resources;
@@ -268,6 +269,10 @@ void update_brick_mem_freelist_max(void)
 
 		if (order == MARS_MEMRESERVE_ORDER) {
 			max = nr_affected_resources + nr_prosumer_resources;
+			if (max > expected_resources)
+				expected_resources = max;
+			else if (max < expected_resources)
+				max = expected_resources;
 			max *= MEMRESERVE_FACTOR_5;
 		}
 		set_brick_mem_freelist_max(max, order);
