@@ -182,6 +182,11 @@ Changelog for series 0.1a:
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
 
+mars0.1astable177
+	* Add runtime-tunable expected_resources for avoidance
+	  of rare OOM via higher-order page allocactions.
+	  See description in Kconfig.
+
 mars0.1astable176
 	* Minor fix in aio code.
 
