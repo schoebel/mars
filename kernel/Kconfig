@@ -234,6 +234,15 @@ config MARS_MEM_MAX_RESERVE
 	May be enabled when encountering suchalike problems
 	(known as accurring very rare, but may happen).
 
+config MARS_EXPECTED_RESOURCES
+	int "optimize mem pre-alloc for expected_resources"
+	depends on MARS_MEM_MAX_RESERVE
+	default 12
+	help
+	In rare cases, when new resources are added to primaries,
+	the allocation of higher-order pages may lead to OOM.
+	Avoid this by pre-allocation at modprobe time.
+
 config MARS_FAST_FULLSYNC
 	bool "decrease network traffic at initial sync"
 	depends on MARS
