@@ -5387,14 +5387,36 @@ sub create_res {
     ldie "block device '$dev' must be an absolute path starting with '/'\n" unless $dev =~ m/^\//;
     use Fcntl 'SEEK_END', 'O_RDONLY', 'O_RDWR', 'O_EXCL';
     my $flags = O_RDWR | O_EXCL;
-    if ($force) {
-      sysopen(TEST, $dev, $flags) or
-	lwarn "Cannot open disk device '$dev' for exclusive rw access. "
-	  . "I will retry due to --force, hopefully you know the risk, like filesystem corruption.\n";
-      close(TEST);
-      $flags = O_RDONLY;
+    my $flag_names = "O_RDWR | O_EXCL";
+    # compensate rare race on rw|excl access (e.g. external scripts)
+    my $retry = 3;
+    my $sleep_time = 1;
+    for (;;) {
+      if (sysopen(TEST, $dev, $flags)) {
+	close(TEST);
+	last;
+      }
+      lwarn "cannot open device '$dev' for exclusive rw access (mode='$flag_names').\n";
+      sleep($sleep_time++);
+      next if $retry-- > 0;
+      if ($force) {
+	if ($flags & O_RDWR) {
+	  lwarn "I will retry via O_RDONLY | O_EXCL due to --force, hopefully you know the risk, like filesystem corruption.\n";
+	  $flags = O_RDONLY | O_EXCL;
+	  $flag_names = "O_RDONLY | O_EXCL";
+	  next if $force > 1;
+	} else {
+	  lwarn "I will retry via O_RDONLY due to --force, hopefully you know the EXTREME risk, like filesystem corruption.\n";
+	  $flags = O_RDONLY;
+	  $flag_names = "O_RDONLY";
+	}
+	last;
+      } else {
+	ldie "cannot open device '$dev' for exclusive rw access (mode='$flag_names').\n";
+      }
     }
-    sysopen(TEST, $dev, $flags) or ldie "cannot open device '$dev' for exclusive rw access\n";
+    # determine the size
+    sysopen(TEST, $dev, $flags) or ldie "cannot open device '$dev' in mode '$flag_names'\n";
     $size = sysseek(TEST, 0, SEEK_END);
     close(TEST);
     lprint "block device '$dev': determined size = $size bytes\n";
