@@ -3635,9 +3635,16 @@ sub get_amount {
 	}
       }
       if (!$only_files) {
+	my $warn_mode = 1;
 	my $glob = sprintf("%s/version-%09d-*", $resdir, $logpos);
-	foreach $file (lamport_glob($glob)) {
-	  my $vers_link = get_link($file, 1);
+	# only when our logfile is missing, we cannot consider versionlink-sisters
+	if (!@stat) {
+	  $glob = sprintf("%s/version-%09d-%s", $resdir, $logpos, $host);
+	  $warn_mode = 2;
+	}
+	my @vers_glob = lamport_glob($glob);
+	foreach $file (@vers_glob) {
+	  my $vers_link = get_link($file, $warn_mode);
 	  if ($vers_link && $vers_link =~ m;,([0-9]+):;) {
 	    my $nval = $1;
 	    $val = $nval if $nval > $val;
