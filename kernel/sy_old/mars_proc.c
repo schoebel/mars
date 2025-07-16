@@ -533,9 +533,6 @@ struct ctl_table io_tuning_table[] = {
 	THRESHOLD_ENTRIES(&bio_submit_threshold, "bio_submit"),
 	THRESHOLD_ENTRIES(&bio_io_threshold[0],  "bio_io_r"),
 	THRESHOLD_ENTRIES(&bio_io_threshold[1],  "bio_io_w"),
-	THRESHOLD_ENTRIES(&aio_submit_threshold, "aio_submit"),
-	THRESHOLD_ENTRIES(&aio_io_threshold[0],  "aio_io_r"),
-	THRESHOLD_ENTRIES(&aio_io_threshold[1],  "aio_io_w"),
 	THRESHOLD_ENTRIES(&aio_sync_threshold,   "aio_sync"),
 	INT_ENTRY("if_nr_requests", if_nr_requests, 0600),
 	{}

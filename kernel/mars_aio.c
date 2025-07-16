@@ -64,33 +64,6 @@ int aio_max_nr_max = 0;
 
 struct timing_stats timings[3] = {};
 
-struct threshold aio_submit_threshold = {
-	.thr_ban = &mars_global_ban,
-	.thr_parent = &global_io_threshold,
-	.thr_limit = AIO_SUBMIT_MAX_LATENCY,
-	.thr_factor = 10,
-	.thr_plus = 10000,
-};
-EXPORT_SYMBOL_GPL(aio_submit_threshold);
-
-struct threshold aio_io_threshold[2] = {
-	[0] = {
-		.thr_ban = &mars_global_ban,
-		.thr_parent = &global_io_threshold,
-		.thr_limit = AIO_IO_R_MAX_LATENCY,
-		.thr_factor = 100,
-		.thr_plus = 0,
-	},
-	[1] = {
-		.thr_ban = &mars_global_ban,
-		.thr_parent = &global_io_threshold,
-		.thr_limit = AIO_IO_W_MAX_LATENCY,
-		.thr_factor = 100,
-		.thr_plus = 0,
-	},
-};
-EXPORT_SYMBOL_GPL(aio_io_threshold);
-
 struct threshold aio_sync_threshold = {
 	.thr_ban = &mars_global_ban,
 	.thr_limit = AIO_SYNC_MAX_LATENCY,
@@ -121,8 +94,6 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 #else
 	prio = 0;
 #endif
-
-	mref_a->enqueue_stamp = cpu_clock(raw_smp_processor_id());
 
 	mutex_lock(&tinfo->mutex);
 
@@ -166,13 +137,6 @@ struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo)
 done:
 	mutex_unlock(&tinfo->mutex);
 
-	if (likely(mref_a && mref_a->object)) {
-		unsigned long long latency;
-		int rw = mref_a->object->ref_flags & MREF_WRITE ? 1 : 0;
-
-		latency = cpu_clock(raw_smp_processor_id()) - mref_a->enqueue_stamp;
-		threshold_check(&aio_io_threshold[rw], latency);
-	}
 	return mref_a;
 }
 
@@ -434,8 +398,6 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 #endif
 		);
 	set_fs(oldfs);
-
-	threshold_check(&aio_submit_threshold, latency);
 
 #ifdef MARS_AIO_DEBUG
 	atomic_inc(&output->total_submit_count);

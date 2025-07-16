@@ -30,17 +30,12 @@
 #include "mars.h"
 #include "lib_mapfree.h"
 
-#define AIO_SUBMIT_MAX_LATENCY    1000 //   1 ms
-#define AIO_IO_R_MAX_LATENCY     50000 //  50 ms
-#define AIO_IO_W_MAX_LATENCY    150000 // 150 ms
 #define AIO_SYNC_MAX_LATENCY    150000 // 150 ms
 
 #ifdef CONFIG_MARS_DEBUG
 #define MARS_AIO_DEBUG
 #endif
 
-extern struct threshold aio_submit_threshold;
-extern struct threshold aio_io_threshold[2];
 extern struct threshold aio_sync_threshold;
 
 /* aio_sync_mode:
@@ -53,7 +48,6 @@ extern int aio_sync_mode;
 struct aio_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head io_head;
-	unsigned long long enqueue_stamp;
 	long long start_jiffies;
 	int resubmit;
 	int alloc_len;
