@@ -181,6 +181,9 @@ Changelog for series 0.1a:
 	Please stay patient; some old MARS bugs have been already found and
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
+	HINT: the CIP project may be your friend. See docs at
+	the Linux Foundation and code at
+	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
 mars0.1astable177
 	* Add runtime-tunable expected_resources for avoidance
