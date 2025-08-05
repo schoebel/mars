@@ -7345,9 +7345,10 @@ sub get_possible_size {
     my $peer = $1;
     # skip any stray actsize links
     my $corresponding_data_link = "$resdir/data-$peer";
-    my $corresponding_data = get_link($corresponding_data_link, 1);
+    my $corresponding_data = get_link($corresponding_data_link, 2);
     if (!$corresponding_data) {
-      lwarn "skipping stray actsize link '$actsize' since '$corresponding_data_link' does not exist\n";
+      lwarn "skipping stray actsize link '$actsize' since '$corresponding_data_link' does not exist\n"
+	if $peer eq $host;
       next;
     }
     my $this_size = get_link($actsize);
