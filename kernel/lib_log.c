@@ -844,6 +844,7 @@ int log_scan(void *buf,
 		restlen = len - i;
 		if (unlikely(restlen < START_OVERHEAD)) {
 			MARS_WRN(SCAN_TXT "magic found, but restlen is too small\n", SCAN_PAR);
+			RECORD_ERR(-MARS_ERR_SCAN_SMALL);
 			return -EAGAIN;
 		}
 
