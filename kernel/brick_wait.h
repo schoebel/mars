@@ -64,7 +64,7 @@
 									\
 	might_sleep();							\
 	smp_rmb();							\
-	__old_flag = (flag);						\
+	__old_flag = READ_ONCE((flag));					\
 									\
 	while (!(condition)) {						\
 		int __new_flag;						\
@@ -72,7 +72,7 @@
 		__tmout = wait_event_interruptible_timeout(		\
 					wq,				\
 					({ smp_rmb();			\
-					  __new_flag = (flag);		\
+					  __new_flag = READ_ONCE((flag)); \
 					  __old_flag != __new_flag; }),	\
 					__tmout);			\
 		if (__tmout <= 1)					\
@@ -85,7 +85,7 @@
 #define brick_wake_flagged(wq, flag)					\
 ({									\
 	smp_rmb();							\
-	(flag)++;							\
+	WRITE_ONCE((flag), READ_ONCE((flag)) + 1);			\
 	smp_wmb();							\
 	wake_up_interruptible_all(wq);					\
 })
