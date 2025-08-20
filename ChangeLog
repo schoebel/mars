@@ -185,6 +185,12 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable179
+	* Cleanup / housekeeping:
+	  - Improved error report
+	  - marsadm: avoid misleading warning
+	  - improved example cronjob
+
 mars0.1astable178
 	* Fix potential races on socket properties, leading
 	  to unnecessary network performance drops.
