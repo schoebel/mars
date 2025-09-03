@@ -4700,7 +4700,7 @@ marsadm
  long time (typically years).
  Just run 
 \family typewriter
-marsadm cron --autoclean
+marsadm cron --autoclean=$days
 \family default
  everywhere once per month, or once per year.
 \end_layout
@@ -12331,7 +12331,7 @@ status open
 
 \family typewriter
 \size scriptsize
---autoclean
+--autoclean=$days
 \end_layout
 
 \end_inset
@@ -12393,7 +12393,16 @@ historic
 decommissioned
 \emph default
  machines will be purged after this age.
- Default is an age of the remains of more than 1 month.
+ Default is 0 which means 
+\begin_inset Quotes eld
+\end_inset
+
+disabled
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Use at least 1 day for enabling.
 \end_layout
 
 \end_inset
@@ -28765,7 +28774,7 @@ delete-resource --force
 \family default
  and friends, and/or 
 \family typewriter
-marsadm cron --autoclean
+marsadm cron --autoclean=$days
 \family default
  after a retention period of 1 month or more.
 \end_layout
