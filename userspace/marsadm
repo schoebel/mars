@@ -2590,7 +2590,7 @@ sub get_global_versions {
     next if !$peer_age;
     if ($peer_age < $stone_age) {
       my $days = ($start_time - $peer_age) / 3600 / 24;
-      lwarn "Peer '$peer' alivelinks show an age of $days days, please consider \"cron --autoclean\"\n";
+      lwarn "Peer '$peer' alivelinks show an age of $days days, please consider \"cron --autoclean=\$days\"\n";
       next;
     }
     my $features = get_alive_link("features", $peer, 1);
@@ -10075,12 +10075,12 @@ my %cmd_table =
        \&cron_phase2,
        "delete old logfiles",
        \&cron_phase3,
-       "autoclean gone peers (when enabled via --autoclean)",
+       "autoclean gone peers (when enabled via --autoclean=\$days)",
        "CHANGE_RESOURCES",
        "ANY",
        [
 	\&cron_phase4,
-	"autoclean gone resources (when enabled via --autoclean)",
+	"autoclean gone resources (when enabled via --autoclean=\$days)",
        ],
       ],
    "log-purge-all"
