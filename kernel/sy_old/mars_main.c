@@ -669,6 +669,19 @@ int compute_emergency_mode(void)
 		}
 	}
 
+#define COMPUTE_CLUSTER_FILLING
+#ifdef COMPUTE_CLUSTER_FILLING
+	{
+		loff_t compute_cluster_filling(loff_t permille);
+		loff_t cluster_permille = compute_cluster_filling(permille);
+
+#ifdef global_cluster_permille
+		global_cluster_permille = cluster_permille;
+#endif
+		__make_alivelink("cluster_permille", cluster_permille, true);
+	}
+#endif
+
 	if (unlikely(present < global_free_space_0)) {
 		return -ENOSPC;
 	}
@@ -2224,6 +2237,35 @@ struct mars_peerinfo {
 	bool got_info;
 	bool silent;
 };
+
+#ifdef COMPUTE_CLUSTER_FILLING
+loff_t compute_cluster_filling(loff_t permille)
+{
+	struct list_head *tmp;
+	loff_t cluster_permille = permille;
+
+	down_read(&peer_list_lock);
+	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
+		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
+		const char *val;
+		loff_t this_permille = 0;
+
+		if (!strcmp(peer->peer, my_id()))
+			continue;
+		if (!is_alive(peer->peer))
+			continue;
+		val = get_alivelink("filled_permille", peer->peer);
+		if (!val)
+			continue;
+		sscanf(val, "%lld", &this_permille);
+		if (this_permille > cluster_permille)
+			cluster_permille = this_permille;
+		brick_string_free(val);
+	}
+	up_read(&peer_list_lock);
+	return cluster_permille;
+}
+#endif
 
 static
 char *make_peer_dir_list(const char *mypeer)
