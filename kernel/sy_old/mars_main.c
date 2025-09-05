@@ -594,11 +594,18 @@ int compute_emergency_mode(void)
 {
 	loff_t rest;
 	loff_t present;
+	loff_t filled;
+	loff_t permille;
 	loff_t limit = 0;
 	int mode = 4;
 	int this_mode = 0;
 
 	mars_remaining_space("/mars", &raw_total_space, &rest);
+
+	if (unlikely(raw_total_space < 1))
+		raw_total_space = 1;
+	if (unlikely(rest < 1))
+		rest = 1;
 
 	/* Take current writeback memory usage into account.
 	 * Somewhen, it will land on the disk...
@@ -608,6 +615,13 @@ int compute_emergency_mode(void)
 		rest = 0;
 
 	raw_remaining_space = rest;
+
+	filled = (raw_total_space - rest);
+	if (filled <= 1)
+		filled = 1;
+
+	permille = filled * 1000 / raw_total_space;
+	__make_alivelink("filled_permille", permille, true);
 
 #define CHECK_LIMIT(LIMIT_VAR)					\
 	if (LIMIT_VAR > 0)					\
