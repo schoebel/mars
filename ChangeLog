@@ -185,6 +185,16 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable180
+	* New feature via /mars/actual-*/*_permille :
+	  Filling level of /mars is reported  both for local usage,
+	  and additionally computed as maximum for the cluster as
+	  configured in /mars/ips/ .
+	  Both values are replicated over the cluster, where the situation
+	  at peers can be analysed.
+	  Currently not yet used by marsadm, but this may come later.
+	* Doc: corrected description of --autoclean=$days
+
 mars0.1astable179
 	* Cleanup / housekeeping:
 	  - Improved error report
