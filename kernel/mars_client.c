@@ -844,7 +844,7 @@ int receiver_thread(void *data)
 }
 
 static
-void _do_timeout(struct client_output *output, struct list_head *anchor, int *rounds, bool force)
+void _do_timeout(struct client_output *output, struct list_head *anchor, bool force)
 {
 	struct client_brick *brick = output->brick;
 	struct list_head *tmp;
@@ -903,15 +903,6 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 
 		mref = mref_a->object;
 
-		if (unlikely(!(*rounds)++)) {
-			MARS_WRN("'%s' @%s timeout after %ld: signalling IO error at pos = %lld len = %d\n",
-				 output->bundle.path,
-				 output->bundle.host,
-				 io_timeout,
-				 mref->ref_pos,
-				 mref->ref_len);
-		}
-
 		atomic_inc(&brick->timeout_count);
 
 		SIMPLE_CALLBACK(mref, -ETIME);
@@ -928,23 +919,15 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 static
 void _do_timeout_all(struct client_output *output, bool force)
 {
-	int rounds = 0;
 	int i;
 	for (i = 0; i < MAX_CLIENT_CHANNELS; i++) {
 		struct client_channel *ch = &output->bundle.channel[i];
 
 		if (ch->ch_state < CL_CHANNEL_USED)
 			continue;
-		_do_timeout(output, &ch->wait_list, &rounds, force);
+		_do_timeout(output, &ch->wait_list, force);
 	}
-	_do_timeout(output, &output->mref_list, &rounds, force);
-	if (unlikely(rounds > 0)) {
-		MARS_WRN("'%s' @%s had %d timeouts, force = %d\n",
-			 output->bundle.path,
-			 output->bundle.host,
-			 rounds,
-			 force);
-	}
+	_do_timeout(output, &output->mref_list, force);
 }
 
 static int sender_thread(void *data)
