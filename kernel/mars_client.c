@@ -706,6 +706,7 @@ int receiver_thread(void *data)
 			unsigned int hash_index = CLIENT_HASH_FN(id);
 			bool had_completed = false;
 
+			mb();
 			mutex_lock(&output->mutex);
 			anchor = &output->hash_table[hash_index];
 			for (tmp = READ_ONCE(anchor->next), tmp_next = READ_ONCE(tmp->next);
@@ -713,6 +714,8 @@ int receiver_thread(void *data)
 			     tmp = tmp_next, tmp_next = READ_ONCE(tmp_next->next)) {
 				struct mref_object *tmp_mref;
 				struct client_mref_aspect *tmp_mref_a;
+
+				cond_resched();
 
 				tmp_mref_a = container_of(tmp, struct client_mref_aspect, hash_head);
 				/* Treat any non-members of io lists as absent.
@@ -739,6 +742,7 @@ int receiver_thread(void *data)
 				break;
 
 			err:
+				mb();
 				mutex_unlock(&output->mutex);
 				status = -EBADR;
 				goto done;
@@ -873,6 +877,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 
 	io_timeout *= HZ;
 	
+	mb();
 	mutex_lock(&output->mutex);
 	for (tmp = READ_ONCE(anchor->prev), prev = READ_ONCE(tmp->prev);
 	     tmp != anchor;
@@ -887,6 +892,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 			break;
 		}
 		/* Race compensation: skip already completed requests */
+		cond_resched();
 		if (mref_a->has_completed)
 			continue;
 		
@@ -1008,6 +1014,7 @@ static int sender_thread(void *data)
 		mutex_lock(&output->mutex);
 		tmp = READ_ONCE(output->mref_list.next);
 		if (tmp == &output->mref_list) {
+			mb();
 			mutex_unlock(&output->mutex);
 			MARS_DBG("empty %d %d\n", output->get_info, brick_thread_should_stop());
 			do_timeout = true;
