@@ -978,10 +978,14 @@ static int sender_thread(void *data)
 		}
 
 		brick_wait_smp(bundle->sender_event,
-						 !list_empty(&output->mref_list) ||
-						 output->get_info,
-						 2 * HZ);
-
+			       ({
+				       mb();
+				       /* excpetional access outside of the mutex */
+				       !list_empty(&output->mref_list) ||
+					       output->get_info;
+			       }),
+			       HZ);
+		mb();
 
 		if (output->get_info) {
 			if (ch && old_cork) {
