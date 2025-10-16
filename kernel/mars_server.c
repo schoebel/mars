@@ -833,6 +833,7 @@ static int server_switch(struct server_brick *brick)
 			status = -ENOENT;
 			goto err;
 		}
+		mars_power_led_off((void*)brick, false);
 		brick->delegate_free = &brick->delegated_brick;
 
 		mars_power_led_on((void*)brick, true);
@@ -877,9 +878,9 @@ static int server_switch(struct server_brick *brick)
 	}
  err:
 	if (unlikely(status < 0)) {
-		mars_power_led_off((void*)brick, true);
 		mars_shutdown_socket(sock);
 		mars_put_socket(sock);
+		mars_power_led_off((void*)brick, true);
 	}
 done:
 	return status;
