@@ -6024,7 +6024,20 @@ done:
 	rot->fetch_next_is_available = 0;
 	rot->fetch_brick = fetch_brick;
 	if (fetch_brick) {
+		bool do_fetch;
+
 		fetch_brick->kill_ptr = (void**)&rot->fetch_brick;
+		/* Network hangs may require repeated switching */
+		do_fetch = _check_allow(parent->d_path, "connect");
+		if ((!do_fetch && fetch_brick->power.button) ||
+		    (!fetch_brick->power.button && !fetch_brick->power.led_off)) {
+			bool do_force = fetch_brick->power.force_off ||
+				(!do_fetch && !fetch_brick->power.button && !fetch_brick->power.led_on);
+
+			mars_power_button((void *)fetch_brick, false, do_force);
+
+
+		}
 	} else {
 		rot->fetch_serial = 0;
 	}
