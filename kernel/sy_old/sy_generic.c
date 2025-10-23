@@ -1193,6 +1193,52 @@ EXPORT_SYMBOL_GPL(bind_to_dent);
 
 //////////////////////////////////////////////////////////////
 
+// mem buffer
+
+static DEFINE_MUTEX(_freelist_lock);
+static void *_free_list = NULL;
+static int _free_list_count = 0;
+
+void _mem_record(void *to_free)
+{
+	mutex_lock(&_freelist_lock);
+	*(void **)to_free = _free_list;
+	_free_list = to_free;
+	_free_list_count++;
+	mutex_unlock(&_freelist_lock);
+}
+
+void _mem_free(int rest)
+{
+	void *to_free;
+	int count = 0;
+
+	if (_free_list_count < FREELIST_RESERVE * 4) {
+		return;
+	}
+
+	mutex_lock(&_freelist_lock);
+	to_free = _free_list;
+	_free_list = NULL;
+	while (to_free) {
+		void *next = *(void **)to_free;
+
+		if (rest && _free_list_count == rest) {
+			/* umschalten in Erhaltungs-Modus */
+			_free_list = to_free;
+		}
+		if (!_free_list) {
+			brick_mem_free(to_free);
+			count++;
+			_free_list_count--;
+		}
+		to_free = next;
+	}
+	mutex_unlock(&_freelist_lock);
+}
+
+//////////////////////////////////////////////////////////////
+
 // infrastructure
 
 struct mars_global *mars_global = NULL;
@@ -2579,7 +2625,7 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 		if (dent->d_private_destruct) {
 			dent->d_private_destruct(d_private);
 		}
-		brick_mem_free(d_private);
+		_mem_record(d_private);
 		dent->d_private = NULL;
 		dent->d_private_destruct = NULL;
 	}
@@ -2610,7 +2656,7 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 			 atomic_read(&dent->d_count));
 		goto fatal;
 	}
-	brick_mem_free(dent);
+	_mem_record(dent);
  fatal: ;
 }
 EXPORT_SYMBOL_GPL(mars_free_dent);
@@ -2817,7 +2863,7 @@ int mars_free_brick(struct mars_brick *brick)
 		if (delegate_free) {
 			*delegate_free = brick;
 		} else {
-			brick_mem_free(brick);
+			_mem_record(brick);
 		}
 		mars_trigger();
 	} else {
@@ -3032,6 +3078,7 @@ int mars_kill_brick_all(struct mars_global *global, struct list_head *anchor, bo
 		}
 	}
 	if (global) {
+		_mem_free(FREELIST_RESERVE);
 		up_write(&global->brick_mutex);
 	}
 done:
@@ -3661,5 +3708,6 @@ int __init init_sy(void)
 
 void exit_sy(void)
 {
+	_mem_free(0);
 	MARS_INF("exit_sy()\n");
 }
