@@ -2558,6 +2558,7 @@ EXPORT_SYMBOL_GPL(mars_kill_dent);
 
 void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 {
+	void *d_private;
 	int i;
 
 	CHECK_PTR(dent, fatal);
@@ -2573,11 +2574,14 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 		free_mars_global(dent->d_subtree);
 	}
 
-	if (dent->d_private) {
+	d_private = dent->d_private;
+	if (d_private) {
 		if (dent->d_private_destruct) {
-			dent->d_private_destruct(dent->d_private);
+			dent->d_private_destruct(d_private);
 		}
-		brick_mem_free(dent->d_private);
+		brick_mem_free(d_private);
+		dent->d_private = NULL;
+		dent->d_private_destruct = NULL;
 	}
 
 	for (i = 0; i < MARS_ARGV_MAX; i++) {
