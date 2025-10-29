@@ -3015,9 +3015,6 @@ int mars_kill_brick(struct mars_brick *brick)
 
 		MARS_DBG("---> freeing '%s' '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
 
-		if (brick->kill_ptr)
-			*brick->kill_ptr = NULL;
-		
 		for (i = 0; i < max_inputs; i++) {
 			struct mars_input *input = brick->inputs[i];
 			if (!input)
@@ -3030,6 +3027,10 @@ int mars_kill_brick(struct mars_brick *brick)
 		}
 		if (failed)
 			goto done;
+		if (brick->kill_ptr) {
+			*brick->kill_ptr = NULL;
+			brick->kill_ptr = NULL;
+		}
 		if (likely(brick->free)) {
 			status = brick->free(brick);
 			if (unlikely(status < 0)) {
