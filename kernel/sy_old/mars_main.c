@@ -2608,23 +2608,6 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		make_msg(msg_pair, "disabling fetch due to detach / rmmod");
 		do_start = false;
 	}
-#if 0
-	/* Disabled for now. Re-enable this code after a new feature has been
-	 * implemented: when pause-replay is given, /dev/mars/mydata should
-	 * appear in _readonly_ form.
-	 * The idea is to _not_ disable the fetch during this!
-	 * You may draw a backup from the readonly device without losing your
-	 * redundancy, because the transactions logs will contiue to be updated.
-	 * Until the new feature is implemented, use
-	 * "marsadm pause-replay $res; marsadm detach $res; mount -o ro /dev/lv/$res"
-	 * as a workaround.
-	 */
-	if (do_start && !_check_allow(parent->d_path, "attach")) {
-		MARS_DBG("disabling fetch due to detach\n");
-		make_msg(msg_pair, "disabling fetch due to detach");
-		do_start = false;
-	}
-#endif
 	if (do_start && !_check_allow(parent->d_path, "connect")) {
 		MARS_DBG("disabling fetch due to disconnect\n");
 		make_msg(msg_pair, "disabling fetch due to disconnect");
@@ -2666,15 +2649,6 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		copy->copy_limiter = &rot->fetch_limiter;
 		if (do_start)
 			rot->retry_log_from = 0;
-#if 0
-		// FIXME: code is dead
-		if (copy->append_mode && copy->power.led_on &&
-		    end_pos > copy->copy_end) {
-			MARS_DBG("appending to '%s' %lld => %lld\n", copy_path, copy->copy_end, end_pos);
-			// FIXME: use corrected length from mars_get_info() / see _set_copy_params()
-			copy->copy_end = end_pos;
-		}
-#endif
 		if (copy->copy_last == copy->copy_start &&
 		    (copy->copy_end < 0 ||
 		     copy->copy_end > copy->copy_start)) {
