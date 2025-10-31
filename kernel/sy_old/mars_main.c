@@ -2580,7 +2580,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	const char *tmp = path_make("%s@%s", file, peer);
 #endif
 	const char *argv[2] = { tmp, file };
-	struct copy_brick *copy = NULL;
+	struct copy_brick *fetch_brick = NULL;
 	struct key_value_pair *msg_pair;
 	loff_t start_pos;
 	bool do_start = true;
@@ -2643,25 +2643,26 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 			     start_pos,
 			     -1, 
 			     false, false, false, true,
-			     &copy,
+			     &fetch_brick,
 			     NULL, NULL);
-	if (status >= 0 && copy) {
-		copy->copy_limiter = &rot->fetch_limiter;
+	rot->fetch_brick = fetch_brick;
+	if (status >= 0 && fetch_brick) {
+		fetch_brick->copy_limiter = &rot->fetch_limiter;
 		if (do_start)
 			rot->retry_log_from = 0;
-		if (copy->copy_last == copy->copy_start &&
-		    (copy->copy_end < 0 ||
-		     copy->copy_end > copy->copy_start)) {
+		if (fetch_brick->copy_last == fetch_brick->copy_start &&
+		    (fetch_brick->copy_end < 0 ||
+		     fetch_brick->copy_end > fetch_brick->copy_start)) {
 			if (!rot->fetch_jiffies)
 				rot->fetch_jiffies = jiffies;
 		} else {
 			rot->fetch_jiffies = 0;
 		}
 		/* When done, immediately trigger next fetch from peers */
-		if (rot->old_fetch_on && !copy->power.led_on) {
+		if (rot->old_fetch_on && !fetch_brick->power.led_on) {
 			mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE);
 		}
-		rot->old_fetch_on = copy->power.led_on;
+		rot->old_fetch_on = fetch_brick->power.led_on;
 	} else {
 		rot->fetch_jiffies = 0;
 	}
