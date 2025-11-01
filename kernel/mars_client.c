@@ -454,9 +454,11 @@ long _compute_timeout(struct client_brick *brick, bool for_info)
 {
 	long io_timeout = brick->power.io_timeout;
 
-	if (io_timeout <= 0)
+	if (io_timeout <= 0 ||
+	    (io_timeout > global_net_io_timeout &&
+	     global_net_io_timeout > 0))
 		io_timeout = global_net_io_timeout;
-	if (for_info && io_timeout > mars_client_info_timeout)
+	if (for_info && io_timeout > mars_client_info_timeout && mars_client_info_timeout > 0)
 		io_timeout = mars_client_info_timeout;
 	
 	return io_timeout;
