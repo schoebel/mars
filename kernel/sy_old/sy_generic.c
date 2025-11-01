@@ -1388,7 +1388,7 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 				MARS_ERR("CANNOT SWITCH OFF: brick '%s' '%s' type='%s' has a successor\n",
 					 brick->brick_name, brick->brick_path,
 					 brick->type ? brick->type->type_name : "(unknown)");
-				goto done;
+				goto invariant;
 			}
 		}
 
@@ -1400,6 +1400,7 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 		set_button(&brick->power, val, false);
 	}
 
+ invariant:
 	if (unlikely(!brick->ops)) {
 		MARS_ERR("brick '%s' '%s' has no brick_switch() method\n", brick->brick_name, brick->brick_path);
 		status = -EINVAL;
