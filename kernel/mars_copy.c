@@ -1177,6 +1177,8 @@ static int copy_switch(struct copy_brick *brick)
 			brick->copy_last = brick->copy_start;
 			brick->copy_dirty = 0;
 			brick->terminated = false;
+			atomic_set(&brick->copy_read_flight, 0);
+			atomic_set(&brick->copy_write_flight, 0);
 			mars_power_led_on((void*)brick, true);
 			get_lamport(NULL, &brick->copy_last_stamp);
 			brick->thread = brick_thread_create(_copy_thread, brick, "mars_copy%d", version++);
