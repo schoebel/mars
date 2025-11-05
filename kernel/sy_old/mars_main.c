@@ -2762,7 +2762,7 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	}
 
 	// check whether connection is allowed
-	switch_path = path_make("%s/todo-%s/connect", parent->d_path, my_id());
+	switch_path = path_make("%s/todo-%s/connect", rot->parent_path, my_id());
 
 	// check whether copy is necessary
 	fetch_brick = rot->fetch_brick;
