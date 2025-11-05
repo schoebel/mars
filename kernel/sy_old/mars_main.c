@@ -914,6 +914,7 @@ struct mars_rotate {
 	int fetch_round;
 	int fetch_serial;
 	int fetch_next_serial;
+	int fetch_switches;
 	int repair_log_seq;
 	int split_brain_serial;
 	int split_brain_round;
@@ -2792,7 +2793,19 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 			// treat copy brick instance underway
 			status = _update_file(parent, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
 			MARS_DBG("re-update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
+		} else {
+			int fetch_switches =
+				_check_allow(rot->parent_path, "attach") +
+				_check_allow(rot->parent_path, "connect") * 2;
+			/* treat any switch changes of fetcher */
+			if (fetch_switches != rot->fetch_switches) {
+				rot->fetch_switches = fetch_switches;
+				status = _update_file(parent, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
+			}
 		}
+
+
+
 	/* Try to self-repair any damaged logfiles.
 	 */
 	} else if ((rot->is_log_damaged | rot->log_is_really_damaged) &&
