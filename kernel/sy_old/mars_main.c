@@ -1959,13 +1959,13 @@ int _show_actual(const char *path, const char *name, bool val)
 }
 
 static
-void _show_primary(struct mars_rotate *rot, struct mars_dent *parent)
+void _show_primary(struct mars_rotate *rot)
 {
 	int status;
-	if (!rot || !parent) {
+	if (!rot) {
 		return;
 	}
-	status = _show_actual(parent->d_path, "is-primary", rot->is_primary);
+	status = _show_actual(rot->parent_path, "is-primary", rot->is_primary);
 	if (rot->is_primary != rot->old_is_primary) {
 		rot->old_is_primary = rot->is_primary;
 		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
@@ -6369,7 +6369,7 @@ done:
 	_show_dev(rot);
 	rot->is_primary =
 		rot->if_brick && !rot->if_brick->power.led_off;	
-	_show_primary(rot, parent);
+	_show_primary(rot);
 err:
 	return status;
 }
