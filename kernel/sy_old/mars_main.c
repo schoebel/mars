@@ -4645,7 +4645,7 @@ int make_log_init(struct mars_dent *dent)
 	assign_dent(&rot->aio_dent, aio_dent);
 
 	// check whether attach is allowed
-	switch_on = _check_allow(parent->d_path, "attach");
+	switch_on = _check_allow(rot->parent_path, "attach");
 	if (switch_on && rot->res_shutdown) {
 		MARS_ERR("cannot start transaction logger: resource shutdown mode is currently active\n");
 		switch_on = false;
@@ -5073,7 +5073,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 		 */
 		if (rot->todo_primary && !rot->is_primary &&
 		    !rot->fetch_brick &&
-		    !_check_allow(parent->d_path, "connect") &&
+		    !_check_allow(rot->parent_path, "connect") &&
 		    _check_allow(rot->parent_path, "attach")) {
 			MARS_WRN("FORCING transaction log '%s' %lld < %lld as finished\n",
 				 rot->aio_dent->d_path,
@@ -5259,7 +5259,7 @@ int _make_logging_status(struct mars_rotate *rot)
 				} else {
 					bool want_bypass =
 						(rot->todo_primary &&
-						 !_check_allow(parent->d_path,
+						 !_check_allow(rot->parent_path,
 							       "connect"));
 					if (want_bypass) {
 						MARS_INF_TO(rot->log_say,
@@ -5735,7 +5735,8 @@ int make_log_finalize(struct mars_dent *dent)
 		MARS_ERR_TO(rot->log_say, "EMEGENCY MODE HYSTERESIS on %s: you need to free more space for recovery.\n", rot->parent_path);
 		make_rot_msg(rot, "err-space-low", "EMEGENCY MODE HYSTERESIS: you need to free more space for recovery.");
 	} else {
-		int limit = _check_allow(parent->d_path, "emergency-limit");
+		int limit = _check_allow(rot->parent_path, "emergency-limit");
+
 		rot->has_emergency = (limit > 0 && global_remaining_space * 100 / global_total_space < limit);
 		MARS_DBG("has_emergency=%d limit=%d remaining_space=%lld total_space=%lld\n",
 			 rot->has_emergency, limit, global_remaining_space, global_total_space);
@@ -5945,15 +5946,15 @@ int make_log_finalize(struct mars_dent *dent)
 				trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance;
 			do_stop = trans_brick->replay_code != TL_REPLAY_RUNNING ||
 				!mars_global->global_power.button ||
-				!_check_allow(parent->d_path, "allow-replay") ||
-				!_check_allow(parent->d_path, "attach") ;
+				!_check_allow(rot->parent_path, "allow-replay") ||
+				!_check_allow(rot->parent_path, "attach") ;
 
 		} else {
 			do_stop =
 				!rot->if_brick &&
 				!rot->is_primary &&
 				(!rot->todo_primary ||
-				 !_check_allow(parent->d_path, "attach"));
+				 !_check_allow(rot->parent_path, "attach"));
 		}
 
 		MARS_DBG("replay_mode = %d replay_code = %d is_primary = %d do_stop = %d\n", trans_brick->replay_mode, trans_brick->replay_code, rot->is_primary, (int)do_stop);
@@ -5987,8 +5988,8 @@ int make_log_finalize(struct mars_dent *dent)
 
 		do_start = (!rot->replay_mode ||
 			    (rot->start_pos != rot->end_pos &&
-			     _check_allow(parent->d_path, "attach") &&
-			     _check_allow(parent->d_path, "allow-replay")));
+			     _check_allow(rot->parent_path, "attach") &&
+			     _check_allow(rot->parent_path, "allow-replay")));
 
 		if (do_start && rot->forbid_replay) {
 			MARS_INF("cannot start replay because sync wants to start\n");
@@ -6648,7 +6649,7 @@ static int make_sync(struct mars_dent *dent)
 	}
 	rot = dent->d_parent->d_private;
 
-	do_start = _check_allow(dent->d_parent->d_path, "attach");
+	do_start = _check_allow(rot->parent_path, "attach");
 
 	/* Determine peer
 	 */
