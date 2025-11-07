@@ -585,6 +585,8 @@ int handler_thread(void *data)
 				up(&brick->socket_sem);
 			}
 
+			mars_free_dent_all(handler_global);
+
 			status = mars_get_dent_list(
 				handler_global,
 				path,
@@ -609,7 +611,6 @@ int handler_thread(void *data)
 				MARS_WRN("#%d could not send dentry information, status = %d\n", sock->s_debug_nr, status);
 			}
 
-			mars_free_dent_all(handler_global);
 			break;
 		}
 		case CMD_CONNECT:
@@ -762,6 +763,8 @@ int handler_thread(void *data)
 		MARS_DBG("#%d stopping callback thread....\n", sock->s_debug_nr);
 		brick_thread_stop(thread);
 	}
+
+	mars_free_dent_all(handler_global);
 
 	debug_nr = sock->s_debug_nr;
 	
