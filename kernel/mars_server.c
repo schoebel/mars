@@ -610,6 +610,7 @@ int handler_thread(void *data)
 
 			if (status < 0) {
 				MARS_WRN("#%d could not send dentry information, status = %d\n", sock->s_debug_nr, status);
+				goto clean;
 			}
 
 			break;
