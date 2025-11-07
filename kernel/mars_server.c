@@ -578,11 +578,12 @@ int handler_thread(void *data)
 				down(&brick->socket_sem);
 				status = mars_send_cmd(sock, &cmd, true);
 				old_proto_level = sock->s_common_proto_level;
+				up(&brick->socket_sem);
 				if (unlikely(status < 0)) {
 					MARS_WRN("#%d could not send inter_cmd, status = %d\n",
 						 sock->s_debug_nr, status);
+					goto clean;
 				}
-				up(&brick->socket_sem);
 			}
 
 			mars_free_dent_all(handler_global);
