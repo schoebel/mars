@@ -2384,7 +2384,7 @@ void kill_terminated_peers(void)
 	if (to_kill) {
 		run_bones(to_kill);
 		_kill_peer(to_kill);
-		brick_mem_free(to_kill);
+		_mem_record(to_kill);
 		mars_running_additional_peers--;
 	}
 }
@@ -3433,7 +3433,7 @@ int peer_thread(void *data)
 
 			brick_string_free(push->src);
 			brick_string_free(push->dst);
-			brick_mem_free(push);
+			_mem_record(push);
 		}
 		if (status < 0) {
 			if (list_empty(&tmp_push_list))
@@ -3792,7 +3792,7 @@ static int _kill_peer(struct mars_peerinfo *peer)
 		mutex_unlock(&peer->peer_lock);
 		brick_string_free(push->src);
 		brick_string_free(push->dst);
-		brick_mem_free(push);
+		_mem_record(push);
 	}
 	if (old_global) {
 		mars_free_dent_all(old_global);
@@ -3999,7 +3999,7 @@ static int kill_scan(struct mars_dent *dent)
 	}
 	dent->d_private = NULL;
 	res = _kill_peer(peer);
-	brick_mem_free(peer);
+	_mem_record(peer);
 	return res;
 }
 
@@ -4126,7 +4126,7 @@ void launch_all(bool cleanup)
 		brick_string_free(launch->peer_name);
 		brick_string_free(launch->peer_ip);
 		brick_string_free(launch->rebase_dir);
-		brick_mem_free(launch);
+		_mem_record(launch);
 	}
 	up_write(&launch_lock);
 }
@@ -7761,6 +7761,7 @@ static int _main_thread(void *data)
 
 
 		update_brick_mem_freelist_max();
+		_mem_free(FREELIST_RESERVE);
 
 		down_read(&rot_sem);
 		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
@@ -7978,6 +7979,7 @@ static void exit_main(void)
 	 * scheduler.
 	 */
 	brick_msleep(1000);
+	_mem_free(0);
 }
 
 static noinline
