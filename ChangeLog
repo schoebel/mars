@@ -185,6 +185,14 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable181
+	(bugfix release)
+	* Fixed multiple races, some very rare and complicated.
+	* Fixed rare mem corruption problems in long-lasting
+	  network hang scenarios.
+	* Fixed non-working switchoff special case after
+	  leave-resource (not observed at invalidate).
+
 mars0.1astable180
 	* New feature via /mars/actual-*/*_permille :
 	  Filling level of /mars is reported  both for local usage,
