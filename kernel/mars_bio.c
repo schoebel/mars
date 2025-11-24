@@ -942,6 +942,7 @@ static int bio_switch(struct bio_brick *brick)
 		brick->mode_ptr = NULL;
 		brick->bdev = NULL;
 		if (!brick->power.button) {
+			mars_power_led_on((void*)brick, false);
 			mars_power_led_off((void*)brick, true);
 			brick->total_size = 0;
 		}
