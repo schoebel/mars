@@ -925,14 +925,43 @@ static int bio_switch(struct bio_brick *brick)
 	
  done:
 	if (status < 0 || !brick->power.button) {
-		if (brick->submit_thread) {
-			brick_thread_stop(brick->submit_thread);
+		brick_thread_t *submit_thread = brick->submit_thread;
+
+		if (submit_thread) {
+			unsigned long flags;
+			bool submitted;
+
+			spin_lock_irqsave(&brick->lock, flags);
+			submitted =
+				!list_empty(&brick->submitted_list[0]) |
+				!list_empty(&brick->submitted_list[1]);
+			spin_unlock_irqrestore(&brick->lock, flags);
+			if (submitted) {
+				/* We need to wait until the lists are empty
+				 * before we can really stop the submission.
+				 */
+				goto really_done;
+			}
 			brick->submit_thread = NULL;
+			brick_thread_stop(submit_thread);
 		}
 		for (i = 0; i < BIO_RESPONSE_THREADS; i++) {
-			if (brick->rsp[i].response_thread) {
-				brick_thread_stop(brick->rsp[i].response_thread);
+			brick_thread_t *response_thread = brick->rsp[i].response_thread;
+
+			if (response_thread) {
+				int fly_count =
+					atomic_read(&brick->fly_count[0]) +
+					atomic_read(&brick->fly_count[1]) +
+					atomic_read(&brick->fly_count[2]);
+
+				if (fly_count > 0) {
+					/* We need to wait until all submissions are done
+					 * before we can really stop the response threads.
+					 */
+					goto really_done;
+				}
 				brick->rsp[i].response_thread = NULL;
+				brick_thread_stop(response_thread);
 			}
 		}
 		if (brick->mf) {
@@ -947,6 +976,7 @@ static int bio_switch(struct bio_brick *brick)
 			brick->total_size = 0;
 		}
 	}
+ really_done:
 	return status;
 }
 
