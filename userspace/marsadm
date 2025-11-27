@@ -8307,12 +8307,40 @@ sub eval_fn {
 	return 0 if $rest > 0;
       }
       # are all logfiles applied which had accumulated during sync?
-      my $replay  = get_link($$env{"resdir"} . "/replay-" . $$env{"host"}, 1);
+      my $replay_path = $$env{"resdir"} . "/replay-" . $$env{"host"};
+      my $replay  = get_link($replay_path, 1);
       return 0 unless $replay;
       my $syncpos = get_link($$env{"resdir"} . "/syncpos-" . $$env{"host"}, 2);
       if (defined($syncpos) && $syncpos) {
 	my $cmp = compare_replaylinks($syncpos, $replay);
 	return 0 if $cmp > 0;
+      }
+      # Does the designated primary have a differing replaylink?
+      my $primary = _get_designated_primary($$env{"res"});
+      if ($primary && $primary ne "(none)" && $primary ne $$env{"host"}) {
+	my $lnk = $$env{"resdir"} . "/replay-$primary";
+	# beware of races between replaylink updates
+	if (!is_link_recent($lnk, $window/2) &&
+	    !is_link_recent($replay_path, $window/2)) {
+	  my $primary_replay = get_link($lnk, 1);
+	  # ignore the current position,length, not relevant for real consistency violations
+	  $primary_replay =~ m/^([^,]*)/;
+	  my $val1 = $1;
+	  $replay         =~ m/^([^,]*)/;
+	  my $val2 = $1;
+	  return 0 if $val1 ne $val2;
+	}
+      }
+      # Is there any other (split-brain?) primary with a differing replaylink?
+      foreach my $peer (get_any_peers($$env{"res"})) {
+	next if $peer eq $real_host;
+	next if $peer eq $primary; # already tested
+	my $lnk = $$env{"resdir"} . "/actual-$peer/is-primary";
+	my $is_primary = get_link($lnk, 1);
+	if ($is_primary) {
+	  my $peer_replay = get_link($$env{"resdir"} . "/replay-$peer", 1);
+	  return 0 if $peer_replay ne $replay;
+	}
       }
       return 1;
     }
