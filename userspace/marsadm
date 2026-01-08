@@ -7311,6 +7311,9 @@ sub invalidate_res_phase7 {
 sub invalidate_res_phase8 {
   my ($cmd, $res) = @_;
   _wait_delete();
+  # the new replaylink will protect this purge
+  log_purge_res(@_);
+  finish_links();
   return 0;
 }
 
