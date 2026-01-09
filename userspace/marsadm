@@ -9108,13 +9108,11 @@ my %complex_macros =
    "diskstate-1and1"
    => "%if{%disk-present{}}{"
    .    "%if{%does{attach}}{"
-   .      "%if{%is-almost-consistent{}}{"
-   .        "%if{%work-reached{}}{"
+   .      "%if{%work-reached{}}{"
    .          "Uptodate"
-   .        "}{"
+   .      "}{"
    .          "Outdated[%call{outdated-flags-1and1}]"
-   .        "}"
-   .      "}{Inconsistent}"
+   .      "}"
    .    "}{Detached}"
    .  "}{Detached}",
 
