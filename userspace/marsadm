@@ -8517,8 +8517,16 @@ sub eval_fn {
     }
     if (/^(fetch|work)[-_]?(size)$/) {
       my $what = $1;
-      my ($sum0) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
-      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 0);
+      my $host = $$env{"host"};
+      # the primary tells us the goal we need to reach...
+      if (!is_actual_primary($$env{"cmd"}, $$env{"res"}, $host)) {
+	my $primary = _get_designated_primary($$env{"res"});
+	$host = $primary if
+	  ($primary && $primary ne "(none)" && $primary ne $host &&
+	   detect_splitbrain($$env{"res"}, 0));
+      }
+      my ($sum0) = get_amount($$env{"resdir"}, $host, -1, 0);
+      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $host, 1, 0);
       return $sum0 + $sum;
     }
     if (/^(sync|fetch|replay|work)[-_]?(rest|(?:almost[-_]?|threshold[-_]?)?reached|percent|permille|vector)$/) {
