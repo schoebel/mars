@@ -3585,6 +3585,29 @@ sub compare_replaylinks {
 
 ##################################################################
 
+my %version_stop;
+
+sub set_version_stop {
+  my ($resdir, $host) = @_;
+  # foreign hosts my have incomplete infos: do not try to access
+  return if $host eq $real_host;
+  if (!$version_stop{$host}{$resdir}) {
+    my $smallest = 0;
+    my $glob = sprintf("%s/log-*-%s", $resdir, $host);
+    foreach my $file (lamport_glob($glob)) {
+      my ($nr, $name) = ($file =~ m/-([0-9]+)-(.*)/);
+      $smallest = $nr if (!$smallest || $smallest < $nr);
+    }
+    $glob = sprintf("%s/version-*-%s", $resdir, $real_host);
+    foreach my $file (lamport_glob($glob)) {
+      my ($nr, $name) = ($file =~ m/-([0-9]+)-(.*)/);
+      $smallest = $nr if (!$smallest || $smallest < $nr);
+    }
+    $version_stop{$host}{$resdir} = $smallest;
+  }
+  return $version_stop{$host}{$resdir};
+}
+
 sub get_amount {
   my ($resdir, $host, $direction, $only_files, $sum_up_numbers) = @_;
   my $level = 0;
@@ -3666,6 +3689,11 @@ sub get_amount {
     if ($direction > 0) {
       $logpos++;
     } elsif ($direction < 0) {
+      # foreign hosts may have incomplete infos: do not try to cross
+      my $smallest = set_version_stop($resdir, $host);
+      if ($smallest && $logpos == $smallest) {
+	return ($sum, $first_number, $oldpos, $level);
+      }
       $logpos--;
       return ($sum, $first_number, $oldpos, $level) if $logpos < 1;
     } else {
@@ -8511,6 +8539,7 @@ sub eval_fn {
       return $sum;
     }
     if (/^(replay[-_]?size)|(fetch[-_]?pos)$/) {
+      set_version_stop($$env{"resdir"}, $$env{"host"});
       my ($sum0) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
       my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 1);
       return $sum0 + $sum;
@@ -8525,6 +8554,7 @@ sub eval_fn {
 	  ($primary && $primary ne "(none)" && $primary ne $host &&
 	   detect_splitbrain($$env{"res"}, 0));
       }
+      set_version_stop($$env{"resdir"}, $host);
       my ($sum0) = get_amount($$env{"resdir"}, $host, -1, 0);
       my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $host, 1, 0);
       return $sum0 + $sum;
