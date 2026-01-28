@@ -1055,6 +1055,7 @@ static int _copy_thread(void *data)
 {
 	struct copy_brick *brick = data;
 	struct lamport_time last_progress;
+	int safe_timeout = mars_copy_timeout / 4;
 	int i;
 
 	MARS_DBG("--------------- copy_thread %p starting\n", brick);
@@ -1107,13 +1108,16 @@ static int _copy_thread(void *data)
 			/* abort when no progress is made for a longer time */
 			if (progress > 0) {
 				get_real_lamport(&last_progress);
+				safe_timeout = mars_copy_timeout / 4;
 			} else {
 				struct lamport_time next_progress;
 
 				get_real_lamport(&next_progress);
-				next_progress.tv_sec -= mars_copy_timeout;
-				if (lamport_time_compare(&next_progress, &last_progress) > 0)
+				next_progress.tv_sec -= safe_timeout;
+				if (lamport_time_compare(&next_progress, &last_progress) > 0) {
 					brick->is_aborting = true;
+					safe_timeout = mars_copy_timeout;
+				}
 			}
 		}
 
