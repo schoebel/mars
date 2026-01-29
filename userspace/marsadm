@@ -3585,6 +3585,29 @@ sub compare_replaylinks {
 
 ##################################################################
 
+my %version_stop;
+
+sub set_version_stop {
+  my ($resdir, $host) = @_;
+  # foreign hosts my have incomplete infos: do not try to access
+  return if $host eq $real_host;
+  if (!$version_stop{$host}{$resdir}) {
+    my $smallest = 0;
+    my $glob = sprintf("%s/log-*-%s", $resdir, $host);
+    foreach my $file (lamport_glob($glob)) {
+      my ($nr, $name) = ($file =~ m/-([0-9]+)-(.*)/);
+      $smallest = $nr if (!$smallest || $smallest < $nr);
+    }
+    $glob = sprintf("%s/version-*-%s", $resdir, $real_host);
+    foreach my $file (lamport_glob($glob)) {
+      my ($nr, $name) = ($file =~ m/-([0-9]+)-(.*)/);
+      $smallest = $nr if (!$smallest || $smallest < $nr);
+    }
+    $version_stop{$host}{$resdir} = $smallest;
+  }
+  return $version_stop{$host}{$resdir};
+}
+
 sub get_amount {
   my ($resdir, $host, $direction, $only_files, $sum_up_numbers) = @_;
   my $level = 0;
@@ -3666,6 +3689,11 @@ sub get_amount {
     if ($direction > 0) {
       $logpos++;
     } elsif ($direction < 0) {
+      # foreign hosts may have incomplete infos: do not try to cross
+      my $smallest = set_version_stop($resdir, $host);
+      if ($smallest && $logpos == $smallest) {
+	return ($sum, $first_number, $oldpos, $level);
+      }
       $logpos--;
       return ($sum, $first_number, $oldpos, $level) if $logpos < 1;
     } else {
@@ -7311,6 +7339,9 @@ sub invalidate_res_phase7 {
 sub invalidate_res_phase8 {
   my ($cmd, $res) = @_;
   _wait_delete();
+  # the new replaylink will protect this purge
+  log_purge_res(@_);
+  finish_links();
   return 0;
 }
 
@@ -8276,12 +8307,40 @@ sub eval_fn {
 	return 0 if $rest > 0;
       }
       # are all logfiles applied which had accumulated during sync?
-      my $replay  = get_link($$env{"resdir"} . "/replay-" . $$env{"host"}, 1);
+      my $replay_path = $$env{"resdir"} . "/replay-" . $$env{"host"};
+      my $replay  = get_link($replay_path, 1);
       return 0 unless $replay;
       my $syncpos = get_link($$env{"resdir"} . "/syncpos-" . $$env{"host"}, 2);
       if (defined($syncpos) && $syncpos) {
 	my $cmp = compare_replaylinks($syncpos, $replay);
 	return 0 if $cmp > 0;
+      }
+      # Does the designated primary have a differing replaylink?
+      my $primary = _get_designated_primary($$env{"res"});
+      if ($primary && $primary ne "(none)" && $primary ne $$env{"host"}) {
+	my $lnk = $$env{"resdir"} . "/replay-$primary";
+	# beware of races between replaylink updates
+	if (!is_link_recent($lnk, $window/2) &&
+	    !is_link_recent($replay_path, $window/2)) {
+	  my $primary_replay = get_link($lnk, 1);
+	  # ignore the current position,length, not relevant for real consistency violations
+	  $primary_replay =~ m/^([^,]*)/;
+	  my $val1 = $1;
+	  $replay         =~ m/^([^,]*)/;
+	  my $val2 = $1;
+	  return 0 if $val1 ne $val2;
+	}
+      }
+      # Is there any other (split-brain?) primary with a differing replaylink?
+      foreach my $peer (get_any_peers($$env{"res"})) {
+	next if $peer eq $real_host;
+	next if $peer eq $primary; # already tested
+	my $lnk = $$env{"resdir"} . "/actual-$peer/is-primary";
+	my $is_primary = get_link($lnk, 1);
+	if ($is_primary) {
+	  my $peer_replay = get_link($$env{"resdir"} . "/replay-$peer", 1);
+	  return 0 if $peer_replay ne $replay;
+	}
       }
       return 1;
     }
@@ -8508,14 +8567,24 @@ sub eval_fn {
       return $sum;
     }
     if (/^(replay[-_]?size)|(fetch[-_]?pos)$/) {
+      set_version_stop($$env{"resdir"}, $$env{"host"});
       my ($sum0) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
       my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 1);
       return $sum0 + $sum;
     }
     if (/^(fetch|work)[-_]?(size)$/) {
       my $what = $1;
-      my ($sum0) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
-      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 0);
+      my $host = $$env{"host"};
+      # the primary tells us the goal we need to reach...
+      if (!is_actual_primary($$env{"cmd"}, $$env{"res"}, $host)) {
+	my $primary = _get_designated_primary($$env{"res"});
+	$host = $primary if
+	  ($primary && $primary ne "(none)" && $primary ne $host &&
+	   detect_splitbrain($$env{"res"}, 0));
+      }
+      set_version_stop($$env{"resdir"}, $host);
+      my ($sum0) = get_amount($$env{"resdir"}, $host, -1, 0);
+      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $host, 1, 0);
       return $sum0 + $sum;
     }
     if (/^(sync|fetch|replay|work)[-_]?(rest|(?:almost[-_]?|threshold[-_]?)?reached|percent|permille|vector)$/) {
@@ -9076,21 +9145,21 @@ my %complex_macros =
    .    "}{"
    .      "DefectiveLog"
    .    "}[%replay-code{}=%errno-text{%replay-code{}}]"
-   .  "}{%is-orphan{}}{"
-   .    "Orphan"
    .  "}{%not{%is-attach{}}}{"
    .    "NoAttach"
-   .  "}{%not{%is-consistent{}}}{"
+   .  "}{%is-orphan{}}{"
+   .    "Orphan"
+   .  "}{%not{%work-reached{}}}{"
    .    "%elsif{%not{%todo-primary{}}}{"
-   .      "InConsistent"
+   .      "OutDated[%call{outdated-flags}]"
    .    "}{%is-primary{}}{"
    .      "WriteBack[%human-numbers{}{ }{ }{%writeback-rest{}}]"
    .    "}{"
    .      "Recovery[%human-numbers{}{ }{ }{%writeback-rest{}}]"
    .    "}"
-   .  "}{%not{%work-reached{}}}{"
+   .  "}{%not{%is-consistent{}}}{"
    .    "%elsif{%not{%todo-primary{}}}{"
-   .      "OutDated[%call{outdated-flags}]"
+   .      "InConsistent"
    .    "}{%is-primary{}}{"
    .      "WriteBack[%human-numbers{}{ }{ }{%writeback-rest{}}]"
    .    "}{"
@@ -9105,13 +9174,11 @@ my %complex_macros =
    "diskstate-1and1"
    => "%if{%disk-present{}}{"
    .    "%if{%does{attach}}{"
-   .      "%if{%is-almost-consistent{}}{"
-   .        "%if{%work-reached{}}{"
+   .      "%if{%work-reached{}}{"
    .          "Uptodate"
-   .        "}{"
+   .      "}{"
    .          "Outdated[%call{outdated-flags-1and1}]"
-   .        "}"
-   .      "}{Inconsistent}"
+   .      "}"
    .    "}{Detached}"
    .  "}{Detached}",
 

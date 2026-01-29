@@ -37009,6 +37009,27 @@ fetch-pos
 bytes
 \emph default
 , not kilobytes.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 9
+	scale 5
+
+\end_inset
+
+In case of split brain, we cannot know which potential primary will become
+ the future surviving primary.
+ Thus we report only the 
+\emph on
+local
+\emph default
+ size of the logfiles we have followed in the past, but this may become
+ wrong in future.
+ Don't rely on this in split-brain situations, as well as during network
+ problems.
 \end_layout
 
 \begin_layout Labeling
