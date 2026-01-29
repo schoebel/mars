@@ -185,6 +185,20 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable182
+	(bugfix / housekeeping release)
+	* marsadm: fixed reporting of macro is-consistent{}.
+	  This could have caused unnecessary monitoring alerts.
+	  Now also reports during relevant split-brain scenarios.
+	* marsadm: fixed macros {fetch,work}-{size,reached}{} and
+	  their imbalance between primary and secondaries.
+	* marsadm: fixed UpToDate reporting in corner cases.
+	* marsadm: fixed misleading Orphan reporting.
+	* marsadm: avoid disturbing remains at invalidate.
+	* fixed hanging pause-fetch when network is defective.
+	* fixed corner case of io_timemout.
+	* various improvements.
+
 mars0.1astable181
 	(bugfix release)
 	* Fixed multiple races, some very rare and complicated.
