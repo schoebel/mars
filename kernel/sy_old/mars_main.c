@@ -901,8 +901,6 @@ struct mars_rotate {
 	int inf_prev_sequence;
 	int inf_old_sequence;
 	long long flip_start;
-	loff_t sync_copy_last;
-	loff_t sync_copy_last_old;
 	loff_t dev_size;
 	loff_t start_pos;
 	loff_t end_pos;
@@ -911,7 +909,6 @@ struct mars_rotate {
 	int retry_log_from;
 	int retry_recovery;
 	int max_sequence;
-	int flip_round;
 	int fetch_round;
 	int fetch_serial;
 	int fetch_next_serial;
@@ -6630,8 +6627,6 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 	_crashme(4, true);
 
 	status = _update_link_when_necessary(rot, "syncstatus", src, dst, false);
-	if (!status)
-		rot->sync_copy_last = copy_last;
 
 	brick_string_free(src);
 	brick_string_free(dst);
@@ -6842,39 +6837,6 @@ static int make_sync(struct mars_dent *dent)
 		do_start = false;
 	}
 
-	/* Flip between replay and sync
-	 */
-	if (do_start && rot->replay_mode && rot->end_pos > rot->start_pos &&
-	    mars_sync_flip_interval >= 8) {
-		if (!rot->flip_start) {
-			/* Give replay a chance to jump in, e.g. when
-			 * multiple logrotates are necessary, or when
-			 * logfiles are damaged, etc.
-			 * Exception: the current logfile cannot be freed
-			 * anyway.
-			 */
-			if (!rot->next_relevant_log ||
-			    rot->flip_round++ > 0) {
-				rot->flip_start = jiffies;
-				rot->flip_round = 0;
-			} else {
-				do_start = false;
-			}
-		} else if ((long long)jiffies - rot->flip_start > mars_sync_flip_interval * HZ &&
-			   rot->sync_brick &&
-			   rot->sync_brick->power.led_on &&
-			   rot->sync_copy_last != rot->sync_copy_last_old) {
-			rot->sync_copy_last_old = rot->sync_copy_last;
-			do_start = false;
-			rot->flip_start = 0;
-			rot->flip_round = 0;
-			mars_trigger();
-		}
-	} else {
-		rot->flip_start = 0;
-		rot->flip_round = 0;
-	}
-
  shortcut:
 	/* Start copy
 	 */
@@ -6899,6 +6861,9 @@ static int make_sync(struct mars_dent *dent)
 		goto done;
 
 	if (do_start && rot->sync_jiffies) {
+		/* Limit the runtime of sync.
+		 * This allows replay to take over.
+		 */
 		unsigned long delta_jiffies =
 #ifdef CONFIG_MARS_SYNC_FLIP_INTERVAL
 			CONFIG_MARS_SYNC_FLIP_INTERVAL * (HZ + HZ/2);
@@ -6938,13 +6903,8 @@ static int make_sync(struct mars_dent *dent)
 		if (copy) {
 			copy->kill_ptr = (void**)&rot->sync_brick;
 			copy->copy_limiter = &rot->sync_limiter;
-			if (!status &&
-			    copy->copy_last == copy->copy_start) {
-				if (!rot->sync_jiffies) {
-					rot->sync_jiffies = jiffies;
-				}
-			} else {
-				rot->sync_jiffies = 0;
+			if (!status && !rot->sync_jiffies) {
+				rot->sync_jiffies = jiffies;
 			}
 		} else {
 			rot->sync_jiffies = 0;
