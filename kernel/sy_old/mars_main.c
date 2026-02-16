@@ -4650,6 +4650,13 @@ int make_log_init(struct mars_dent *dent)
 		MARS_ERR("cannot start transaction logger: resource shutdown mode is currently active\n");
 		switch_on = false;
 	}
+	if (switch_on &&
+	    rot->sync_brick &&
+	    (rot->sync_brick->power.button |
+	     rot->sync_brick->power.led_on)) {
+		MARS_ERR("cannot start transaction logger: sync is currently running\n");
+		switch_on = false;
+	}
 
 	/* Fetch / make the AIO brick instance
 	 */
@@ -5542,6 +5549,14 @@ int _start_trans(struct mars_rotate *rot)
 		goto done;
 	}
 
+	/* Can we start? sync must not be running!
+	 */
+	if (rot->sync_brick &&
+	    (rot->sync_brick->power.button |
+	     rot->sync_brick->power.led_on)) {
+		MARS_ERR("cannot restart transaction logger: sync is currently running\n");
+		goto done;
+	}
 	/* Further safety checks.
 	 */
 	if (unlikely(rot->relevant_brick)) {
