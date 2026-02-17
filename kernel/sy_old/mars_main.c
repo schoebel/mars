@@ -6560,6 +6560,19 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 	if (!peer || peer[0] == '(')
 		goto done;
 
+	/* Always tell the own reached position, even when network has problems.
+	 * Otherwise, unnecessary re-sync may occur.
+	 */
+	src = path_make("%lld", copy_last);
+	dst = path_make("%s/syncstatus-%s", rot->parent_path, my_id());
+
+	_crashme(4, true);
+
+	status = _update_link_when_necessary(rot, "syncstatus", src, dst, false);
+
+	brick_string_free(src);
+	brick_string_free(dst);
+
 	/* create syncpos symlink when necessary */
 	if (copy_last == copy->copy_end && !rot->sync_finish_stamp.tv_sec) {
 		get_lamport(NULL, &rot->sync_finish_stamp);
@@ -6621,15 +6634,6 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 		}
 	}
 
-	src = path_make("%lld", copy_last);
-	dst = path_make("%s/syncstatus-%s", rot->parent_path, my_id());
-
-	_crashme(4, true);
-
-	status = _update_link_when_necessary(rot, "syncstatus", src, dst, false);
-
-	brick_string_free(src);
-	brick_string_free(dst);
 	src = path_make("%lld,%lld", copy->verify_ok_count, copy->verify_error_count);
 	dst = path_make("%s/verifystatus-%s", rot->parent_path, my_id());
 
