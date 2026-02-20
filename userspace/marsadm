@@ -6796,6 +6796,7 @@ sub attach_res_phase2 {
     check_mars_device($cmd, $res, 1, 1);
     check_status($cmd, $res, "is-replaying", 0, 1);
     check_status($cmd, $res, "is-syncing", 0, 1);
+    check_status($cmd, $res, "is-fetching", 0, 1);
     # Check that the underlying disk is not open for write anymore
     my $disc_path = "$mars/resource-$res/data-$host";
     my $backoff = 1;
