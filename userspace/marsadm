@@ -5497,6 +5497,8 @@ sub create_res {
     }
   }
 
+  finish_links();
+  _wait_delete();
   err_purge_res($cmd, $res);
 
   if (!$create) {
@@ -5592,11 +5594,11 @@ sub create_res {
     }
   }
 
+  finish_links();
+  _wait_delete();
   # purge before complaining
   log_purge_res($cmd, $res);
   err_purge_res($cmd, $res);
-  finish_links();
-  _wait_delete();
 
   # check for remains from former incidents
   my $max_retry = 3;
@@ -5664,7 +5666,6 @@ sub create_res {
   set_link("1", "$todo/connect");
   set_link("1", "$todo/sync");
   set_link("1", "$todo/allow-replay");
-  unlink("$resdir/syncstatus-$host");
 
   my $replay_ok = 1;
   if ($create) {
