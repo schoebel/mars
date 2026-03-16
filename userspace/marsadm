@@ -5739,6 +5739,7 @@ sub create_res {
 	_trigger();
 	sleep($more_wait);
       }
+      _reset_resources();
     }
     lprint "Successfully joined resource '$res' to primary '$primary'\n";
   }
