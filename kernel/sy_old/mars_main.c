@@ -2980,10 +2980,6 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		if (is_deleted ?
 		    (stat_ok && update_mtime) :
 		    (!stat_ok || update_mtime)) {
-			/* safeguard any replacement of files with symlinks */
-			if (stat_ok && S_ISREG(local_stat.mode)) {
-				(void)mars_unlink(remote_path);
-			}
 			status = ordered_symlink(remote_dent->new_link,
 						 remote_path,
 						 &remote_dent->new_stat.mtime);
