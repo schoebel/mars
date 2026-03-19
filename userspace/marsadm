@@ -2397,7 +2397,6 @@ sub correct_path {
 # low-level infrastructure
 
 my @link_list = ();
-my %link_hash;
 
 sub get_raw_link {
   my ($path) = @_;
@@ -2488,15 +2487,6 @@ sub set_link {
   unlink($dst_tmp);
   symlink($src, $dst_tmp) or ldie "cannot create symlink '$dst' -> '$src'\n";
   # the _order_ is important! remove existing intermediate element before re-appanding
-  if (exists($link_hash{$dst})) {
-    my @copy = @link_list;
-    @link_list = ();
-    foreach my $elem (@copy) {
-      next if $elem eq $dst;
-      push @link_list, $elem;
-    }
-  }
-  $link_hash{$dst} = $src;
   push @link_list, $dst;
 }
 
