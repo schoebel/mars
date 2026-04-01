@@ -1147,7 +1147,9 @@ int _set_if_params(struct mars_brick *_brick, void *private)
 		MARS_ERR("new dev size = %lld < old dev_size = %lld\n", rot->dev_size, if_brick->dev_size);
 		return -EINVAL;
 	}
-	if_brick->dev_size = rot->dev_size;
+	if (if_brick->dev_size < rot->dev_size) {
+		if_brick->dev_size = rot->dev_size;
+	}
 	if_brick->max_plugged = IF_MAX_PLUGGED;
 	if_brick->readahead = IF_READAHEAD;
 	if_brick->skip_sync = IF_SKIP_SYNC;
