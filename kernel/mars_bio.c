@@ -299,6 +299,7 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 {
 	struct bio_brick *brick = output->brick;
 	struct inode *inode;
+	struct block_device *bdev;
 	struct request_queue *q;
 	int status = 0;
 
@@ -312,7 +313,8 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 
 	info->tf_align = 512;
 	info->tf_min_size = 512;
-	q = bdev_get_queue(inode->i_bdev);
+	bdev = brick->bdev;
+	q = bdev_get_queue(bdev);
 	if (q) {
 		info->tf_align = queue_physical_block_size(q);
 		info->tf_min_size = queue_logical_block_size(q);
@@ -850,6 +852,7 @@ static int bio_switch(struct bio_brick *brick)
 			int flags = O_RDWR | O_EXCL | O_LARGEFILE;
 			struct address_space *mapping;
 			struct inode *inode;
+			struct block_device *bdev;
 			struct request_queue *q;
 #ifdef MARS_HAS_BDI_GET
 			struct backing_dev_info *bdi;
@@ -872,7 +875,8 @@ static int bio_switch(struct bio_brick *brick)
 				status = -EINVAL;
 				goto done;
 			}
-			if (unlikely(!S_ISBLK(inode->i_mode) || !inode->i_bdev)) {
+			bdev = inode2bdev(inode);
+			if (unlikely(!bdev)) {
 				MARS_ERR("sorry, '%s' is not a block device\n", path);
 				status = -ENODEV;
 				goto done;
@@ -880,7 +884,7 @@ static int bio_switch(struct bio_brick *brick)
 
 			mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 
-			q = bdev_get_queue(inode->i_bdev);
+			q = bdev_get_queue(bdev);
 			if (unlikely(!q)) {
 				MARS_ERR("internal queue '%s' does not exist\n", path);
 				status = -EINVAL;
@@ -926,7 +930,7 @@ static int bio_switch(struct bio_brick *brick)
 			brick->submit_thread = brick_thread_create(bio_submit_thread, brick, "mars_bio_s%d", index);
 			status = -EBADR;
 			if (likely(brick->submit_thread)) {
-				brick->bdev = inode->i_bdev;
+				brick->bdev = bdev;
 				index++;
 				/* wait until the submit thread is actually working */
 				while (!brick->running) {

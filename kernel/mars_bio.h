@@ -41,6 +41,22 @@ extern struct threshold bio_submit_threshold;
 extern struct threshold bio_io_threshold[2];
 
 #include <linux/blkdev.h>
+#include <linux/fs.h>
+
+static inline
+struct block_device *inode2bdev(struct inode *inode)
+{
+	struct super_block *sb;
+
+	if (S_ISBLK(inode->i_mode)) {
+		return inode->i_bdev;
+	}
+	sb = inode->i_sb;
+	if (sb && sb->s_bdev) {
+		return sb->s_bdev;
+	}
+	return NULL;
+}
 
 struct bio_mref_aspect {
 	GENERIC_ASPECT(mref);
