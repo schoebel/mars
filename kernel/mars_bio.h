@@ -103,6 +103,7 @@ struct bio_brick {
 	struct block_device *bdev;
 	brick_thread_t *submit_thread;
 	struct bio_response rsp[BIO_RESPONSE_THREADS];
+	struct mars_info info;
 	unsigned int rsp_nr;
 	int bvec_max;
 	bool submitted;

@@ -914,6 +914,13 @@ static int bio_switch(struct bio_brick *brick)
 			MARS_INF("'%s' size=%lld bvec_max=%d\n",
 				 path, brick->total_size, brick->bvec_max);
 
+			/* check whether the block sizes are plausible */
+			ok = get_mars_info(inode->i_bdev, &brick->info);
+			if (!ok) {
+				status = -EMEDIUMTYPE;
+				goto done;
+			}
+
 			for (i = 0; i < BIO_RESPONSE_THREADS; i++) {
 				brick->rsp[i].response_thread =
 					brick_thread_create(bio_response_thread,
