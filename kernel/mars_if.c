@@ -951,7 +951,7 @@ loff_t if_get_capacity(struct if_brick *brick)
 	 * e.g. when the size symlink indicates a logically smaller
 	 * device than physically.
 	 */
-	if (brick->dev_size <= 0) {
+	if (brick->dev_size <= 0 && brick->info.current_size > 0) {
 		struct if_input *input = brick->inputs[0];
 		int status;
 
@@ -961,7 +961,10 @@ loff_t if_get_capacity(struct if_brick *brick)
 			return 0;
 		}
 		MARS_INF("determined default capacity: %lld bytes\n", brick->info.current_size);
-		brick->dev_size = brick->info.current_size;
+		/* safety: never decrease the size! */
+		if (brick->dev_size < brick->info.current_size) {
+			brick->dev_size = brick->info.current_size;
+		}
 	}
 	return brick->dev_size;
 }
