@@ -3717,6 +3717,7 @@ bool get_mars_info(struct block_device *bdev, struct mars_info *info)
 	info->xf_io_opt			= queue_io_opt(q);
 	info->xf_discard_enabled	= blk_queue_discard(q);
 	info->xf_write_same_capable	= !!q->limits.max_write_same_sectors;
+	info->xf_nonrot			= blk_queue_nonrot(q);
 	res = true;
 out:
 	return res;

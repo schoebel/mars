@@ -307,6 +307,7 @@ struct mars_info {
 	int xf_io_opt;
 	int xf_discard_enabled;
 	int xf_write_same_capable;
+	int xf_nonrot;
 };
 
 // brick stuff
