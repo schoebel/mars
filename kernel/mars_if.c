@@ -1096,8 +1096,6 @@ static int if_switch(struct if_brick *brick)
 #ifdef USE_MAX_SECTORS
 #ifdef MAX_SEGMENT_SIZE
 		blk_queue_max_sectors(q, USE_MAX_SECTORS);
-#else
-		blk_queue_max_hw_sectors(q, USE_MAX_SECTORS);
 #endif
 #endif
 #ifdef USE_MAX_PHYS_SEGMENTS
@@ -1109,9 +1107,6 @@ static int if_switch(struct if_brick *brick)
 #endif
 #ifdef USE_MAX_HW_SEGMENTS
 		blk_queue_max_hw_segments(q, USE_MAX_HW_SEGMENTS);
-#endif
-#ifdef USE_MAX_HW_SECTORS
-		blk_queue_max_hw_sectors(q, USE_MAX_HW_SECTORS);
 #endif
 #ifdef USE_MAX_SEGMENT_SIZE
 		blk_queue_max_segment_size(q, USE_MAX_SEGMENT_SIZE);
@@ -1125,6 +1120,9 @@ static int if_switch(struct if_brick *brick)
 		if (brick->info.xf_physical_block_size)
 			goto new_setup;
 
+#ifdef USE_MAX_HW_SECTORS
+		blk_queue_max_hw_sectors(q, USE_MAX_HW_SECTORS);
+#endif
 		if (brick->info.tf_align >= 512) {
 			blk_queue_physical_block_size(q, brick->info.tf_align);
 		}
@@ -1134,6 +1132,7 @@ static int if_switch(struct if_brick *brick)
 			blk_queue_logical_block_size(q, 512);
 		}
 		goto after_old_setup;
+
 	new_setup:
 		/* none of the sizes can be smaller than 512 */
 		LIMIT_UPWARDS(brick->info.xf_physical_block_size, 512);
@@ -1161,6 +1160,13 @@ static int if_switch(struct if_brick *brick)
 		q->limits.discard_granularity = 0;
 		blk_queue_max_discard_sectors(q, 0);
 		blk_queue_max_write_same_sectors(q, 0);
+
+#ifdef USE_MAX_HW_SECTORS
+		blk_queue_max_hw_sectors(q,
+			brick->info.xf_physical_block_size > brick->info.xf_logical_block_size ?
+			brick->info.xf_physical_block_size / brick->info.xf_logical_block_size :
+			1);
+#endif
 
 	after_old_setup:
 #ifdef USE_SEGMENT_BOUNDARY
