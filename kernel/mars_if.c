@@ -1134,6 +1134,15 @@ static int if_switch(struct if_brick *brick)
 		goto after_old_setup;
 
 	new_setup:
+#ifdef QUEUE_FLAG_NONROT
+		if (brick->info.xf_nonrot) {
+#if defined(RQF_SORTED)
+			blk_queue_flag_set(QUEUE_FLAG_NONROT, q);
+#else
+			queue_flag_set(QUEUE_FLAG_NONROT, q);
+#endif
+		}
+#endif
 		/* none of the sizes can be smaller than 512 */
 		LIMIT_UPWARDS(brick->info.xf_physical_block_size, 512);
 		LIMIT_UPWARDS(brick->info.xf_logical_block_size,  512);
