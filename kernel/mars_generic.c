@@ -98,6 +98,17 @@ const struct meta mars_info_meta[] = {
 	META_INI(current_size,    struct mars_info, FIELD_INT),
 	META_INI(tf_align,        struct mars_info, FIELD_INT),
 	META_INI(tf_min_size,     struct mars_info, FIELD_INT),
+	/* For backwards compatibiliy, the new fields must not be transferred
+	 * to old mars modules versions over the network.
+	 * Thus the names are starting with x.
+	 */
+	META_INI(xf_physical_block_size,	struct mars_info, FIELD_INT),
+	META_INI(xf_logical_block_size,		struct mars_info, FIELD_INT),
+	META_INI(xf_io_min,			struct mars_info, FIELD_INT),
+	META_INI(xf_io_opt,			struct mars_info, FIELD_INT),
+	META_INI(xf_discard_enabled,		struct mars_info, FIELD_INT),
+	META_INI(xf_write_same_capable,		struct mars_info, FIELD_INT),
+	META_INI(xf_nonrot,			struct mars_info, FIELD_INT),
 	{}
 };
 EXPORT_SYMBOL_GPL(mars_info_meta);
