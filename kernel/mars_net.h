@@ -42,8 +42,10 @@ extern __u32 used_net_compression;
  * Another use case is high-level changes in the order of messages
  * which cannot be neither encoded into usable_features_version
  * nor into usable_strategy_version.
+ * For backwards compatibility, increased to 3 to prevent
+ * sending of certain mid-level fields starting with 'x'.
  */
-#define MARS_PROTO_LEVEL 2
+#define MARS_PROTO_LEVEL 3
 
 #define MAX_FIELD_LEN   32
 #define MAX_DESC_CACHE  16
