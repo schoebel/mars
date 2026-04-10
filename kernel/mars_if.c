@@ -44,7 +44,6 @@
 #define USE_MAX_SECTORS         (MARS_MAX_SEGMENT_SIZE >> 9)
 #define USE_MAX_PHYS_SEGMENTS   (MARS_MAX_SEGMENT_SIZE >> 9)
 #define USE_MAX_SEGMENT_SIZE    MARS_MAX_SEGMENT_SIZE
-#define USE_LOGICAL_BLOCK_SIZE  512
 #define USE_MAX_HW_SECTORS      1
 #define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
 
@@ -943,6 +942,17 @@ int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct
 #endif
 
 //      end_remove_this
+
+static
+int if_get_info(struct if_brick *brick)
+{
+	struct if_input *input = brick->inputs[0];
+	int status;
+
+	status = GENERIC_INPUT_CALL(input, mars_get_info, &brick->info);
+	return status;
+}
+
 static
 loff_t if_get_capacity(struct if_brick *brick)
 {
@@ -952,10 +962,10 @@ loff_t if_get_capacity(struct if_brick *brick)
 	 * device than physically.
 	 */
 	if (brick->dev_size <= 0 && brick->info.current_size > 0) {
-		struct if_input *input = brick->inputs[0];
-		int status;
-
-		status = GENERIC_INPUT_CALL(input, mars_get_info, &brick->info);
+		int status = 0;
+		if (!brick->info.xf_physical_block_size) {
+			status = if_get_info(brick);
+		}
 		if (unlikely(status < 0)) {
 			MARS_ERR("cannot get device info, status=%d\n", status);
 			return 0;
@@ -998,6 +1008,16 @@ int check_io_done(struct if_brick *brick, bool do_wait)
 		brick_msleep(1000 / HZ + 1);
 	}
 }
+
+#define LIMIT_UPWARDS(var,val)			\
+	if (var < (val)) {			\
+		var = (val);			\
+	}
+
+#define LIMIT_DOWNWARDS(var,val)		\
+	if (var > (val)) {			\
+		var = (val);			\
+	}
 
 static int if_switch(struct if_brick *brick)
 {
@@ -1066,69 +1086,94 @@ static int if_switch(struct if_brick *brick)
 		input->disk = disk;
 		smp_mb();
 		capacity = if_get_capacity(brick);
+		if (!brick->info.xf_physical_block_size) {
+			if_get_info(brick);
+		}
 		MARS_DBG("created device name %s, capacity=%lld\n", disk->disk_name, capacity);
 		if_set_capacity(input, capacity);
 		
 		blk_queue_make_request(q, if_make_request);
 #ifdef USE_MAX_SECTORS
 #ifdef MAX_SEGMENT_SIZE
-		MARS_DBG("blk_queue_max_sectors()\n");
 		blk_queue_max_sectors(q, USE_MAX_SECTORS);
 #else
-		MARS_DBG("blk_queue_max_hw_sectors()\n");
 		blk_queue_max_hw_sectors(q, USE_MAX_SECTORS);
 #endif
 #endif
 #ifdef USE_MAX_PHYS_SEGMENTS
 #ifdef MAX_SEGMENT_SIZE
-		MARS_DBG("blk_queue_max_phys_segments()\n");
 		blk_queue_max_phys_segments(q, USE_MAX_PHYS_SEGMENTS);
 #else
-		MARS_DBG("blk_queue_max_segments()\n");
 		blk_queue_max_segments(q, USE_MAX_PHYS_SEGMENTS);
 #endif
 #endif
 #ifdef USE_MAX_HW_SEGMENTS
-		MARS_DBG("blk_queue_max_hw_segments()\n");
 		blk_queue_max_hw_segments(q, USE_MAX_HW_SEGMENTS);
 #endif
 #ifdef USE_MAX_HW_SECTORS
-		MARS_DBG("blk_queue_max_hw_sectors()\n");
 		blk_queue_max_hw_sectors(q, USE_MAX_HW_SECTORS);
 #endif
 #ifdef USE_MAX_SEGMENT_SIZE
-		MARS_DBG("blk_queue_max_segment_size()\n");
 		blk_queue_max_segment_size(q, USE_MAX_SEGMENT_SIZE);
 #endif
-#ifdef USE_LOGICAL_BLOCK_SIZE
+		/* Old code, to disappear, necessary for operation of mixed mars versions.
+		 * Important: on some hardware, this could cause problems
+		 * with bad sector sizes.
+		 * So we skip this when the new information is acutally available
+		 * over the network.
+		 */
+		if (brick->info.xf_physical_block_size)
+			goto new_setup;
+
 		if (brick->info.tf_align >= 512) {
-			MARS_DBG("blk_queue_physical_block_size(%d)\n", brick->info.tf_align);
 			blk_queue_physical_block_size(q, brick->info.tf_align);
 		}
 		if (brick->info.tf_min_size >= 512) {
-			MARS_DBG("blk_queue_logical_block_size(%d)\n", brick->info.tf_min_size);
 			blk_queue_logical_block_size(q, brick->info.tf_min_size);
 		} else {
-			MARS_DBG("blk_queue_logical_block_size()\n");
-			blk_queue_logical_block_size(q, USE_LOGICAL_BLOCK_SIZE);
+			blk_queue_logical_block_size(q, 512);
 		}
+		goto after_old_setup;
+	new_setup:
+		/* none of the sizes can be smaller than 512 */
+		LIMIT_UPWARDS(brick->info.xf_physical_block_size, 512);
+		LIMIT_UPWARDS(brick->info.xf_logical_block_size,  512);
+		/* allow tools to use the smaller size */
+		if (brick->info.xf_io_min > 0) {
+			LIMIT_DOWNWARDS(brick->info.xf_physical_block_size,
+					brick->info.xf_logical_block_size);
+		}
+		/* range must be correct */
+		LIMIT_UPWARDS(brick->info.xf_physical_block_size, brick->info.xf_logical_block_size);
+
+		/* Communicate the block sizes */
+		blk_queue_physical_block_size(q, brick->info.xf_physical_block_size);
+		blk_queue_logical_block_size(q,  brick->info.xf_logical_block_size);
+
+
+		/* not supported ATM */
+#if defined(RQF_SORTED)
+		blk_queue_flag_clear(QUEUE_FLAG_DISCARD, q);
+		q->limits.max_write_zeroes_sectors = 0;
+		blk_queue_max_discard_segments(q, 0);
 #endif
+		/*blk_queue_discard_granularity(q, 0);*/
+		q->limits.discard_granularity = 0;
+		blk_queue_max_discard_sectors(q, 0);
+		blk_queue_max_write_same_sectors(q, 0);
+
+	after_old_setup:
 #ifdef USE_SEGMENT_BOUNDARY
-		MARS_DBG("blk_queue_segment_boundary()\n");
 		blk_queue_segment_boundary(q, USE_SEGMENT_BOUNDARY);
 #endif
 #ifdef QUEUE_ORDERED_DRAIN
-		MARS_DBG("blk_queue_ordered()\n");
 		blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);
 #endif
-		MARS_DBG("blk_queue_bounce_limit()\n");
 		blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
 #ifndef BLK_MAX_REQUEST_COUNT
-		MARS_DBG("unplug_fn\n");
 		q->unplug_fn = if_unplug;
 #endif
 #ifdef MARS_HAS_OLD_QUEUE_LOCK
-		MARS_DBG("queue_lock\n");
 		q->queue_lock = &input->req_lock; // needed!
 #endif
 		
