@@ -1059,6 +1059,8 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 		MARS_ERR("#%d data=%px mc=%px item=%d offset=%d len=%d line=%d\n",
 			 msock->s_debug_nr,
 			 data, mc, index, field_recver_offset, len, line);
+		/* just skip a non-existing field */
+		res = 0;
 		goto done;
 	}
 	field_type = mi->field_type;
