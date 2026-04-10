@@ -47,6 +47,7 @@
 ///////////////////////// own type definitions ////////////////////////
 
 #include "mars_sio.h"
+#include "mars_bio.h"
 
 ////////////////// own brick / input / output operations //////////////////
 
@@ -535,11 +536,21 @@ static int sio_thread(void *data)
 static int sio_get_info(struct sio_output *output, struct mars_info *info)
 {
 	struct file *file = output->mf->mf_filp;
+	struct inode *inode;
+	struct block_device *bdev;
+
 	if (unlikely(!file || !file->f_mapping || !file->f_mapping->host))
 		return -EINVAL;
 
 	info->tf_align = 1;
 	info->tf_min_size = 1;
+
+	inode = file->f_mapping->host;
+	bdev = inode2bdev(inode);
+	if (unlikely(!bdev)) {
+		return -EINVAL;
+	}
+	get_mars_info(bdev, info);
 	info->current_size = i_size_read(file->f_mapping->host);
 	MARS_DBG("determined file size = %lld\n", info->current_size);
 	return 0;
