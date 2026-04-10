@@ -313,11 +313,13 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 
 	info->tf_align = 512;
 	info->tf_min_size = 512;
+
 	bdev = brick->bdev;
 	q = bdev_get_queue(bdev);
 	if (q) {
 		info->tf_align = queue_physical_block_size(q);
 		info->tf_min_size = queue_logical_block_size(q);
+		get_mars_info(inode->i_bdev, info);
 	}
 	brick->total_size = i_size_read(inode);
 	info->current_size = brick->total_size;

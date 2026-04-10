@@ -3690,6 +3690,42 @@ EXPORT_SYMBOL_GPL(show_statistics);
 
 /////////////////////////////////////////////////////////////////////
 
+/* device properties */
+
+bool get_mars_info(struct block_device *bdev, struct mars_info *info)
+{
+	struct request_queue *q;
+	bool res = false;
+
+	if (!info) {
+		goto out;
+	}
+	if (!bdev) {
+		goto out;
+	}
+	q = bdev_get_queue(bdev);
+	if (!q) {
+		goto out;
+	}
+	/* Notice: the old fields tf_align and tf_min_size should disappear
+	 * in the long term. They are not handled here.
+	 */
+	info->xf_physical_block_size	= queue_physical_block_size(q);
+	info->xf_logical_block_size	= queue_logical_block_size(q);
+	info->xf_alignment_offset	= queue_alignment_offset(q);
+	info->xf_io_min			= queue_io_min(q);
+	info->xf_io_opt			= queue_io_opt(q);
+	info->xf_discard_enabled	= blk_queue_discard(q);
+	info->xf_write_same_capable	= !!q->limits.max_write_same_sectors;
+	res = true;
+out:
+	return res;
+}
+EXPORT_SYMBOL_GPL(get_mars_info);
+
+
+/////////////////////////////////////////////////////////////////////
+
 // init stuff
 
 int __init init_sy(void)

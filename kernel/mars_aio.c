@@ -43,6 +43,7 @@
 #include "lib_mapfree.h"
 
 #include "mars_aio.h"
+#include "mars_bio.h"
 
 #if !defined(MARS_HAS_PREPATCH_V2) && !defined(MARS_HAS_PREPATCH)
 #warning You are compiling without pre-patch, resulting in BAD IO PERFORMANCE
@@ -1091,6 +1092,8 @@ static int aio_submit_thread(void *data)
 static int aio_get_info(struct aio_output *output, struct mars_info *info)
 {
 	struct file *file;
+	struct inode *inode;
+	struct block_device *bdev;
 
 	if (unlikely(!output ||
 		     !output->mf ||
@@ -1101,7 +1104,14 @@ static int aio_get_info(struct aio_output *output, struct mars_info *info)
 
 	info->tf_align = 1;
 	info->tf_min_size = 1;
+
+	inode = file->f_mapping->host;
+	bdev = inode2bdev(inode);
+	if (unlikely(!bdev)) {
+		return -EINVAL;
+	}
 	info->current_size = get_total_size(output);
+	get_mars_info(inode->i_bdev, info);
 
 	MARS_DBG("determined file size = %lld\n", info->current_size);
 

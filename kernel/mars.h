@@ -296,6 +296,17 @@ struct mars_info {
 	loff_t current_size;
 	int tf_align;    // transfer alignment constraint
 	int tf_min_size; // transfer is only possible in multiples of this
+	/* For backwards compatibiliy, the new fields must not be transferred
+	 * to old mars modules versions over the network.
+	 * Thus the names are starting with x.
+	 */
+	int xf_physical_block_size;
+	int xf_logical_block_size;
+	int xf_alignment_offset;
+	int xf_io_min;
+	int xf_io_opt;
+	int xf_discard_enabled;
+	int xf_write_same_capable;
 };
 
 // brick stuff
@@ -458,6 +469,8 @@ extern atomic_t mars_global_io_flying;
 
 extern int mars_throttle_start;
 extern int mars_throttle_end;
+
+extern bool get_mars_info(struct block_device *bdev, struct mars_info *info);
 
 /////////////////////////////////////////////////////////////////////////
 
