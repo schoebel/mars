@@ -898,13 +898,26 @@ void dump_meta(const struct meta *meta)
 }
 
 static
-int _add_fields(struct mars_desc_item *mi, const struct meta *meta, int offset, const char *prefix, int maxlen)
+int _add_fields(struct mars_desc_item *mi,
+		const struct meta *meta,
+		int offset,
+		const char *prefix,
+		int maxlen,
+		bool filter_x)
 {
 	int count = 0;
 	for (; meta->field_name != NULL; meta++) {
 		const char *new_prefix;
 		int new_offset;
 		int len;
+
+		/* Fields starting with "x" may be excluded from propagation.
+		 * Needed for backwards compatibility of old releases which
+		 * cannot deal with reception of these fields.
+		 */
+		if (filter_x && meta->field_name[0] == 'x') {
+			continue;
+		}
 
 		new_prefix = mi->field_name;
 		new_offset = offset + meta->field_offset;
@@ -936,7 +949,9 @@ int _add_fields(struct mars_desc_item *mi, const struct meta *meta, int offset, 
 
 		if (meta->field_type == FIELD_SUB) {
 			int sub_count;
-			sub_count = _add_fields(mi, meta->field_ref, new_offset, new_prefix, maxlen);
+			sub_count = _add_fields(mi, meta->field_ref,
+						new_offset, new_prefix,
+						maxlen, filter_x);
 			if (sub_count < 0)
 				return sub_count;
 
@@ -987,7 +1002,8 @@ struct mars_desc_cache *make_sender_cache(struct mars_socket *msock, const struc
 	maxlen -= sizeof(struct mars_desc_cache);
 	mi = (void*)(mc + 1);
 
-	status = _add_fields(mi, meta, 0, "", maxlen);
+	status = _add_fields(mi, meta, 0, "", maxlen,
+			     (msock->s_remote_proto_level < 3));
 
 	if (likely(status > 0)) {
 		mc->cache_items = status;
