@@ -36,44 +36,6 @@ Release Conventions / Branches / Tagnames
 		 - Stable tagnames: mars0.1astable%02d
 		 - Historic tagnames: light0.1abeta%d (obsolete)
 
-	mars0.5 series (planned interim series):
-		 - The stable Linux kernel upstram series linux-5.10.y
-		   and later will require new interfaces between MARS
-		   and the kernel. For example, fs/aio.c is no
-		   longer usable by kernelspace activities.
-		 - I plan to take this opportunity for getting rid
-		   of ~10 years old backward-compatibility parts,
-		   interfacing with ancient kernels, e.g. from linux-2.*
-		   to linux-3.x.y
-		 - the branches mars0.1.y and mars.1a.y will become
-		   unmaintained. Just use the standard branch "master"
-		   as usual, since it will become the new alias for
-		   the new mars0.5.y series.
-		 - Newer MARS improvements like the newer .deleted format
-		   are planned to become standard, and a few tons of
-		   ancient code are planned to vanish over time.
-		   Do not expect backwards compatibility over years of
-		   development efforts. I won't test big jumps anymore.
-		 - Consequence: you need a Linux kernel series
-		   from linux-4.9.y onwards. The corresponding
-		   historic MARS pre-patches will be removed from the
-		   MARS git repo, starting with this branch.
-		   The then-historic mars branches may be renamed to
-		   *-historic in order to inform you.
-
-	mars1.0 series (planned future series):
-		 - Replace the symlink tree by transactional status files
-		   (future-proof)
-		   This is required for upstream merging to the kernel.
-		   It has further advantages, such as better scalability.
-		 - Some migration strategy for the data format in /mars
-		   will be certainly done, but details are not yet planned.
-		 - Trying to additionally address public needs.
-		 - Intended for Linux kernel upstream submission.
-		 - See the FAQ: the out-of-tree MARS version in kernel/
-		   shall become unmaintained after acceptance by
-		   Linus Torvalds and the kernel community.
-
 	WIP-* branches are for development and may be rebased onto anything
 	at any time without notice. They will disappear eventually.
 	Never use them for production!
@@ -160,14 +122,6 @@ Release Conventions / Branches / Tagnames
 	    or may require some extaordinary actions.
 	    Please read this ChangeLog for details.
 
-	Historic example: a new future-proof internal deletion format
-	had been introduced in mars0.1astable88. It was off by default.
-	But it will become default somewhen (e.g. during newer branches).
-	Only if you never had activated it, and if you had obeyed the
-	downgrade instructions as documented here, you might have
-	downgraded. I had invested a lot of time in testing, but
-	I don't know of anyone who actually did this in operations.
-
 -----------------------------------
 Changelog for series 0.1a:
 
@@ -181,7 +135,8 @@ Changelog for series 0.1a:
 	Please stay patient; some old MARS bugs have been already found and
 	fixed during the preparation phase. I am releasing them
 	for the currently supported stable upstream kernels.
-	HINT: the CIP project may be your friend. See docs at
+
+	HINT: the CIP project is your friend. See docs at
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
