@@ -3585,122 +3585,112 @@ sub compare_replaylinks {
 
 ##################################################################
 
-my %version_stop;
-
-sub set_version_stop {
-  my ($resdir, $host) = @_;
-  # foreign hosts my have incomplete infos: do not try to access
-  return if $host eq $real_host;
-  if (!$version_stop{$host}{$resdir}) {
-    my $smallest = 0;
-    my $glob = sprintf("%s/log-*-%s", $resdir, $host);
-    foreach my $file (lamport_glob($glob)) {
-      my ($nr, $name) = ($file =~ m/-([0-9]+)-(.*)/);
-      $smallest = $nr if (!$smallest || $smallest < $nr);
-    }
-    $glob = sprintf("%s/version-*-%s", $resdir, $real_host);
-    foreach my $file (lamport_glob($glob)) {
-      my ($nr, $name) = ($file =~ m/-([0-9]+)-(.*)/);
-      $smallest = $nr if (!$smallest || $smallest < $nr);
-    }
-    $version_stop{$host}{$resdir} = $smallest;
-  }
-  return $version_stop{$host}{$resdir};
-}
-
+# New implementation:
+# No longer consider sisters from different hosts, because it may lead
+# to confusion at monitoring scripts.
+# Omit the unnecessary level.
+# Clarify the semantics of $direction:
+#  < 0 : walk downwards into the past chain as long as info is available,
+#        or until $smallest_pos is reached.
+# == 0 : do not walk over the chain.
+# == 1 : add the writeback part from the replaylink.
+# == 2 : walk forwards into the future.
+# >= 3 : walk both into the past and into the future.
 sub get_amount {
-  my ($resdir, $host, $direction, $only_files, $sum_up_numbers) = @_;
-  my $level = 0;
-  my $first_number = 0;
-  my $logpos = 0;
-  my $oldpos = 0;
+  my ($resdir, $host, $direction, $only_files, $smallest_pos) = @_;
+  # return values
   my $sum = 0;
-  for (;;) {
-    my $val0 = 0;
-    my $ok = 0;
-    if (!$level) {
-      my $replay_path = sprintf("%s/replay-%s", $resdir, $host);
-      my $replay_link = get_link($replay_path, 1);
-      return (0, 0, 0, 0) if !$replay_link;
-      return (0, 0, 0, 0) if $replay_link !~ m:log-([0-9]+)-[^,]+,([0-9]+),([0-9]+):;
-      $first_number = int($1);
-      my $second_number = int($2);
-      my $third_number = int($3);
-      $logpos = $first_number;
-      $oldpos = $first_number;
-      if ($direction < 0) {
-	$sum = defined($sum_up_numbers) ?
-	  $second_number + $third_number :
-	    $second_number;
-      } else {
-	$val0 = $second_number;
-	$sum = defined($sum_up_numbers) ?
-	  $second_number + $third_number :
-	    $third_number;
-      }
-    }
-    if ($level > 0 || $direction > 0) {
-      my $file = sprintf("%s/log-%09d-%s", $resdir, $logpos, $host);
-      my @stat = stat($file);
-      my $val = 0;
-      if (@stat && file_exists($file)) {
-	$val = $stat[7];
-	$ok = 1;
-      } else {
-	my $glob = sprintf("%s/log-%09d-*", $resdir, $logpos);
-	foreach $file (lamport_glob($glob)) {
-	  my @tstat = stat($file);
-	  if (@tstat && $tstat[7] > $val) {
-	    @stat = @tstat;
-	    $val = $stat[7];
-	    $ok = 1;
-	  }
-	}
-      }
-      if (!$only_files) {
-	my $warn_mode = 1;
-	my $glob = sprintf("%s/version-%09d-*", $resdir, $logpos);
-	# only when our logfile is missing, we cannot consider versionlink-sisters
-	if (!@stat) {
-	  $glob = sprintf("%s/version-%09d-%s", $resdir, $logpos, $host);
-	  $warn_mode = 2;
-	}
-	my @vers_glob = lamport_glob($glob);
-	foreach $file (@vers_glob) {
-	  my $vers_link = get_link($file, $warn_mode);
-	  if ($vers_link && $vers_link =~ m;,([0-9]+):;) {
-	    my $nval = $1;
-	    $val = $nval if $nval > $val;
-	    $ok = 1;
-	  }
-	}
-      }
-      return ($sum, $first_number, $oldpos, $level) unless $ok;
-      if ($level > 0) {
-	$sum += $val;
-      } else {
-	# the logfile may be bigger than the replay pos/length
-	my $new_sum = $val - $val0;
-	$sum = $new_sum if $new_sum > $sum;
-	$sum = 0 if $sum < 0;
-      }
-    }
-    $oldpos = $logpos;
-    if ($direction > 0) {
-      $logpos++;
-    } elsif ($direction < 0) {
-      # foreign hosts may have incomplete infos: do not try to cross
-      my $smallest = set_version_stop($resdir, $host);
-      if ($smallest && $logpos == $smallest) {
-	return ($sum, $first_number, $oldpos, $level);
-      }
-      $logpos--;
-      return ($sum, $first_number, $oldpos, $level) if $logpos < 1;
-    } else {
-      return ($sum, $first_number, $oldpos, $level);
-    }
-    $level++;
+  my $firstpos = 0;
+  my $minpos   = 0;
+  my $maxpos   = 0;
+  # get the replaylink information
+  my $replay_path = sprintf("%s/replay-%s", $resdir, $host);
+  my $replay_link = get_link($replay_path, 1);
+  return (0, 0, 0, 0) if !$replay_link;
+  if ($replay_link !~ m:log-([0-9]+)-([^,]+),([0-9]+),([0-9]+):) {
+    return (0, 0, 0, 0);
   }
+  my $first_number  = int($1);
+  my $peer_name     = $2;
+  my $second_number = int($3);
+  my $third_number  = int($4);
+  $firstpos  = $first_number;
+  $minpos    = $firstpos;
+  $maxpos    = $firstpos;
+  my $pos    = $firstpos;
+  $sum = $second_number;
+  if ($direction > 0) {
+    $sum += $third_number;
+  }
+  # consider the relevant logfile
+  $peer_name = $host unless $peer_name;
+  my $file = sprintf("%s/log-%09d-%s", $resdir, $pos, $peer_name);
+  my @stat = stat($file);
+  if (@stat) {
+    my $val = $stat[7];
+    if ($val && $val > $sum) {
+      $sum = $val;
+    }
+  }
+  # consider the corresponding versionlink
+  if (!$only_files) {
+    my $version_path = sprintf("%s/version-%09d-%s", $resdir, $pos, $host);
+    my $vers_link = get_link($version_path, 1);
+    if ($vers_link && $vers_link =~ m;,([0-9]+):;) {
+      my $nval = $1;
+      if ($nval && $nval > $sum) {
+	$sum = $nval;
+      }
+    }
+  }
+  # do we need to loop over the chain in some direction?
+  my $need_restart = 0;
+  if ($direction > 2) {
+    $need_restart = 1;
+    $direction = -1;
+  }
+  while ($direction) {
+    if ($direction < 0) {
+      if ($smallest_pos && $pos <= $smallest_pos) {
+	last;
+      }
+      $pos--;
+    } else {
+      $pos++;
+    }
+    my $next_val = 0;
+    my $file = sprintf("%s/log-%09d-%s", $resdir, $pos, $peer_name);
+    my @stat = stat($file);
+    if (@stat) {
+      my $val = $stat[7];
+      if ($val && $val > $next_val) {
+	$next_val = $val;
+      }
+    }
+    if (!$only_files) {
+      my $version_path = sprintf("%s/version-%09d-%s", $resdir, $pos, $host);
+      my $vers_link = get_link($version_path, -1);
+      if ($vers_link && $vers_link =~ m;,([0-9]+):;) {
+	my $nval = $1;
+	if ($nval && $nval > $next_val) {
+	  $next_val = $nval;
+	}
+      }
+    }
+    # we can stop or restart when nothing could be found.
+    if ($next_val <= 0) {
+      if (!$need_restart) {
+	last;
+      }
+      $need_restart = 0;
+      $direction = 2;
+      $pos = $firstpos;
+    }
+    $minpos = $pos if $pos < $minpos;
+    $maxpos = $pos if $pos > $maxpos;
+    $sum += $next_val;
+  }
+  return ($sum, $firstpos, $minpos, $maxpos);
 }
 
 ##################################################################
@@ -8535,18 +8525,20 @@ sub eval_fn {
       my $lnk = $$env{"resdir"} . "/syncstatus-" . $$env{"host"};
       return get_link($lnk, 1);
     }
-    if (/^(replay)[-_]?(lognr|basenr)$/) {
-      my $op = $2;
-      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 1);
-      return $firstpos if $op eq "lognr";
+    if (/^replay[-_]lognr$/) {
+      my ($sum, $firstpos) = get_amount($$env{"resdir"}, $$env{"host"}, 0, 0);
+      return $firstpos;
+    }
+    if (/^replay[-_]?basenr$/) {
+      my ($sum, $firstpos, $logpos) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
       return $logpos;
     }
     if (/^(fetch)[-_]?(lognr)$/) {
-      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 1);
+      my ($sum, $firstpos, $logpos) = get_amount($$env{"resdir"}, $$env{"host"}, 0, 0);
       return $logpos;
     }
     if (/^(work)[-_]?(lognr)$/) {
-      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 0);
+      my ($sum, $firstpos, $logpos) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
       return $logpos;
     }
     if (/^replay[-_]?logcount$/) {
@@ -8557,35 +8549,38 @@ sub eval_fn {
       return eval_fn($env, "$what-lognr", "") - eval_fn($env, "replay-lognr", "");
     }
     if (/^writeback[-_]?rest$/) {
-      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 0);
-      return $sum;
+      my ($sum0) = get_amount($$env{"resdir"}, $$env{"host"}, 0, 1);
+      my ($sum1) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 1);
+      return $sum1 - $sum0;
     }
     if (/^(replay|work)[-_]?(pos)$/) {
-      my $what = $1;
-      my $op   = $2;
-      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
+      my ($sum) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
       return $sum;
     }
     if (/^(replay[-_]?size)|(fetch[-_]?pos)$/) {
-      set_version_stop($$env{"resdir"}, $$env{"host"});
-      my ($sum0) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
-      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 1);
-      return $sum0 + $sum;
+      my ($sum) = get_amount($$env{"resdir"}, $$env{"host"}, 3, 1);
+      return $sum;
     }
     if (/^(fetch|work)[-_]?(size)$/) {
-      my $what = $1;
       my $host = $$env{"host"};
-      # the primary tells us the goal we need to reach...
+      my ($sum, $firstpos, $minpos, $maxpos) = get_amount($$env{"resdir"}, $host, 3, 1);
+      # The primary tells us the goal we _should_ reach, BUT the info
+      # may be outdated via network, or differ from different logrotates, etc.
       if (!is_actual_primary($$env{"cmd"}, $$env{"res"}, $host)) {
 	my $primary = _get_designated_primary($$env{"res"});
-	$host = $primary if
-	  ($primary && $primary ne "(none)" && $primary ne $host &&
-	   detect_splitbrain($$env{"res"}, 0));
+	if ($primary && $primary ne "(none)" && $primary ne $host) {
+	  delete %detected_splits{$$env{"res"}};
+	  if (detect_splitbrain($$env{"res"}, 0)) {
+	    # Since the backward chain may have a different length, we need to
+	    # stop at the same $minpos.
+	    my ($p_sum) = get_amount($$env{"resdir"}, $primary, 3, 0, $minpos);
+	    if ($p_sum > $sum) {
+	      $sum = $p_sum;
+	    }
+	  }
+	}
       }
-      set_version_stop($$env{"resdir"}, $host);
-      my ($sum0) = get_amount($$env{"resdir"}, $host, -1, 0);
-      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $host, 1, 0);
-      return $sum0 + $sum;
+      return $sum;
     }
     if (/^(sync|fetch|replay|work)[-_]?(rest|(?:almost[-_]?|threshold[-_]?)?reached|percent|permille|vector)$/) {
       my $what = $1;
