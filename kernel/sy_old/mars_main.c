@@ -895,6 +895,7 @@ struct mars_rotate {
 	struct mars_limiter sync_limiter;
 	struct mars_limiter fetch_limiter;
 	struct lamport_time found_double_logfile;
+	struct lamport_time inhibit_stamp;
 	unsigned long sync_jiffies;
 	unsigned long fetch_jiffies;
 	int inf_prev_sequence;
@@ -2575,6 +2576,20 @@ bool _is_peer_logfile(const char *name, const char *id)
 }
 
 static
+bool _is_inhibited(struct mars_rotate *rot)
+{
+	if (rot->inhibit_stamp.tv_sec) {
+		struct lamport_time now;
+
+		get_real_lamport(&now);
+		now.tv_sec -= 10;
+		if (lamport_time_compare(&now, &rot->inhibit_stamp) < 0)
+			return true;
+	}
+	return false;
+}
+
+static
 int _update_file(struct mars_dent *parent, const char *switch_path, const char *copy_path, const char *file, const char *peer, loff_t end_pos)
 {
 	struct mars_rotate *rot = parent->d_private;
@@ -2630,7 +2645,10 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	/* Self-correct logfile when necessary
 	 */
 	start_pos = -1;
-	if (do_start && (rot->is_log_damaged | rot->log_is_really_damaged)) {
+	if (do_start &&
+	    (rot->is_log_damaged | rot->log_is_really_damaged) &&
+	    !_is_inhibited(rot)) {
+		get_real_lamport(&rot->inhibit_stamp);
 		start_pos = 0;
 		MARS_INF("Trying to repair damaged logfile '%s'\n", file);
 	}
@@ -5072,6 +5090,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 		    (rot->todo_primary ||
 		        (rot->relevant_log &&
 		         rot->next_relevant_log &&
+			 !_is_inhibited(rot) &&
 		         is_switchover_possible(rot, rot->relevant_log->d_path, rot->next_relevant_log->d_path, _get_tolerance(rot), false)))) {
 			MARS_INF_TO(rot->log_say, "TOLERANCE: transaction log '%s' is treated as fully applied\n", rot->aio_dent->d_path);
 			make_rot_msg(rot, "inf-replay-tolerance", "TOLERANCE: transaction log '%s' is treated as fully applied", rot->aio_dent->d_path);
@@ -5667,6 +5686,16 @@ bool _is_secondary_fixing_safe(struct mars_rotate *rot)
 		return false;
 	if (rot->max_sequence > rot->next_relevant_log->d_serial)
 		return false;
+	/* Do not restart too often, keep some pause */
+	if (_is_inhibited(rot))
+		return false;
+	/* pause-fetch can lead to interrupted logfiles, but this is
+	 * no real damage.
+	 */
+	if (!_check_allow(rot->parent_path, "connect"))
+		return false;
+	if (!_check_allow(rot->parent_path, "allow-replay"))
+		return false;
 	return true;
 }
 
@@ -5793,6 +5822,9 @@ int make_log_finalize(struct mars_dent *dent)
 		write_info_links(rot);
 		if (trans_brick->replay_code == TL_REPLAY_FINISHED) {
 			MARS_INF_TO(rot->log_say, "logfile replay ended successfully at position %lld\n", trans_brick->replay_current_pos);
+			rot->is_log_damaged = false;
+			rot->log_is_really_damaged = false;
+			get_real_lamport(&rot->inhibit_stamp);
 			if (rot->replay_code >= TL_REPLAY_RUNNING)
 				rot->replay_code = trans_brick->replay_code;
 		} else if (trans_brick->replay_code < TL_REPLAY_RUNNING ||
@@ -5801,6 +5833,8 @@ int make_log_finalize(struct mars_dent *dent)
 			     _is_secondary_fixing_safe(rot)) && 
 			    (trans_brick->replay_code == TL_REPLAY_INCOMPLETE ||
 			     trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance))) {
+			bool is_inhibited = _is_inhibited(rot);
+
 			if (trans_brick->replay_code < 0) {
 				if (trans_brick->mars_error_code < 0 &&
 				    !rot->mars_error_code) {
@@ -5836,6 +5870,7 @@ int make_log_finalize(struct mars_dent *dent)
 			 */
 			if (rot->relevant_log &&
 			    rot->next_relevant_log &&
+			    !is_inhibited &&
 			    is_switchover_possible(rot,
 						   rot->relevant_log->d_path,
 						   rot->next_relevant_log->d_path,
@@ -5878,10 +5913,14 @@ int make_log_finalize(struct mars_dent *dent)
 			}
 		} else if (rot->replay_code >= TL_REPLAY_RUNNING) {
 			rot->replay_code = trans_brick->replay_code;
-
+			rot->is_log_damaged = false;
+			rot->log_is_really_damaged = false;
 		}
 	} else {
 		rot->replay_code = TL_REPLAY_RUNNING;
+		rot->is_log_damaged = false;
+		rot->log_is_really_damaged = false;
+		get_real_lamport(&rot->inhibit_stamp);
 	}
 	rot->retry_recovery = 0;
 
@@ -5923,6 +5962,10 @@ int make_log_finalize(struct mars_dent *dent)
 				(trans_brick->replay_code == -EAGAIN ||
 				 trans_brick->replay_code == TL_REPLAY_INCOMPLETE) &&
 				trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance;
+			if (rot->is_log_damaged && !_is_inhibited(rot)) {
+				rot->is_log_damaged = false;
+				get_real_lamport(&rot->inhibit_stamp);
+			}
 			do_stop = trans_brick->replay_code != TL_REPLAY_RUNNING ||
 				!mars_global->global_power.button ||
 				!_check_allow(rot->parent_path, "allow-replay") ||
