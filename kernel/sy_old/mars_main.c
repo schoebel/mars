@@ -1889,7 +1889,7 @@ void _make_new_replaylink(struct mars_rotate *rot, char *new_host, int new_seque
 	MARS_DBG("new_host = '%s' new_sequence = %d end_pos = %lld\n", new_host, new_sequence, end_pos);
 
 	_update_replay_link(rot, &inf);
-	_update_version_link(rot, &inf, false, false);
+	_update_version_link(rot, &inf, false, true);
 
 	if (rot->todo_primary | rot->is_primary | rot->old_is_primary)
 		code |= MARS_TRIGGER_TO_REMOTE;
