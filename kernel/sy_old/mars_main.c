@@ -1832,7 +1832,7 @@ void write_info_links(struct mars_rotate *rot)
 	if (rot->current_inf.inf_is_logging | rot->current_inf.inf_is_replaying) {
 		count += _update_replay_link(rot, &rot->current_inf);
 		count += _update_version_link(rot, &rot->current_inf,
-					      true, false);
+					      !rot->todo_primary, true);
 		if (min > rot->inf_old_sequence) {
 			mars_sync();
 			rot->inf_old_sequence = min;
