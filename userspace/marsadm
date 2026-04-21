@@ -6801,11 +6801,23 @@ sub attach_res_phase2 {
   }
   check_status($cmd, $res, "is-attached", $detach ? 0 : 1, 1);
   if ($detach) {
-    system("sync");
     check_mars_device($cmd, $res, 1, 1);
     check_status($cmd, $res, "is-replaying", 0, 1);
     check_status($cmd, $res, "is-syncing", 0, 1);
-    system("sync");
+    # Check that the underlying disk is not open for write anymore
+    my $disc_path = "$mars/resource-$res/data-$host";
+    my $backoff = 1;
+    while (-l $disc_path) {
+      my $disc_name = readlink($disc_path);
+      last unless $disc_name;
+      use IO::Handle;
+      use Fcntl;
+      my $status = sysopen(my $fh, $disc_name, O_EXCL | O_RDONLY);
+      close($fh);
+      last if $status;
+      lwarn "Underlying disk '$disc_name' appears to be open for WRITE\n";
+      sleep_timeout($backoff++);
+    }
   }
   return 0;
 }
