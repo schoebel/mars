@@ -277,7 +277,8 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 				*error = err;
 			MARS_ERR("can't open file '%s' status=%d\n", name, err);
 			mf->mf_filp = NULL;
-			_mapfree_put(mf);
+			brick_string_free(mf->mf_name);
+			brick_mem_free(mf);
 			mf = NULL;
 			break;
 		}
@@ -285,8 +286,10 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 		if (unlikely(!(mapping = mf->mf_filp->f_mapping) ||
 			     !(inode = mapping->host))) {
 			MARS_ERR("file '%s' has no mapping\n", name);
+			filp_close(mf->mf_filp, NULL);
 			mf->mf_filp = NULL;
-			_mapfree_put(mf);
+			brick_string_free(mf->mf_name);
+			brick_mem_free(mf);
 			mf = NULL;
 			break;
 		}
