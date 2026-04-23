@@ -830,6 +830,7 @@ int bio_submit_thread(void *data)
 
 static int bio_switch(struct bio_brick *brick)
 {
+	bool ok;
 	int status = 0;
 	int i;
 
@@ -919,8 +920,12 @@ static int bio_switch(struct bio_brick *brick)
 			}
 		}
 	}
-	
-	mars_power_led_on((void*)brick, brick->power.button && brick->bdev != NULL);
+
+	ok = brick->power.button &&
+		status >= 0 &&
+		brick->mf != NULL &&
+		brick->bdev != NULL;
+	mars_power_led_on((void *)brick, ok);
 	
  done:
 	if (status < 0 || !brick->power.button) {
