@@ -6184,6 +6184,11 @@ int make_bio(struct mars_dent *dent)
 	tmp_nr_affected_resources++;
 	rot->tmp_members++;
 
+	if (rot->rot_activated)
+		activate_peer(dent->d_rest, NULL, NULL, false);
+	if (strcmp(dent->d_rest, my_id()))
+		goto done;
+
 	/* for detach, both the logger and the bio must be gone */
 	if (rot->trans_brick)
 		rot->is_attached = true;
@@ -6192,11 +6197,6 @@ int make_bio(struct mars_dent *dent)
 	else if (!rot->bio_brick)
 		rot->is_attached = false;
 	_show_actual(rot->parent_path, "is-attached", rot->is_attached);
-
-	if (rot->rot_activated)
-		activate_peer(dent->d_rest, NULL, NULL, false);
-	if (strcmp(dent->d_rest, my_id()))
-		goto done;
 
 	activate_rot(rot);
 
