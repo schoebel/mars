@@ -177,9 +177,9 @@ int cb_thread(void *data)
 		/* Report a remote error when consistency cannot be guaranteed,
 		 * e.g. emergency mode during sync.
 		 */
-		if (brick->conn_brick && brick->conn_brick->mode_ptr && *brick->conn_brick->mode_ptr < 0
-		    && mref->object_cb)
-			mref->object_cb->cb_error = *brick->conn_brick->mode_ptr;
+		if (brick->bio_error < 0) {
+			mref->object_cb->cb_error = brick->bio_error;
+		}
 		if (!aborted) {
 			mref->ref_flags |= enabled_net_compressions;
 			down(&brick->socket_sem);
@@ -640,6 +640,7 @@ int handler_thread(void *data)
 				int max_loop = 10;
 				int nr_loop = 0;
 
+				prev->mode_ptr = &brick->bio_error;
 				/* First check whether the new brick is actually working */
 				while (!prev->power.led_on) {
 					status = mars_power_button(prev, true, false);

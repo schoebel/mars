@@ -70,6 +70,7 @@ struct server_brick {
 	struct list_head cb_write_list;
 	atomic_t in_flight_reads;
 	atomic_t in_flight_writes;
+	int bio_error;
 	bool cb_running;
 	bool handler_running;
 };
