@@ -533,11 +533,15 @@ int handler_thread(void *data)
 			MARS_WRN("#%d recv cmd status = %d\n", sock->s_debug_nr, status);
 			goto clean;
 		}
-		/* check detach switch */
+		/* abort in case of detach */
 		if (brick->conn_brick &&
 		    jiffies > brick->check_jiffies + 10 * HZ) {
 			ok_attach = check_switch(brick->conn_brick->brick_path, "attach");
 			brick->check_jiffies = jiffies;
+			if (!ok_attach) {
+				status = -EACCES;
+				goto clean;
+			}
 		}
 
 		MARS_IO("#%d cmd = %d\n", sock->s_debug_nr, cmd.cmd_code);
