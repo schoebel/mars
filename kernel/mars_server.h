@@ -68,6 +68,7 @@ struct server_brick {
 	struct mutex cb_mutex;
 	struct list_head cb_read_list;
 	struct list_head cb_write_list;
+	unsigned long check_jiffies;
 	atomic_t in_flight_reads;
 	atomic_t in_flight_writes;
 	int bio_error;

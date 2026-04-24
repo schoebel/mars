@@ -341,6 +341,8 @@ extern struct mars_global *mars_global;
 
 extern int  mars_power_button(struct mars_brick *brick, bool val, bool force_off);
 
+extern bool check_switch(const char *brick_path, const char *switch_name);
+
 /////////////////////////////////////////////////////////////////////////
 
 // statistics

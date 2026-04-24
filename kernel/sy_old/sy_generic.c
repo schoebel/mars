@@ -1423,6 +1423,18 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 }
 EXPORT_SYMBOL_GPL(mars_power_button);
 
+bool check_switch(const char *brick_path, const char *switch_name)
+{
+	char *switch_path;
+	bool res = false;
+
+	switch_path = backskip_replace(brick_path, '/', false,
+				       "/todo-%s/attach", my_id(), switch_name);
+	res = _check_switch(switch_path);
+	brick_string_free(switch_path);
+	return res;
+}
+
 /////////////////////////////////////////////////////////////////////
 
 // strategy layer

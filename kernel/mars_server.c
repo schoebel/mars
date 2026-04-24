@@ -433,6 +433,7 @@ int handler_thread(void *data)
 	char *cb_name;
 	struct mars_socket *sock = &brick->handler_socket;
 	bool ok = mars_get_socket(sock);
+	bool ok_attach = true;
 #ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	unsigned long statist_jiffies = jiffies;
 #endif
@@ -507,6 +508,12 @@ int handler_thread(void *data)
 		if (unlikely(status < 0)) {
 			MARS_WRN("#%d recv cmd status = %d\n", sock->s_debug_nr, status);
 			goto clean;
+		}
+		/* check detach switch */
+		if (brick->conn_brick &&
+		    jiffies > brick->check_jiffies + 10 * HZ) {
+			ok_attach = check_switch(brick->conn_brick->brick_path, "attach");
+			brick->check_jiffies = jiffies;
 		}
 
 		MARS_IO("#%d cmd = %d\n", sock->s_debug_nr, cmd.cmd_code);
@@ -628,6 +635,8 @@ int handler_thread(void *data)
 			CHECK_PTR(path, err);
 			CHECK_PTR_NULL(_bio_brick_type, err);
 
+			brick->check_jiffies = jiffies;
+
 			prev = make_brick_all(
 				handler_global,
 				NULL,
@@ -689,6 +698,7 @@ int handler_thread(void *data)
 				/* we cannot work when unconnected */
 				break;
 			}
+
 			status = server_io(brick, sock, &cmd);
 			brick->shutdown_jiffies = jiffies;
 			break;
@@ -753,7 +763,7 @@ int handler_thread(void *data)
 		brick_string_free(cmd.cmd_str2);
 		if (unlikely(status < 0)) {
 			mars_shutdown_socket(sock);
-			brick_msleep(100);
+			brick_msleep(200);
 		}
 	}
 
