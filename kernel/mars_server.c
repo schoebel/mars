@@ -659,6 +659,11 @@ int handler_thread(void *data)
 			CHECK_PTR(path, err);
 			CHECK_PTR_NULL(_bio_brick_type, err);
 
+			/* prevent any double connects */
+			if (brick->conn_brick) {
+				status = -EEXIST;
+				goto err;
+			}
 			/* now we know the resource path, check for detach */
 			ok_attach = check_switch(path, "attach");
 			if (!ok_attach) {
