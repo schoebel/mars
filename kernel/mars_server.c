@@ -811,6 +811,14 @@ int handler_thread(void *data)
 		if (unlikely(status < 0)) {
 			server_shutdown_socket(sock);
 			brick_msleep(200);
+			if (brick->conn_brick &&
+			    (brick->conn_brick->power.button ||
+			     brick->conn_brick->power.led_on ||
+			     !brick->conn_brick->power.led_off) &&
+			    atomic_read(&brick->in_flight_reads) +  atomic_read(&brick->in_flight_writes) <= 0) {
+				brick_msleep(200);
+				break;
+			}
 		}
 	}
 
