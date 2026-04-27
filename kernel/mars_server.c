@@ -167,6 +167,7 @@ int cb_thread(void *data)
 			continue;
 		}
 		backoff_ms = -1;
+		brick->shutdown_jiffies = jiffies;
 
 		mref_a = container_of(tmp, struct server_mref_aspect, cb_head);
 		mref = mref_a->object;
@@ -185,6 +186,7 @@ int cb_thread(void *data)
 			down(&brick->socket_sem);
 			status = mars_send_cb(sock, mref, cork);
 			up(&brick->socket_sem);
+			brick->shutdown_jiffies = jiffies;
 		}
 
 	err:
@@ -514,6 +516,7 @@ int handler_thread(void *data)
 			status = -EINTR;
 			goto clean;
 		}
+		brick->shutdown_jiffies = jiffies;
 
 		status = -EPROTO;
 		switch (cmd.cmd_code & CMD_FLAG_MASK) {
@@ -562,6 +565,7 @@ int handler_thread(void *data)
 					status = -ECONNABORTED;
 					goto clean;
 				}
+				brick->shutdown_jiffies = jiffies;
 			}
 			atomic_inc(&running_dent);
 
@@ -664,6 +668,7 @@ int handler_thread(void *data)
 				}
 				prev->killme = true;
 				brick->conn_brick = prev;
+				brick->shutdown_jiffies = jiffies;
 			} else {
 				MARS_ERR("#%d cannot find brick '%s'\n", sock->s_debug_nr, path);
 			}
@@ -685,6 +690,7 @@ int handler_thread(void *data)
 				break;
 			}
 			status = server_io(brick, sock, &cmd);
+			brick->shutdown_jiffies = jiffies;
 			break;
 		}
 		case CMD_CB:
@@ -1079,7 +1085,7 @@ void check_bricks(void)
 				continue;
 			}
 			/* Minimum connection duration, for better sysadmin detection */
-			if (running_brick->shutdown_jiffies + 3 * HZ <= jiffies)
+			if (running_brick->shutdown_jiffies + 30 * HZ <= jiffies)
 				continue;
 			mars_shutdown_socket(handler_socket);
 			/* only once per round */
