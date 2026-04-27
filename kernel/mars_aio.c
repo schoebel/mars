@@ -1267,7 +1267,6 @@ static int aio_switch(struct aio_brick *brick)
 	}
 
 	MARS_DBG("opened file '%s'\n", path);
-	brick->mode_ptr = &output->mf->mf_mode;
 	mars_power_led_on((void*)brick, true);
 
 done:
@@ -1291,8 +1290,6 @@ cleanup:
 	}
 
 	aio_stop_thread(output, 0, false);
-
-	brick->mode_ptr = NULL;
 
 	_destroy_ioctx(output);
 

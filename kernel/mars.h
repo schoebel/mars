@@ -311,7 +311,6 @@ struct mars_info {
 	struct lamport_time kill_stamp;					\
 	void **kill_ptr;						\
 	void **delegate_free;						\
-	int *mode_ptr;							\
 	int kill_round;							\
 	bool killme;							\
 

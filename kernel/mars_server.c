@@ -640,7 +640,6 @@ int handler_thread(void *data)
 				int max_loop = 10;
 				int nr_loop = 0;
 
-				prev->mode_ptr = &brick->bio_error;
 				/* First check whether the new brick is actually working */
 				while (!prev->power.led_on) {
 					status = mars_power_button(prev, true, false);
