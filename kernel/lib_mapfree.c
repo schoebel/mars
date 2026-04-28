@@ -375,6 +375,7 @@ int mapfree_thread(void *data)
 		struct mapfree_info *mf = NULL;
 		struct list_head *tmp;
 		long long eldest = 0;
+		unsigned int hash;
 		bool is_empty = true;
 
 		brick_wait_smp(mapfree_event,
@@ -421,7 +422,12 @@ int mapfree_thread(void *data)
 		if (brick_thread_should_stop())
 			mf->mf_finished = true;
 		mf->mf_jiffies = jiffies;
-		mapfree_put(mf);
+		barrier();
+
+		hash = mf->mf_hash;
+		down_write(&mf_table[hash].hash_mutex);
+		_mapfree_put(mf);
+		up_write(&mf_table[hash].hash_mutex);
 	}
 	return 0;
 }
