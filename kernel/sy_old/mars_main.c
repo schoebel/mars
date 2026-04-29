@@ -6201,8 +6201,13 @@ int make_bio(struct mars_dent *dent)
 		rot->is_attached = true;
 	else if (rot->sync_brick)
 		rot->is_attached = true;
-	else if (!rot->bio_brick)
-		rot->is_attached = false;
+	else if (!rot->bio_brick) {
+		/* At detach, check whether the same disk is in use by the server thread
+		 * caused by an active peer, or by an external tool like blkid.
+		 * Sysadmins are expecting this.
+		 */
+		rot->is_attached = mf_inuse_check(dent->d_path);
+	}
 	_show_actual(rot->parent_path, "is-attached", rot->is_attached);
 
 	activate_rot(rot);

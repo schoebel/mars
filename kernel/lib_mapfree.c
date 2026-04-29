@@ -148,6 +148,7 @@ void _mapfree_put(struct mapfree_info *mf)
 		if (likely(mf->mf_filp)) {
 			mapfree_pages(mf, -1);
 			filp_close(mf->mf_filp, NULL);
+			mf->mf_filp = NULL;
 		}
 		brick_string_free(mf->mf_name);
 		brick_mem_free(mf);
@@ -200,14 +201,16 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 		     tmp != &mf_table[hash].hash_anchor;
 		     tmp = tmp->next) {
 			struct mapfree_info *_mf = container_of(tmp, struct mapfree_info, mf_head);
-			if (_mf->mf_flags == flags && !strcmp(_mf->mf_name, name)) {
+			if (_mf->mf_flags == flags &&
+			    !strcmp(_mf->mf_name, name) &&
+			    _mf->mf_filp) {
 				mf = _mf;
 				atomic_inc(&mf->mf_count);
 				break;
 			}
 		}
 		up_read(&mf_table[hash].hash_mutex);
-	
+
 		if (mf) {
 			loff_t length = mapfree_real_size(mf);
 			int i;
@@ -326,7 +329,9 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 		     tmp != &mf_table[hash].hash_anchor;
 		     tmp = tmp->next) {
 			struct mapfree_info *_mf = container_of(tmp, struct mapfree_info, mf_head);
-			if (unlikely(_mf->mf_flags == flags && !strcmp(_mf->mf_name, name))) {
+			if (unlikely(_mf->mf_flags == flags &&
+				     !strcmp(_mf->mf_name, name) &&
+				     mf->mf_filp)) {
 				MARS_WRN("race on creation of '%s' detected\n", name);
 				_mapfree_put(mf);
 				mf = _mf;
@@ -528,7 +533,8 @@ loff_t mf_get_any_dirty(const char *filename, int stage)
 	     tmp != &mf_table[hash].hash_anchor;
 	     tmp = tmp->next) {
 		struct mapfree_info *mf = container_of(tmp, struct mapfree_info, mf_head);
-		if (!strcmp(mf->mf_name, filename)) {
+		if (!strcmp(mf->mf_name, filename) &&
+		    mf->mf_filp) {
 			loff_t len = mf_dirty_length(mf, stage);
 
 			if (len > res)
@@ -539,6 +545,27 @@ loff_t mf_get_any_dirty(const char *filename, int stage)
 	return res;
 }
 EXPORT_SYMBOL_GPL(mf_get_any_dirty);
+
+bool mf_inuse_check(const char *filename)
+{
+	unsigned int hash = mf_hash(filename);
+	struct list_head *tmp;
+	bool res = false;
+
+	down_read(&mf_table[hash].hash_mutex);
+	for (tmp = mf_table[hash].hash_anchor.next;
+	     tmp != &mf_table[hash].hash_anchor;
+	     tmp = tmp->next) {
+		struct mapfree_info *mf = container_of(tmp, struct mapfree_info, mf_head);
+		if (mf->mf_filp &&
+		    !strcmp(mf->mf_name, filename)) {
+			res = true;
+			break;
+		}
+	}
+	up_read(&mf_table[hash].hash_mutex);
+	return res;
+}
 
 ////////////////// module init stuff /////////////////////////
 

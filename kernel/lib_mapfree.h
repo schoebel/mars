@@ -100,6 +100,8 @@ loff_t mf_dirty_length(struct mapfree_info *mf, enum dirty_stage stage);
 
 loff_t mf_get_any_dirty(const char *filename, int stage);
 
+bool mf_inuse_check(const char *filename);
+
 ////////////////// module init stuff /////////////////////////
 
 int __init init_mars_mapfree(void);
