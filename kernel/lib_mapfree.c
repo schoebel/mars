@@ -61,22 +61,19 @@ struct mf_hash_anchor {
 	struct task_struct *hash_thread;
 };
 
-#define MAPFREE_HASH 128
+#define MAPFREE_HASH 32
 
 static inline
 unsigned int mf_hash(const char *name)
 {
-	unsigned char digest[MARS_DIGEST_SIZE] = {};
+	char c;
 	unsigned int res = 0;
 
-	mars_digest(MREF_CHKSUM_CRC32C | MREF_CHKSUM_MD5_OLD,
-		    NULL,
-		    digest,
-		    name, strlen(name));
+	for (; (c = *name); name++) {
+		res += c;
+	}
 
-	res = *(unsigned int *)&digest % MAPFREE_HASH;
-
-	return res;
+	return res % MAPFREE_HASH;
 }
 
 static
