@@ -194,7 +194,7 @@ do {								\
 ({								\
 	struct mars_global *__global;				\
 								\
-	__global = brick_mem_alloc(sizeof(struct mars_global));	\
+	__global = brick_block_alloc(0, PAGE_SIZE);		\
 	init_mars_global(__global);				\
 	__global;						\
  })
@@ -206,7 +206,7 @@ do {								\
 	if (__global) {						\
 		(_global_) = NULL;				\
 		exit_mars_global(__global);			\
-		brick_mem_free(__global);			\
+		brick_block_free(__global, PAGE_SIZE);		\
 	}							\
 })
 
