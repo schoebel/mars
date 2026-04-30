@@ -752,7 +752,9 @@ void set_brick_mem_freelist_max(int max, int order)
 void *_brick_block_alloc(loff_t pos, int len, int line)
 {
 	void *data;
+#ifdef CONFIG_MARS_MEM_PREALLOC
 	int count;
+#endif
 #ifdef BRICK_DEBUG_MEM
 #ifdef BRICK_DEBUG_ORDER0
 	const int plus0 = PAGE_SIZE;

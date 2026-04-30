@@ -252,7 +252,11 @@ void _crashme(int mode, bool do_sync)
 #define MARS_MEMRESERVE_ORDER		 5
 #define MEMRESERVE_FACTOR_5		32
 
+#ifdef CONFIG_MARS_EXPECTED_RESOURCES
 int expected_resources = CONFIG_MARS_EXPECTED_RESOURCES;
+#else
+int expected_resources = 12;
+#endif
 int nr_affected_resources;
 int tmp_nr_affected_resources;
 int nr_prosumer_resources;
