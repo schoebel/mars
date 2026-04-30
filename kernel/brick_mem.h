@@ -135,6 +135,7 @@ void *__mark_ptr_nonnull(void *_ptr)
 	({								\
 		void *_res_ = _brick_mem_alloc(_len_, __LINE__);	\
 		brick_mark_nonnull(_res_);				\
+		_res_;							\
 	})
 
 #define brick_zmem_alloc(_len_)						\
@@ -170,6 +171,7 @@ extern void _brick_mem_free(void *data, int line);
 	({								\
 		char *_res_ = _brick_string_alloc((_len_), __LINE__);	\
 		(char*)brick_mark_nonnull(_res_);			\
+		_res_;							\
 	})
 
 #define brick_strndup(_orig_,_len_)					\
@@ -182,6 +184,7 @@ extern void _brick_mem_free(void *data, int line);
 			_res_[_len_] = '\0';				\
 		}							\
 		(char*)brick_mark_nonnull(_res_);			\
+		_res_;							\
 	})
 
 #define brick_strdup(_orig_)						\
@@ -193,6 +196,7 @@ extern void _brick_mem_free(void *data, int line);
 			strncpy(_res_, (_orig_), (_len_) + 1);		\
 		}							\
 		(char*)brick_mark_nonnull(_res_);			\
+		_res_;							\
 	})
 
 #define brick_string_free(_data_)					\
@@ -215,6 +219,7 @@ extern void _brick_string_free(const char *data, int line);
 	({								\
 		void *_res_ = _brick_block_alloc((_pos_), (_len_), __LINE__); \
 		brick_mark_nonnull(_res_);				\
+		_res_;							\
 	})
 
 #define brick_block_free(_data_,_len_)\
