@@ -580,11 +580,11 @@ void __brick_block_free(void *data, int order, int cline)
 		inf_line = inf->inf_line;
 		kfree(inf);
 		if (unlikely(inf_len != (PAGE_SIZE << order))) {
-			BRICK_ERR("line %d: address %p: bad freeing size %d (correct should be %d, previous line = %d)\n", cline, data, (int)(PAGE_SIZE << order), inf_len, inf_line);
+			BRICK_ERR("line %d: address %px: bad freeing size %d (correct should be %d, previous line = %d)\n", cline, data, (int)(PAGE_SIZE << order), inf_len, inf_line);
 			goto err;
 		}
 	} else {
-		BRICK_ERR("line %d: trying to free non-existent address %p (order = %d)\n", cline, data, order);
+		BRICK_ERR("line %d: trying to free non-existent address %px (order = %d)\n", cline, data, order);
 		goto err;
 	}
 #endif
@@ -634,7 +634,7 @@ void *_get_free(int order, int cline)
 			// prevent further trouble by leaving a memleak
 			brick_freelist[order] = NULL;
 			traced_unlock(&freelist_lock[order], flags);
-			BRICK_ERR("line %d:freelist corruption at %p (pattern = %lx next %p != %p, murdered = %d), order = %d\n",
+			BRICK_ERR("line %d:freelist corruption at %px (pattern = %lx next %px != %px, murdered = %d), order = %d\n",
 				  cline, data, pattern, next, copy, atomic_read(&freelist_count[order]), order);
 			return NULL;
 		}
@@ -648,13 +648,13 @@ void *_get_free(int order, int cline)
 		struct mem_block_info *inf = _find_block_info(data, false);
 		if (likely(inf)) {
 			if (unlikely(inf->inf_len != (PAGE_SIZE << order))) {
-				BRICK_ERR("line %d: address %p: bad freelist size %d (correct should be %d, previous line = %d)\n",
+				BRICK_ERR("line %d: address %px: bad freelist size %d (correct should be %d, previous line = %d)\n",
 					  cline, data, (int)(PAGE_SIZE << order), inf->inf_len, inf->inf_line);
 			}
 			inf->inf_line = cline;
 			inf->inf_used = true;
 		} else {
-			BRICK_ERR("line %d: freelist address %p is invalid (order = %d)\n", cline, data, order);
+			BRICK_ERR("line %d: freelist address %px is invalid (order = %d)\n", cline, data, order);
 		}
 	}
 #endif
@@ -857,18 +857,18 @@ void _brick_block_free(void *data, int len, int cline)
 	if (likely(inf)) {
 		prev_line = inf->inf_line;
 		if (unlikely(inf->inf_len != (PAGE_SIZE << order))) {
-			BRICK_ERR("line %d: address %p: bad freeing size %d (correct should be %d, previous line = %d)\n",
+			BRICK_ERR("line %d: address %px: bad freeing size %d (correct should be %d, previous line = %d)\n",
 				  cline, data, (int)(PAGE_SIZE << order), inf->inf_len, prev_line);
 			return;
 		}
 		if (unlikely(!inf->inf_used)) {
-			BRICK_ERR("line %d: address %p: double freeing (previous line = %d)\n", cline, data, prev_line);
+			BRICK_ERR("line %d: address %px: double freeing (previous line = %d)\n", cline, data, prev_line);
 			return;
 		}
 		inf->inf_line = cline;
 		inf->inf_used = false;
 	} else {
-		BRICK_ERR("line %d: trying to free non-existent address %p (order = %d)\n", cline, data, order);
+		BRICK_ERR("line %d: trying to free non-existent address %px (order = %d)\n", cline, data, order);
 		return;
 	}
 #endif
@@ -883,24 +883,24 @@ void _brick_block_free(void *data, int len, int cline)
 		int magic2;
 
 		if (unlikely(magic1 != MAGIC_BLOCK)) {
-			BRICK_ERR("line %d memory corruption: %p magix1 %08x != %08x (previous line = %d)\n", cline, data, magic1, MAGIC_BLOCK, prev_line);
+			BRICK_ERR("line %d memory corruption: %px magix1 %08x != %08x (previous line = %d)\n", cline, data, magic1, MAGIC_BLOCK, prev_line);
 			return;
 		}
 		if (unlikely(magic != MAGIC_BLOCK)) {
-			BRICK_ERR("line %d memory corruption: %p magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BLOCK, prev_line);
+			BRICK_ERR("line %d memory corruption: %px magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BLOCK, prev_line);
 			return;
 		}
 		if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
-			BRICK_ERR("line %d memory corruption %p: alloc line = %d (previous line = %d)\n", cline, data, line, prev_line);
+			BRICK_ERR("line %d memory corruption %px: alloc line = %d (previous line = %d)\n", cline, data, line, prev_line);
 			return;
 		}
 		if (unlikely(oldlen != len)) {
-			BRICK_ERR("line %d memory corruption %p: len != oldlen (%d != %d, previous line = %d))\n", cline, data, len, oldlen, prev_line);
+			BRICK_ERR("line %d memory corruption %px: len != oldlen (%d != %d, previous line = %d))\n", cline, data, len, oldlen, prev_line);
 			return;
 		}
 		magic2 = INT_ACCESS(data, len);
 		if (unlikely(magic2 != MAGIC_BEND)) {
-			BRICK_ERR("line %d memory corruption %p: magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BEND, prev_line);
+			BRICK_ERR("line %d memory corruption %px: magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BEND, prev_line);
 			return;
 		}
 		INT_ACCESS(test, 0) = 0xffffffff;
@@ -915,15 +915,15 @@ void _brick_block_free(void *data, int len, int cline)
 		int oldlen = INT_ACCESS(test, 2 * sizeof(int));
 
 		if (unlikely(magic != MAGIC_BLOCK)) {
-			BRICK_ERR("line %d memory corruption %p: magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BLOCK, prev_line);
+			BRICK_ERR("line %d memory corruption %px: magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BLOCK, prev_line);
 			return;
 		}
 		if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
-			BRICK_ERR("line %d memory corruption %p: alloc line = %d (previous line = %d)\n", cline, data, line, prev_line);
+			BRICK_ERR("line %d memory corruption %px: alloc line = %d (previous line = %d)\n", cline, data, line, prev_line);
 			return;
 		}
 		if (unlikely(oldlen != len)) {
-			BRICK_ERR("line %d memory corruption %p: len != oldlen (%d != %d, previous line = %d))\n", cline, data, len, oldlen, prev_line);
+			BRICK_ERR("line %d memory corruption %px: len != oldlen (%d != %d, previous line = %d))\n", cline, data, len, oldlen, prev_line);
 			return;
 		}
 		atomic_dec(&block_count[line]);

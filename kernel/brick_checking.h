@@ -56,7 +56,7 @@ do {									\
 		     (head)->next != LIST_POISON1 &&			\
 		     (head)->prev != LIST_POISON2)) {			\
 		list_del_init(head);					\
-		BRICK_ERR("%d: list_head " #head " (%p) not empty\n", __LINE__, head); \
+		BRICK_ERR("%d: list_head " #head " (%px) not empty\n", __LINE__, head); \
 	}								\
 } while (0)
 
@@ -103,7 +103,7 @@ do {									\
 do {									\
 	CHECK_PTR_NULL(ptr, label);					\
 	if (BRICK_CHECKING && unlikely(!virt_addr_valid(ptr))) {	\
-		BRICK_FAT("%d: pointer '" #ptr "' (%p) is no valid virtual KERNEL address\n", __LINE__, ptr); \
+		BRICK_FAT("%d: pointer '" #ptr "' (%px) is no valid virtual KERNEL address\n", __LINE__, ptr); \
 		goto label;						\
 	}								\
 } while (0)
@@ -114,7 +114,7 @@ do {									\
 #define CHECK_ASPECT(a_ptr, o_ptr,label)				\
   do {								        \
 	  if (BRICK_CHECKING && unlikely((a_ptr)->object != o_ptr)) {	\
-		  BRICK_FAT("%d: aspect pointer '" #a_ptr "' (%p) belongs to object %p, not to " #o_ptr " (%p)\n", __LINE__, a_ptr, (a_ptr)->object, o_ptr); \
+		  BRICK_FAT("%d: aspect pointer '" #a_ptr "' (%px) belongs to object %px, not to " #o_ptr " (%px)\n", __LINE__, a_ptr, (a_ptr)->object, o_ptr); \
 		  goto label;						\
 	  }								\
 } while (0)

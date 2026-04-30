@@ -616,7 +616,7 @@ void _inf_callback(struct trans_logger_input *input, bool force)
 			input->inf_min_old = input->inf.inf_min_pos;
 		}
 	} else {
-		MARS_DBG("%p skipped callback, callback = %p is_operating = %d\n", input, input->inf.inf_callback, input->is_operating);
+		MARS_DBG("%px skipped callback, callback = %px is_operating = %d\n", input, input->inf.inf_callback, input->is_operating);
 	}
 }
 
@@ -659,7 +659,7 @@ int _make_sshadow(struct trans_logger_output *output, struct trans_logger_mref_a
 		mref->ref_len = mshadow->ref_len;
 	}
 	if (unlikely(mshadow_a == mref_a)) {
-		MARS_ERR("oops %p == %p\n", mshadow_a, mref_a);
+		MARS_ERR("oops %px == %px\n", mshadow_a, mref_a);
 		return -EINVAL;
 	}
 #endif
@@ -1606,7 +1606,7 @@ void phase0_endio(void *private, int error)
 
 //      remove_this
 	if (unlikely(cmpxchg(&orig_mref_a->is_endio, false, true))) {
-		MARS_ERR("Sigh this should not happen %p %p\n",
+		MARS_ERR("Sigh this should not happen %px %px\n",
 			 orig_mref_a, orig_mref_a->object);
 		return;
 	}
@@ -1756,7 +1756,7 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 			if (unlikely(mref->ref_len <= 0 || mref->ref_len > PAGE_SIZE)) {
 				MARS_ERR("implausible ref_len = %d\n", mref->ref_len);
 			}
-			MARS_IO("read memcpy to = %p from = %p len = %d\n", mref->ref_data, mref_a->shadow_data, mref->ref_len);
+			MARS_IO("read memcpy to = %px from = %px len = %d\n", mref->ref_data, mref_a->shadow_data, mref->ref_len);
 			memcpy(mref->ref_data, mref_a->shadow_data, mref->ref_len);
 		}
 #endif
@@ -1788,7 +1788,7 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 		if (unlikely(mref->ref_len <= 0 || mref->ref_len > PAGE_SIZE)) {
 			MARS_ERR("implausible ref_len = %d\n", mref->ref_len);
 		}
-		MARS_IO("write memcpy to = %p from = %p len = %d\n", mref_a->shadow_data, mref->ref_data, mref->ref_len);
+		MARS_IO("write memcpy to = %px from = %px len = %d\n", mref_a->shadow_data, mref->ref_data, mref->ref_len);
 		memcpy(mref_a->shadow_data, mref->ref_data, mref->ref_len);
 	}
 #endif
@@ -1796,7 +1796,7 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 	mref_a->shadow_ref->is_dirty = true;
 #ifndef KEEP_UNIQUE
 	if (unlikely(mref_a->shadow_ref != mref_a)) {
-		MARS_ERR("something is wrong: %p != %p\n", mref_a->shadow_ref, mref_a);
+		MARS_ERR("something is wrong: %px != %px\n", mref_a->shadow_ref, mref_a);
 	}
 #endif
 	if (likely(!mref_a->is_hashed)) {
@@ -2465,7 +2465,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 			}
 
 			if ((leader = elect_leader(&global_writeback)) != brick) {
-				MARS_IO("BAILOUT leader=%p brick=%p\n", leader, brick);				
+				MARS_IO("BAILOUT leader=%px brick=%px\n", leader, brick);				
 #ifdef CONFIG_MARS_DEBUG
 				brick->bail[i] = 5;
 #endif
@@ -2572,7 +2572,7 @@ void _init_inputs(struct trans_logger_brick *brick, bool is_first)
 	CHECK_PTR(input, done);
 
 	if (input->is_operating || !input->connect) {
-		MARS_IO("cannot yet switch over to %d (is_operating = %d connect = %p)\n", new_nr, input->is_operating, input->connect);
+		MARS_IO("cannot yet switch over to %d (is_operating = %d connect = %px)\n", new_nr, input->is_operating, input->connect);
 		goto done;
 	}
 

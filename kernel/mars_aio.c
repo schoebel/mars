@@ -245,7 +245,7 @@ void _complete(struct aio_output *output, struct aio_mref_aspect *mref_a, int er
 	mars_trace(mref, "aio_endio");
 
 	if (err < 0) {
-		MARS_ERR("IO error %d at pos=%lld len=%d (mref=%p ref_data=%p)\n", err, mref->ref_pos, mref->ref_len, mref, mref->ref_data);
+		MARS_ERR("IO error %d at pos=%lld len=%d (mref=%px ref_data=%px)\n", err, mref->ref_pos, mref->ref_len, mref, mref->ref_data);
 	} else {
 		mref_checksum(mref);
 		mref->ref_flags |= MREF_UPTODATE;
@@ -345,7 +345,7 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 
 	mapfree_set(output->mf, mref->ref_pos, -1);
 
-	MARS_IO("AIO flags=%ux pos=%lld len=%d data=%p\n",
+	MARS_IO("AIO flags=%ux pos=%lld len=%d data=%px\n",
 		mref->ref_flags, mref->ref_pos, mref->ref_len, mref->ref_data);
 
 	mref_a = aio_mref_get_aspect(output->brick, mref);
@@ -695,7 +695,7 @@ static int aio_event_thread(void *data)
 			}
 			mref = mref_a->object;
 
-			MARS_IO("AIO done %p pos = %lld len = %d flags = %ux\n",
+			MARS_IO("AIO done %px pos = %lld len = %d flags = %ux\n",
 				mref, mref->ref_pos, mref->ref_len,
 				mref->ref_flags);
 
@@ -780,7 +780,7 @@ void _destroy_ioctx(struct aio_output *output)
 		mm_segment_t oldfs;
 		int err;
 
-		MARS_DBG("ioctx count = %d destroying %p\n", atomic_read(&ioctx_count), (void*)output->ctxp);
+		MARS_DBG("ioctx count = %d destroying %px\n", atomic_read(&ioctx_count), (void*)output->ctxp);
 		oldfs = get_fs();
 		set_fs(KERNEL_DS);
 #ifdef MARS_HAS_PREPATCH_V2
@@ -891,7 +891,7 @@ int _create_ioctx(struct aio_output *output)
 	CHECK_PTR_NULL(file, done);
 
 	err = _get_fd();
-	MARS_DBG("file %p '%s' new fd = %d\n", file, output->mf->mf_name, err);
+	MARS_DBG("file %px '%s' new fd = %d\n", file, output->mf->mf_name, err);
 	if (unlikely(err < 0)) {
 		MARS_ERR("cannot get fd, err=%d\n", err);
 		goto done;
@@ -920,7 +920,7 @@ int _create_ioctx(struct aio_output *output)
 	mutex_unlock(&aio_max_lock);
 #endif
 
-	MARS_DBG("ioctx count = %d old = %p\n", atomic_read(&ioctx_count), (void*)output->ctxp);
+	MARS_DBG("ioctx count = %d old = %px\n", atomic_read(&ioctx_count), (void*)output->ctxp);
 	output->ctxp = 0;
 
 	oldfs = get_fs();
@@ -933,7 +933,7 @@ int _create_ioctx(struct aio_output *output)
 	set_fs(oldfs);
 	if (likely(output->ctxp))
 		atomic_inc(&ioctx_count);
-	MARS_DBG("ioctx count = %d new = %p status = %d\n", atomic_read(&ioctx_count), (void*)output->ctxp, err);
+	MARS_DBG("ioctx count = %d new = %px status = %d\n", atomic_read(&ioctx_count), (void*)output->ctxp, err);
 	if (unlikely(err < 0)) {
 		MARS_ERR("io_setup failed, err=%d\n", err);
 		goto done;

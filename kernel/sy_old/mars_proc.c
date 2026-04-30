@@ -399,7 +399,7 @@ int trigger_sysctl_handler(
 			len = mylen;
 		res = len;
 		if (copy_to_user(buffer, answer, len)) {
-			MARS_ERR("write %ld bytes at %p failed\n", len, buffer);
+			MARS_ERR("write %ld bytes at %px failed\n", len, buffer);
 			res = -EFAULT;
 		}
 		brick_string_free(tmp);
@@ -450,7 +450,7 @@ int lamport_sysctl_handler(
 			);
 
 		if (copy_to_user(buffer, tmp, res)) {
-			MARS_ERR("write %ld bytes at %p failed\n", res, buffer);
+			MARS_ERR("write %ld bytes at %px failed\n", res, buffer);
 			res = -EFAULT;
 		}
 		brick_string_free(tmp);

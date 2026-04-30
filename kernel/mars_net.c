@@ -341,7 +341,7 @@ int mars_accept_socket(struct mars_socket *new_msock,
 			goto err;
 		}
 
-		MARS_IO("old#%d status = %d file = %p flags = 0x%x\n", old_msock->s_debug_nr, status, new_socket->file, new_socket->file ? new_socket->file->f_flags : 0);
+		MARS_IO("old#%d status = %d file = %px flags = 0x%x\n", old_msock->s_debug_nr, status, new_socket->file, new_socket->file ? new_socket->file->f_flags : 0);
 
 		_set_socketopts(new_socket, params, false);
 
@@ -363,9 +363,9 @@ EXPORT_SYMBOL_GPL(mars_accept_socket);
 
 bool mars_get_socket(struct mars_socket *msock)
 {
-	MARS_LOW("#%d get socket %p s_count=%d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
+	MARS_LOW("#%d get socket %px s_count=%d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
 	if (unlikely(atomic_read(&msock->s_count) <= 0)) {
-		MARS_ERR("#%d bad nesting on msock = %p\n", msock->s_debug_nr, msock);
+		MARS_ERR("#%d bad nesting on msock = %px\n", msock->s_debug_nr, msock);
 		return false;
 	}
 
@@ -383,19 +383,19 @@ EXPORT_SYMBOL_GPL(mars_get_socket);
 
 void mars_put_socket(struct mars_socket *msock)
 {
-	MARS_LOW("#%d put socket %p s_count=%d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
+	MARS_LOW("#%d put socket %px s_count=%d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
 	if (unlikely(atomic_read(&msock->s_count) <= 0)) {
-		MARS_ERR("#%d bad nesting on msock = %p sock = %p\n", msock->s_debug_nr, msock, msock->s_socket);
+		MARS_ERR("#%d bad nesting on msock = %px sock = %px\n", msock->s_debug_nr, msock, msock->s_socket);
 	} else if (atomic_dec_and_test(&msock->s_count)) {
 		struct socket *sock = msock->s_socket;
 		int i;
 
-		MARS_DBG("#%d closing socket %p\n", msock->s_debug_nr, sock);
+		MARS_DBG("#%d closing socket %px\n", msock->s_debug_nr, sock);
 		if (likely(sock && cmpxchg(&msock->s_alive, true, false))) {
 			kernel_sock_shutdown(sock, SHUT_RDWR);
 		}
 		if (likely(sock && !msock->s_alive)) {
-			MARS_DBG("#%d releasing socket %p\n", msock->s_debug_nr, sock);
+			MARS_DBG("#%d releasing socket %px\n", msock->s_debug_nr, sock);
 			sock_release(sock);
 		}
 		for (i = 0; i < MAX_DESC_CACHE; i++) {
@@ -410,7 +410,7 @@ EXPORT_SYMBOL_GPL(mars_put_socket);
 
 void mars_shutdown_socket(struct mars_socket *msock)
 {
-	MARS_IO("#%d shutdown socket %p s_count=%d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
+	MARS_IO("#%d shutdown socket %px s_count=%d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
 
 	mb();
 	if (msock->s_socket) {
@@ -418,7 +418,7 @@ void mars_shutdown_socket(struct mars_socket *msock)
 		if (likely(ok)) {
 			struct socket *sock = msock->s_socket;
 			if (likely(sock && cmpxchg(&msock->s_alive, true, false))) {
-				MARS_DBG("#%d shutdown socket %p\n", msock->s_debug_nr, sock);
+				MARS_DBG("#%d shutdown socket %px\n", msock->s_debug_nr, sock);
 				msock->s_connected = false;
 				kernel_sock_shutdown(sock, SHUT_RDWR);
 			}
@@ -439,7 +439,7 @@ bool mars_socket_is_alive(struct mars_socket *msock)
 	if (!msock->s_socket || !msock->s_alive)
 		goto done;
 	if (unlikely(atomic_read(&msock->s_count) <= 0)) {
-		MARS_ERR("#%d bad nesting on msock = %p sock = %p\n", msock->s_debug_nr, msock, msock->s_socket);
+		MARS_ERR("#%d bad nesting on msock = %px sock = %px\n", msock->s_debug_nr, msock, msock->s_socket);
 		goto done;
 	}
 	ok = mars_get_socket(msock);
@@ -449,14 +449,14 @@ bool mars_socket_is_alive(struct mars_socket *msock)
 		if (!_socket_not_connected(sock)) {
 			msock->s_connected = true;
 		} else if (msock->s_connected) {
-			MARS_DBG("#%d remote side hangup %p sock = %p\n", msock->s_debug_nr, msock, msock->s_socket);
+			MARS_DBG("#%d remote side hangup %px sock = %px\n", msock->s_debug_nr, msock, msock->s_socket);
 			goto done;
 		}
 		mars_put_socket(msock);
 	}
 	res = true;
 done:
-	MARS_LOW("#%d %p s_count = %d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
+	MARS_LOW("#%d %px s_count = %d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
 	return res;
 }
 EXPORT_SYMBOL_GPL(mars_socket_is_alive);
@@ -468,7 +468,7 @@ long mars_socket_send_space_available(struct mars_socket *msock)
 	if (!msock->s_alive || !raw_sock || !raw_sock->sk)
 		goto done;
 	if (unlikely(atomic_read(&msock->s_count) <= 0)) {
-		MARS_ERR("#%d bad nesting on msock = %p sock = %p\n", msock->s_debug_nr, msock, msock->s_socket);
+		MARS_ERR("#%d bad nesting on msock = %px sock = %px\n", msock->s_debug_nr, msock, msock->s_socket);
 		goto done;
 	}
 
@@ -517,7 +517,7 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 			int flags = MSG_NOSIGNAL;
 			page = brick_iomap(buf, &page_offset, &this_len);
 			if (unlikely(!page)) {
-				MARS_ERR("cannot iomap() kernel address %p\n", buf);
+				MARS_ERR("cannot iomap() kernel address %px\n", buf);
 				status = -EINVAL;
 				break;
 			}
@@ -830,7 +830,7 @@ void dump_meta(const struct meta *meta)
 {
 	int count = 0;
 	for (; meta->field_name != NULL; meta++) {
-		MARS_ERR("%2d %4d %4d %p '%s'\n",
+		MARS_ERR("%2d %4d %4d %px '%s'\n",
 			 meta->field_type,
 			 meta->field_size,
 			 meta->field_offset,
@@ -912,7 +912,7 @@ struct mars_desc_cache *make_sender_cache(struct mars_socket *msock, const struc
 			goto done;
 	}
 
-	MARS_IO("#%d meta=%p i=%d\n", msock->s_debug_nr, meta, i);
+	MARS_IO("#%d meta=%px i=%d\n", msock->s_debug_nr, meta, i);
 
 	if (unlikely(i >= MAX_DESC_CACHE - 1)) {
 		MARS_ERR("#%d desc cache overflow\n", msock->s_debug_nr);
@@ -1009,7 +1009,7 @@ int _desc_send_item(struct mars_socket *msock, const void *data, const struct ma
 	int status;
 	int res = -ENOMSG;
 
-	MARS_IO("#%d cork=%d mc=%p field_name='%s' field_type=%d\n", msock->s_debug_nr, cork, mc, mi->field_name, mi->field_type);
+	MARS_IO("#%d cork=%d mc=%px field_name='%s' field_type=%d\n", msock->s_debug_nr, cork, mc, mi->field_name, mi->field_type);
 
 	switch (mi->field_type) {
 	case FIELD_REF:
@@ -1056,7 +1056,7 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 	if (likely(data && field_recver_offset >= 0)) {
 		item = data + field_recver_offset;
 	} else {
-		MARS_ERR("#%d data=%p mc=%p item=%d offset=%d len=%d line=%d\n",
+		MARS_ERR("#%d data=%px mc=%px item=%d offset=%d len=%d line=%d\n",
 			 msock->s_debug_nr,
 			 data, mc, index, field_recver_offset, len, line);
 		goto done;
@@ -1094,7 +1094,7 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 			char *str = *(void **)item;
 
 			if (unlikely(str)) {
-				MARS_ERR("#%d string already allocated %p at address %p\n",
+				MARS_ERR("#%d string already allocated %px at address %px\n",
 					 msock->s_debug_nr,
 					 str, item);
 				if (*str) {
@@ -1194,7 +1194,7 @@ int _desc_send_struct(struct mars_socket *msock, int cache_index, const void *da
 	int count = 0;
 	int status = 0;
 
-	MARS_IO("#%d cork=%d mc=%p h_meta_len=%d\n", msock->s_debug_nr, cork, mc, h_meta_len);
+	MARS_IO("#%d cork=%d mc=%px h_meta_len=%d\n", msock->s_debug_nr, cork, mc, h_meta_len);
 
 	status = mars_send_raw(msock, &header, sizeof(header), cork || data);
 	if (unlikely(status < 0))
@@ -1202,7 +1202,7 @@ int _desc_send_struct(struct mars_socket *msock, int cache_index, const void *da
 
 	if (unlikely(h_meta_len > 0)) {
 		status = mars_send_raw(msock, mc, h_meta_len, true);
-		MARS_IO("#%d sent mc=%p h_meta_len=%d status=%d\n", msock->s_debug_nr, mc, h_meta_len, status);
+		MARS_IO("#%d sent mc=%px h_meta_len=%d status=%d\n", msock->s_debug_nr, mc, h_meta_len, status);
 		if (unlikely(status < 0))
 			goto err;
 	}
@@ -1297,7 +1297,7 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 		}
 
 		status = mars_recv_raw(msock, mc, header.h_meta_len, header.h_meta_len);
-		MARS_IO("#%d got mc=%p h_meta_len=%d status=%d\n", msock->s_debug_nr, mc, header.h_meta_len, status);
+		MARS_IO("#%d got mc=%px h_meta_len=%d status=%d\n", msock->s_debug_nr, mc, header.h_meta_len, status);
 		if (unlikely(status < 0)) {
 			brick_block_free(mc, PAGE_SIZE);
 			goto err;
@@ -1314,7 +1314,7 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 		status = -EMSGSIZE;
 		goto err;
 	} else if (unlikely(mc->cache_recver_cookie != (u64)meta)) {
-		MARS_ERR("#%d protocol error %p != %p\n", msock->s_debug_nr, meta, (void*)mc->cache_recver_cookie);
+		MARS_ERR("#%d protocol error %px != %px\n", msock->s_debug_nr, meta, (void*)mc->cache_recver_cookie);
 		dump_meta((void*)mc->cache_recver_cookie);
 		dump_meta(meta);
 		status = -EPROTO;
@@ -1337,14 +1337,14 @@ err:
 
 int mars_send_struct(struct mars_socket *msock, const void *data, const struct meta *meta, bool cork)
 {
-	MARS_IO("#%d meta=%p\n", msock->s_debug_nr, meta);
+	MARS_IO("#%d meta=%px\n", msock->s_debug_nr, meta);
 	return desc_send_struct(msock, data, meta, cork);
 }
 EXPORT_SYMBOL_GPL(mars_send_struct);
 
 int _mars_recv_struct(struct mars_socket *msock, void *data, const struct meta *meta, int line)
 {
-	MARS_IO("#%d meta=%p called from line %d\n", msock->s_debug_nr, meta, line);
+	MARS_IO("#%d meta=%px called from line %d\n", msock->s_debug_nr, meta, line);
 	return desc_recv_struct(msock, data, meta, line);
 }
 EXPORT_SYMBOL_GPL(_mars_recv_struct);
@@ -1439,7 +1439,7 @@ int _mars_send_mref(struct mars_socket *msock,
 		goto no_data;
 
 	if (unlikely(!ref_data || !ref_len)) {
-		MARS_ERR("invalid data=%p len=%d\n",
+		MARS_ERR("invalid data=%px len=%d\n",
 			 ref_data, ref_len);
 		goto done;
 	}
@@ -1617,7 +1617,7 @@ int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct m
 		}
 		status = mars_recv_raw(msock, ref_data, ref_len, ref_len);
 		if (unlikely(status < 0)) {
-			MARS_WRN("#%d data=%p len=%d, err=%d\n",
+			MARS_WRN("#%d data=%px len=%d, err=%d\n",
 				 msock->s_debug_nr,
 				 ref_data, ref_len, status);
 			if (!mref->ref_data)
@@ -1625,7 +1625,7 @@ int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct m
 			goto done;
 		}
 		if (unlikely(status != ref_len)) {
-			MARS_WRN("#%d short read on data=%p len=%d/%d\n",
+			MARS_WRN("#%d short read on data=%px len=%d/%d\n",
 				 msock->s_debug_nr,
 				 ref_data, status, ref_len);
 			if (!mref->ref_data)

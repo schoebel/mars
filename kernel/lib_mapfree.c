@@ -142,7 +142,7 @@ static
 void _mapfree_put(struct mapfree_info *mf)
 {
 	if (atomic_dec_and_test(&mf->mf_count)) {
-		MARS_DBG("closing file '%s' filp = %p\n", mf->mf_name, mf->mf_filp);
+		MARS_DBG("closing file '%s' filp = %px\n", mf->mf_name, mf->mf_filp);
 		list_del_init(&mf->mf_head);
 		CHECK_HEAD_EMPTY(&mf->mf_dirty_anchor);
 		if (likely(mf->mf_filp)) {
@@ -268,7 +268,7 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 		mf->mf_filp = filp_open(name, flags, prot);
 		set_fs(oldfs);
 
-		MARS_DBG("file '%s' flags = %d prot = %d filp = %p\n", name, flags, prot, mf->mf_filp);
+		MARS_DBG("file '%s' flags = %d prot = %d filp = %px\n", name, flags, prot, mf->mf_filp);
 
 		if (unlikely(!mf->mf_filp || IS_ERR(mf->mf_filp))) {
 			int err = PTR_ERR(mf->mf_filp);

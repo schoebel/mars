@@ -2530,7 +2530,7 @@ struct mars_dent *_mars_find_dent(struct list_head *anchor, const char *path)
 		CHECK_PTR(tmp_dent, done);
 
 		if (unlikely(!tmp_dent->d_path)) {
-			MARS_ERR("dent %p has empty path\n", tmp_dent);
+			MARS_ERR("dent %px has empty path\n", tmp_dent);
 			continue;
 		}
 		if (!strcmp(tmp_dent->d_path, path)) {
@@ -2609,7 +2609,7 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 	int i;
 
 	CHECK_PTR(dent, fatal);
-	MARS_IO("%p path='%s'\n", dent, dent->d_path);
+	MARS_IO("%px path='%s'\n", dent, dent->d_path);
 	mars_kill_dent(global, dent);
 
 	CHECK_HEAD_EMPTY(&dent->dent_link);
@@ -2684,7 +2684,7 @@ void mars_free_dent_all(struct mars_global *global)
 		CHECK_PTR(dent, fatal);
 		list_del_init(&dent->dent_link);
 		list_del_init(&dent->dent_hash_link);
-		MARS_IO("freeing dent %p\n", dent);
+		MARS_IO("freeing dent %px\n", dent);
 		mars_free_dent(global, dent);
 	}
  fatal: ;
@@ -3301,7 +3301,7 @@ struct mars_brick *path_find_brick(struct mars_global *global, const void *brick
 	}
 	res = mars_find_brick(global, brick_type, fullpath);
 	brick_string_free(fullpath);
-	MARS_IO("search for '%s' found = %p\n", fullpath, res);
+	MARS_IO("search for '%s' found = %px\n", fullpath, res);
 	return res;
 }
 EXPORT_SYMBOL_GPL(path_find_brick);

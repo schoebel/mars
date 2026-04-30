@@ -226,7 +226,7 @@ void if_endio(struct generic_callback *cb)
 
 	LAST_CALLBACK(cb);
 	if (unlikely(!mref_a || !mref_a->object)) {
-		MARS_FAT("mref_a = %p mref = %p, something is very wrong here!\n", mref_a, mref_a->object);
+		MARS_FAT("mref_a = %px mref = %px, something is very wrong here!\n", mref_a, mref_a->object);
 		return;
 	}
 	input = mref_a->input;
@@ -504,7 +504,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	bind_to_channel(brick->say_channel, current);
 #endif
 
-	MARS_IO("bio %p "
+	MARS_IO("bio %px "
 		"size = %d "
 		"rw = %d "
 		"sectors = %d "
@@ -619,7 +619,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #error FIXME: the current infrastructure cannot deal with HIGHMEM / kmap()
 #endif
 		data = page_address(page);
-		MARS_IO("page = %p data = %p\n", page, data);
+		MARS_IO("page = %px data = %px\n", page, data);
 		error = -EINVAL;
 		if (unlikely(!data))
 			break;
@@ -635,7 +635,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 			mref = NULL;
 			mref_a = NULL;
 
-			MARS_IO("rw = %d i = %d pos = %lld  bv_page = %p bv_offset = %d data = %p bv_len = %d\n", rw, i, pos, bvec->bv_page, bvec->bv_offset, data, bv_len);
+			MARS_IO("rw = %d i = %d pos = %lld  bv_page = %px bv_offset = %d data = %px bv_len = %d\n", rw, i, pos, bvec->bv_page, bvec->bv_offset, data, bv_len);
 
 			hash_index = ((unsigned long)pos / IF_HASH_CHUNK) % IF_HASH_MAX;
 
@@ -1174,7 +1174,7 @@ static int if_switch(struct if_brick *brick)
 			bdi->congested_fn = mars_congested;
 			bdi->congested_data = input;
 		} else {
-			MARS_WRN("cannot assign congested_fn to %p %p\n",
+			MARS_WRN("cannot assign congested_fn to %px %px\n",
 				 bdi->congested_fn, bdi->congested_data);
 		}
 #endif
@@ -1191,7 +1191,7 @@ static int if_switch(struct if_brick *brick)
 			q->backing_dev_info.congested_fn = mars_congested;
 			q->backing_dev_info.congested_data = input;
 		} else {
-			MARS_WRN("cannot assign congested_fn to %p %p\n",
+			MARS_WRN("cannot assign congested_fn to %px %px\n",
 				 q->backing_dev_info.congested_fn, q->backing_dev_info.congested_data);
 		}
 #endif
@@ -1263,7 +1263,7 @@ static int if_switch(struct if_brick *brick)
 					bdi->congested_fn = NULL;
 					bdi->congested_data = NULL;
 				} else {
-					MARS_WRN("connot clear congested_fn %p %p",
+					MARS_WRN("connot clear congested_fn %px %px",
 						 bdi->congested_fn, bdi->congested_data);
 				}
 			}
@@ -1284,7 +1284,7 @@ static int if_switch(struct if_brick *brick)
 				q->backing_dev_info.congested_fn = NULL;
 				q->backing_dev_info.congested_data = NULL;
 			} else {
-				MARS_WRN("connot clear congested_fn %p %p",
+				MARS_WRN("connot clear congested_fn %px %px",
 					 q->backing_dev_info.congested_fn, q->backing_dev_info.congested_data);
 			}
 #endif
@@ -1398,7 +1398,7 @@ char *if_statistics(struct if_brick *brick, int verbose)
 	if (!res)
 		return NULL;
 	snprintf(res, 512,
-		 "disk = %p "
+		 "disk = %px "
 #ifdef CONFIG_MARS_DEBUG
 		 "total reada = %d "
 		 "reads = %d "

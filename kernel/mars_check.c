@@ -92,14 +92,14 @@ static void check_endio(struct generic_callback *cb)
 
 	if (atomic_dec_and_test(&mref_a->callback_count)) {
 		atomic_set(&mref_a->callback_count, 1);
-		CHECK_ERR(output, "too many callbacks on %p\n", mref);
+		CHECK_ERR(output, "too many callbacks on %px\n", mref);
 	}
 
 #ifdef CHECK_LOCK
 	traced_lock(&output->check_lock, flags);
 
 	if (list_empty(&mref_a->mref_head)) {
-		CHECK_ERR(output, "list entry missing on %p\n", mref);
+		CHECK_ERR(output, "list entry missing on %px\n", mref);
 	}
 	list_del_init(&mref_a->mref_head);
 
@@ -172,7 +172,7 @@ static int check_watchdog(void *data)
 				struct generic_object_layout *object_layout;
 				mref_a->last_jiffies = now + 600 * HZ;
 				MARS_INF("================================\n");
-				CHECK_ERR(output, "mref %p callback is missing for more than %d seconds.\n", mref, timeout);
+				CHECK_ERR(output, "mref %px callback is missing for more than %d seconds.\n", mref, timeout);
 				object_layout = mref->object_layout;
 				dump_mem(mref, object_layout->size_hint);
 				MARS_INF("================================\n");
@@ -218,7 +218,7 @@ static void check_ref_io(struct check_output *output, struct mref_object *mref)
 
 	if (atomic_dec_and_test(&mref_a->call_count)) {
 		atomic_set(&mref_a->call_count, 1);
-		CHECK_ERR(output, "multiple parallel calls on %p\n", mref);
+		CHECK_ERR(output, "multiple parallel calls on %px\n", mref);
 	}
 	atomic_set(&mref_a->callback_count, 2);
 
@@ -226,7 +226,7 @@ static void check_ref_io(struct check_output *output, struct mref_object *mref)
 	traced_lock(&output->check_lock, flags);
 
 	if (!list_empty(&mref_a->mref_head)) {
-		CHECK_ERR(output, "list head not empty on %p\n", mref);
+		CHECK_ERR(output, "list head not empty on %px\n", mref);
 		list_del(&mref_a->mref_head);
 	}
 	list_add_tail(&mref_a->mref_head, &output->mref_anchor);
@@ -272,7 +272,7 @@ static void check_mref_aspect_exit_fn(struct generic_aspect *_ini)
 	if (!list_empty(&ini->mref_head)) {
 		struct check_output *output = ini->output;
 		if (output) {
-			CHECK_ERR(output, "list head not empty on %p\n", ini->object);
+			CHECK_ERR(output, "list head not empty on %px\n", ini->object);
 			INIT_LIST_HEAD(&ini->mref_head);
 		} else {
 			CHECK_HEAD_EMPTY(&ini->mref_head);

@@ -263,7 +263,7 @@ struct mref_object {
 #define _mref_check(mref)						\
 	({								\
 		if (unlikely(BRICK_CHECKING && !(mref)->ref_initialized)) { \
-			MARS_ERR("mref %p is not initialized\n", (mref)); \
+			MARS_ERR("mref %px is not initialized\n", (mref)); \
 		}							\
 		CHECK_TATOMIC(&(mref)->ref_at, &(mref)->ref_count, 1);	\
 	})
@@ -271,7 +271,7 @@ struct mref_object {
 #define _mref_get_first(mref)						\
 	({								\
 		if (unlikely(BRICK_CHECKING && (mref)->ref_initialized)) { \
-			MARS_ERR("mref %p is already initialized\n", (mref)); \
+			MARS_ERR("mref %px is already initialized\n", (mref)); \
 		}							\
 		_CHECK_TATOMIC(&(mref)->ref_at, &(mref)->ref_count, !=, 0, 0); \
 		(mref)->ref_initialized = true;				\

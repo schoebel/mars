@@ -234,7 +234,7 @@ void copy_endio(struct generic_callback *cb)
 	check_index = GET_INDEX(mref_a->orig_ref_pos);
 	if (unlikely(check_index != index)) {
 		/* This should not happen */
-		MARS_ERR("index slippery %u != %u on queue=%u: mref=%p mref_a=%p cb=%p err=%d\n",
+		MARS_ERR("index slippery %u != %u on queue=%u: mref=%px mref_a=%px cb=%px err=%d\n",
 			 index, check_index,
 			 queue,
 			 mref, mref_a,
@@ -249,7 +249,7 @@ void copy_endio(struct generic_callback *cb)
 		     check_offset + mref->ref_len > COPY_CHUNK ||
 		     mref->ref_len > mref_a->orig_ref_len ||
 		     mref->ref_len < 0)) {
-		MARS_ERR("bad length or offset=%u at %lld+%d (%d) on queue=%u: mref=%p mref_a=%p cb=%p err=%d\n",
+		MARS_ERR("bad length or offset=%u at %lld+%d (%d) on queue=%u: mref=%px mref_a=%px cb=%px err=%d\n",
 			 check_offset,
 			 mref_a->orig_ref_pos, mref->ref_len,
 			 mref_a->orig_ref_len,
@@ -270,7 +270,7 @@ void copy_endio(struct generic_callback *cb)
 		cb->cb_error);
 
 	if (unlikely(queue >= 2)) {
-		MARS_ERR("bad queue %u at %p %p state=%d err=%d\n",
+		MARS_ERR("bad queue %u at %px %px state=%d err=%d\n",
 			 queue,
 			 cb, mref_a,
 			 st->state,
@@ -280,7 +280,7 @@ void copy_endio(struct generic_callback *cb)
 	}
 	old_mref = READ_ONCE(st->table[queue]);
 	if (unlikely(old_mref != mref)) {
-		MARS_ERR("table corruption at index=%u queue=%u: %p => %p state=%d err=%d\n",
+		MARS_ERR("table corruption at index=%u queue=%u: %px => %px state=%d err=%d\n",
 			 index, queue,
 			 old_mref, mref,
 			 st->state,
@@ -372,7 +372,7 @@ int _make_mref(struct copy_brick *brick,
 	st = _GET_STATE(brick, index);
 	old_mref = READ_ONCE(st->table[queue]);
 	if (unlikely(old_mref)) {
-		MARS_ERR("cannot override old_mref=%p at index=%u queue=%d pos=%lld+%lld flags=%d\n",
+		MARS_ERR("cannot override old_mref=%px at index=%u queue=%d pos=%lld+%lld flags=%d\n",
 			 old_mref,
 			 index, queue,
 			 current_pos, diff, flags);
@@ -389,7 +389,7 @@ int _make_mref(struct copy_brick *brick,
 
 	mref_a = copy_mref_get_aspect(brick, mref);
 	if (unlikely(!mref_a)) {
-		MARS_FAT("cannot get aspect from %p %p\n",
+		MARS_FAT("cannot get aspect from %px %px\n",
 			 brick, mref);
 		goto done;
 	}
@@ -534,7 +534,7 @@ int _next_state(struct copy_brick *brick, unsigned index, loff_t pos,
 restart:
 	state = next_state;
 
-	MARS_IO("ENTER index=%u state=%d pos=%lld table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d len=%u error=%d do_restart=%d\n",
+	MARS_IO("ENTER index=%u state=%d pos=%lld table[0]=%px table[1]=%px active[0]=%d active[1]=%d writeout=%d len=%u error=%d do_restart=%d\n",
 		index,
 		state,
 		pos,
@@ -858,7 +858,7 @@ idle:
 		progress++;
 	}
 
-	MARS_IO("LEAVE index=%u state=%d next_state=%d table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d len=%u error=%d progress=%d\n",
+	MARS_IO("LEAVE index=%u state=%d next_state=%d table[0]=%px table[1]=%px active[0]=%d active[1]=%d writeout=%d len=%u error=%d progress=%d\n",
 		index,
 		st->state,
 		next_state,
@@ -1058,7 +1058,7 @@ static int _copy_thread(void *data)
 	int safe_timeout = mars_copy_timeout / 4;
 	int i;
 
-	MARS_DBG("--------------- copy_thread %p starting\n", brick);
+	MARS_DBG("--------------- copy_thread %px starting\n", brick);
 	brick->stable_copy_start = brick->copy_start;
 	brick->stable_copy_end = brick->copy_end;
 	brick->copy_error = 0;

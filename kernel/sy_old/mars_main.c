@@ -1701,7 +1701,7 @@ void _update_info(struct trans_logger_info *inf)
 		goto done;
 	}
 
-	MARS_DBG("inf = %p '%s' seq = %d min_pos = %lld max_pos = %lld log_pos = %lld is_replaying = %d is_logging = %d\n",
+	MARS_DBG("inf = %px '%s' seq = %d min_pos = %lld max_pos = %lld log_pos = %lld is_replaying = %d is_logging = %d\n",
 		 inf,
 		 SAFE_STR(inf->inf_host),
 		 inf->inf_sequence,
@@ -2464,7 +2464,7 @@ bool _push_info(const char *peer_name,
 		peer = peer_dent->d_private;
 		if (peer &&
 		    unlikely(READ_ONCE(peer->in_destruct))) {
-			MARS_WRN("peer '%s' %p is under destruction\n",
+			MARS_WRN("peer '%s' %px is under destruction\n",
 				 peer_name, peer);
 			return false;
 		}
@@ -2496,7 +2496,7 @@ bool _push_info(const char *peer_name,
 			peer->from_remote_trigger = false;
 			peer->to_remote_trigger = true;
 		}
-		MARS_DBG("new peer %p\n", peer);
+		MARS_DBG("new peer %px\n", peer);
 	}
 	push = brick_zmem_alloc(sizeof(struct push_info));
 	INIT_LIST_HEAD(&push->push_head);
@@ -2741,7 +2741,7 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 
 	// check whether copy is necessary
 	fetch_brick = rot->fetch_brick;
-	MARS_DBG("fetch_brick = %p (remote '%s' %d) fetch_serial = %d\n", fetch_brick, remote_dent->d_path, remote_dent->d_serial, rot->fetch_serial);
+	MARS_DBG("fetch_brick = %px (remote '%s' %d) fetch_serial = %d\n", fetch_brick, remote_dent->d_path, remote_dent->d_serial, rot->fetch_serial);
 	if (fetch_brick) {
 		if (remote_dent->d_serial == rot->fetch_serial && rot->fetch_peer && !strcmp(peer, rot->fetch_peer)) {
 			// treat copy brick instance underway
@@ -2772,7 +2772,7 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 			rot->fetch_peer = brick_strdup(peer);
 		}
 	} else {
-		MARS_DBG("allow_update = %d src_size = %lld dst_size = %lld local_dent = %p\n", rot->allow_update, src_size, dst_size, local_dent);
+		MARS_DBG("allow_update = %d src_size = %lld dst_size = %lld local_dent = %px\n", rot->allow_update, src_size, dst_size, local_dent);
 	}
 
 done:
@@ -3021,7 +3021,7 @@ int run_bones(struct mars_peerinfo *peer)
 	peer->remote_global = NULL;
 	mutex_unlock(&peer->peer_lock);
 
-	MARS_DBG("tmp_global %p '%s'\n",
+	MARS_DBG("tmp_global %px '%s'\n",
 		 tmp_global, peer->peer);
 
 	if (!tmp_global)
@@ -3687,19 +3687,19 @@ void _activate_peer(struct mars_dent *peer_dent,
 			peer_dent->d_private = peer;
 			peer_dent->d_private_destruct = peer_destruct;
 		}
-		MARS_DBG("new peer %p '%s' %d\n",
+		MARS_DBG("new peer %px '%s' %d\n",
 			 peer, peer_name, oneshot);
 		peer->oneshot = oneshot;
 		peer->do_entire_once = oneshot;
 		peer->silent = oneshot;
 	} else if (oneshot && !peer->oneshot && !peer_ip) {
-		MARS_DBG("reuse existing peer %p '%s'\n",
+		MARS_DBG("reuse existing peer %px '%s'\n",
 			 peer, peer_name);
 		peer->do_entire_once = true;
 		peer->from_remote_trigger = true;
 		peer->to_remote_trigger = true;
 	} else if (peer->oneshot != oneshot) {
-		MARS_DBG("peer %p '%s' oneshot %d -> %d\n",
+		MARS_DBG("peer %px '%s' oneshot %d -> %d\n",
 			 peer, peer_name,
 			 peer->oneshot, oneshot);
 		peer->oneshot = oneshot;
@@ -3736,7 +3736,7 @@ void activate_peer(const char *peer_name,
 		struct mars_peerinfo *peer;
 
 		peer = new_peer(peer_name, peer_ip);
-		MARS_DBG("new FLOATING peer %p '%s' '%s'\n",
+		MARS_DBG("new FLOATING peer %px '%s' '%s'\n",
 			 peer, peer_name, peer_ip);
 		mars_running_additional_peers++;
 		peer->need_destruct = true;
@@ -4022,7 +4022,7 @@ static int make_scan(struct mars_dent *dent)
 	    dent->new_link) {
 		struct mars_peerinfo *peer = dent->d_private;
 
-		MARS_DBG("HACK status=%d peer=%p\n", status, peer);
+		MARS_DBG("HACK status=%d peer=%px\n", status, peer);
 		if (!peer) {
 			activate_peer(dent->d_rest, NULL, NULL, false);
 		} else {
@@ -4554,7 +4554,7 @@ int make_log_init(struct mars_dent *dent)
 	replay_link = mars_find_dent(mars_global, replay_path);
 	rot->repair_log_seq = -1;
 	if (unlikely(!replay_link || !replay_link->new_link)) {
-		MARS_DBG("replay status symlink '%s' does not exist (%p)\n", replay_path, replay_link);
+		MARS_DBG("replay status symlink '%s' does not exist (%px)\n", replay_path, replay_link);
 		rot->allow_update = false;
 		status = -ENOENT;
 		goto done;
@@ -4882,7 +4882,7 @@ int make_log_step(struct mars_dent *dent)
 			}
 
 		}
-		MARS_DBG("next_relevant_log = %p\n", rot->next_relevant_log);
+		MARS_DBG("next_relevant_log = %px\n", rot->next_relevant_log);
 		goto ok;
 	}
 
@@ -5334,7 +5334,7 @@ int _get_free_input(struct trans_logger_brick *trans_brick)
 		return -EEXIST;
 	}
 	if (unlikely(candidate->is_operating || candidate->connect)) {
-		MARS_DBG("nr = %d unusable! is_operating = %d connect = %p\n", nr, candidate->is_operating, candidate->connect);
+		MARS_DBG("nr = %d unusable! is_operating = %d connect = %px\n", nr, candidate->is_operating, candidate->connect);
 		return -EAGAIN;
 	}
 	MARS_DBG("got nr = %d\n", nr);
@@ -5349,7 +5349,7 @@ void _rotate_trans(struct mars_rotate *rot)
 	int log_nr = trans_brick->log_input_nr;
 	int next_nr;
 
-	MARS_DBG("log_input_nr = %d old_input_nr = %d next_relevant_log = %p\n", log_nr, old_nr, rot->next_relevant_log);
+	MARS_DBG("log_input_nr = %d old_input_nr = %d next_relevant_log = %px\n", log_nr, old_nr, rot->next_relevant_log);
 
 	// try to cleanup old log
 	if (log_nr != old_nr) {
@@ -5477,11 +5477,11 @@ int _start_trans(struct mars_rotate *rot)
 		goto done;
 	}
 	if (unlikely(!rot->aio_brick || !rot->relevant_log)) {
-		MARS_ERR("aio %p or relevant log %p is missing, this should not happen\n", rot->aio_brick, rot->relevant_log);
+		MARS_ERR("aio %px or relevant log %px is missing, this should not happen\n", rot->aio_brick, rot->relevant_log);
 		goto done;
 	}
 	if (unlikely(!rot->relevant_log->d_parent)) {
-		MARS_ERR("parent of %p is missing, this should not happen\n",
+		MARS_ERR("parent of %px is missing, this should not happen\n",
 			 rot->relevant_log);
 		goto done;
 	}
@@ -6001,7 +6001,7 @@ done:
 		mars_find_brick(mars_global,
 				&copy_brick_type,
 				rot->fetch_path);
-	MARS_DBG("fetch_path = '%s' fetch_brick = %p\n",
+	MARS_DBG("fetch_path = '%s' fetch_brick = %px\n",
 		 rot->fetch_path, fetch_brick);
 	if (fetch_brick &&
 	    (fetch_brick->power.led_off ||

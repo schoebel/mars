@@ -86,7 +86,7 @@ struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, s
 		struct buf_head *res;
 #if 1
 		if (!tmp) {
-			MARS_ERR("tmp is NULL! brick = %p base_index = %lld hash = %d new = %p\n", brick, base_index, hash, new);
+			MARS_ERR("tmp is NULL! brick = %px base_index = %lld hash = %d new = %px\n", brick, base_index, hash, new);
 			//dump_stack();
 			traced_unlock(lock, flags);
 			return NULL;
@@ -259,7 +259,7 @@ done:
 static inline
 void _dealloc_bf(struct buf_brick *brick, struct buf_head *bf)
 {
-	MARS_INF("really freeing bf=%p\n", bf);
+	MARS_INF("really freeing bf=%px\n", bf);
 	_CHECK_ATOMIC(&bf->bf_hash_count, !=, 0);
 	_CHECK_ATOMIC(&bf->bf_mref_count, !=, 0);
 	_CHECK_ATOMIC(&bf->bf_io_count, !=, 0);
@@ -289,7 +289,7 @@ void _prune_cache(struct buf_brick *brick, int max_count)
 					bool status;
 					status = _remove_hash(brick, bf);
 					if (unlikely(!status)) {
-						MARS_INF("bf %p is in use\n", bf);
+						MARS_INF("bf %px is in use\n", bf);
 						continue;
 					}
 				}
@@ -319,7 +319,7 @@ struct buf_head *_fetch_bf(struct buf_brick *brick)
 		if (i > 0) {
 			bool status = _remove_hash(brick, bf);
 			if (unlikely(!status)) {
-				MARS_INF("bf %p is in use\n", bf);
+				MARS_INF("bf %px is in use\n", bf);
 				bf = NULL; // forget it => _bf_put() must fix it
 				continue;
 			}
@@ -350,7 +350,7 @@ void _bf_put(struct buf_head *bf)
 		return;
 
 #if 1
-	MARS_DBG("ZERO_COUNT %p %d\n", bf, at_end);
+	MARS_DBG("ZERO_COUNT %px %d\n", bf, at_end);
 	if (unlikely(!list_empty(&bf->bf_io_pending_anchor))) {
 		MARS_ERR("bf_io_pending_anchor is not empty!\n");
 	}
@@ -551,7 +551,7 @@ again:
 
 	_mref_assign(bf, mref_a);
 
-	MARS_DBG("bf=%p index = %lld flags = %x\n", bf, bf->bf_base_index, bf->bf_flags);
+	MARS_DBG("bf=%px index = %lld flags = %x\n", bf, bf->bf_base_index, bf->bf_flags);
 
 	mref->ref_flags = bf->bf_flags;
 	mref->ref_data = bf->bf_data + base_offset;
@@ -584,7 +584,7 @@ static void _buf_ref_put(struct buf_output *output, struct buf_mref_aspect *mref
 	if (!_mref_put(mref))
 		return;
 
-	MARS_DBG("buf_ref_put() mref=%p mref_a=%p bf=%p flags=%x\n", mref, mref_a, bf, bf->bf_flags);
+	MARS_DBG("buf_ref_put() mref=%px mref_a=%px bf=%px flags=%x\n", mref, mref_a, bf, bf->bf_flags);
 	_mref_remove(bf, mref_a);
 	buf_free_mref(mref);
 
@@ -631,7 +631,7 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 	}
 #endif
 
-	MARS_DBG("bf = %p %ux start = %lld len = %d flags = %x\n", bf,
+	MARS_DBG("bf = %px %ux start = %lld len = %d flags = %x\n", bf,
 		 ref_flags, start_pos, start_len, bf->bf_flags);
 
 	atomic_set(&bf->bf_io_count, 0);
@@ -721,7 +721,7 @@ static void _buf_endio(struct generic_callback *cb)
 	brick = bf->bf_brick;
 	CHECK_PTR(brick, err);
 
-	MARS_DBG("_buf_endio() bf_mref_a=%p bf_mref=%p bf=%p flags=%x\n", bf_mref_a, bf_mref, bf, bf->bf_flags);
+	MARS_DBG("_buf_endio() bf_mref_a=%px bf_mref=%px bf=%px flags=%x\n", bf_mref_a, bf_mref, bf, bf->bf_flags);
 
 	if (error < 0)
 		bf->bf_error = error;
@@ -730,7 +730,7 @@ static void _buf_endio(struct generic_callback *cb)
 	if (!atomic_dec_and_test(&bf->bf_io_count))
 		return;
 
-	MARS_DBG("_buf_endio() ZERO bf=%p\n", bf);
+	MARS_DBG("_buf_endio() ZERO bf=%px\n", bf);
 
 	// get an extra reference, to avoid freeing bf underneath during callbacks
 	CHECK_ATOMIC(&bf->bf_hash_count, 1);
@@ -767,7 +767,7 @@ static void _buf_endio(struct generic_callback *cb)
 		struct mref_object *mref = mref_a->object;
 
 		if (mref_a->rfa_bf != bf) {
-			MARS_ERR("bad pointers %p != %p\n", mref_a->rfa_bf, bf);
+			MARS_ERR("bad pointers %px != %px\n", mref_a->rfa_bf, bf);
 		}
 #if 1
 		if (!(++count % 1000)) {
@@ -777,7 +777,7 @@ static void _buf_endio(struct generic_callback *cb)
 		list_del_init(&mref_a->rfa_pending_head);
 		list_add_tail(&mref_a->rfa_pending_head, &bf->bf_io_pending_anchor);
 
-		MARS_DBG("postponed mref=%p\n", mref);
+		MARS_DBG("postponed mref=%px\n", mref);
 
 		// re-enable flags
 		bf->bf_flags |= MREF_WRITING;
@@ -817,7 +817,7 @@ static void _buf_endio(struct generic_callback *cb)
 		struct mref_object *mref = mref_a->object;
 
 		if (mref_a->rfa_bf != bf) {
-			MARS_ERR("bad pointers %p != %p\n", mref_a->rfa_bf, bf);
+			MARS_ERR("bad pointers %px != %px\n", mref_a->rfa_bf, bf);
 		}
 #if 1
 		if (!(++count % 1000)) {
@@ -888,7 +888,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 	_mref_get(mref);
 	CHECK_ATOMIC(&bf->bf_hash_count, 1);
 
-	MARS_DBG("IO mref=%p %d bf=%p flags=%x\n", mref, mref->ref_flags,
+	MARS_DBG("IO mref=%px %d bf=%px flags=%x\n", mref, mref->ref_flags,
 		 bf, bf->bf_flags);
 
 	if (mref->ref_flags & MREF_WRITE) {
@@ -913,7 +913,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 		unsigned long perc = hit * 100 * 100 / (hit + miss);
 
 		brick->last_jiffies = jiffies;
-		MARS_INF("BUF %p STATISTICS: alloc=%d hashed=%d free=%d forget=%d lru=%d io_pending=%d hit=%lu (%lu.%02lu%%) miss=%lu collisions=%d opt=%d chain=%d post=%d write=%d io=%d\n", brick, atomic_read(&brick->alloc_count), atomic_read(&brick->hashed_count), atomic_read(&brick->list_count[LIST_FREE]), atomic_read(&brick->list_count[LIST_FORGET]), atomic_read(&brick->list_count[LIST_LRU]), atomic_read(&brick->nr_io_pending), hit, perc / 100, perc % 100, miss, atomic_read(&brick->nr_collisions), atomic_read(&brick->opt_count), atomic_read(&brick->chain_count), atomic_read(&brick->post_count), atomic_read(&brick->write_count), atomic_read(&brick->io_count));
+		MARS_INF("BUF %px STATISTICS: alloc=%d hashed=%d free=%d forget=%d lru=%d io_pending=%d hit=%lu (%lu.%02lu%%) miss=%lu collisions=%d opt=%d chain=%d post=%d write=%d io=%d\n", brick, atomic_read(&brick->alloc_count), atomic_read(&brick->hashed_count), atomic_read(&brick->list_count[LIST_FREE]), atomic_read(&brick->list_count[LIST_FORGET]), atomic_read(&brick->list_count[LIST_LRU]), atomic_read(&brick->nr_io_pending), hit, perc / 100, perc % 100, miss, atomic_read(&brick->nr_collisions), atomic_read(&brick->opt_count), atomic_read(&brick->chain_count), atomic_read(&brick->post_count), atomic_read(&brick->write_count), atomic_read(&brick->io_count));
 	}
 #endif
 

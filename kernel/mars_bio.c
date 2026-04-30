@@ -199,7 +199,7 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 		bvec_count = 1;
 	}
 
-	MARS_IO("sector_offset = %d data = %p pos = %lld rest_len = %d page_offset = %d page_len = %d bvec_count = %d\n", sector_offset, data, pos, rest_len, page_offset, page_len, bvec_count);
+	MARS_IO("sector_offset = %d data = %px pos = %lld rest_len = %d page_offset = %d page_len = %d bvec_count = %d\n", sector_offset, data, pos, rest_len, page_offset, page_len, bvec_count);
 
  retry_bio_alloc:
 	bio = bio_alloc(GFP_MARS, bvec_count);
@@ -218,7 +218,7 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 		}
 #ifdef MARS_DEBUGGING
 		if (unlikely(!virt_addr_valid(data))) {
-			MARS_ERR("invalid virtual kernel address %p\n", data);
+			MARS_ERR("invalid virtual kernel address %px\n", data);
 			status = -EINVAL;
 			goto out;
 		}
@@ -226,12 +226,12 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 
 		page = brick_iomap(data, &page_offset, &this_len);
 		if (unlikely(!page)) {
-			MARS_ERR("cannot iomap() kernel address %p\n", data);
+			MARS_ERR("cannot iomap() kernel address %px\n", data);
 			status = -EINVAL;
 			goto out;
 		}
 
-		MARS_IO("  i = %d page = %p bv_len = %d bv_offset = %d\n", i, page, this_len, page_offset);
+		MARS_IO("  i = %d page = %px bv_len = %d bv_offset = %d\n", i, page, this_len, page_offset);
 
 		bio->bi_io_vec[i].bv_page = page;
 		bio->bi_io_vec[i].bv_len = this_len;
@@ -591,7 +591,7 @@ void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 	return;
 
 fatal:
-	MARS_FAT("cannot handle mref %p on output %p\n", mref, output);
+	MARS_FAT("cannot handle mref %px on output %px\n", mref, output);
 }
 
 static

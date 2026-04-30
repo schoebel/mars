@@ -249,7 +249,7 @@ void server_endio(struct generic_callback *cb)
 	CHECK_PTR(mref, err);
 	LAST_CALLBACK(cb);
 	if (unlikely(cb != &mref->_object_cb)) {
-		MARS_ERR("bad cb pointer %p != %p\n", cb, &mref->_object_cb);
+		MARS_ERR("bad cb pointer %px != %px\n", cb, &mref->_object_cb);
 	}
 
 	brick = mref_a->brick;
@@ -438,7 +438,7 @@ int handler_thread(void *data)
 	int old_proto_level = 0;
 	int status = -EINVAL;
 
-	MARS_DBG("#%d --------------- handler_thread starting on socket %p\n", sock->s_debug_nr, sock);
+	MARS_DBG("#%d --------------- handler_thread starting on socket %px\n", sock->s_debug_nr, sock);
 	if (!ok)
 		goto done;
 

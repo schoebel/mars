@@ -214,7 +214,7 @@ struct callback_object {
 #ifdef BRICK_DEBUGGING
 #define SETUP_CALLBACK(obj,fn,priv)					\
 	if (unlikely((obj)->_object_cb.cb_fn)) {			\
-		BRICK_ERR("callback function %p is already installed (new=%p)\n", \
+		BRICK_ERR("callback function %px is already installed (new=%px)\n", \
 			  (obj)->_object_cb.cb_fn, (fn));		\
 	}								\
 	_SETUP_CALLBACK(obj,fn,priv)
@@ -239,7 +239,7 @@ struct callback_object {
 		BRICK_ERR("initical callback function is missing\n");	\
 	}								\
 	_INSERT_CALLBACK(obj,new,fn,priv)				\
-	else { BRICK_ERR("new object %p is not pristine\n", (new)->cb_fn); }
+	else { BRICK_ERR("new object %px is not pristine\n", (new)->cb_fn); }
 #else
 #define INSERT_CALLBACK(obj,new,fn,priv) _INSERT_CALLBACK(obj,new,fn,priv)
 #endif
@@ -288,7 +288,7 @@ struct callback_object {
 	{								\
 		struct generic_callback *__next_cb = (cb)->cb_next;	\
 		if (unlikely(__next_cb)) {				\
-			BRICK_ERR("end of callback chain %p has not been reached, rest = %p\n", (cb), __next_cb); \
+			BRICK_ERR("end of callback chain %px has not been reached, rest = %px\n", (cb), __next_cb); \
 		}							\
 	}
 
@@ -594,7 +594,7 @@ int generic_brick_exit_full(
 
 INLINE int generic_connect(struct generic_input *input, struct generic_output *output)
 {
-	BRICK_DBG("generic_connect(input=%p, output=%p)\n", input, output);
+	BRICK_DBG("generic_connect(input=%px, output=%px)\n", input, output);
 	if (unlikely(!input || !output))
 		return -EINVAL;
 	if (unlikely(input->connect))
@@ -615,7 +615,7 @@ INLINE int generic_connect(struct generic_input *input, struct generic_output *o
 INLINE int generic_disconnect(struct generic_input *input)
 {
 	struct generic_output *connect;
-	BRICK_DBG("generic_disconnect(input=%p)\n", input);
+	BRICK_DBG("generic_disconnect(input=%px)\n", input);
 	if (!input)
 		return -EINVAL;
 	connect = input->connect;

@@ -138,7 +138,7 @@ static int transfer_none(int cmd,
 	void *raw_buf;
 
 	if (unlikely(!raw_page || !loop_buf)) {
-		MARS_ERR("transfer NULL: %p %p\n", raw_buf, loop_buf);
+		MARS_ERR("transfer NULL: %px %px\n", raw_buf, loop_buf);
 		return -EFAULT;
 	}
 
@@ -328,7 +328,7 @@ int read_aops(struct sio_output *output, struct mref_object *mref)
 #endif
 
 	if (unlikely(ret < 0)) {
-		MARS_ERR("%p %p status=%d\n", output, mref, ret);
+		MARS_ERR("%px %px status=%d\n", output, mref, ret);
 	}
 	return ret;
 }
@@ -356,7 +356,7 @@ void _complete(struct sio_output *output, struct mref_object *mref, int err)
 	mars_trace(mref, "sio_endio");
 
 	if (err < 0) {
-		MARS_ERR("IO error %d at pos=%lld len=%d (mref=%p ref_data=%p)\n", err, mref->ref_pos, mref->ref_len, mref, mref->ref_data);
+		MARS_ERR("IO error %d at pos=%lld len=%d (mref=%px ref_data=%px)\n", err, mref->ref_pos, mref->ref_len, mref, mref->ref_data);
 	} else {
 		mref_checksum(mref);
 		mref->ref_flags |= MREF_UPTODATE;
@@ -477,7 +477,7 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 	}
 
 	tinfo = &output->tinfo[index];
-	MARS_IO("queueing %p on %d\n", mref, index);
+	MARS_IO("queueing %px on %d\n", mref, index);
 
 	atomic_inc(&tinfo->total_count);
 	atomic_inc(&tinfo->queue_count);
@@ -524,7 +524,7 @@ static int sio_thread(void *data)
 
 		mref_a = container_of(tmp, struct sio_mref_aspect, io_head);
 		mref = mref_a->object;
-		MARS_IO("got %p %p\n", mref_a, mref);
+		MARS_IO("got %px %px\n", mref_a, mref);
 		_sio_ref_io(tinfo, mref);
 	}
 

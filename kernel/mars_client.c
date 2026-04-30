@@ -136,7 +136,7 @@ void _kill_thread(struct client_threadinfo *ti, const char *name)
 static
 void _kill_channel(struct client_channel *ch)
 {
-	MARS_DBG("channel = %p\n", ch);
+	MARS_DBG("channel = %px\n", ch);
 	if (mars_socket_is_alive(&ch->socket)) {
 		MARS_DBG("shutdown socket\n");
 		mars_shutdown_socket(&ch->socket);

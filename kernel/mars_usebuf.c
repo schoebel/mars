@@ -62,7 +62,7 @@ static int usebuf_get_info(struct usebuf_output *output, struct mars_info *info)
 static inline
 void _usebuf_copy(struct mref_object *mref, struct mref_object *sub_mref, int rw)
 {
-	MARS_IO("memcpy rw = %d %p %p %d\n", rw, mref->ref_data, sub_mref->ref_data, mref->ref_len);
+	MARS_IO("memcpy rw = %d %px %px %d\n", rw, mref->ref_data, sub_mref->ref_data, mref->ref_len);
 #ifndef FAKE_ALL
 	if (rw == 0) {
 		memcpy(mref->ref_data, sub_mref->ref_data, mref->ref_len);
@@ -96,7 +96,7 @@ static void _usebuf_endio(struct generic_callback *cb)
 			}
 #ifndef FAKE_ALL
 		} else if (!(sub_mref->ref_flags & MREF_WRITE)) {
-			MARS_IO("re-kick %p\n", sub_mref);
+			MARS_IO("re-kick %px\n", sub_mref);
 			sub_mref->ref_flags |= MREF_WRITE;
 			_usebuf_copy(mref, sub_mref, 1);
 			mref->ref_flags |= MREF_UPTODATE;
@@ -181,7 +181,7 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref
 	}
 
 	mref->ref_len = sub_mref->ref_len;
-	//MARS_INF("GOT %p %p flags = %x\n", mref, sub_mref, sub_mref->ref_flags);
+	//MARS_INF("GOT %px %px flags = %x\n", mref, sub_mref, sub_mref->ref_flags);
 	if (!mref->ref_data) {
 		MARS_INF("uiiiiiiiiiii\n");
 		mref->ref_data = sub_mref->ref_data;

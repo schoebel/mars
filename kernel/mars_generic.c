@@ -257,7 +257,7 @@ long md5_old_digest(void *digest, const void *data, int len)
 	memset(digest, 0, MARS_DIGEST_SIZE);
 	status = crypto_shash_digest(&sdesc->shash, data, len, digest);
 	if (unlikely(status < 0)) {
-		MARS_ERR("cannot calculate md5 chksum on %p len=%d, status=%ld\n",
+		MARS_ERR("cannot calculate md5 chksum on %px len=%d, status=%ld\n",
 			 data, len,
 			 status);
 		memset(digest, 0, MARS_DIGEST_SIZE);
@@ -297,7 +297,7 @@ long md5_digest(void *digest, const void *data, int len)
 					     chunksize,
 					     this_digest);
 		if (unlikely(status < 0)) {
-			MARS_ERR("cannot calculate md5 chksum on %p len=%d, status=%ld\n",
+			MARS_ERR("cannot calculate md5 chksum on %px len=%d, status=%ld\n",
 				 data,
 				 chunksize,
 				 status);
@@ -351,7 +351,7 @@ long crc32c_digest(void *digest, const void *data, int len)
 					     data + offset, chunksize,
 					     this_digest);
 		if (unlikely(status < 0)) {
-			MARS_ERR("cannot calculate crc32c chksum on %p len=%d, status=%d\n",
+			MARS_ERR("cannot calculate crc32c chksum on %px len=%d, status=%d\n",
 				 data, chunksize,
 				 status);
 			res = status;
@@ -405,7 +405,7 @@ long crc32_digest(void *digest, const void *data, int len)
 					     data + offset, chunksize,
 					     this_digest);
 		if (unlikely(status < 0)) {
-			MARS_ERR("cannot calculate crc32 chksum on %p len=%d, status=%d\n",
+			MARS_ERR("cannot calculate crc32 chksum on %px len=%d, status=%d\n",
 				 data, chunksize,
 				 status);
 			res = status;
@@ -444,7 +444,7 @@ long sha1_digest(void *digest, const void *data, int len)
 
 	status = crypto_shash_digest(&sdesc->shash, data, len, tmp);
 	if (unlikely(status < 0)) {
-		MARS_ERR("cannot calculate sha1 chksum on %p len=%d, status=%ld\n",
+		MARS_ERR("cannot calculate sha1 chksum on %px len=%d, status=%ld\n",
 			 data, len,
 			 status);
 		memset(digest, 0, MARS_DIGEST_SIZE);

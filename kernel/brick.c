@@ -499,13 +499,13 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick,
 	
 	all_aspects = READ_ONCE(obj->aspects);
 	if (unlikely(!all_aspects)) {
-		BRICK_WRN("object %p: no aspect %d possible\n",
+		BRICK_WRN("object %px: no aspect %d possible\n",
 			  obj, nr);
 		goto done;
 	}
 	old_aspect = READ_ONCE(all_aspects[nr]);
 	if (unlikely(old_aspect)) {
-		BRICK_WRN("object %p: aspect index %d already at %p\n",
+		BRICK_WRN("object %px: aspect index %d already at %px\n",
 			  obj, nr, old_aspect);
 		return old_aspect;
 	}
@@ -554,7 +554,7 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick,
 		int status = aspect_type->init_fn(res);
 
 		if (unlikely(status < 0)) {
-			BRICK_ERR("aspect init %p %p %p status = %d\n", brick, obj, res, status);
+			BRICK_ERR("aspect init %px %px %px status = %d\n", brick, obj, res, status);
 			goto done;
 		}
 	}
@@ -580,7 +580,7 @@ struct generic_aspect *generic_get_aspect(struct generic_brick *brick, struct ge
 	}
 	all_aspects = READ_ONCE(obj->aspects);
 	if (unlikely(!all_aspects)) {
-		BRICK_ERR("get_aspect on deleting object %p\n",
+		BRICK_ERR("get_aspect on deleting object %px\n",
 			  obj);
 		goto done;
 	}
