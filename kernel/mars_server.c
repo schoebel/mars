@@ -704,15 +704,23 @@ int handler_thread(void *data)
 				status = mars_connect((void *)brick->inputs[0], prev->outputs[0]);
 				if (unlikely(status < 0)) {
 					MARS_ERR("#%d cannot connect to '%s'\n", sock->s_debug_nr, path);
+					goto err;
 				}
 				prev->killme = true;
 				brick->conn_brick = prev;
+				prev = NULL;
 				brick->shutdown_jiffies = jiffies;
 			} else {
 				MARS_ERR("#%d cannot find brick '%s'\n", sock->s_debug_nr, path);
 			}
 			
 		err:
+			/* An unconnected bio may exist due to a multitude of possible races,
+			 * between network / IO / switching / detach / etc.
+			 */
+			if (prev) {
+				_stop_bio(brick, prev);
+			}
 			if (!mars_socket_is_alive(sock))
 				break;
 			cmd.cmd_int1 = status;
