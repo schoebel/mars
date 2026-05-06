@@ -2733,11 +2733,17 @@ int mars_connect(struct mars_input *a, struct mars_output *b)
 
 int mars_disconnect(struct mars_input *a)
 {
-	struct mars_brick *a_brick = a->brick;
-	struct mars_global *a_global = a_brick->global;
+	struct mars_brick *a_brick;
+	struct mars_global *a_global;
 	struct mars_output *b;
 	int status = 0;
 
+	if (!a)
+		goto done;
+	a_brick = a->brick;
+	if (!a_brick)
+		goto done;
+	a_global = a_brick->global;
 	if (a_global)
 		down_write(&a_global->brick_mutex);
 
@@ -2757,7 +2763,7 @@ int mars_disconnect(struct mars_input *a)
 
 	if (a_global)
 		up_write(&a_global->brick_mutex);
-
+ done:
 	return status;
 }
 

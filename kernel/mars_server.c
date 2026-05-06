@@ -425,6 +425,31 @@ int _set_server_bio_params(struct mars_brick *_brick, void *private)
 }
 
 static
+void _stop_bio(struct server_brick *brick, struct mars_brick *bio_brick)
+{
+	int retry = 10;
+
+	while (bio_brick &&
+	       brick->conn_brick &&
+	       atomic_read(&brick->in_flight_reads) +
+	       atomic_read(&brick->in_flight_writes) <= 0) {
+		(void)mars_disconnect((void *)brick->inputs[0]);
+		mars_power_button(brick->conn_brick, false, false);
+		if (bio_brick->power.led_off) {
+			bio_brick = NULL;
+			brick->conn_brick = NULL;
+			break;
+		}
+		if (retry-- <= 0) {
+			MARS_ERR("Brick '%s' does not stop\n",
+				 bio_brick->brick_path);
+			break;
+		}
+		brick_msleep(200);
+	}
+}
+
+static
 int handler_thread(void *data)
 {
 	struct mars_global *handler_global = alloc_mars_global();
@@ -479,8 +504,7 @@ int handler_thread(void *data)
 			if (!mars_socket_is_alive(sock) &&
 			    atomic_read(&brick->in_flight_reads) +  atomic_read(&brick->in_flight_writes) <= 0 &&
 			    brick->conn_brick) {
-				if (mars_disconnect((void*)brick->inputs[0]) >= 0)
-					brick->conn_brick = NULL;
+				_stop_bio(brick, brick->conn_brick);
 			}
 
 			status = mars_kill_brick_when_possible(handler_global,
@@ -778,6 +802,10 @@ int handler_thread(void *data)
 
  done:
 	MARS_DBG("#%d handler_thread terminating, status = %d\n", sock->s_debug_nr, status);
+
+	if (brick->conn_brick) {
+		_stop_bio(brick, brick->conn_brick);
+	}
 
 	mars_kill_brick_all(handler_global, &handler_global->brick_anchor, false);
 
