@@ -97,11 +97,27 @@ atomic_t running_dent = ATOMIC_INIT(0);
 int server_start_delay_ms = 1000;
 
 static
+void server_shutdown_socket(struct mars_socket *sock)
+{
+	int max_wait = 10;
+
+	mars_shutdown_socket(sock);
+	/* Safeguard against races with shutdown
+	 */
+	while (max_wait-- >= 0) {
+		brick_msleep(100);
+		if (!mars_socket_is_alive(sock))
+			break;
+		/* may need another shutdown */
+		mars_shutdown_socket(sock);
+	}
+}
+
+static
 int cb_thread(void *data)
 {
 	struct server_brick *brick = data;
 	struct mars_socket *sock = &brick->handler_socket;
-	int max_wait;
 	int backoff_ms = -1;
 	bool aborted = false;
 	bool ok = mars_get_socket(sock);
@@ -198,15 +214,7 @@ int cb_thread(void *data)
 			 * The _client_ is responsible for resending
 			 * any lost operations.
 			 */
-			mars_shutdown_socket(sock);
-			/* Safeguard against races with shutdown
-			 */
-			max_wait = 10;
-			while (max_wait-- >= 0) {
-				brick_msleep(100);
-				if (!mars_socket_is_alive(sock))
-					break;
-			}
+			server_shutdown_socket(sock);
 		}
 
 		if (mref_a->do_put) {
@@ -220,15 +228,7 @@ int cb_thread(void *data)
 		}
 	}
 
-	mars_shutdown_socket(sock);
-	/* Safeguard against races with shutdown
-	 */
-	max_wait = 10;
-	while (max_wait-- >= 0) {
-		brick_msleep(100);
-		if (!mars_socket_is_alive(sock))
-			break;
-	}
+	server_shutdown_socket(sock);
 	mars_put_socket(sock);
 
 done:
@@ -800,12 +800,12 @@ int handler_thread(void *data)
 		brick_string_free(cmd.cmd_str1);
 		brick_string_free(cmd.cmd_str2);
 		if (unlikely(status < 0)) {
-			mars_shutdown_socket(sock);
+			server_shutdown_socket(sock);
 			brick_msleep(200);
 		}
 	}
 
-	mars_shutdown_socket(sock);
+	server_shutdown_socket(sock);
 	mars_put_socket(sock);
 
  done:
@@ -904,7 +904,7 @@ static int server_switch(struct server_brick *brick)
 
 		mars_power_led_on((void*)brick, false);
 
-		mars_shutdown_socket(sock);
+		server_shutdown_socket(sock);
 
 		thread = brick->handler_thread;
 		if (thread) {
@@ -938,7 +938,7 @@ static int server_switch(struct server_brick *brick)
 	}
  err:
 	if (unlikely(status < 0)) {
-		mars_shutdown_socket(sock);
+		server_shutdown_socket(sock);
 		mars_put_socket(sock);
 		mars_power_led_off((void*)brick, true);
 	}
@@ -1139,7 +1139,7 @@ void check_bricks(void)
 			/* Minimum connection duration, for better sysadmin detection */
 			if (running_brick->shutdown_jiffies + 30 * HZ <= jiffies)
 				continue;
-			mars_shutdown_socket(handler_socket);
+			server_shutdown_socket(handler_socket);
 			/* only once per round */
 			break;
 		} else if (!running_brick->handler_thread && !running_brick->cb_thread) {
@@ -1245,7 +1245,7 @@ static int port_thread(void *data)
 			atomic_dec(&server_handler_count);
 			MARS_ERR("max server processes %d reached\n",
 				 handler_limit);
-			mars_shutdown_socket(&handler_socket);
+			server_shutdown_socket(&handler_socket);
 			mars_put_socket(&handler_socket);
 			brick_msleep(100);
 			continue;
@@ -1262,7 +1262,7 @@ static int port_thread(void *data)
 		if (!brick) {
 			atomic_dec(&server_handler_count);
 			MARS_ERR("cannot create server instance\n");
-			mars_shutdown_socket(&handler_socket);
+			server_shutdown_socket(&handler_socket);
 			mars_put_socket(&handler_socket);
 			brick_msleep(200);
 			continue;
@@ -1296,7 +1296,7 @@ static int port_thread(void *data)
 	err:
 		atomic_dec(&server_handler_count);
 		if (brick) {
-			mars_shutdown_socket(&brick->handler_socket);
+			server_shutdown_socket(&brick->handler_socket);
 			mars_put_socket(&brick->handler_socket);
 			status = mars_kill_brick((void*)brick);
 			if (status < 0) {
@@ -1337,7 +1337,7 @@ void exit_mars_server(void)
 	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
 		struct mars_socket *server_socket = server_cookie[i].server_socket;
 
-		mars_shutdown_socket(server_socket);
+		server_shutdown_socket(server_socket);
 	}
 
 	down_read(&server_mutex);
@@ -1346,7 +1346,7 @@ void exit_mars_server(void)
 		struct mars_socket *handler_socket = &running_brick->handler_socket;
 		if (!handler_socket)
 			continue;
-		mars_shutdown_socket(handler_socket);
+		server_shutdown_socket(handler_socket);
 	}
 	up_read(&server_mutex);
 
