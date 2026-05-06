@@ -811,6 +811,9 @@ int handler_thread(void *data)
 		if (unlikely(status < 0)) {
 			server_shutdown_socket(sock);
 			brick_msleep(200);
+			if (!ok_attach) {
+				break;
+			}
 			if (brick->conn_brick &&
 			    (brick->conn_brick->power.button ||
 			     brick->conn_brick->power.led_on ||
