@@ -3642,7 +3642,13 @@ sub get_amount {
   while ($direction) {
     if ($direction < 0) {
       if ($smallest_pos && $pos <= $smallest_pos) {
-	last;
+	if (!$need_restart) {
+	  last;
+	}
+	$need_restart = 0;
+	$direction = 2;
+	$pos = $firstpos;
+	next;
       }
       $pos--;
     } else {
