@@ -6156,9 +6156,18 @@ int make_primary(struct mars_dent *dent)
 
 	rot->todo_primary =
 		mars_global->global_power.button &&
-		_check_allow(rot->parent_path, "attach") &&
+		/* shall we become primary? */
 		dent->new_link &&
-		!strcmp(dent->new_link, my_id());
+		!strcmp(dent->new_link, my_id()) &&
+		/* Prevent unnecessary psplit brain:
+		 * do not interrupt any running secondary replay.
+		 */
+		(rot->todo_primary ||
+		 !rot->trans_brick ||
+		 (!rot->trans_brick->power.button &&
+		  rot->trans_brick->power.led_off)) &&
+		/* _can_ we become primary? */
+		_check_allow(rot->parent_path, "attach");
 
 	MARS_DBG("todo_primary = %d is_primary = %d\n", rot->todo_primary, rot->is_primary);
 
