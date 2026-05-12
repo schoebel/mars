@@ -4383,7 +4383,8 @@ sub _get_designated_primary {
 sub is_actual_primary {
   my ($cmd, $res, $peer) = @_;
   $peer = $host unless (defined($peer) && $peer);
-  my $is_primary = get_link("$mars/resource-$res/actual-$peer/is-primary");
+  my $is_primary_path = "$mars/resource-$res/actual-$peer/is-primary";
+  my $is_primary = get_link($is_primary_path, 1);
   # notice: device presence _must not_ be used anymore.
   return $is_primary;
 }
