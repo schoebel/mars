@@ -831,10 +831,12 @@ int handler_thread(void *data)
  done:
 	MARS_DBG("#%d handler_thread terminating, status = %d\n", sock->s_debug_nr, status);
 
+	smp_mb();
 	if (brick->conn_brick) {
 		_stop_bio(brick, brick->conn_brick);
 	}
 
+	smp_mb();
 	mars_kill_brick_all(handler_global, &handler_global->brick_anchor, false);
 
 	if (thread) {
@@ -844,6 +846,7 @@ int handler_thread(void *data)
 		brick_thread_stop(thread);
 	}
 
+	smp_mb();
 	mars_free_dent_all(handler_global);
 
 	debug_nr = sock->s_debug_nr;
@@ -1274,11 +1277,13 @@ static int port_thread(void *data)
 		ini_path = path_make("mars_h:%d.%d",
 				     cookie->port_nr,
 				     ++cookie->thread_nr);
+		smp_mb();
 		brick = (void*)mars_make_brick(server_global, NULL,
 					       &server_brick_type,
 					       ini_path,
 					       ini_path);
 		brick_string_free(ini_path);
+		smp_mb();
 		if (!brick) {
 			atomic_dec(&server_handler_count);
 			MARS_ERR("cannot create server instance\n");
@@ -1294,6 +1299,7 @@ static int port_thread(void *data)
 
 		brick->power.button = true;
 		status = server_switch(brick);
+		smp_mb();
 		if (unlikely(status < 0)) {
 			MARS_ERR("cannot switch on server brick, status = %d\n", status);
 			goto err;
