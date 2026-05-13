@@ -56,14 +56,17 @@ static struct server_cookie server_cookie[MARS_TRAFFIC_MAX] = {
 	[MARS_TRAFFIC_META] = {
 		.server_socket = &server_cookie[MARS_TRAFFIC_META]._server_socket,
 		.server_params = &mars_tcp_params[MARS_TRAFFIC_META],
+		.thread_nr = 0,
 	},
 	[MARS_TRAFFIC_REPLICATION] = {
 		.server_socket = &server_cookie[MARS_TRAFFIC_REPLICATION]._server_socket,
 		.server_params = &mars_tcp_params[MARS_TRAFFIC_REPLICATION],
+		.thread_nr = 1,
 	},
 	[MARS_TRAFFIC_SYNC] = {
 		.server_socket = &server_cookie[MARS_TRAFFIC_SYNC]._server_socket,
 		.server_params = &mars_tcp_params[MARS_TRAFFIC_SYNC],
+		.thread_nr = 2,
 	},
 };
 
@@ -1334,6 +1337,9 @@ static int port_thread(void *data)
 	}
 
 	MARS_INF("-------- cleaning up ----------\n");
+
+	server_thread[cookie->port_nr] = NULL;
+	brick_msleep(200);
 
 	mars_kill_brick_all(server_global, &server_global->brick_anchor, false);
 
