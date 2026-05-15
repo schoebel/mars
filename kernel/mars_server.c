@@ -509,10 +509,6 @@ int handler_thread(void *data)
 			    brick->conn_brick) {
 				_stop_bio(brick, brick->conn_brick);
 			}
-
-			status = mars_kill_brick_when_possible(handler_global,
-							       NULL, true);
-			MARS_DBG("kill handler bricks (when possible) = %d\n", status);
 		}
 
 		status = -EINTR;
@@ -1154,8 +1150,7 @@ void check_bricks(void)
 
 		if (!running_brick->delegated_brick)
 			continue;
-		if (!handler_socket)
-			continue;
+
 		brick_yield();
 		if (mars_socket_is_alive(handler_socket)) {
 			if (!running_brick->shutdown_jiffies) {
