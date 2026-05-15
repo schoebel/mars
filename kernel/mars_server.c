@@ -1236,6 +1236,10 @@ static int port_thread(void *data)
 		MARS_DBG("kill server bricks (when possible) = %d\n", status);
 
 		if (!mars_global || !mars_global->global_power.button) {
+			if (mars_socket_is_alive(&handler_socket)) {
+				server_shutdown_socket(&handler_socket);
+				mars_put_socket(&handler_socket);
+			}
 			brick_msleep(200);
 			continue;
 		}
