@@ -838,6 +838,7 @@ int handler_thread(void *data)
 	smp_mb();
 	mars_kill_brick_all(handler_global, &handler_global->brick_anchor, false);
 
+	thread = brick->cb_thread;
 	if (thread) {
 		brick->cb_thread = NULL;
 		brick->cb_running = false;
