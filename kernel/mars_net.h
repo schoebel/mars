@@ -157,6 +157,7 @@ extern bool mars_get_socket(struct mars_socket *msock);
 extern void mars_put_socket(struct mars_socket *msock);
 extern void mars_shutdown_socket(struct mars_socket *msock);
 extern bool mars_socket_is_alive(struct mars_socket *msock);
+extern long mars_socket_read_available(struct mars_socket *msock);
 extern long mars_socket_send_space_available(struct mars_socket *msock);
 
 extern int mars_send_raw(struct mars_socket *msock, const void *buf, int len, bool cork);
