@@ -698,6 +698,8 @@ EXPORT_SYMBOL_GPL(mars_send_raw);
  */
 int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 {
+	long space;
+	int reptime = 1000 / HZ;
 	void *dummy = NULL;
 	int sleeptime = 1000 / HZ;
 	int backoff = 0;
@@ -714,6 +716,31 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 
 	if (!mars_get_socket(msock))
 		goto final;
+
+	/* wait until there is enough data for receiving */
+	for (;;) {
+		struct socket *sock;
+
+		space = mars_socket_read_available(msock);
+		if (space > 0 && space >= minlen) {
+			break;
+		}
+		mb();
+		msleep(reptime);
+		if (reptime < 100) {
+			reptime += (1000/HZ);
+		} else if (minlen <= 0) {
+			break;
+		}
+		sock = msock->s_socket;
+		if (!sock ||
+		    !mars_net_is_alive ||
+		    !msock->s_alive ||
+		    _socket_not_connected(sock)) {
+			status = -ENONET;
+			goto err;
+		}
+	}
 
 	MARS_IO("#%d receiving len=%d/%d bytes\n", msock->s_debug_nr, minlen, maxlen);
 
