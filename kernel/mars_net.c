@@ -486,10 +486,33 @@ EXPORT_SYMBOL_GPL(mars_socket_send_space_available);
 static
 int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 {
+	long space;
+	int reptime = 1000 / HZ;
 	int sleeptime = 1000 / HZ;
 	int backoff = 0;
 	int sent = 0;
 	int status = 0;
+
+	/* wait until there is enough room for sending */
+	for (;;) {
+		struct socket *sock;
+
+		space = mars_socket_send_space_available(msock);
+		if (len <= space) {
+			break;
+		}
+		mb();
+		msleep(reptime);
+		if (reptime < 100)
+			reptime += (1000/HZ);
+		sock = msock->s_socket;
+		if (!sock ||
+		    !mars_net_is_alive ||
+		    !msock->s_alive ||
+		    _socket_not_connected(sock)) {
+			return -ENONET;
+		}
+	}
 
 	msock->s_send_cnt = 0;
 	while (len > 0) {
