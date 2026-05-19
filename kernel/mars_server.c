@@ -488,6 +488,12 @@ int handler_thread(void *data)
 	brick->delegate_free = &brick->delegated_brick;
 	brick->cb_thread = thread;
 
+	/* wait until the callback thread has really started */
+	while (!brick->cb_running) {
+		msleep(100);
+		smp_mb();
+	}
+
 	brick->handler_running = true;
 	brick_wake_smp(&brick->startup_event);
 
