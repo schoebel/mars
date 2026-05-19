@@ -67,8 +67,6 @@ struct mars_desc_item {
  *
  * The original idea of struct mars_socket was just a small wrapper
  * adding a refcount and some debugging aid.
- * Later, some buffering was added in order to take advantage of
- * kernel_sendpage().
  * Caching of meta description has also been added.
  */
 struct mars_socket {
