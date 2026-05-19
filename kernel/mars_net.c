@@ -703,6 +703,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 	void *dummy = NULL;
 	int sleeptime = 1000 / HZ;
 	int backoff = 0;
+	int may_wait = 0;
 	int status = -EIDRM;
 	int done = 0;
 
@@ -799,7 +800,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 			msock->s_connected = true;
 		}
 
-		if (minlen < maxlen) {
+		if (minlen < maxlen && !may_wait) {
 			/* Use nonblocking reads to consume as much data
 			 * as possible
 			 * See include/linux/socket.h, it is named MSG_DONTWAIT
@@ -838,10 +839,17 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 			continue;
 		}
 		msock->s_recv_cnt = 0;
-		if (!status) { // EOF
-			MARS_WRN("#%d got EOF from socket (done=%d, req_size=%d)\n", msock->s_debug_nr, done, maxlen - done);
-			status = -EPIPE;
-			goto err;
+		/* Probably EOF? not sure... may depend on flags like MSG_DONTWAIT */
+		if (!status) {
+			if (may_wait > 10) {
+				MARS_WRN("#%d got EOF from socket (done=%d, req_size=%d)\n",
+					 msock->s_debug_nr, done, maxlen - done);
+				status = -EPIPE;
+				goto err;
+			}
+			may_wait++;
+		} else {
+			may_wait = 0;
 		}
 		if (status < 0) {
 			MARS_WRN("#%d bad recvmsg, status = %d\n", msock->s_debug_nr, status);
