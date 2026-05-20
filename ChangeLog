@@ -185,6 +185,55 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183
+	(fixes, improvements)
+	* marsadm: when logrotate is different at primary vs secondary,
+	  or when the network is outdated, macros like view-fetch-size
+	  and siblings may have reported too high values at secondaries.
+	  This was causing a multitude of further false-positive messages,
+	  like OutDated in place of UpToDate, or warnings like "replay stuck"
+	  and many others.
+	* marsadm: fixed more corner cases of pos- and size-reporting
+	  macros. Found by testing, not observed in production.
+	* Fixed a non-functional problem: server-role race between
+	  handler and callback thread could lead to unnecessary connection
+	  aborts, compenated by automatic tries. This could have slowed down
+	  many operations, depending on loadavg.
+	* Fixed corner cases of attach / detach reporting their success
+	  too early. This could cause follow-up problems in higher
+	  automation layers.
+	* Fixed rare corner case of detach where the underlying disk could
+	  remain opened for a longer time. Workaround was possible by
+	  attach/detach cycle, or rmmod / modprobe.
+	* Fixed corresponding problem: during detach, the internal
+	  server role was allowing remote data transfer like sync
+	  traffic. But the sysadmin expectation is that the underlying
+	  disk should not show any IO.
+	* Fixed rare corner case where after a DefectiveLog and a
+	  forced primary the versionlink creation did not work.
+	  Found by extensive testing, not observed in practice.
+	* Avoid unnecessary repetitions of self-repair when defective
+	  logfiles are detected. This should improve performance in corner
+	  case situations.
+	* Avoid frequent connection aborts for detection of network hangs.
+	  This should make long-term network traffic faster, but detection
+	  of network problems slower. Probaly a better behaviour for
+	  automated monitoring.
+	* Avoid frequent internal flipping between sync and replay,
+	  depending on hardware and network properties, which could
+	  lead to unnecessary duration of Inconsistent state.
+	* Made the network more resilient against packet loss.
+	* Earlier close of server sockets upon rmmod.
+	* Safeguard force to primary: prefer the replay of already
+	  fetched log-data, before role change. Even when this
+	  may take some time, e.g. after some pause-replay.
+	* Only relevant for mixed operations of different mars versions
+	  over network:
+	  - the old version will now just _ignore_ any enhancements
+	    of internal data structures, instead of aborting the
+	    network connection. This was an historic safeguard against
+	    potential attacks which never have happened ;)
+
 mars0.1astable182
 	(bugfix / housekeeping release)
 	* marsadm: fixed reporting of macro is-consistent{}.
