@@ -79,6 +79,7 @@ struct aio_threadinfo {
 #ifdef MARS_AIO_DEBUG
 	atomic_t total_enqueue_count;
 #endif
+	bool running;
 	bool should_terminate;
 	bool terminated;
 };

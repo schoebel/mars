@@ -466,6 +466,11 @@ int aio_start_thread(
 		MARS_ERR("cannot create thread\n");
 		return -ENOENT;
 	}
+	/* wait until the thread has really started */
+	while (!tinfo->running) {
+		msleep(50);
+		smp_mb();
+	}
 	return 0;
 }
 
@@ -569,7 +574,9 @@ int aio_sync_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
 	struct aio_output *output = tinfo->output;
-	
+
+	tinfo->running = true;
+
 	MARS_DBG("sync thread has started on '%s'.\n", output->brick->brick_path);
 	//set_user_nice(current, -20);
 
@@ -605,6 +612,7 @@ int aio_sync_thread(void *data)
 	}
 
 	MARS_DBG("sync thread has stopped.\n");
+	tinfo->running = false;
 	tinfo->terminated = true;
 	brick_wake_smp(&tinfo->terminate_event);
 	return 0;
@@ -631,6 +639,8 @@ static int aio_event_thread(void *data)
 	err = aio_start_thread(output, &output->tinfo[2], aio_sync_thread, 'y');
 	if (unlikely(err < 0))
 		goto err;
+
+	tinfo->running = true;
 
 	while (!tinfo->should_terminate || atomic_read(&tinfo->queued_sum) > 0) {
 		mm_segment_t oldfs;
@@ -731,6 +741,7 @@ static int aio_event_thread(void *data)
 
 	unuse_fake_mm();
 
+	tinfo->running = false;
 	tinfo->terminated = true;
 	brick_wake_smp(&tinfo->terminate_event);
 	brick_mem_free(events);
@@ -965,6 +976,8 @@ static int aio_submit_thread(void *data)
 
 	use_fake_mm();
 
+	tinfo->running = true;
+
 	while (!tinfo->should_terminate || atomic_read(&output->read_count) + atomic_read(&output->write_count) + atomic_read(&tinfo->queued_sum) > 0) {
 		struct aio_mref_aspect *mref_a;
 		struct mref_object *mref;
@@ -1059,6 +1072,7 @@ static int aio_submit_thread(void *data)
 		unuse_fake_mm();
 	}
 
+	tinfo->running = false;
 	tinfo->terminated = true;
 	brick_wake_smp(&tinfo->terminate_event);
 	return err;
