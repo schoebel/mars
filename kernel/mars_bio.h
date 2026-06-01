@@ -58,6 +58,7 @@ struct bio_response {
 	wait_queue_head_t response_event;
 	brick_thread_t *response_thread;
 	struct bio_brick *brick;
+	bool running;
 };
 
 struct bio_brick {

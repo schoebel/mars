@@ -604,6 +604,7 @@ int bio_response_thread(void *data)
 #endif
 
 	MARS_INF("bio response thread has started on '%s'.\n", brick->brick_path);
+	rsp->running = true;
 
 	for (;;) {
 		LIST_HEAD(tmp_list);
@@ -744,6 +745,7 @@ int bio_response_thread(void *data)
 	}
 done:
 	MARS_INF("bio response thread has stopped.\n");
+	rsp->running = false;
 	return 0;
 }
 
@@ -911,6 +913,14 @@ static int bio_switch(struct bio_brick *brick)
 							    "mars_bio_r%d",
 							    index);
 			}
+			/* wait until the response threads are actually working */
+			for (i = 0; i < BIO_RESPONSE_THREADS; i++) {
+				while (!brick->rsp[i].running) {
+					msleep(50);
+					smp_mb();
+				}
+			}
+			/* start the submit thread */
 			brick->submit_thread = brick_thread_create(bio_submit_thread, brick, "mars_bio_s%d", index);
 			status = -EBADR;
 			if (likely(brick->submit_thread)) {
