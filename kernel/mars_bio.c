@@ -766,6 +766,7 @@ int bio_submit_thread(void *data)
 #endif
 
 	MARS_INF("bio submit thread has started on '%s'.\n", brick->brick_path);
+	brick->running = true;
 
 	while (!brick_thread_should_stop()) {
 		int prio;
@@ -827,6 +828,7 @@ int bio_submit_thread(void *data)
 	}
 
 	MARS_INF("bio submit thread has stopped.\n");
+	brick->running = false;
 	return 0;
 }
 
@@ -926,6 +928,11 @@ static int bio_switch(struct bio_brick *brick)
 			if (likely(brick->submit_thread)) {
 				brick->bdev = inode->i_bdev;
 				index++;
+				/* wait until the submit thread is actually working */
+				while (!brick->running) {
+					msleep(50);
+					smp_mb();
+				}
 				status = 0;
 			}
 		}

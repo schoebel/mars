@@ -90,6 +90,7 @@ struct bio_brick {
 	unsigned int rsp_nr;
 	int bvec_max;
 	bool submitted;
+	bool running;
 };
 
 struct bio_input {
