@@ -965,6 +965,10 @@ static int bio_switch(struct bio_brick *brick)
 			}
 			brick->submit_thread = NULL;
 			brick_thread_stop(submit_thread);
+			while (brick->running) {
+				msleep(50);
+				smp_mb();
+			}
 		}
 		for (i = 0; i < BIO_RESPONSE_THREADS; i++) {
 			brick_thread_t *response_thread = brick->rsp[i].response_thread;
@@ -983,6 +987,10 @@ static int bio_switch(struct bio_brick *brick)
 				}
 				brick->rsp[i].response_thread = NULL;
 				brick_thread_stop(response_thread);
+				while (brick->rsp[i].running) {
+					msleep(50);
+					smp_mb();
+				}
 			}
 		}
 		if (brick->mf) {
