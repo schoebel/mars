@@ -132,7 +132,7 @@ int cb_thread(void *data)
 	if (!ok)
 		goto done;
 
-	brick->cb_running = true;
+	WRITE_ONCE(brick->cb_running, true);
 	brick_wake_smp(&brick->startup_event);
 
         while (!brick_thread_should_stop() ||
@@ -238,6 +238,7 @@ done:
 	MARS_DBG("---------- cb_thread terminating, status = %d\n", status);
 	brick_wake_smp(&brick->startup_event);
 	atomic_dec(&server_callback_count);
+	WRITE_ONCE(brick->cb_running, false);
 	return status;
 }
 
@@ -286,7 +287,9 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 	int amount;
 	int status = -ENOTRECOVERABLE;
 
-	if (!brick->cb_running || !brick->handler_running || !mars_socket_is_alive(sock))
+	if (!READ_ONCE(brick->cb_running) ||
+	    !READ_ONCE(brick->handler_running) ||
+	    !mars_socket_is_alive(sock))
 		goto done;
 
 	mref = server_alloc_mref(brick);
@@ -489,12 +492,11 @@ int handler_thread(void *data)
 	brick->cb_thread = thread;
 
 	/* wait until the callback thread has really started */
-	while (!brick->cb_running) {
+	while (!READ_ONCE(brick->cb_running)) {
 		msleep(100);
-		smp_mb();
 	}
 
-	brick->handler_running = true;
+	WRITE_ONCE(brick->handler_running, true);
 	brick_wake_smp(&brick->startup_event);
 
         while (!list_empty(&handler_global->brick_anchor) ||
@@ -522,7 +524,8 @@ int handler_thread(void *data)
 			MARS_DBG("system is not alive\n");
 			goto clean;
 		}
-		if (unlikely(brick_thread_should_stop())) {
+		if (unlikely(READ_ONCE(brick->should_stop) ||
+			     brick_thread_should_stop())) {
 			goto clean;
 		}
 		if (unlikely(!mars_socket_is_alive(sock))) {
@@ -847,7 +850,6 @@ int handler_thread(void *data)
 	thread = brick->cb_thread;
 	if (thread) {
 		brick->cb_thread = NULL;
-		brick->cb_running = false;
 		MARS_DBG("#%d stopping callback thread....\n", sock->s_debug_nr);
 		brick_thread_stop(thread);
 	}
@@ -861,6 +863,7 @@ int handler_thread(void *data)
 	atomic_dec(&server_handler_count);
 	brick->killme = true;
 	free_mars_global(handler_global);
+	WRITE_ONCE(brick->handler_running, false);
 	return status;
 }
 
@@ -902,8 +905,10 @@ static int server_switch(struct server_brick *brick)
 	if (brick->power.button) {
 		bool ok;
 
-		if (brick->power.led_on)
+		if (brick->power.led_on ||
+		    brick->handler_thread) {
 			goto done;
+		}
 
 		ok = mars_get_socket(sock);
 		if (unlikely(!ok)) {
@@ -913,6 +918,7 @@ static int server_switch(struct server_brick *brick)
 
 		mars_power_led_off((void*)brick, false);
 
+		WRITE_ONCE(brick->should_stop, false);
 		brick->handler_thread =
 			brick_thread_create(handler_thread,
 					    brick,
@@ -932,13 +938,22 @@ static int server_switch(struct server_brick *brick)
 		int success;
 
 		mars_power_led_on((void*)brick, false);
+		WRITE_ONCE(brick->should_stop, true);
 
 		server_shutdown_socket(sock);
+
+		nr_retry = 0;
+		while (READ_ONCE(brick->handler_running)) {
+			brick_msleep(100);
+			if (nr_retry++ > 1000) {
+				status = -EAGAIN;
+				goto done;
+			}
+		}
 
 		thread = brick->handler_thread;
 		if (thread) {
 			brick->handler_thread = NULL;
-			brick->handler_running = false;
 			MARS_DBG("#%d stopping handler thread....\n", sock->s_debug_nr);
 			brick_thread_stop(thread);
 		}

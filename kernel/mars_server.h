@@ -74,6 +74,7 @@ struct server_brick {
 	int bio_error;
 	bool cb_running;
 	bool handler_running;
+	bool should_stop;
 };
 
 struct server_input {
