@@ -66,11 +66,9 @@ struct server_brick {
 	wait_queue_head_t startup_event;
 	wait_queue_head_t cb_event;
 	struct mutex cb_mutex;
-	struct list_head cb_read_list;
-	struct list_head cb_write_list;
+	struct list_head cb_list;
 	unsigned long check_jiffies;
-	atomic_t in_flight_reads;
-	atomic_t in_flight_writes;
+	atomic_t in_flight;
 	int bio_error;
 	bool cb_running;
 	bool handler_running;

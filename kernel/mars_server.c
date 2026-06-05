@@ -136,21 +136,18 @@ int cb_thread(void *data)
 	brick_wake_smp(&brick->startup_event);
 
         while (!brick_thread_should_stop() ||
-	       atomic_read(&brick->in_flight_reads) > 0 ||
-	       atomic_read(&brick->in_flight_writes) > 0) {
+	       atomic_read(&brick->in_flight) > 0) {
 		struct server_mref_aspect *mref_a;
 		struct mref_object *mref;
 		struct list_head *tmp;
 		unsigned long wait_jiffies =
 			brick_thread_should_stop() ? 1 * HZ : 2;
 		bool cork;
-		bool was_write;
 
 
 		brick_wait_smp(
 			brick->cb_event,
-			atomic_read(&brick->in_flight_reads) > 0 ||
-			atomic_read(&brick->in_flight_writes) > 0,
+			atomic_read(&brick->in_flight) > 0,
 			wait_jiffies);
 
 		/* Try to get the next request for callback over
@@ -163,19 +160,11 @@ int cb_thread(void *data)
 		 */
 		tmp = NULL;
 		cork = false;
-		was_write = false;
 		mutex_lock(&brick->cb_mutex);
-		if (!list_empty(&brick->cb_write_list)) {
-			tmp = brick->cb_write_list.next;
+		if (!list_empty(&brick->cb_list)) {
+			tmp = brick->cb_list.next;
 			list_del_init(tmp);
-			cork =
-				!list_empty(&brick->cb_write_list) ||
-				!list_empty(&brick->cb_read_list);
-			was_write = true;
-		} else if (!list_empty(&brick->cb_read_list)) {
-			tmp = brick->cb_read_list.next;
-			list_del_init(tmp);
-			cork = !list_empty(&brick->cb_read_list);
+			cork = !list_empty(&brick->cb_list);
 		}
 		mutex_unlock(&brick->cb_mutex);
 
@@ -222,10 +211,7 @@ int cb_thread(void *data)
 
 		if (mref_a->do_put) {
 			GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_put, mref);
-			if (was_write)
-				atomic_dec(&brick->in_flight_writes);
-			else
-				atomic_dec(&brick->in_flight_reads);
+			atomic_dec(&brick->in_flight);
 		} else {
 			mars_free_mref(mref);
 		}
@@ -246,17 +232,11 @@ static
 void server_endio(struct generic_callback *cb)
 {
 	struct server_mref_aspect *mref_a;
-	struct mref_object *mref;
 	struct server_brick *brick;
 
 	mref_a = cb->cb_private;
 	CHECK_PTR(mref_a, err);
-	mref = mref_a->object;
-	CHECK_PTR(mref, err);
 	LAST_CALLBACK(cb);
-	if (unlikely(cb != &mref->_object_cb)) {
-		MARS_ERR("bad cb pointer %px != %px\n", cb, &mref->_object_cb);
-	}
 
 	brick = mref_a->brick;
 	if (unlikely(!brick)) {
@@ -265,11 +245,7 @@ void server_endio(struct generic_callback *cb)
 	}
 
 	mutex_lock(&brick->cb_mutex);
-	if (mref->ref_flags & MREF_WRITE) {
-		list_add_tail(&mref_a->cb_head, &brick->cb_write_list);
-	} else {
-		list_add_tail(&mref_a->cb_head, &brick->cb_read_list);
-	}
+	list_add_tail(&mref_a->cb_head, &brick->cb_list);
 	mutex_unlock(&brick->cb_mutex);
 
 	brick_wake_smp(&brick->cb_event);
@@ -283,7 +259,6 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 {
 	struct mref_object *mref;
 	struct server_mref_aspect *mref_a;
-	bool is_write;
 	int amount;
 	int status = -ENOTRECOVERABLE;
 
@@ -334,11 +309,7 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 		mref_a->first_len = mref->ref_len;
 	}
 	mref_a->do_put = true;
-	is_write = (mref->ref_flags & MREF_WRITE);
-	if (is_write)
-		atomic_inc(&brick->in_flight_writes);
-	else
-		atomic_inc(&brick->in_flight_reads);
+	atomic_inc(&brick->in_flight);
 
 	GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_io, mref);
 
@@ -347,7 +318,7 @@ done:
 }
 
 static
-void _clean_list(struct server_brick *brick, struct list_head *start, bool was_write)
+void _clean_list(struct server_brick *brick, struct list_head *start)
 {
 	for (;;) {
 		struct server_mref_aspect *mref_a;
@@ -366,10 +337,7 @@ void _clean_list(struct server_brick *brick, struct list_head *start, bool was_w
 
 		if (mref_a->do_put) {
 			GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_put, mref);
-			if (was_write)
-				atomic_dec(&brick->in_flight_writes);
-			else
-				atomic_dec(&brick->in_flight_reads);
+			atomic_dec(&brick->in_flight);
 		} else {
 			mars_free_mref(mref);
 		}
@@ -437,8 +405,7 @@ void _stop_bio(struct server_brick *brick, struct mars_brick *bio_brick)
 
 	while (bio_brick &&
 	       brick->conn_brick &&
-	       atomic_read(&brick->in_flight_reads) +
-	       atomic_read(&brick->in_flight_writes) <= 0) {
+	       atomic_read(&brick->in_flight) <= 0) {
 		(void)mars_disconnect((void *)brick->inputs[0]);
 		mars_power_button(brick->conn_brick, false, false);
 		if (bio_brick->power.led_off) {
@@ -513,7 +480,7 @@ int handler_thread(void *data)
 			}
 #endif
 			if (!mars_socket_is_alive(sock) &&
-			    atomic_read(&brick->in_flight_reads) +  atomic_read(&brick->in_flight_writes) <= 0 &&
+			    atomic_read(&brick->in_flight) <= 0 &&
 			    brick->conn_brick) {
 				_stop_bio(brick, brick->conn_brick);
 			}
@@ -826,7 +793,7 @@ int handler_thread(void *data)
 			    (brick->conn_brick->power.button ||
 			     brick->conn_brick->power.led_on ||
 			     !brick->conn_brick->power.led_off) &&
-			    atomic_read(&brick->in_flight_reads) +  atomic_read(&brick->in_flight_writes) <= 0) {
+			    atomic_read(&brick->in_flight) <= 0) {
 				brick_msleep(200);
 				break;
 			}
@@ -974,8 +941,7 @@ static int server_switch(struct server_brick *brick)
 				 current->comm);
 			goto done;
 		}
-		_clean_list(brick, &brick->cb_read_list, false);
-		_clean_list(brick, &brick->cb_write_list, true);
+		_clean_list(brick, &brick->cb_list);
 		mutex_unlock(&brick->cb_mutex);
 
 		mars_power_led_off((void*)brick, true);
@@ -1002,12 +968,10 @@ char *server_statistics(struct server_brick *brick, int verbose)
 	snprintf(res, 1024,
 		 "cb_running = %d "
 		 "handler_running = %d "
-		 "in_flight_reads = %d "
-		 "in_flight_writes = %d\n",
+		 "in_flight = %d\n",
 		 brick->cb_running,
 		 brick->handler_running,
-		 atomic_read(&brick->in_flight_reads),
-		 atomic_read(&brick->in_flight_writes));
+		 atomic_read(&brick->in_flight));
 
         return res;
 }
@@ -1082,17 +1046,14 @@ static int server_brick_construct(struct server_brick *brick)
 	init_waitqueue_head(&brick->cb_event);
 	sema_init(&brick->socket_sem, 1);
 	mutex_init(&brick->cb_mutex);
-	INIT_LIST_HEAD(&brick->cb_read_list);
-	INIT_LIST_HEAD(&brick->cb_write_list);
-	atomic_set(&brick->in_flight_reads, 0);
-	atomic_set(&brick->in_flight_writes, 0);
+	INIT_LIST_HEAD(&brick->cb_list);
+	atomic_set(&brick->in_flight, 0);
 	return 0;
 }
 
 static int server_brick_destruct(struct server_brick *brick)
 {
-	CHECK_HEAD_EMPTY(&brick->cb_read_list);
-	CHECK_HEAD_EMPTY(&brick->cb_write_list);
+	CHECK_HEAD_EMPTY(&brick->cb_list);
 	mutex_destroy(&brick->cb_mutex);
 	return 0;
 }
