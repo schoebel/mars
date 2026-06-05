@@ -841,12 +841,13 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		msock->s_recv_cnt = 0;
 		/* Probably EOF? not sure... may depend on flags like MSG_DONTWAIT */
 		if (!status) {
-			if (may_wait > 10) {
+			if (may_wait > 100) {
 				MARS_WRN("#%d got EOF from socket (done=%d, req_size=%d)\n",
 					 msock->s_debug_nr, done, maxlen - done);
 				status = -EPIPE;
 				goto err;
 			}
+			brick_msleep(10);
 			may_wait++;
 		} else {
 			may_wait = 0;
