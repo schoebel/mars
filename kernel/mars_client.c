@@ -558,7 +558,7 @@ void __hash_insert(struct client_output *output,
 		   struct client_mref_aspect *mref_a)
 {
 	struct mref_object *mref = mref_a->object;
-	int ref_id;
+	unsigned int ref_id;
 	unsigned int hash_index;
 
 	if (mref_a->is_hashed)
@@ -566,11 +566,12 @@ void __hash_insert(struct client_output *output,
 
 	list_del_init(&mref_a->hash_head);
 	ref_id = READ_ONCE(mref->ref_id);
+	/* only change a ref_id when zero-initialized */
 	if (!ref_id) {
-		/* This may wrap around without harm */
+		/* Assign a new ID between 1 and INT_MAX-1 */
 		ref_id = READ_ONCE(output->last_id) + 1;
-		if (!ref_id)
-			ref_id++;
+		if (!ref_id || ref_id >= INT_MAX - 1)
+			ref_id = 1;
 		WRITE_ONCE(output->last_id, ref_id);
 		WRITE_ONCE(mref->ref_id, ref_id);
 	}
