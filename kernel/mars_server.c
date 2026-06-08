@@ -803,6 +803,10 @@ int handler_thread(void *data)
 				break;
 			}
 		}
+		if (unlikely(!mars_global || !mars_global->global_power.button)) {
+			brick_msleep(1000);
+			break;
+		}
 	}
 
 	server_shutdown_socket(sock);
