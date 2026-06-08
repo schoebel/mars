@@ -1153,24 +1153,12 @@ void check_bricks(void)
 	down_write(&server_mutex);
 	for (tmp = server_anchor.next; tmp && tmp != &server_anchor; tmp = tmp->next) {
 		struct server_brick *running_brick = container_of(tmp, struct server_brick, server_head);
-		struct mars_socket *handler_socket = &running_brick->handler_socket;
 
 		if (!running_brick->delegated_brick)
 			continue;
 
 		brick_yield();
-		if (mars_socket_is_alive(handler_socket)) {
-			if (!running_brick->shutdown_jiffies) {
-				running_brick->shutdown_jiffies = jiffies;
-				continue;
-			}
-			/* Minimum connection duration, for better sysadmin detection */
-			if (running_brick->shutdown_jiffies + 30 * HZ <= jiffies)
-				continue;
-			server_shutdown_socket(handler_socket);
-			/* only once per round */
-			break;
-		} else if (!running_brick->handler_thread && !running_brick->cb_thread) {
+		if (!running_brick->handler_thread && !running_brick->cb_thread) {
 			list_del_init(&running_brick->server_head);
 			brick_mem_free(running_brick);
 			/* only once per round */
