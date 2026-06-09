@@ -1045,6 +1045,7 @@ static int server_brick_construct(struct server_brick *brick)
 
 static int server_brick_destruct(struct server_brick *brick)
 {
+	CHECK_HEAD_EMPTY(&brick->server_head);
 	CHECK_HEAD_EMPTY(&brick->cb_list);
 	mutex_destroy(&brick->cb_mutex);
 	return 0;
