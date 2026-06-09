@@ -1109,7 +1109,7 @@ static int _copy_thread(void *data)
 			if (progress > 0) {
 				get_real_lamport(&last_progress);
 				safe_timeout = mars_copy_timeout / 4;
-			} else {
+			} else if (!brick->is_aborting) {
 				struct lamport_time next_progress;
 
 				get_real_lamport(&next_progress);
