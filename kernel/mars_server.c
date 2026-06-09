@@ -472,20 +472,7 @@ int handler_thread(void *data)
 		struct mars_cmd cmd = {};
 
 		handler_global->global_version++;
-
-		if (!list_empty(&handler_global->brick_anchor)) {
-#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
-			if (server_show_statist && !time_is_before_jiffies(statist_jiffies + 10 * HZ)) {
-				show_statistics(handler_global, "handler");
-				statist_jiffies = jiffies;
-			}
-#endif
-			if (!mars_socket_is_alive(sock) &&
-			    atomic_read(&brick->in_flight) <= 0 &&
-			    brick->conn_brick) {
-				_stop_bio(brick, brick->conn_brick);
-			}
-		}
+		mb();
 
 		status = -EINTR;
 		if (unlikely(!mars_global || !mars_global->global_power.button)) {
