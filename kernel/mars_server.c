@@ -209,6 +209,7 @@ int cb_thread(void *data)
 		}
 
 		if (mref_a->do_put) {
+			mref_a->do_put = false;
 			GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_put, mref);
 			atomic_dec(&brick->in_flight);
 		} else {
@@ -335,6 +336,7 @@ void _clean_list(struct server_brick *brick, struct list_head *start)
 			continue;
 
 		if (mref_a->do_put) {
+			mref_a->do_put = false;
 			GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_put, mref);
 			atomic_dec(&brick->in_flight);
 		} else {
