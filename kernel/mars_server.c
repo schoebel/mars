@@ -859,6 +859,7 @@ static int server_switch(struct server_brick *brick)
 		bool ok;
 
 		if (brick->power.led_on ||
+		    brick->cb_thread ||
 		    brick->handler_thread) {
 			goto done;
 		}
@@ -885,6 +886,7 @@ static int server_switch(struct server_brick *brick)
 		brick->delegate_free = &brick->delegated_brick;
 
 		mars_power_led_on((void*)brick, true);
+		goto done;
 	} else if (!brick->power.led_off) {
 		struct task_struct *thread;
 		int nr_retry;
@@ -896,7 +898,8 @@ static int server_switch(struct server_brick *brick)
 		server_shutdown_socket(sock);
 
 		nr_retry = 0;
-		while (READ_ONCE(brick->handler_running)) {
+		while (READ_ONCE(brick->handler_running) ||
+		       READ_ONCE(brick->cb_running)) {
 			brick_msleep(100);
 			if (nr_retry++ > 1000) {
 				status = -EAGAIN;
