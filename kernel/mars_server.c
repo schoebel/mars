@@ -72,9 +72,6 @@ static struct server_cookie server_cookie[MARS_TRAFFIC_MAX] = {
 
 static struct task_struct *server_thread[MARS_TRAFFIC_MAX] = {};
 
-atomic_t server_callback_count = ATOMIC_INIT(0);
-EXPORT_SYMBOL_GPL(server_callback_count);
-
 atomic_t server_handler_count = ATOMIC_INIT(0);
 EXPORT_SYMBOL_GPL(server_handler_count);
 
@@ -119,8 +116,6 @@ int cb_thread(void *data)
 	bool aborted = false;
 	bool ok = mars_get_socket(sock);
 	int status = -EINVAL;
-
-	atomic_inc(&server_callback_count);
 
 	MARS_DBG("--------------- cb_thread starting on socket #%d, ok = %d\n", sock->s_debug_nr, ok);
 	if (!ok)
@@ -223,7 +218,6 @@ int cb_thread(void *data)
 done:
 	MARS_DBG("---------- cb_thread terminating, status = %d\n", status);
 	brick_wake_smp(&brick->startup_event);
-	atomic_dec(&server_callback_count);
 	WRITE_ONCE(brick->cb_running, false);
 	return status;
 }
