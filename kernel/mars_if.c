@@ -114,6 +114,8 @@ void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
 
 	if (!mars_io_acct)
 		return;
+	if (!input->q || !input->disk)
+		return;
 
 	bio = biow->bio;
 	biow->start_time = jiffies;
@@ -132,6 +134,8 @@ void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
 	struct bio *bio;
 
 	if (!biow->start_time)
+		return;
+	if (!input->q || !input->disk)
 		return;
 
 	bio = biow->bio;
@@ -1248,7 +1252,7 @@ static int if_switch(struct if_brick *brick)
 			goto done; // don't indicate "off" status
 		}
 		MARS_DBG("calling del_gendisk()\n");
-		del_gendisk(input->disk);
+		del_gendisk(disk);
 		/* There might be subtle races */
 		check_io_done(brick, true);
 		if (input->bdev) {
@@ -1273,8 +1277,10 @@ static int if_switch(struct if_brick *brick)
 			input->bdev = NULL;
 		}
 		MARS_DBG("calling put_disk()\n");
-		put_disk(input->disk);
+		put_disk(disk);
 		input->disk = NULL;
+		smp_mb();
+		check_io_done(brick, true);
 		q = input->q;
 		if (q) {
 #if defined(USE_CONGESTED_FN) && !defined(MARS_HAS_BDI_GET)
