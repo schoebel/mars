@@ -248,12 +248,11 @@ err:
 	MARS_FAT("cannot handle callback - giving up\n");
 }
 
-static
+static noinline
 int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_cmd *cmd)
 {
 	struct mref_object *mref;
 	struct server_mref_aspect *mref_a;
-	int amount;
 	int status = -ENOTRECOVERABLE;
 
 	if (!READ_ONCE(brick->cb_running) ||
@@ -286,11 +285,6 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 	}
 	SETUP_CALLBACK(mref, server_endio, mref_a);
 
-	amount = 0;
-	if (!(mref->ref_flags & MREF_NODATA))
-		amount = (mref->ref_len - 1) / 1024 + 1;
-	mars_limit_sleep(&server_limiter, amount);
-	
 	status = GENERIC_INPUT_CALL(brick->inputs[0], mref_get, mref);
 	if (unlikely(status < 0)) {
 		MARS_WRN("mref_get execution error = %d\n", status);
@@ -1195,7 +1189,6 @@ static int port_thread(void *data)
 			     !mars_global || !mars_global->global_power.button);
 
 		server_global->global_version++;
-		mars_limit(&server_limiter, 0);
 
 #ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 		if (server_show_statist)
@@ -1325,11 +1318,6 @@ static int port_thread(void *data)
 }
 
 ////////////////// module init stuff /////////////////////////
-
-struct mars_limiter server_limiter = {
-	/* Let all be zero */
-};
-EXPORT_SYMBOL_GPL(server_limiter);
 
 void exit_mars_server(void)
 {

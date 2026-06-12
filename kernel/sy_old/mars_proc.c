@@ -520,7 +520,6 @@ done:
 static
 struct ctl_table traffic_tuning_table[] = {
 	LIMITER_ENTRIES(&client_limiter,    "client_role_traffic",    "kb"),
-	LIMITER_ENTRIES(&server_limiter,    "server_role_traffic",    "kb"),
 	{}
 };
 
