@@ -253,10 +253,12 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 {
 	struct mref_object *mref;
 	struct server_mref_aspect *mref_a;
+	struct server_input *prev = brick->inputs[0];
 	int status = -ENOTRECOVERABLE;
 
 	if (!READ_ONCE(brick->cb_running) ||
 	    !READ_ONCE(brick->handler_running) ||
+	    !prev ||
 	    !mars_socket_is_alive(sock))
 		goto done;
 
@@ -285,7 +287,7 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 	}
 	SETUP_CALLBACK(mref, server_endio, mref_a);
 
-	status = GENERIC_INPUT_CALL(brick->inputs[0], mref_get, mref);
+	status = GENERIC_INPUT_CALL(prev, mref_get, mref);
 	if (unlikely(status < 0)) {
 		MARS_WRN("mref_get execution error = %d\n", status);
 		SIMPLE_CALLBACK(mref, status);
@@ -299,7 +301,7 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 	mref_a->do_put = true;
 	atomic_inc(&brick->in_flight);
 
-	GENERIC_INPUT_CALL_VOID(brick->inputs[0], mref_io, mref);
+	GENERIC_INPUT_CALL_VOID(prev, mref_io, mref);
 
 done:
 	return status;
