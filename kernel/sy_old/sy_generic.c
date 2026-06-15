@@ -3112,6 +3112,7 @@ int mars_kill_brick_when_possible(struct mars_global *global,
 {
 	struct list_head *anchor = &global->brick_anchor;
 	int return_status = 0;
+	int max_restart = 20;
 	struct list_head *tmp;
 
 restart:
@@ -3216,6 +3217,9 @@ restart:
 		if (status >= 0)
 			return_status++;
 
+		if (max_restart-- <= 0) {
+			return return_status;
+		}
 		/* The list may have changed during the open lock
 		 * in unpredictable ways.
 		 */
