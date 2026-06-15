@@ -172,6 +172,11 @@ int cb_thread(void *data)
 			/* nothing to do for now */
 			brick_yield();
 			msleep_backoff(&backoff_ms);
+			if (unlikely(READ_ONCE(brick->should_stop) &&
+				     atomic_read(&brick->in_flight) <= 0 &&
+				     backoff_ms >= 100)) {
+				break;
+			}
 			continue;
 		}
 		backoff_ms = -1;
