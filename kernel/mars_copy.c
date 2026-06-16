@@ -1045,10 +1045,15 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 static
 bool _is_done(struct copy_brick *brick)
 {
+	int flying;
+
 	if (!brick->power.led_on || brick_thread_should_stop())
 		brick->is_aborting = true;
-	return brick->is_aborting &&
-		atomic_read(&brick->copy_read_flight) + atomic_read(&brick->copy_write_flight) <= 0;
+	if (!brick->is_aborting) {
+		return false;
+	}
+	flying = atomic_read(&brick->copy_read_flight) + atomic_read(&brick->copy_write_flight);
+	return flying <= 0;
 }
 
 static int _copy_thread(void *data)
