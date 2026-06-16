@@ -458,6 +458,7 @@ int handler_thread(void *data)
 	brick_wake_smp(&brick->startup_event);
 
         while (!list_empty(&handler_global->brick_anchor) ||
+	       atomic_read(&brick->in_flight) > 0 ||
 	       mars_socket_is_alive(sock)) {
 		struct mars_cmd cmd = {};
 
@@ -764,20 +765,26 @@ int handler_thread(void *data)
 		if (unlikely(status < 0)) {
 			server_shutdown_socket(sock);
 			brick_msleep(200);
+			if (atomic_read(&brick->in_flight) > 0) {
+				continue;
+			}
 			if (!ok_attach) {
 				break;
 			}
 			if (brick->conn_brick &&
 			    (brick->conn_brick->power.button ||
 			     brick->conn_brick->power.led_on ||
-			     !brick->conn_brick->power.led_off) &&
-			    atomic_read(&brick->in_flight) <= 0) {
+			     !brick->conn_brick->power.led_off)) {
 				brick_msleep(200);
 				break;
 			}
 		}
 		if (unlikely(!mars_global || !mars_global->global_power.button)) {
+			server_shutdown_socket(sock);
 			brick_msleep(1000);
+			if (atomic_read(&brick->in_flight) > 0) {
+				continue;
+			}
 			break;
 		}
 	}
