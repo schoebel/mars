@@ -2046,6 +2046,7 @@ int __make_copy(struct mars_dent *belongs,
 	int i;
 	bool switch_copy;
 	bool later_off = false;
+	bool keep_on = false;
 	int status = -EINVAL;
 
 	if (!switch_path) {
@@ -2062,6 +2063,7 @@ int __make_copy(struct mars_dent *belongs,
 	// create/find predecessor aio bricks
 	for (i = 0; i < 2; i++) {
 		struct mars_brick *aio;
+		bool aio_on;
 
 		/* do not change names underway */
 		if (copy && copy->inputs[i] && copy->inputs[i]->connect) {
@@ -2087,6 +2089,7 @@ int __make_copy(struct mars_dent *belongs,
 		} else {
 			cc.fullpath[i] = argv[i];
 		}
+		aio_on = switch_copy;
 
 		aio =
 			make_brick_all(mars_global,
@@ -2096,19 +2099,27 @@ int __make_copy(struct mars_dent *belongs,
 				       NULL,
 				       (const struct generic_brick_type*)&bio_brick_type,
 				       (const struct generic_brick_type*[]){},
-				       switch_copy || (copy && !copy->power.led_off) ? 2 : -1,
+				       aio_on ? 2 : -1,
 				       cc.fullpath[i],
 				       (const char *[]){},
 				       0);
-		if (!aio) {
+		if (!aio && aio_on) {
 			MARS_DBG("cannot instantiate '%s'\n", cc.fullpath[i]);
 			make_msg(msg_pair, "cannot instantiate '%s'", cc.fullpath[i]);
 			goto done;
 		}
-		if (!aio->power.led_on) {
+		if (aio_on && aio && !aio->power.led_on) {
 			MARS_DBG("predecessor '%s' not yet on\n", cc.fullpath[i]);
 			aio->power.force_off = false;
 			later_off = true;
+		} else if (copy &&
+			   !aio_on &&
+			   (!aio ||
+			    !aio->power.led_off)) {
+			keep_on = true;
+		}
+		if (!aio) {
+			continue;
 		}
 
 	found:
@@ -2149,7 +2160,7 @@ int __make_copy(struct mars_dent *belongs,
 			       cc.fullpath[1],
 			       (const struct generic_brick_type*)&copy_brick_type,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
-			       switch_copy ? 2 : -1,
+			       switch_copy || keep_on ? 2 : -1,
 			       "%s",
 			       (const char *[]){"%s", "%s"},
 			       2,
