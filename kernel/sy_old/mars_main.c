@@ -996,8 +996,8 @@ int mars_mem_gb = 16;
 #define BIO_SYNC true
 #define BIO_UNPLUG true
 
-#define COPY_APPEND_MODE 0
-//#define COPY_APPEND_MODE 1 // FIXME: does not work yet
+//#define COPY_APPEND_MODE 0
+#define COPY_APPEND_MODE 1
 #define COPY_PRIO MARS_PRIO_LOW
 
 static
@@ -1164,6 +1164,7 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 {
 	struct copy_brick *copy_brick = (void*)_brick;
 	struct copy_cookie *cc = private;
+	loff_t copy_end;
 	int status = 1;
 
 	if (_brick->type != (void*)&copy_brick_type) {
@@ -1236,25 +1237,20 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 			}
 		}
 		MARS_DBG("copy_start = %lld\n", copy_brick->copy_start);
-		copy_brick->copy_end = cc->info[0].current_size;
-		if (cc->end_pos != -1) {
-			if (unlikely(cc->end_pos > copy_brick->copy_end)) {
-				MARS_ERR("target size %lld is larger than actual size %lld on source\n", cc->end_pos, copy_brick->copy_end);
-				status = -EINVAL;
-				goto done;
+		copy_end = cc->info[0].current_size;
+		if (copy_brick->append_mode && cc->end_pos != -1) {
+			if (cc->end_pos < copy_end || copy_end <= 0) {
+				copy_end = cc->end_pos;
 			}
-			copy_brick->copy_end = cc->end_pos;
-			if (unlikely(cc->end_pos > cc->info[1].current_size)) {
-				MARS_ERR("bad end position %lld is larger than actual size %lld on target\n", cc->end_pos, cc->info[1].current_size);
-				status = -EINVAL;
-				goto done;
+			if (copy_end > cc->info[1].current_size &&
+			    cc->info[1].current_size > 0) {
+				copy_end = cc->info[1].current_size;
 			}
 		}
-		MARS_DBG("copy_end = %lld\n", copy_brick->copy_end);
-		if (copy_brick->copy_start < copy_brick->copy_end) {
+		if (copy_brick->copy_start < copy_end) {
 			status = 1;
-			MARS_DBG("copy switch on\n");
 		}
+		copy_brick->copy_end = copy_end;;
 	} else if (copy_brick->power.button && copy_brick->power.led_on &&
 		   !cc->keep_running &&
 		   copy_brick->copy_last == copy_brick->copy_end && copy_brick->copy_end > 0) {
@@ -2686,7 +2682,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 			     argv,
 			     msg_pair,
 			     start_pos,
-			     -1, 
+			     -1,
 			     false, false, false, true,
 			     &fetch_brick,
 			     NULL, NULL);
