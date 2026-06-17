@@ -904,6 +904,7 @@ struct mars_rotate {
 	loff_t dev_size;
 	loff_t start_pos;
 	loff_t end_pos;
+	loff_t old_copy_last;
 	int nr_members;
 	int tmp_members;
 	int retry_log_from;
@@ -2676,13 +2677,9 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		fetch_brick->copy_limiter = &rot->fetch_limiter;
 		if (do_start)
 			rot->retry_log_from = 0;
-		if (fetch_brick->copy_last == fetch_brick->copy_start &&
-		    (fetch_brick->copy_end < 0 ||
-		     fetch_brick->copy_end > fetch_brick->copy_start)) {
-			if (!rot->fetch_jiffies)
-				rot->fetch_jiffies = jiffies;
-		} else {
-			rot->fetch_jiffies = 0;
+		if (fetch_brick->copy_last != rot->old_copy_last) {
+			rot->old_copy_last = fetch_brick->copy_last;
+			rot->fetch_jiffies = jiffies;
 		}
 		/* When done, immediately trigger next fetch from peers */
 		if (rot->old_fetch_on && !fetch_brick->power.led_on) {
