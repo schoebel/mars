@@ -665,9 +665,12 @@ restart:
 		}
 		// on append mode: increase the end pointer dynamically
 		if (brick->append_mode > 0 &&
-		    mref0->ref_total_size &&
-		    mref0->ref_total_size > brick->copy_end) {
-			brick->copy_end = mref0->ref_total_size;
+		    mref0->ref_total_size) {
+			loff_t copy_end = READ_ONCE(brick->copy_end);
+
+			if (mref0->ref_total_size > copy_end) {
+				WRITE_ONCE(brick->copy_end, mref0->ref_total_size);
+			}
 		}
 		// do verify (when applicable)
 		mref1 = READ_ONCE(st->table[1]);
@@ -1000,6 +1003,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			// check contiguity
 			if (unlikely(GET_OFFSET(pos) + len != COPY_CHUNK)) {
 				loff_t short_pos = pos + len;
+				loff_t copy_end = READ_ONCE(brick->copy_end);
 
 				/* Short read/write detected: this may be
 				 * a usual case as well as an unusual one.
@@ -1012,9 +1016,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 				 * to decide what to do next (e.g. starting
 				 * another transfer, or abort, or whatever).
 				 */
-				brick->stable_copy_end = short_pos;
-				if (brick->copy_end > short_pos)
-					brick->copy_end = short_pos;
+				if (copy_end > short_pos)
+					copy_end = short_pos;
+				WRITE_ONCE(brick->stable_copy_end, copy_end);
 			}
 		}
 		if (count > 0) {
@@ -1125,6 +1129,7 @@ static int _copy_thread(void *data)
 				}
 			}
 		}
+		mb();
 
 		brick_wait_smp(brick->event,
 						 progress > 0 ||
