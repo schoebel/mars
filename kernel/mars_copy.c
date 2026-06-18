@@ -1022,7 +1022,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			}
 		}
 		if (count > 0) {
-			brick->copy_last += count;
+			loff_t copy_last = READ_ONCE(brick->copy_last);
+			copy_last += count;
+			WRITE_ONCE(brick->copy_last, copy_last);
 			get_lamport(NULL, &brick->copy_last_stamp);
 			MARS_IO("new copy_last += %d => %lld\n", count, brick->copy_last);
 			_update_percent(brick, false);
