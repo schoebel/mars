@@ -2655,6 +2655,11 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 			30 * HZ;
 		if (jiffies > rot->fetch_jiffies + delta_jiffies) {
 			do_start = false;
+		} else if (rot->fetch_brick &&
+			   rot->fetch_brick->copy_last >= rot->fetch_brick->copy_end &&
+			   rot->fetch_brick->copy_end >= 0 &&
+			   jiffies > rot->fetch_jiffies + 1 * HZ) {
+			do_start = false;
 		}
 	} else if (rot->fetch_jiffies) {
 		rot->fetch_jiffies = 0;
