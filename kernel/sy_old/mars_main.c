@@ -1253,7 +1253,7 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 		copy_brick->copy_end = copy_end;;
 	} else if (copy_brick->power.button && copy_brick->power.led_on &&
 		   !cc->keep_running &&
-		   copy_brick->copy_last == copy_brick->copy_end && copy_brick->copy_end > 0) {
+		   copy_brick->copy_last == copy_brick->copy_end) {
 		status = 0;
 		MARS_DBG("copy switch off\n");
 	}
