@@ -2650,7 +2650,9 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	}
 	if (do_start && rot->fetch_jiffies) {
 		unsigned long delta_jiffies =
-			120 * HZ;
+			rot->todo_primary ?
+			3 * HZ :
+			30 * HZ;
 		if (jiffies > rot->fetch_jiffies + delta_jiffies) {
 			do_start = false;
 		}
