@@ -78,12 +78,6 @@ EXPORT_SYMBOL_GPL(server_callback_count);
 atomic_t server_handler_count = ATOMIC_INIT(0);
 EXPORT_SYMBOL_GPL(server_handler_count);
 
-/* Internal list of all running server brick instances.
- * This is used for mass shutdown during rmmod.
-*/
-static struct rw_semaphore server_mutex = __RWSEM_INITIALIZER(server_mutex);
-static struct list_head server_anchor = LIST_HEAD_INIT(server_anchor);
-
 ///////////////////////// own helper functions ////////////////////////
 
 #define HANDLER_LIMIT 1024
@@ -1130,27 +1124,35 @@ int server_show_statist = 0;
 EXPORT_SYMBOL_GPL(server_show_statist);
 #endif
 
-static
-void check_bricks(void)
+static noinline
+void check_bricks(struct list_head *port_anchor, bool final)
 {
 	struct list_head *tmp;
 
-	down_write(&server_mutex);
-	for (tmp = server_anchor.next; tmp && tmp != &server_anchor; tmp = tmp->next) {
+ restart:
+	for (tmp = port_anchor->next; tmp && tmp != port_anchor; tmp = tmp->next) {
 		struct server_brick *running_brick = container_of(tmp, struct server_brick, server_head);
 
-		if (!running_brick->delegated_brick)
-			continue;
-
 		brick_yield();
+		if (final) {
+			struct mars_socket *handler_socket = &running_brick->handler_socket;
+
+			WRITE_ONCE(running_brick->should_stop, true);
+			if (handler_socket) {
+				server_shutdown_socket(handler_socket);
+				brick_msleep(50);
+			}
+		}
+
 		if (!running_brick->handler_thread && !running_brick->cb_thread) {
 			list_del_init(&running_brick->server_head);
 			brick_mem_free(running_brick);
+			if (final)
+				goto restart;
 			/* only once per round */
 			break;
 		}
 	}
-	up_write(&server_mutex);
 }
 
 static
@@ -1169,6 +1171,7 @@ void _limit_handler_rate(struct server_cookie *cookie)
 
 static int port_thread(void *data)
 {
+	struct list_head port_anchor;
 	struct mars_global *server_global = alloc_mars_global();
 	struct server_cookie *cookie = data;
 	struct mars_socket *my_socket = cookie->server_socket;
@@ -1177,6 +1180,8 @@ static int port_thread(void *data)
 	char *id = my_id();
 #endif
 	int status = 0;
+
+	INIT_LIST_HEAD(&port_anchor);
 
 	MARS_INF("-------- port %d thread starting on host '%s' ----------\n",
 		 cookie->port_nr, id);
@@ -1199,8 +1204,8 @@ static int port_thread(void *data)
 		bool limit_reached;
 
 		smp_mb();
-		brick_yield();
-		check_bricks();
+		check_bricks(&port_anchor,
+			     !mars_global || !mars_global->global_power.button);
 
 		server_global->global_version++;
 		mars_limit(&server_limiter, 0);
@@ -1287,9 +1292,8 @@ static int port_thread(void *data)
 			goto err;
 		}
 
-		down_write(&server_mutex);
-		list_add_tail(&brick->server_head, &server_anchor);
-		up_write(&server_mutex);
+		list_del_init(&brick->server_head);
+		list_add_tail(&brick->server_head, &port_anchor);
 
 		// further references are usually held by the threads
 		mars_put_socket(&brick->handler_socket);
@@ -1317,6 +1321,8 @@ static int port_thread(void *data)
 
 	MARS_INF("-------- cleaning up ----------\n");
 
+	check_bricks(&port_anchor, true);
+
 	server_thread[cookie->port_nr] = NULL;
 	brick_msleep(200);
 
@@ -1327,6 +1333,7 @@ static int port_thread(void *data)
 	MARS_INF("-------- port %d thread done status = %d ----------\n",
 		 cookie->port_nr, status);
 	free_mars_global(server_global);
+	CHECK_HEAD_EMPTY(&port_anchor);
 	return status;
 }
 
@@ -1339,7 +1346,6 @@ EXPORT_SYMBOL_GPL(server_limiter);
 
 void exit_mars_server(void)
 {
-	struct list_head *tmp;
 	int i;
 
 	MARS_INF("exit_server()\n");
@@ -1350,17 +1356,6 @@ void exit_mars_server(void)
 
 		server_shutdown_socket(server_socket);
 	}
-
-	down_read(&server_mutex);
-	for (tmp = server_anchor.next; tmp && tmp != &server_anchor; tmp = tmp->next) {
-		struct server_brick *running_brick = container_of(tmp, struct server_brick, server_head);
-		struct mars_socket *handler_socket = &running_brick->handler_socket;
-		if (!handler_socket)
-			continue;
-		server_shutdown_socket(handler_socket);
-	}
-	up_read(&server_mutex);
-
 
 	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
 		if (server_thread[i]) {
