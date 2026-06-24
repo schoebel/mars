@@ -84,6 +84,7 @@
 int mars_copy_strict_write_order = 1;
 
 int mars_copy_timeout = 180;
+int mars_stop_timeout =  30;
 
 int mars_copy_read_prio = MARS_PRIO_NORMAL;
 EXPORT_SYMBOL_GPL(mars_copy_read_prio);
@@ -564,7 +565,10 @@ restart:
 			 * further time (e.g. over network).
 			 */
 			get_real_lamport(&force_when);
-			force_when.tv_sec += mars_copy_timeout / 2;
+			force_when.tv_sec +=
+				brick->power.led_on ?
+				mars_copy_timeout / 2 :
+				mars_stop_timeout / 2;
 			wait_for_requests_finished =
 				lamport_time_compare(&force_when,
 						     &brick->copy_shutdown_started) > 0;
@@ -1119,7 +1123,10 @@ static int _copy_thread(void *data)
 			/* abort when no progress is made for a longer time */
 			if (progress > 0) {
 				get_real_lamport(&last_progress);
-				safe_timeout = mars_copy_timeout / 4;
+				safe_timeout =
+					brick->power.led_on ?
+					mars_copy_timeout / 4 :
+					mars_stop_timeout / 4;
 			} else if (!brick->is_aborting) {
 				struct lamport_time next_progress;
 
@@ -1127,7 +1134,7 @@ static int _copy_thread(void *data)
 				next_progress.tv_sec -= safe_timeout;
 				if (lamport_time_compare(&next_progress, &last_progress) > 0) {
 					brick->is_aborting = true;
-					safe_timeout = mars_copy_timeout;
+					safe_timeout = mars_stop_timeout;
 				}
 			}
 		}

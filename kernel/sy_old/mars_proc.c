@@ -657,6 +657,7 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("io_flying_count",      mars_global_io_flying,  0400),
 	INT_ENTRY("copy_strict_write_order", mars_copy_strict_write_order, 0600),
 	INT_ENTRY("copy_timeout",         mars_copy_timeout,      0600),
+	INT_ENTRY("stop_timeout",         mars_stop_timeout,      0600),
 	INT_ENTRY("copy_read_prio",       mars_copy_read_prio,    0600),
 	INT_ENTRY("copy_write_prio",      mars_copy_write_prio,   0600),
 	INT_ENTRY("copy_read_max_fly",    mars_copy_read_max_fly, 0600),

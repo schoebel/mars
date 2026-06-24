@@ -32,6 +32,7 @@
 
 extern int mars_copy_strict_write_order;
 extern int mars_copy_timeout;
+extern int mars_stop_timeout;
 extern int mars_copy_read_prio;
 extern int mars_copy_write_prio;
 extern int mars_copy_read_max_fly;
