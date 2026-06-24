@@ -926,6 +926,7 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 		all_max = max;
 	}
 	progress = 0;
+	mb();
 	for (pos = this_start;
 	     (pos < brick->stable_copy_end ||
 	      brick->append_mode > 1) &&
@@ -950,7 +951,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 		progress += this_progress;
 		if (pos > brick->copy_dirty)
 			brick->copy_dirty = pos;
+		mb();
 	}
+	mb();
 
 	// check the resulting state: can we advance the copy_last pointer?
 	if (progress &&
@@ -1024,7 +1027,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 					copy_end = short_pos;
 				WRITE_ONCE(brick->stable_copy_end, copy_end);
 			}
+			mb();
 		}
+		mb();
 		if (count > 0) {
 			loff_t copy_last = READ_ONCE(brick->copy_last);
 			copy_last += count;
@@ -1033,7 +1038,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			MARS_IO("new copy_last += %d => %lld\n", count, brick->copy_last);
 			_update_percent(brick, false);
 		}
+		mb();
 	}
+	mb();
 	/* when necessary, reset and allow restart */
 	if (READ_ONCE(brick->clash)) {
 		if (wait_reset_clash(brick)) {
