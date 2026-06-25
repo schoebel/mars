@@ -981,19 +981,12 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 			}
 			error = READ_ONCE(st->error);
 			if (unlikely(error < 0)) {
-				/* check for fatal consistency errors */
-				if (error == -EMEDIUMTYPE) {
-					brick->copy_error = error;
-					brick->abort_mode = true;
-					MARS_WRN("Consistency is violated\n");
-				}
 				if (!brick->copy_error) {
-					brick->copy_error = error;
 					MARS_WRN("IO error = %d\n", error);
 				}
-				if (brick->abort_mode) {
-					brick->is_aborting = true;
-				}
+				WRITE_ONCE(brick->copy_error, error);
+				WRITE_ONCE(brick->abort_mode, true);
+				WRITE_ONCE(brick->is_aborting, true);
 				break;
 			}
 			is_active =
