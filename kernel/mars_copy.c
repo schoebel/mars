@@ -1004,6 +1004,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 				break;
 			}
 			// rollover
+			if (READ_ONCE(brick->is_aborting)) {
+				break;
+			}
 			WRITE_ONCE(st->state, COPY_STATE_START);
 			len = READ_ONCE(st->len);
 			count += len;
