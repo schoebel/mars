@@ -939,6 +939,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 		if (max-- <= 0) {
 			break;
 		}
+		if (READ_ONCE(brick->is_aborting)) {
+			break;
+		}
 		if (READ_ONCE(st->active[0]) & READ_ONCE(st->active[1]))
 			break;
 
