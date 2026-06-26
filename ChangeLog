@@ -185,6 +185,10 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183e
+	* fix unnecessary IO after sync / fetch have detected
+	  any error (e.g. from network interruptions).
+
 mars0.1astable183d
 	* more reductions of unnecessary socket aborts.
 	* fix race on server shutdown.
