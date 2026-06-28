@@ -6358,6 +6358,7 @@ int make_dev(struct mars_dent *dent)
 	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot = NULL;
 	struct mars_brick *dev_brick;
+	bool keep_on;
 	bool switch_on;
 	int status = 0;
 
@@ -6391,8 +6392,10 @@ int make_dev(struct mars_dent *dent)
 		goto done;
 	}
 
+	keep_on =
+		rot->if_brick &&
+		atomic_read(&rot->if_brick->open_count) > 0;
 	switch_on =
-		(rot->if_brick && atomic_read(&rot->if_brick->open_count) > 0) ||
 		(rot->todo_primary &&
 		 rot->trans_brick &&
 		 !rot->trans_brick->replay_mode &&
@@ -6415,7 +6418,7 @@ int make_dev(struct mars_dent *dent)
 			       dent->d_argv[0],
 			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&trans_logger_brick_type},
-			       switch_on ? 2 : -1,
+			       switch_on || keep_on ? 2 : -1,
 			       "%s/device-%s", 
 			       (const char *[]){"%s/replay-%s"},
 			       1,
