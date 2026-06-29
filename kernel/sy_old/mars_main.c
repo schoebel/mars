@@ -4657,7 +4657,8 @@ int make_log_init(struct mars_dent *dent)
 	if (unlikely(!aio_dent)) {
 		MARS_DBG("logfile '%s' does not exist\n", aio_path);
 		status = -ENOENT;
-		if (rot->todo_primary && !rot->is_primary && !rot->old_is_primary) {
+		if (switch_on &&
+		    rot->todo_primary && !rot->is_primary && !rot->old_is_primary) {
 			int offset = strlen(aio_path) - strlen(my_id());
 			if (offset > 0 && aio_path[offset-1] == '-' && !strcmp(aio_path + offset, my_id())) {
 				// try to create an empty logfile
