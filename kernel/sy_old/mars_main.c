@@ -4509,6 +4509,7 @@ int make_log_init(struct mars_dent *dent)
 	const char *aio_path = NULL;
 	loff_t logrot_limit;
 	bool switch_on;
+	bool switch_on_aio;
 	int status = 0;
 
 	if (!mars_global->global_power.button) {
@@ -4668,6 +4669,7 @@ int make_log_init(struct mars_dent *dent)
 
 	/* Fetch / make the AIO brick instance
 	 */
+	switch_on_aio = switch_on;
 	aio_brick =
 		make_brick_all(mars_global,
 			       aio_dent,
@@ -4676,9 +4678,7 @@ int make_log_init(struct mars_dent *dent)
 			       aio_path,
 			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
-			       switch_on ||
-			        (rot->trans_brick &&
-				 !rot->trans_brick->power.led_off) ? 2 : -1,
+			       switch_on_aio ? 2 : -1,
 			       "%s",
 			       (const char *[]){},
 			       0,
