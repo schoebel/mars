@@ -422,9 +422,9 @@ static int aio_submit_dummy(struct aio_output *output)
 {
 	mm_segment_t oldfs;
 	int res;
-	int dummy;
+	static char dummy[PAGE_SIZE] __aligned(PAGE_SIZE);
 	struct iocb iocb = {
-		.aio_buf = (__u64)&dummy,
+		.aio_buf = (__u64)dummy,
 	};
 	struct iocb *iocbp = &iocb;
 
