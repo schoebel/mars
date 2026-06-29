@@ -435,6 +435,7 @@ int handler_thread(void *data)
 	unsigned long statist_jiffies = jiffies;
 #endif
 	int debug_nr;
+	int delay = 0;
 	int old_proto_level = 0;
 	int status = -EINVAL;
 
@@ -542,6 +543,7 @@ int handler_thread(void *data)
 			old_proto_level = sock->s_common_proto_level;
 			if (status >= 0) {
 				status = mars_send_struct(sock, &info, mars_info_meta, false);
+				delay = 0;
 			}
 			up(&brick->socket_sem);
 			break;
@@ -613,7 +615,7 @@ int handler_thread(void *data)
 				MARS_WRN("#%d could not send dentry information, status = %d\n", sock->s_debug_nr, status);
 				goto clean;
 			}
-
+			delay = 0;
 			break;
 		}
 		case CMD_CONNECT:
@@ -699,6 +701,7 @@ int handler_thread(void *data)
 			status = mars_send_cmd(sock, &cmd, false);
 			old_proto_level = sock->s_common_proto_level;
 			up(&brick->socket_sem);
+			delay = 0;
 			break;
 		}
 		case CMD_MREF:
@@ -710,6 +713,7 @@ int handler_thread(void *data)
 
 			status = server_io(brick, sock, &cmd);
 			brick->shutdown_jiffies = jiffies;
+			delay = 0;
 			break;
 		}
 		case CMD_CB:
@@ -750,6 +754,7 @@ int handler_thread(void *data)
 						    NULL,
 						    false);
 			}
+			delay = 0;
 			break;
 		}
 		case CMD_PUSH_CHECK:
@@ -762,6 +767,7 @@ int handler_thread(void *data)
 				launch_peer(cmd.cmd_str1, NULL, NULL, true);
 			}
 			status = 0;
+			delay = 0;
 			break;
 		}
 		default:
@@ -786,7 +792,15 @@ int handler_thread(void *data)
 				brick_msleep(200);
 				break;
 			}
+		} else if (atomic_read(&brick->in_flight) > 0) {
+			brick_msleep(delay++);
+			if (delay > 100) {
+				delay = 100;
+			}
+		} else {
+			delay = 0;
 		}
+
 		if (unlikely(!mars_global || !mars_global->global_power.button)) {
 			server_shutdown_socket(sock);
 			brick_msleep(1000);
