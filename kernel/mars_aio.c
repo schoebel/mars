@@ -1300,7 +1300,7 @@ cleanup:
 		if (count <= 0)
 			break;
 		MARS_DBG("working on %d requests\n", count);
-		brick_msleep(1000);
+		brick_msleep(100);
 	}
 
 	aio_stop_thread(output, 0, false);
