@@ -70,6 +70,7 @@ struct server_brick {
 	unsigned long check_jiffies;
 	atomic_t in_flight;
 	int bio_error;
+	int port_nr;
 	bool cb_running;
 	bool handler_running;
 	bool should_stop;

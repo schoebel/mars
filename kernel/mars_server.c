@@ -540,6 +540,7 @@ int handler_thread(void *data)
 		/* abort in case of detach */
 		if (brick->conn_brick &&
 		    brick->conn_brick->brick_path &&
+		    brick->port_nr != MARS_TRAFFIC_META &&
 		    jiffies > brick->check_jiffies + 10 * HZ) {
 			ok_attach = server_check_switch(brick, brick->conn_brick->brick_path);
 			brick->check_jiffies = jiffies;
@@ -1333,6 +1334,7 @@ static int port_thread(void *data)
 			brick_msleep(200);
 			continue;
 		}
+		brick->port_nr = cookie->port_nr;
 		memcpy(&brick->handler_socket, &handler_socket, sizeof(struct mars_socket));
 
 		/* TODO: check authorization.
