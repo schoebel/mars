@@ -1353,8 +1353,10 @@ static int port_thread(void *data)
 			brick_msleep(100);
 		}
 
-		list_del_init(&brick->server_head);
-		list_add_tail(&brick->server_head, &port_anchor);
+		if (mars_socket_is_alive(&brick->handler_socket)) {
+			list_del_init(&brick->server_head);
+			list_add_tail(&brick->server_head, &port_anchor);
+		}
 
 		// further references are usually held by the threads
 		mars_put_socket(&brick->handler_socket);
