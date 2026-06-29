@@ -4638,6 +4638,21 @@ int make_log_init(struct mars_dent *dent)
 		MARS_DBG("using logfile '%s' from replay symlink\n", SAFE_STR(aio_path));
 	}
 
+	// check whether attach is allowed
+	switch_on = _check_allow(rot->parent_path, "attach");
+	if (switch_on && rot->res_shutdown) {
+		MARS_ERR("cannot start transaction logger: resource shutdown mode is currently active\n");
+		switch_on = false;
+	}
+	if (switch_on &&
+	    rot->sync_brick &&
+	    (rot->sync_brick->power.button |
+	     rot->sync_brick->power.led_on)) {
+		MARS_ERR("cannot start transaction logger: sync is currently running\n");
+		switch_on = false;
+	}
+
+	/* pre-check for aio brick */
 	aio_dent = mars_find_dent(mars_global, aio_path);
 	if (unlikely(!aio_dent)) {
 		MARS_DBG("logfile '%s' does not exist\n", aio_path);
@@ -4652,20 +4667,6 @@ int make_log_init(struct mars_dent *dent)
 		goto done;
 	}
 	assign_dent(&rot->aio_dent, aio_dent);
-
-	// check whether attach is allowed
-	switch_on = _check_allow(rot->parent_path, "attach");
-	if (switch_on && rot->res_shutdown) {
-		MARS_ERR("cannot start transaction logger: resource shutdown mode is currently active\n");
-		switch_on = false;
-	}
-	if (switch_on &&
-	    rot->sync_brick &&
-	    (rot->sync_brick->power.button |
-	     rot->sync_brick->power.led_on)) {
-		MARS_ERR("cannot start transaction logger: sync is currently running\n");
-		switch_on = false;
-	}
 
 	/* Fetch / make the AIO brick instance
 	 */
