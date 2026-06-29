@@ -198,8 +198,8 @@ int _setup_channel(struct client_bundle *bundle, int ch_nr)
 
 		int offset = (int)ntohs(_sockaddr->sin_port) - mars_net_default_port;
 
-		if (offset < 0 || offset >= MARS_TRAFFIC_MAX)
-			offset = 0;
+		if (offset <= 0 || offset >= MARS_TRAFFIC_MAX)
+			offset = 1;
 		bundle->params = &mars_tcp_params[offset];
 	}
 
