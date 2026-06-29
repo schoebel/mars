@@ -505,6 +505,7 @@ int handler_thread(void *data)
 	}
 
 	WRITE_ONCE(brick->handler_running, true);
+	WRITE_ONCE(brick->handler_started, true);
 	brick_wake_smp(&brick->startup_event);
 
         while (!list_empty(&handler_global->brick_anchor) ||
@@ -1346,6 +1347,10 @@ static int port_thread(void *data)
 		if (unlikely(status < 0)) {
 			MARS_ERR("cannot switch on server brick, status = %d\n", status);
 			goto err;
+		}
+		/* wait until the new handler_thread is really running */
+		while (!READ_ONCE(brick->handler_started)) {
+			brick_msleep(100);
 		}
 
 		list_del_init(&brick->server_head);

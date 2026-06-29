@@ -73,6 +73,7 @@ struct server_brick {
 	int port_nr;
 	bool cb_running;
 	bool handler_running;
+	bool handler_started;
 	bool should_stop;
 	bool need_detach;
 };
