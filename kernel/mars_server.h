@@ -61,6 +61,7 @@ struct server_brick {
 	struct task_struct *handler_thread;
 	struct task_struct *cb_thread;
 	void *delegated_brick;
+	const char *switch_path;
 	unsigned long shutdown_jiffies;
 	wait_queue_head_t startup_event;
 	wait_queue_head_t cb_event;
@@ -72,6 +73,7 @@ struct server_brick {
 	bool cb_running;
 	bool handler_running;
 	bool should_stop;
+	bool need_detach;
 };
 
 struct server_input {

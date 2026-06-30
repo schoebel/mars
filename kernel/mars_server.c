@@ -422,6 +422,47 @@ void _stop_bio(struct server_brick *brick, struct mars_brick *bio_brick)
 }
 
 static
+bool server_check_switch(struct server_brick *brick, const char *path)
+{
+	char base[128];
+	int i = 0;
+	int parts = 3;
+	bool res = false;
+
+	if (brick->need_detach) {
+		goto done;
+	}
+	if (brick->switch_path) {
+		goto check;
+	}
+	for (;;) {
+		char c = path[i];
+
+		base[i] = c;
+		if (!c) {
+			goto done;
+		}
+		i++;
+		if (i >= sizeof(base) - 32) {
+			goto done;
+		}
+		if (c == '/' &&
+		    --parts <= 0) {
+			break;
+		}
+	}
+	sprintf(base + i,
+		"todo-%s/attach",
+		my_id());
+	brick->switch_path = brick_strdup(base);
+ check:
+	res = _check_switch(brick->switch_path) != 0;
+	brick->need_detach = !res;
+ done:
+	return res;
+}
+
+static
 int handler_thread(void *data)
 {
 	struct mars_global *handler_global = alloc_mars_global();
@@ -498,8 +539,9 @@ int handler_thread(void *data)
 		}
 		/* abort in case of detach */
 		if (brick->conn_brick &&
+		    brick->conn_brick->brick_path &&
 		    jiffies > brick->check_jiffies + 10 * HZ) {
-			ok_attach = check_switch(brick->conn_brick->brick_path, "attach");
+			ok_attach = server_check_switch(brick, brick->conn_brick->brick_path);
 			brick->check_jiffies = jiffies;
 			if (!ok_attach) {
 				status = -EACCES;
@@ -633,7 +675,7 @@ int handler_thread(void *data)
 				goto err;
 			}
 			/* now we know the resource path, check for detach */
-			ok_attach = check_switch(path, "attach");
+			ok_attach = server_check_switch(brick, path);
 			if (!ok_attach) {
 				status = -EACCES;
 				goto err;
@@ -1070,6 +1112,7 @@ static int server_brick_destruct(struct server_brick *brick)
 	CHECK_HEAD_EMPTY(&brick->server_head);
 	CHECK_HEAD_EMPTY(&brick->cb_list);
 	mutex_destroy(&brick->cb_mutex);
+	brick_string_free(brick->switch_path);
 	return 0;
 }
 
