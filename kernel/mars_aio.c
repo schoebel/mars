@@ -483,7 +483,7 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 
 	if (thread) {
 		MARS_DBG("stopping thread %d ...\n", i);
-		tinfo->should_terminate = true;
+		WRITE_ONCE(tinfo->should_terminate, true);
 		mb();
 
 		// workaround for waking up the receiver thread. TODO: check whether signal handlong could do better.
@@ -583,7 +583,8 @@ int aio_sync_thread(void *data)
 	MARS_DBG("sync thread has started on '%s'.\n", output->brick->brick_path);
 	//set_user_nice(current, -20);
 
-	while (!tinfo->should_terminate || atomic_read(&tinfo->queued_sum) > 0) {
+	while (!READ_ONCE(tinfo->should_terminate) ||
+	       atomic_read(&tinfo->queued_sum) > 0) {
 		LIST_HEAD(tmp_list);
 		int i;
 
@@ -593,7 +594,7 @@ int aio_sync_thread(void *data)
 		brick_wait_smp(
 			tinfo->event,
 			atomic_read(&tinfo->queued_sum) > 0 ||
-			tinfo->should_terminate,
+			READ_ONCE(tinfo->should_terminate),
 			HZ / 4);
 
 		mutex_lock(&tinfo->mutex);
@@ -646,7 +647,8 @@ static int aio_event_thread(void *data)
 
 	tinfo->running = true;
 
-	while (!tinfo->should_terminate || atomic_read(&tinfo->queued_sum) > 0) {
+	while (!READ_ONCE(tinfo->should_terminate) ||
+	       atomic_read(&tinfo->queued_sum) > 0) {
 		mm_segment_t oldfs;
 		int count;
 		int i;
@@ -694,7 +696,7 @@ static int aio_event_thread(void *data)
 			brick_wait_smp(
 				tinfo->event,
 				atomic_read(&output->submit_count) > 0 ||
-				tinfo->should_terminate,
+				READ_ONCE(tinfo->should_terminate),
 				HZ / 4);
 			continue;
 		}
@@ -983,7 +985,8 @@ static int aio_submit_thread(void *data)
 
 	tinfo->running = true;
 
-	while (!tinfo->should_terminate || atomic_read(&output->read_count) + atomic_read(&output->write_count) + atomic_read(&tinfo->queued_sum) > 0) {
+	while (!READ_ONCE(tinfo->should_terminate) ||
+	       atomic_read(&output->read_count) + atomic_read(&output->write_count) + atomic_read(&tinfo->queued_sum) > 0) {
 		struct aio_mref_aspect *mref_a;
 		struct mref_object *mref;
 		int sleeptime;
@@ -992,7 +995,7 @@ static int aio_submit_thread(void *data)
 		brick_wait_smp(
 			tinfo->event,
 			atomic_read(&tinfo->queued_sum) > 0 ||
-			tinfo->should_terminate,
+			READ_ONCE(tinfo->should_terminate),
 			HZ / 4);
 
 		mref_a = _dequeue(tinfo);
