@@ -461,6 +461,7 @@ int aio_start_thread(
 	init_waitqueue_head(&tinfo->terminate_event);
 	tinfo->should_terminate = false;
 	tinfo->terminated = false;
+	mb();
 	tinfo->thread = brick_thread_create(fn, tinfo, "mars_aio_%c%d", class, output->index);
 	if (unlikely(!tinfo->thread)) {
 		MARS_ERR("cannot create thread\n");
@@ -483,6 +484,7 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 	if (thread) {
 		MARS_DBG("stopping thread %d ...\n", i);
 		tinfo->should_terminate = true;
+		mb();
 
 		// workaround for waking up the receiver thread. TODO: check whether signal handlong could do better.
 		if (do_submit_dummy) {
@@ -493,14 +495,15 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 				unuse_fake_mm();
 			}
 		}
+		mb();
 		brick_wake_smp(&tinfo->event);
 
 		// wait for termination
 		MARS_DBG("waiting for thread %d ...\n", i);
 		brick_wait_smp(
 			tinfo->terminate_event,
-			tinfo->terminated,
-			(60 - i * 2) * HZ);
+			READ_ONCE(tinfo->terminated),
+			(30 - i * 2) * HZ);
 		if (likely(tinfo->terminated)) {
 			brick_thread_stop(tinfo->thread);
 			mutex_destroy(&tinfo->mutex);
@@ -614,6 +617,7 @@ int aio_sync_thread(void *data)
 	MARS_DBG("sync thread has stopped.\n");
 	tinfo->running = false;
 	tinfo->terminated = true;
+	mb();
 	brick_wake_smp(&tinfo->terminate_event);
 	return 0;
 }
@@ -743,6 +747,7 @@ static int aio_event_thread(void *data)
 
 	tinfo->running = false;
 	tinfo->terminated = true;
+	mb();
 	brick_wake_smp(&tinfo->terminate_event);
 	brick_mem_free(events);
 	return err;
@@ -1074,6 +1079,7 @@ static int aio_submit_thread(void *data)
 
 	tinfo->running = false;
 	tinfo->terminated = true;
+	mb();
 	brick_wake_smp(&tinfo->terminate_event);
 	return err;
 }
