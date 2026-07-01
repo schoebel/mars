@@ -1029,6 +1029,13 @@ static int if_switch(struct if_brick *brick)
 		brick->say_channel = get_binding(current);
 #endif
 
+		smp_mb();
+		disk = input->disk;
+		if (disk) {
+			/* first get rid of the previous device */
+			goto go_down;
+		}
+
 		status = -ENOMEM;
 		q = blk_alloc_queue(GFP_MARS);
 		if (!q) {
@@ -1054,6 +1061,7 @@ static int if_switch(struct if_brick *brick)
 		snprintf(disk->disk_name, sizeof(disk->disk_name),  "mars/%s", brick->brick_name);
 		disk->private_data = input;
 		input->disk = disk;
+		smp_mb();
 		capacity = if_get_capacity(brick);
 		MARS_DBG("created device name %s, capacity=%lld\n", disk->disk_name, capacity);
 		if_set_capacity(input, capacity);
@@ -1176,6 +1184,7 @@ static int if_switch(struct if_brick *brick)
 #else
 		set_device_ro(input->bdev, 0); // TODO: implement modes
 #endif
+		smp_mb();
 
 		// report success
 		mars_power_led_on((void*)brick, true);
@@ -1188,6 +1197,7 @@ static int if_switch(struct if_brick *brick)
 		int plugged;
 		int flying;
 
+	go_down:
 		mars_power_led_on((void*)brick, false);
 		disk = input->disk;
 		if (!disk)
