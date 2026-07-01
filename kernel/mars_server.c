@@ -239,6 +239,14 @@ void server_endio(struct generic_callback *cb)
 	}
 
 	mutex_lock(&brick->cb_mutex);
+	mb();
+	if (unlikely(!mref_a->cb_head.next ||
+		     !mref_a->cb_head.prev ||
+		     !brick->cb_list.next ||
+		     !brick->cb_list.prev)) {
+		mutex_unlock(&brick->cb_mutex);
+		goto err;
+	}
 	list_add_tail(&mref_a->cb_head, &brick->cb_list);
 	mutex_unlock(&brick->cb_mutex);
 
