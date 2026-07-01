@@ -1136,9 +1136,9 @@ void check_bricks(struct list_head *port_anchor, bool final)
 			struct mars_socket *handler_socket = &running_brick->handler_socket;
 
 			WRITE_ONCE(running_brick->should_stop, true);
+			brick_msleep(50);
 			if (handler_socket) {
 				server_shutdown_socket(handler_socket);
-				brick_msleep(50);
 			}
 		}
 
