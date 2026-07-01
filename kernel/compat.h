@@ -190,8 +190,6 @@ extern int _compat_unlink(
  */
 #ifndef BIO_EOPNOTSUPP
 #define MARS_HAS_GENERIC_BLK_ACCOUNTING
-#elif defined(part_stat_lock)
-#define MARS_HAS_OLD_BLK_ACCOUNTING
 #endif
 /* adapt to d62e26b3ffd28f16ddae85a1babd0303a1a6dfb6
  * detected via e743eb1ecd5564b5ae0a4a76c1566f748a358839

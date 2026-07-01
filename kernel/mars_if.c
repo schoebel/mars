@@ -148,46 +148,6 @@ void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
 			    biow->start_time);
 }
 
-#elif defined(MARS_HAS_OLD_BLK_ACCOUNTING)
-
-static
-void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
-{
-	struct bio *bio = biow->bio;
-	const int rw = bio_data_dir(bio);
-	const int cpu = part_stat_lock();
-
-	(void)cpu;
-	part_round_stats(cpu, &input->disk->part0);
-	part_stat_inc(cpu, &input->disk->part0, ios[rw]);
-//      remove_this
-#ifdef MARS_HAS_BVEC_ITER
-//      end_remove_this
-	part_stat_add(cpu, &input->disk->part0, sectors[rw], bio->bi_iter.bi_size >> 9);
-//      remove_this
-#else
-	part_stat_add(cpu, &input->disk->part0, sectors[rw], bio->bi_size >> 9);
-#endif
-//      end_remove_this
-	part_inc_in_flight(&input->disk->part0, rw);
-	part_stat_unlock();
-	biow->start_time = jiffies;
-}
-
-static
-void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
-{
-	unsigned long duration = jiffies - biow->start_time;
-	struct bio *bio = biow->bio;
-	const int rw = bio_data_dir(bio);
-	const int cpu = part_stat_lock();
-	(void)cpu;
-	part_stat_add(cpu, &input->disk->part0, ticks[rw], duration);
-	part_round_stats(cpu, &input->disk->part0);
-	part_dec_in_flight(&input->disk->part0, rw);
-	part_stat_unlock();
-}
-
 #else // MARS_HAS_OLD_BLK_ACCOUNTING
 
 #define _if_start_io_acct(...) do {} while (0)
