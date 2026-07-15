@@ -504,6 +504,7 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 			tinfo->terminate_event,
 			READ_ONCE(tinfo->terminated),
 			(30 - i * 2) * HZ);
+		mb();
 		if (likely(tinfo->terminated)) {
 			brick_thread_stop(tinfo->thread);
 			mutex_destroy(&tinfo->mutex);
