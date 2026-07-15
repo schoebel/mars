@@ -109,6 +109,7 @@ static char *_tmp_oneshot_peer = NULL;
 #endif
 
 #define REPLAY_TOLERANCE (PAGE_SIZE + OVERHEAD)
+#define REPLAY_FLIPPING_SEC 20
 
 #if 0
 #define inline __attribute__((__noinline__))
@@ -2648,7 +2649,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		unsigned long delta_jiffies =
 			rot->todo_primary ?
 			3 * HZ :
-			30 * HZ;
+			REPLAY_FLIPPING_SEC * HZ;
 		if (jiffies > rot->fetch_jiffies + delta_jiffies) {
 			do_start = false;
 		} else if (rot->fetch_brick &&
