@@ -924,6 +924,7 @@ struct mars_rotate {
 	int byte_code;
 	int avoid_count;
 	int old_open_count;
+	int inhibit_detect;
 	bool is_attached;
 	bool res_shutdown;
 	bool has_error;
@@ -2595,10 +2596,15 @@ bool _is_inhibited(struct mars_rotate *rot)
 		struct lamport_time now;
 
 		get_real_lamport(&now);
-		now.tv_sec -= 10;
-		if (lamport_time_compare(&now, &rot->inhibit_stamp) < 0)
+		now.tv_sec -= rot->inhibit_detect;
+		if (lamport_time_compare(&now, &rot->inhibit_stamp) < 0) {
+			if (rot->inhibit_detect < REPLAY_FLIPPING_SEC + 60)
+				rot->inhibit_detect += 5;
 			return true;
+		}
 	}
+	if (rot->inhibit_detect > REPLAY_FLIPPING_SEC)
+		rot->inhibit_detect--;
 	return false;
 }
 
@@ -4553,6 +4559,7 @@ int make_log_init(struct mars_dent *dent)
 	assign_dent(&rot->next_log, NULL);
 	brick_string_free(rot->fetch_next_origin);
 	rot->max_sequence = 0;
+	rot->inhibit_detect = 20;
 	// reset the split brain detector only when conflicts have gone for a number of rounds
 	if (rot->split_brain_serial && rot->split_brain_round++ > 3)
 		rot->split_brain_serial = 0;
@@ -5715,9 +5722,6 @@ bool _is_secondary_fixing_safe(struct mars_rotate *rot)
 	if (!rot->next_relevant_log)
 		return false;
 	if (rot->max_sequence > rot->next_relevant_log->d_serial)
-		return false;
-	/* Do not restart too often, keep some pause */
-	if (_is_inhibited(rot))
 		return false;
 	/* pause-fetch can lead to interrupted logfiles, but this is
 	 * no real damage.
