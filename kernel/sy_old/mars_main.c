@@ -2691,7 +2691,8 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		fetch_brick->copy_limiter = &rot->fetch_limiter;
 		if (do_start)
 			rot->retry_log_from = 0;
-		if (fetch_brick->copy_last != rot->old_copy_last) {
+		if (fetch_brick->copy_last != rot->old_copy_last &&
+		    fetch_brick->power.led_on) {
 			rot->old_copy_last = fetch_brick->copy_last;
 			rot->fetch_jiffies = jiffies;
 		}
