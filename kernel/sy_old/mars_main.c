@@ -6933,8 +6933,12 @@ static int make_sync(struct mars_dent *dent)
 		if (copy) {
 			copy->kill_ptr = (void**)&rot->sync_brick;
 			copy->copy_limiter = &rot->sync_limiter;
-			if (!status && !rot->sync_jiffies) {
+			if (!status &&
+			    !rot->sync_jiffies &&
+			    copy->power.led_on) {
 				rot->sync_jiffies = jiffies;
+			} else if (copy->power.led_off) {
+				rot->sync_jiffies = 0;
 			}
 		} else {
 			rot->sync_jiffies = 0;
