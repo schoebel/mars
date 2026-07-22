@@ -612,7 +612,7 @@ restart:
 		WRITE_ONCE(st->writeout, false);
 		WRITE_ONCE(st->error, 0);
 
-		if (brick->is_aborting ||
+		if (READ_ONCE(brick->is_aborting) ||
 		    is_read_limited(brick))
 			goto idle;
 
@@ -765,7 +765,7 @@ restart:
 			progress = -EILSEQ;
 			break;
 		}
-		if (unlikely(brick->is_aborting)) {
+		if (unlikely(READ_ONCE(brick->is_aborting))) {
 			progress = -ECANCELED;
 			break;
 		}
@@ -1063,9 +1063,10 @@ bool _is_done(struct copy_brick *brick)
 {
 	int flying;
 
-	if (!brick->power.led_on || brick_thread_should_stop())
-		brick->is_aborting = true;
-	if (!brick->is_aborting) {
+	if (!brick->power.led_on || brick_thread_should_stop()) {
+		WRITE_ONCE(brick->is_aborting, true);
+	}
+	if (!READ_ONCE(brick->is_aborting)) {
 		return false;
 	}
 	flying = atomic_read(&brick->copy_read_flight) + atomic_read(&brick->copy_write_flight);
@@ -1133,13 +1134,13 @@ static int _copy_thread(void *data)
 					brick->power.led_on ?
 					mars_copy_timeout / 4 :
 					mars_stop_timeout / 4;
-			} else if (!brick->is_aborting) {
+			} else if (!READ_ONCE(brick->is_aborting)) {
 				struct lamport_time next_progress;
 
 				get_real_lamport(&next_progress);
 				next_progress.tv_sec -= safe_timeout;
 				if (lamport_time_compare(&next_progress, &last_progress) > 0) {
-					brick->is_aborting = true;
+					WRITE_ONCE(brick->is_aborting, true);
 					safe_timeout = mars_stop_timeout;
 				}
 			}
@@ -1201,7 +1202,7 @@ static int copy_switch(struct copy_brick *brick)
 			goto done;
 		mars_power_led_off((void*)brick, false);
 		brick->copy_shutdown_started.tv_sec = 0;
-		brick->is_aborting = false;
+		WRITE_ONCE(brick->is_aborting, false);
 		if (!brick->thread) {
 			brick->copy_last = brick->copy_start;
 			brick->copy_dirty = 0;
