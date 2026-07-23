@@ -2623,6 +2623,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	struct copy_brick *fetch_brick = NULL;
 	struct key_value_pair *msg_pair;
 	loff_t start_pos;
+	bool tmp_stop = false;
 	bool do_start = true;
 	int status = -EINVAL;
 
@@ -2661,11 +2662,13 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 			REPLAY_FLIPPING_SEC * HZ;
 		if (jiffies > rot->fetch_jiffies + delta_jiffies) {
 			do_start = false;
+			tmp_stop = true;
 		} else if (rot->fetch_brick &&
 			   rot->fetch_brick->copy_last >= rot->fetch_brick->copy_end &&
 			   rot->fetch_brick->copy_end >= 0 &&
 			   jiffies > rot->fetch_jiffies + 1 * HZ) {
 			do_start = false;
+			tmp_stop = true;
 		}
 	} else if (rot->fetch_jiffies) {
 		rot->fetch_jiffies = 0;
@@ -2703,7 +2706,8 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 			rot->retry_log_from = 0;
 		if (fetch_brick->copy_last != rot->old_copy_last &&
 		    fetch_brick->power.button &&
-		    fetch_brick->power.led_on) {
+		    fetch_brick->power.led_on &&
+		    !tmp_stop) {
 			rot->old_copy_last = fetch_brick->copy_last;
 			rot->fetch_jiffies = jiffies;
 		}
