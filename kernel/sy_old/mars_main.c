@@ -899,6 +899,7 @@ struct mars_rotate {
 	struct lamport_time inhibit_stamp;
 	unsigned long sync_jiffies;
 	unsigned long fetch_jiffies;
+	unsigned long update_jiffies;
 	int inf_prev_sequence;
 	int inf_old_sequence;
 	long long flip_start;
@@ -2631,6 +2632,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	msg_pair = find_key(rot->msgs, "inf-fetch");
 
 	rot->fetch_round = 0;
+	rot->update_jiffies = jiffies;
 
 	if (rot->todo_primary | rot->is_primary) {
 		MARS_DBG("disallowing fetch, todo_primary=%d is_primary=%d\n", rot->todo_primary, rot->is_primary);
@@ -2794,11 +2796,13 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 			status = _update_file(parent, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
 			MARS_DBG("re-update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 		} else {
+			unsigned long delta_jiffies = (REPLAY_FLIPPING_SEC + 3) * HZ;
 			int fetch_switches =
 				_check_allow(rot->parent_path, "attach") +
 				_check_allow(rot->parent_path, "connect") * 2;
 			/* treat any switch changes of fetcher */
-			if (fetch_switches != rot->fetch_switches) {
+			if (fetch_switches != rot->fetch_switches ||
+			    jiffies > rot->update_jiffies + delta_jiffies) {
 				rot->fetch_switches = fetch_switches;
 				status = _update_file(parent, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
 			}
