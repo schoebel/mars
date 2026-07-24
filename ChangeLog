@@ -185,6 +185,11 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183h
+	* fix races depending on compiler, leading to
+	  replication hangs.
+	* fix checking of mode changes.
+
 mars0.1astable183g
 	* fix self-repair timeout, may lead to hanging fetch
 	  in rare corner cases.
