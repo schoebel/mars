@@ -6932,6 +6932,16 @@ static int make_sync(struct mars_dent *dent)
 			do_start = false;
 		}
 	}
+	/* This may happen after a defective netowrk interrupting
+	 * a long-running sync, which could not really start again.
+	 */
+	if (do_start &&
+	    !rot->sync_jiffies &&
+	    rot->sync_brick &&
+	    (rot->sync_brick->power.button |
+	     rot->sync_brick->power.led_on)) {
+		rot->sync_jiffies = jiffies;
+	}
 
 	/* Informational
 	 */
@@ -6965,8 +6975,6 @@ static int make_sync(struct mars_dent *dent)
 			    !rot->sync_jiffies &&
 			    copy->power.led_on) {
 				rot->sync_jiffies = jiffies;
-			} else if (copy->power.led_off) {
-				rot->sync_jiffies = 0;
 			}
 		} else {
 			rot->sync_jiffies = 0;
