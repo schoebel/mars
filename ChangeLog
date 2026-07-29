@@ -185,6 +185,9 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183i
+	* fix hanging sync after a long-lasting network interruption.
+
 mars0.1astable183h
 	* fix races depending on compiler, leading to
 	  replication hangs.
