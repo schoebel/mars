@@ -1014,6 +1014,10 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 		return -EINVAL;
 	}
 	if (!trans_brick->q_phase[1].q_ordering) {
+		/* For safety, default is to try an (unnecessary) replay in case
+		 * something goes wrong later.
+		 */
+		trans_brick->replay_mode = true;
 		trans_brick->q_phase[0].q_batchlen = CONF_TRANS_BATCHLEN;
 		trans_brick->q_phase[1].q_batchlen = CONF_ALL_BATCHLEN;
 		trans_brick->q_phase[2].q_batchlen = CONF_ALL_BATCHLEN;
