@@ -6218,6 +6218,15 @@ int make_primary(struct mars_dent *dent)
 		 !rot->trans_brick ||
 		 (!rot->trans_brick->power.button &&
 		  rot->trans_brick->power.led_off)) &&
+		/* Prevent unnecessary split brain:
+		 * do not interrupt any running fetch.
+		 */
+		(rot->todo_primary ||
+		 !rot->fetch_brick ||
+		 (!rot->fetch_brick->power.button &&
+		  rot->fetch_brick->power.led_off &&
+		  (!rot->fetch_jiffies ||
+		   jiffies > rot->fetch_jiffies + 5 * HZ))) &&
 		/* _can_ we become primary? */
 		_check_allow(rot->parent_path, "attach");
 
