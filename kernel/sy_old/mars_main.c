@@ -899,6 +899,7 @@ struct mars_rotate {
 	struct lamport_time inhibit_stamp;
 	unsigned long sync_jiffies;
 	unsigned long fetch_jiffies;
+	unsigned long start_jiffies;
 	unsigned long update_jiffies;
 	int inf_prev_sequence;
 	int inf_old_sequence;
@@ -2710,6 +2711,14 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		    !tmp_stop) {
 			rot->old_copy_last = fetch_brick->copy_last;
 			rot->fetch_jiffies = jiffies;
+		} else if (do_start &&
+			   !rot->fetch_jiffies &&
+			   !fetch_brick->power.led_on) {
+			if (!rot->start_jiffies) {
+				rot->start_jiffies = jiffies;
+			} else if (jiffies > rot->start_jiffies + 30 * HZ) {
+				rot->fetch_jiffies = jiffies;
+			}
 		}
 		/* When done, immediately trigger next fetch from peers */
 		if (rot->old_fetch_on && !fetch_brick->power.led_on) {
@@ -2718,6 +2727,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		rot->old_fetch_on = fetch_brick->power.led_on;
 	} else {
 		rot->fetch_jiffies = 0;
+		rot->start_jiffies = 0;
 	}
 
 done:
