@@ -642,6 +642,7 @@ error:
 	MARS_ERR("IO submission on dead instance\n");
 	mref_a->has_completed = true;
 	error = -ESHUTDOWN;
+	mb();
 	SIMPLE_CALLBACK(mref, error);
 	return;
 
@@ -775,6 +776,11 @@ int receiver_thread(void *data)
 			MARS_IO("new status = %d, pos = %lld len = %d flags = %ux\n",
 				status, mref->ref_pos, mref->ref_len,
 				mref->ref_flags);
+			if (unlikely(!mref->ref_id ||
+				     mref->ref_id != mref_a->orig_ref_id) &&
+			    status >= 0) {
+				status = -ESPIPE;
+			}
 			if (unlikely(status < 0)) {
 				MARS_WRN("interrupted data transfer during callback on '%s' @%s, status = %d\n",
 					 output->bundle.path,
@@ -1019,6 +1025,7 @@ static int sender_thread(void *data)
 
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
 		mref = mref_a->object;
+		mref_a->orig_ref_id = mref->ref_id;
 
 		/* Limiting is not inteded for production, only for testing */
 		if (brick->limit_mode) {

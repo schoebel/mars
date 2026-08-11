@@ -45,6 +45,7 @@ struct client_mref_aspect {
 	struct list_head hash_head;
 	unsigned long submit_jiffies;
 	int alloc_len;
+	int orig_ref_id;
 	bool do_dealloc;
 	bool has_completed;
 	bool is_hashed;
