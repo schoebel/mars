@@ -788,8 +788,10 @@ int receiver_thread(void *data)
 					 status);
 				if (had_completed)
 					goto has_finished;
-				_hash_insert(output, mref_a, true);
-				goto done;
+				/* propagate the network error to the callback */
+				if (mref->_object_cb.cb_error >= 0) {
+					mref->_object_cb.cb_error = status;
+				}
 			}
 
 			if (mref->_object_cb.cb_error < 0) {
