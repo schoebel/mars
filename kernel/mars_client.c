@@ -569,10 +569,12 @@ void __hash_insert(struct client_output *output,
 	/* only change a ref_id when zero-initialized */
 	if (!ref_id) {
 		/* Assign a new ID between 1 and INT_MAX-1 */
-		ref_id = READ_ONCE(output->last_id) + 1;
-		if (!ref_id || ref_id >= INT_MAX - 1)
+		ref_id = atomic_add_return(1, &output->last_id);
+		if (unlikely(!ref_id || ref_id >= INT_MAX - 1)) {
 			ref_id = 1;
-		WRITE_ONCE(output->last_id, ref_id);
+			atomic_set(&output->last_id, ref_id);
+			mb();
+		}
 		WRITE_ONCE(mref->ref_id, ref_id);
 	}
 	hash_index = CLIENT_HASH_FN(ref_id);
