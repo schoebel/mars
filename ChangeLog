@@ -185,6 +185,9 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183k
+	* faster and clearer reaction after network (protocol) errors.
+
 mars0.1astable183j
 	* fix hanging fetch startup on network problems.
 	* prevent unnecessary split brain when forced primary
