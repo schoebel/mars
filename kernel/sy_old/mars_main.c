@@ -2675,6 +2675,9 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 			do_start = false;
 			tmp_stop = true;
 		}
+		if (tmp_stop) {
+			mars_remote_trigger(MARS_TRIGGER_TO_REMOTE);
+		}
 	} else if (rot->fetch_jiffies) {
 		rot->fetch_jiffies = 0;
 	}
