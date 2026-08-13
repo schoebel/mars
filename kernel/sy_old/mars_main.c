@@ -2616,6 +2616,31 @@ bool _is_inhibited(struct mars_rotate *rot)
 }
 
 static
+bool _is_primary_slow(struct mars_rotate *rot)
+{
+	const char *primary = get_primary_host(rot);
+	const char *primary_open_count;
+	bool res = false;
+
+	if (!primary || !primary[0])
+		return false;
+	if (!primary[0])
+		goto done;
+	if (strcmp(primary, "(none)")) {
+		res = true;
+		goto done;
+	}
+	primary_open_count = get_alivelink("open-count", primary);
+	if (!primary_open_count)
+		goto done;
+	res = strncmp(primary_open_count, "0", 1);
+	brick_string_free(primary_open_count);
+done:
+	brick_string_free(primary);
+	return res;
+}
+
+static
 int _update_file(struct mars_dent *parent, const char *switch_path, const char *copy_path, const char *file, const char *peer, loff_t end_pos)
 {
 	struct mars_rotate *rot = parent->d_private;
@@ -2661,10 +2686,16 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		do_start = false;
 	}
 	if (do_start && rot->fetch_jiffies) {
+		bool faster = rot->todo_primary;
 		unsigned long delta_jiffies =
-			rot->todo_primary ?
+			faster ?
 			3 * HZ :
 			REPLAY_FLIPPING_SEC * HZ;
+		if (!faster &&
+		    jiffies > rot->fetch_jiffies + 3 * HZ &&
+		    _is_primary_slow(rot)) {
+			delta_jiffies = 3 * HZ;
+		}
 		if (jiffies > rot->fetch_jiffies + delta_jiffies) {
 			do_start = false;
 			tmp_stop = true;
