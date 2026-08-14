@@ -8573,63 +8573,20 @@ sub eval_fn {
       my ($sum1) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 1);
       return $sum1 - $sum0;
     }
-    # Prepare only for secondaries: knowlege about the minpos of the primary.
-    my $_old = $_;
-    my $primary_minpos = 0; # disable by default
-    my $any_minpos = 0;     # disable by default
-    if (/[-_]?(pos|size)$/) {
-      my $host = $$env{"host"};
-      my ($sum, $firstpos, $minpos, $maxpos) = get_amount($$env{"resdir"}, $host, -1, 0);
-      $any_minpos = $minpos if ($minpos);
-      # The primary tells us the goal we _should_ reach, BUT the info
-      # may be outdated via network, or differ from different logrotates, etc.
-      if (!is_actual_primary($$env{"cmd"}, $$env{"res"}, $host)) {
-	my $primary = _get_designated_primary($$env{"res"});
-	if ($primary && $primary ne "(none)" && $primary ne $host) {
-	  delete %detected_splits{$$env{"res"}};
-	  if (detect_splitbrain($$env{"res"}, 0)) {
-	    # Since the backward chains may have a different length,
-	    # we _may_ need to stop at the $minpos of the primary,
-	    # as well as on our own $minpos.
-	    # So we need the _smallest_ _common_ $minpos.
-	    my ($sum, $firstpos, $minpos, $maxpos) = get_amount($$env{"resdir"}, $primary, 3, 1);
-	    if ($minpos) {
-	      $primary_minpos = $minpos;
-	      $any_minpos = $minpos if $minpos > $any_minpos;
-	    }
-	  }
-	}
-      }
-    }
-    $_ = $_old;
     # This needs to take the curent position, ignoring any future.
     if (/^(replay|work)[-_]?(pos)$/) {
-      my ($sum) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0, $any_minpos);
+      my ($sum) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
       return $sum;
     }
     # This needs to observe any _own_ future, based on already fetched data.
-    # The primary is only _indirectly_ influencing via $any_minpos.
+    # The primary is only _indirectly_ influencing via negative direction.
     if (/^(replay[-_]?size)|(fetch[-_]?pos)$/) {
-      my ($sum) = get_amount($$env{"resdir"}, $$env{"host"}, 3, 1, $any_minpos);
+      my ($sum) = get_amount($$env{"resdir"}, $$env{"host"}, 3, 1);
       return $sum;
     }
     if (/^(fetch|work)[-_]?(size)$/) {
       my $host = $$env{"host"};
       my ($sum, $firstpos, $minpos, $maxpos) = get_amount($$env{"resdir"}, $host, 3, 1);
-      # The primary tells us the goal we _should_ reach, BUT the info
-      # may be outdated via network, or differ from different logrotates, etc.
-      if (!is_actual_primary($$env{"cmd"}, $$env{"res"}, $host)) {
-	my $primary = _get_designated_primary($$env{"res"});
-	if ($primary && $primary ne "(none)" && $primary ne $host) {
-	  delete %detected_splits{$$env{"res"}};
-	  if (detect_splitbrain($$env{"res"}, 0)) {
-	    my ($p_sum) = get_amount($$env{"resdir"}, $primary, 3, 0, $any_minpos);
-	    if ($p_sum > $sum) {
-	      $sum = $p_sum;
-	    }
-	  }
-	}
-      }
       return $sum;
     }
     if (/^(sync|fetch|replay|work)[-_]?(rest|(?:almost[-_]?|threshold[-_]?)?reached|percent|permille|vector)$/) {
