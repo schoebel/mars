@@ -3657,6 +3657,14 @@ sub get_amount {
     my $next_val = 0;
     my $file = sprintf("%s/log-%09d-%s", $resdir, $pos, $peer_name);
     my @stat = stat($file);
+    if ($direction < 0 && $peer_name ne $host) {
+      # check for asymmetry due to different log-delete
+      my $file2 = sprintf("%s/log-%09d-%s", $resdir, $pos, $host);
+      my @stat2 = stat($file2);
+      if (!@stat2) {
+	@stat = @stat2; # treat both as non-present
+      }
+    }
     if (@stat) {
       my $val = $stat[7];
       if ($val && $val > $next_val) {
