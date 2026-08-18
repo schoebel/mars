@@ -6875,8 +6875,9 @@ static int make_sync(struct mars_dent *dent)
 
 	/* Handle final waiting step when finished
 	 */
-	if (rot->sync_finish_stamp.tv_sec && do_start)
-		goto shortcut;
+	if (do_start && rot->sync_finish_stamp.tv_sec) {
+		do_start = false;
+	}
 	if (!do_start)
 		memset(&rot->sync_finish_stamp, 0, sizeof(rot->sync_finish_stamp));
 
@@ -6954,7 +6955,6 @@ static int make_sync(struct mars_dent *dent)
 		do_start = false;
 	}
 
- shortcut:
 	/* Start copy
 	 */
 #ifdef CONFIG_MARS_SEPARATE_PORTS
