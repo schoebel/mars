@@ -8642,7 +8642,27 @@ sub eval_fn {
 	$my_threshold = make_numeric(get_size($arg1)) if $arg1 ne "";
 	$result = 1 if $pos + $my_threshold >= $size;
       } elsif ($op eq "reached") {
-	$result = 1 if $pos >= $size;
+	if ($pos >= $size) {
+	  if ($what eq "fetch" || $what eq "work") {
+	    # Corner cases like empty logfiles may lead to false-positive
+	    # UpToDate reports, possibly followed by false-positive split-brain etc.
+	    # Safeguard any potential differences by strong replaylink comparison.
+	    my $primary = _get_designated_primary($$env{"res"});
+	    if ($primary && $primary ne "(none)" && $primary ne $host) {
+	      my $replay_path_a = $$env{"resdir"} . "/replay-$host";
+	      my $replay_path_b = $$env{"resdir"} . "/replay-$primary";
+	      my $replaylink_a = get_link($replay_path_a, 1);
+	      my $replaylink_b = get_link($replay_path_b, 1);
+	      if ($replaylink_a eq $replaylink_b) {
+		$result = 1;
+	      }
+	    } else {
+	      $result = 1;
+	    }
+	  } else {
+	    $result = 1;
+	  }
+	}
       } elsif ($op eq "percent") {
 	$result = 100;
 	$result = 100.5 * $pos / $size if $size > 0;
