@@ -185,6 +185,20 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183l
+	* marsadm: when primary and secondary have different logfile
+	  deletions due to different logrotate invocations or races,
+	  the size and pos computations (macos like view-fetch-{size,pos} and
+	  other macros) could have been wrong.
+	  This could have caused many monitoring problems, like false-positive
+	  alerts, mis-decisions in higher automation layers.
+	* marsadm: false-positive UpToDate and flag display "F" in place
+	  of "f" was possible, causing bad decisions at higher-level
+	  tools.
+	* fix regression from mars0.1astable183j: primary --force may
+	  hang in corner cases. Workaround was possible by down / up.
+	* avoid long switchoff of fetch in a corner case.
+
 mars0.1astable183k
 	* faster and clearer reaction after network (protocol) errors.
 
