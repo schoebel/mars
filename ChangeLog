@@ -185,6 +185,9 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183m
+	* fix hang of sync in corner cases.
+
 mars0.1astable183l
 	* marsadm: when primary and secondary have different logfile
 	  deletions due to different logrotate invocations or races,
