@@ -1135,10 +1135,11 @@ static int client_switch(struct client_brick *brick)
 			if (output->bundle.channel[i].ch_state >= CL_CHANNEL_CONNECTED)
 				socket_count++;
 		brick->socket_count = socket_count;
-		if (brick->power.led_on)
+		if (brick->power.led_on && atomic_read(&brick->sender_count))
 			goto done;
 		mars_power_led_off((void*)brick, false);
-		if (!output->bundle.sender.thread) {
+		if (!output->bundle.sender.thread ||
+		    atomic_read(&brick->sender_count) <= 0) {
 			status = _setup_bundle(&output->bundle, brick->brick_name);
 			if (likely(status >= 0)) {
 				brick->connection_state = 1;
