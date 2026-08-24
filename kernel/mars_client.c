@@ -1141,9 +1141,6 @@ static int client_switch(struct client_brick *brick)
 		if (!output->bundle.sender.thread ||
 		    atomic_read(&brick->sender_count) <= 0) {
 			status = _setup_bundle(&output->bundle, brick->brick_name);
-			if (likely(status >= 0)) {
-				brick->connection_state = 1;
-			}
 		}
 		if (output->bundle.sender.thread && !output->get_info) {
 			client_get_info(output, NULL);
@@ -1161,7 +1158,6 @@ static int client_switch(struct client_brick *brick)
 			goto done;
 		_do_timeout_all(output, true);
 		output->got_info = false;
-		brick->connection_state = 0;
 		mars_power_led_off((void*)brick, !output->bundle.sender.thread);
 		mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_FROM_REMOTE);
 	}
