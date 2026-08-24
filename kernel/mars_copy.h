@@ -88,7 +88,6 @@ struct copy_brick {
 	bool repair_mode; // whether to repair in case of verify errors
 	bool recheck_mode; // whether to re-check after repairs (costs performance)
 	bool utilize_mode; // utilize already copied data
-	bool abort_mode;  // abort on IO error (default is retry forever)
 	// readonly from outside
 	loff_t copy_last; // current working position
 	loff_t copy_dirty; // end of current working area

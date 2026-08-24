@@ -985,7 +985,6 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 					MARS_WRN("IO error = %d\n", error);
 				}
 				WRITE_ONCE(brick->copy_error, error);
-				WRITE_ONCE(brick->abort_mode, true);
 				WRITE_ONCE(brick->is_aborting, true);
 				break;
 			}
