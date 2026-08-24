@@ -1224,6 +1224,7 @@ static int copy_switch(struct copy_brick *brick)
 		/* Tell thread to stop asynchronously */
 		mars_power_led_on((void*)brick, false);
 		if (brick->thread) {
+			WRITE_ONCE(brick->is_aborting, true);
 			/* Notice: this will be reported by the thread */
 			if (!brick->terminated)
 				goto done;
