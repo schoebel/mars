@@ -4256,25 +4256,26 @@ sub try_to_avoid_splitbrain {
       my $h_path = sprintf("$mars/resource-$res/version-%09d-%s", $max, $host);
       my $p_vers = get_link($p_path, 1);
       my $h_vers = get_link($h_path, 1);
-      if (!$p_vers || !$h_vers || $p_vers ne $h_vers) {
+      # when replay links are equal, we are safe.
+      if ($replay_p eq $replay_h) {
+	lprint "Trying to avoid split brain: replay links '$replay_p' are equal.\n";
 	# Safeguard against artificial or missing version links
 	# (e.g. after crashes etc):
-	# when replay links are equal, we are safe.
-	my $stamp_p = get_link_stamp($path_p);
-	my $stamp_h = get_link_stamp($path_h);
-	my $p_stamp = get_link_stamp($p_path);
-	my $stable_stamp = mars_time() - $window / 4;
-	if ($replay_p eq $replay_h &&
-	    $p_vers &&
-	    $p_stamp < $stable_stamp &&
-	    $stamp_p < $stable_stamp && $stamp_h < $stable_stamp) {
-	  # self-healing the versionlink
-	  lwarn "Correcting the versionlink '$h_path' from '$h_vers' to '$p_vers'\n";
-	  set_link($p_vers, $h_path);
-	  finish_links();
-	} else {
-	  $ok = 0;
+	if (!$p_vers || !$h_vers || $p_vers ne $h_vers) {
+	  my $stamp_p = get_link_stamp($path_p);
+	  my $stamp_h = get_link_stamp($path_h);
+	  my $p_stamp = get_link_stamp($p_path);
+	  my $stable_stamp = mars_time() - $window / 4;
+	  if ($p_vers &&
+	      $p_stamp < $stable_stamp &&
+	      $stamp_p < $stable_stamp && $stamp_h < $stable_stamp) {
+	    # self-healing the versionlink
+	    lwarn "Correcting the versionlink '$h_path' from '$h_vers' to '$p_vers'\n";
+	    set_link($p_vers, $h_path);
+	    finish_links();
+	  }
 	}
+	return 0;
       } elsif (!$replay_p || !$replay_h || $replay_p ne $replay_h) {
 	$ok = 0;
       }
@@ -4290,6 +4291,8 @@ sub try_to_avoid_splitbrain {
       }
     }
     return 0 if $ok;
+    _trigger(3);
+    _reset_resources();
     lprint "Trying to avoid split brain for $timeout s: logfile update not yet completed.\n";
     my $tpl = get_macro("replinfo");
     my $new_situation = eval_macro($cmd, $res, $tpl, @_);
