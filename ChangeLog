@@ -140,6 +140,48 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable184n
+	* Adapt to corner cases of underlying disks:
+	  - some brand-new RAID controllers are only supporting from
+	    512byte to 512byte maximum sector sizes, regardless of installed
+	    HDDs / SSDs. Somebody may have decided to buy such
+	    hardware for production.
+	  - some other controllers are only supporting from 4096byte to
+	    maximum 4096byte sector sizes. Dito with respect to
+	    flexibility.
+	* Important! this is propagated via /sys/.../queue/... to
+	  many userspace tools like mkfs.* or fsck.* and so on.
+	  Consequently, they may behave differently, or even stop working
+	  when you are migrating your filesystems / LVs to another machine
+	  with different hardware, e.g. via football.
+	* Important: some old filesystems may have been created years ago
+	  when 512byte sector size was standard, or when 4k sectors were
+	  already possible.
+	  Consequently, and depending on other factors like other old
+	  limits / configurations / tools, it may now happen that they cannot
+	  be mounted safely on newer hardware, if something is not supported
+	  anymore.
+	  Classical examples are when the number of 512byte sectors is not
+	  dividable by 8, or when MBR offsets do not fit to different sector
+	  boundaries. You may be lucky, but there is no general guarantee.
+	* Important: the network protocol had to be extended for cluster-wide
+	  communication of newer /sys/... infos.
+	  Mixed operation with elder mars versions than mars0.1astable183
+	  have been tested to work. Of course, the new adaptation to
+	  different hardware cannot work at elder versions.
+	  At a higher level, mixed operation may cause similar
+	  football migration problems (due to blocksize discrepancies as
+	  described above).
+	  Safety recommendation: only play football when all involved peers
+	  are running the same mars version.
+	* Important, BE CAREFUL:
+	  Unfortunately, I don't have enough different hardware for
+	  testing all combinations of a plethora of hardware.
+	  So please be careful when rolling out this in masses!
+	  And do not forget to test all your userspace tool versions,
+	  which may behave differently even after ordinary updates from your
+	  favorite Distro!
+
 mars0.1astable183n
 	* marsadm: fix unnecessary split brain in a corner case.
 
