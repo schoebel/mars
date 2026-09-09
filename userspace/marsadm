@@ -297,10 +297,6 @@ my $cron_mode = 0;
 my $cron_autoclean_days = 0;
 my $timeout = 600;
 my $phase_nr = 0;
-my $ssh_port = 22;
-my $ssh_opts = "-A -o StrictHostKeyChecking=no -o ConnectTimeout=5";
-my $ssh_probe = "uname -a";
-my $rsync_opts = "-av --exclude='.deleted-*'";
 my $systemd_enabled = 0;
 my $kernel_version = 0;
 my $kernel_features_version = -1;
@@ -400,102 +396,6 @@ sub device_exists {
     }
   }
   return $val;
-}
-
-##################################################################
-
-# ssh helpers
-# deprecated, to disappear in a future release
-
-my %ssh_ips;
-my %ssh_ports;
-
-sub make_ssh_cmd {
-  my ($peer, $no_login) = @_;
-  return "" unless $ssh_port;
-  my $ssh = "ssh $ssh_opts";
-  if (!defined($ssh_ports{$peer})) {
-    my $port;
-    my $real_peer;
-    my $peer_ip = get_link("$mars/ips/ip-$peer", 2);
-    # workaround firewall hell at some installations...
-  RETRY:
-    for my $this_peer ($peer, $peer_ip) {
-      next unless defined($this_peer);
-      next unless $this_peer;
-      # check whether machine is reachable
-      if (system("ping -c1 $this_peer")) {
-	lwarn "cannot ping '$this_peer'\n";
-	next;
-      }
-      # first try given parameters, then port 22, then ssh_config defaults
-      my %seen = ();
-      foreach my $try_port ($ssh_port, 22, 0) {
-	next if defined($seen{$try_port});
-	$seen{$try_port} = 1;
-	if ($try_port && system("if which nc; then nc -v -4 -w 5 \"$this_peer\" $try_port < /dev/null > /dev/null; fi")) {
-	  lwarn "SSH port '$try_port' for '$this_peer' is not reachable\n";
-	  next;
-	}
-	my $opt_port = $try_port ? "-p $try_port" : "";
-	if (!system("$ssh $opt_port root\@$this_peer \"$ssh_probe\"")) {
-	  ($real_peer, $port) = ($this_peer, $try_port);
-	  last RETRY;
-	}
-	lwarn "SSH to '$this_peer' does not work on port '$try_port'\n";
-      }
-    }
-    ldie "SSH to '$peer' does not work\n" unless defined($port);
-    $ssh_ips{$peer} = $real_peer;
-    $ssh_ports{$peer} = $port;
-  }
-  my $real_peer = $ssh_ips{$peer};
-  $real_peer = $peer if !defined($real_peer);
-  my $port = $ssh_ports{$peer};
-  $ssh .= " -p $port" if $port > 0;
-  return ($real_peer, $port, $ssh) if defined($no_login);
-  return "$ssh root\@$real_peer"
-}
-
-sub ssh_cmd {
-  my ($peer, $cmd, $no_fail) = @_;
-  return 1 unless $ssh_port;
-  if ($peer ne $real_host) {
-    $cmd =~ s/'/\'/g;
-    $cmd = make_ssh_cmd($peer) . " '$cmd'";
-  } else {
-    $cmd =~ s/'/\'/g;
-    $cmd = "bash -c '$cmd'";
-  }
-  ldie "empty command\n" unless $cmd;
-  my $status = system($cmd);
-  if ($status and !defined($no_fail)) {
-    ldie "SSH to '$peer' command '$cmd' failed\n";
-  }
-  return $status;
-}
-
-sub rsync_cmd {
-  my ($peer, $cmd, $no_fail) = @_;
-  return 1 unless $ssh_port;
-  my ($real_peer, $port, $ssh) = make_ssh_cmd($peer, 1);
-  $cmd =~ s/(?<![-a-zA-Z0-9_])$peer(?![-a-zA-Z0-9_])/$real_peer/g if (defined($real_peer) && $real_peer && $real_peer ne $peer);
-  my $rsync_cmd = "rsync -e '$ssh' $rsync_opts $cmd";
-  if ($dry_run) {
-    lprint "DRY_RUN: would execute the following command:\n$rsync_cmd\n";
-    $rsync_cmd .= " --dry-run";
-  }
-  finish_links();
-  # Repeat the action because some symlinks might be updated (or even vanish)
-  # when the peer is actively running. There seems to exist no rsync option
-  # for ignoring all of these errors.
-  my $cycle = 0;
-  my $status = 0;
-  do {
-    $status = system($rsync_cmd);
-  } while ($status != 0 && $status != 24 && $cycle++ < 3);
-  ldie "Cannot get remote symlink tree via rsync, status=$status\n" if (!defined($no_fail) && $status && $status != 24);
-  return $status;
 }
 
 ##################################################################
@@ -2606,10 +2506,6 @@ sub get_global_versions {
     } else {
       $kernel_flags_version = 0x0;
     }
-  }
-  # can ssh be switched off?
-  if ($kernel_strategy_version >= 5) {
-    $ssh_port = 0;
   }
 }
 
@@ -5041,6 +4937,10 @@ sub join_cluster {
   }
   _create_dirs($cmd);
   # try new join method
+  if (!is_module_loaded()) {
+    system("if ! mountpoint /mars/ ; then mount /mars; fi");
+    system("modprobe mars");
+  }
   if (is_module_loaded()) {
     my $act_dir = "$mars/actual-$real_host";
     if (! -d $act_dir) {
@@ -5098,23 +4998,7 @@ sub join_cluster {
       lwarn "Cluster uuid '$old_uuid' already present, cannot use the new $cmd method\n";
     }
   }
-  lprint "Falling back to the old ssh/rsync based $cmd method (peer='$peer' peer_ip='$peer_ip')\n";
-  ldie "OLD method: MARS module is loaded, please unload first before using ssh\n" if is_module_loaded();
-  my $ip = _get_ip($host);
-  rsync_cmd($peer, "--max-size=1 --update $peer:$mars/ $mars/");
-  # check uniqness of IPs
-  my %ips = ();
-  foreach my $other_ip_path (lamport_glob("$mars/ips/*")) {
-    my $other_ip = get_link($other_ip_path, 1);
-    my $other_host = $other_ip_path;
-    $other_host =~ s:.*/ip-::;
-    lwarn "Host '$other_host' IP '$other_ip' is AMBIGUOUS\n" if defined($ips{$other_host});
-    $ips{$other_host} = $other_ip;
-    lwarn "New IP '$ip' already exists for host '$host' at '$other_ip_path'\n" if ($ip eq $other_ip && $other_host eq $host);
-  }
-  _create_cluster(@_);
-  finish_links();
-  rsync_cmd($peer, "--update $mars/ips/ $peer:$mars/ips/");
+  ldie "Old ssh/rsync method is no longer available.\n";
 }
 
 sub _get_probe {
@@ -5164,14 +5048,6 @@ sub merge_cluster {
   ldie "Cannot merge myself (peer='$peer', host='$host')\n" if $peer eq $host;
   ldie "Directory $mars is missing\n" unless -d $mars;
   ldie "A cluster UUD '$mars/uuid' does not exist. Please use 'join-cluster instead.\n" unless link_exists("$mars/uuid");
-  # start_deprecated_CODE
-  if (!ssh_cmd($peer, $ssh_probe, 1)) {
-    lprint "Falling back to OLD ssh-based $cmd\n";
-    merge_cluster_old(@_);
-    return;
-  }
-  lprint "Using NEW $cmd without ssh\n";
-  # end_deprecated_code
   if ($peer_ip) {
     lprint "Given on command line: peer '$peer' has IP '$peer_ip'\n";
   } else {
@@ -5250,87 +5126,6 @@ sub merge_cluster {
     }
   }
   system("rm -rf $probe_dir");
-}
-
-# deprecated, to disappear
-sub merge_cluster_old {
-  my ($cmd, $peer) = @_;
-  ldie "ssh is disabled\n" unless $ssh_port;
-  my $uuid = readlink("$mars/uuid");
-  my @resources = lamport_glob("$mars/resource-*");
-  my @ip_links = lamport_glob("$mars/ips/*");
-  # check connections
-  my $check_cmd = "uname -a";
-  system("$check_cmd") == 0 or ldie "oops, 'uname is not installed'\n";
-  system("rsync --help > /dev/null") == 0 or ldie "Command 'rsync' is not installed\n";
-  ssh_cmd($peer, $ssh_probe);
-  my @old_peers;
-  foreach my $ip (@ip_links) {
-    my $old_peer = $ip;
-    $old_peer =~ s:^.+/ip-::;
-    next if $old_peer eq $host;
-    next if $old_peer eq $real_host;
-    ssh_cmd($old_peer, $ssh_probe);
-    push @old_peers, $old_peer;
-  }
-  # check whether merge-cluster is possible
-  my %total_res;
-  foreach my $res (@resources) {
-    $total_res{$res}++;
-  }
-  my $ssh_cmd = make_ssh_cmd($peer) . " marsadm merge-cluster-list";
-  my $answer = `$ssh_cmd`;
-  $answer =~ m/^UUID: (.*)$/m or ldie "cannot determine remote UUID from '$answer'\n";
-  my $other_uuid = $1;
-  ldie "Other cluster peer '$peer' has no UUID\n" unless $other_uuid;
-  if ($other_uuid eq $uuid) {
-    lprint "Other cluster peer '$peer' has the same UUID.\n";
-    lprint "No resource name checking necessary.\n";
-    lprint "Operation '$cmd' will therefore work logically idempotent.\n";
-  } else {
-    if (link_exists("$mars/tree-$peer")) {
-      lwarn "A valid tree signature '$mars/tree-$peer' already exists, thus it appears to be already merged!\n";
-      ldie "Aborting for safety. Override via --force only if you know what you are doing!\n" unless $force;
-    }
-    # Check that both sets of resources are disjoint
-    lprint "Other cluster peer '$peer' has a different UUID, checking for resource name conflicts.\n";
-    my @other_resources;
-    my @conflicts;
-    my $copy = $answer;
-    $copy =~ s/\A.*?RESOURCEs:\n//ms;
-    while ($copy) {
-      $copy =~ s/\A(.*)\n$//m;
-      my $other_res = $1;
-      last unless $other_res;
-      push @other_resources, $other_res;
-      if ($total_res{$other_res}++) {
-	push @conflicts, $other_res;
-      }
-    }
-    if (@conflicts) {
-      lprint "CONFLICTS:\n";
-      foreach my $res (@conflicts) {
-	lprint "\t$res\n";
-      }
-      ldie "Cannot $cmd: some resource directories exist at both clusters with same name.\this cannot be overridden.\nPlease resolve the conflict by hand.\n";
-    }
-    lprint "List of total resources:\n";
-    foreach my $res (keys(%total_res)) {
-      lprint "\t$res\n";
-    }
-    # INTERNAL, for debugging and error analysis: backup the old uuid symlink
-    my $backup = "$backup_dir/uuid-backups";
-    system("mkdir -p $backup; cp -a $mars/uuid $backup/") unless link_exists("$backup/uuid");
-  }
-  # Start the "hot phase"
-  my $rsync_cmd = "--max-size=1";
-  rsync_cmd($peer, "$rsync_cmd $peer:$mars/uuid $mars/uuid");
-  foreach my $old_peer (@old_peers) {
-    rsync_cmd($old_peer, "$rsync_cmd $mars/uuid $old_peer:$mars/uuid");
-  }
-  $rsync_cmd .= " --update --ignore-existing";
-  rsync_cmd($peer, "$rsync_cmd $peer:$mars/ $mars/");
-  rsync_cmd($peer, "$rsync_cmd $mars/ $peer:$mars/");
 }
 
 sub leave_cluster {
@@ -5506,7 +5301,6 @@ sub create_res {
 
   my $primary;
   my $replay_nr = -1;
-  my $use_rsync = 0;
   if ($create) {
     mkdir($resdir);
     ldie "could not create resource '$res'\n" unless -d $resdir;
@@ -5540,8 +5334,6 @@ sub create_res {
 	  update_cluster($cmd, $res);
 	  next;
 	}
-	$use_rsync++;
-	rsync_cmd($primary, "--max-size=1 --update $primary:$mars/resource-$res/ $mars/resource-$res/", $res, 1);
 	next;
       }
       lprint "Using update-cluster for primary determination\n";
@@ -5556,8 +5348,6 @@ sub create_res {
       my $peer = shift @peers;
       next if $peer eq $host;
       next if $peer eq $real_host;
-      $use_rsync++;
-      rsync_cmd($peer, "--max-size=1 --update $peer:$mars/resource-$res $mars/", 1);
     } # retry loop
     ldie "resource '$res' does not exist\n" unless -d $resdir;
     ldie "resource '$res' has no designated primary\n" unless $primary && $primary ne "(none)";
@@ -5691,9 +5481,6 @@ sub create_res {
     set_link("0", "$resdir/syncstatus-$host");
     finish_links();
     _trigger(3);
-    if ($use_rsync && $ssh_port) {
-      rsync_cmd($primary, "--max-size=1 --update $file $primary:$mars/resource-$res/", 1);
-    }
     wait_cluster($cmd, $res, $primary);
   }
   set_link("1", "$todo/attach");
@@ -5769,17 +5556,6 @@ sub _fetch_transitive_peers {
 
 sub split_cluster {
   my ($cmd) = @_;
-  llog "DEPRECATED: $cmd\n";
-  # start_deprecated_CODE
-  foreach my $peer (get_total_peers()) {
-    next unless $ssh_port;
-    next if $peer eq $real_host;
-    if (!ssh_cmd($peer, $ssh_probe, 1)) {
-      lprint "Falling back to OLD ssh-based $cmd\n";
-      split_cluster_old(@_);
-      return;
-    }
-  }
   lprint "Using NEW $cmd without ssh\n";
   # end_deprecated_code
   my $probe_dir = _fetch_transitive_peers();
@@ -5867,87 +5643,6 @@ sub split_cluster {
   finish_links();
   system("rm -rf $probe_dir");
   _reset_resources();
-}
-
-# deprecated, to disappear
-sub split_cluster_old {
-  my ($cmd) = @_;
-  ldie "ssh is disabled\n" unless $ssh_port;
-  # checks
-  lprint "Checking...\n";
-  my $ips_backup = "$backup_dir/ips-backup";
-  system("mkdir -p $ips_backup") and ldie "OOps";
-  system("cp -a $mars/ips/* $ips_backup/");
-  foreach my $peer (lamport_glob("$ips_backup/ip-*")) {
-    $peer =~ s:^$ips_backup/ip-::;
-    ssh_cmd($peer, $ssh_probe);
-  }
-  lprint "Creating IP backups...\n";
-  # create ips backup
-  foreach my $peer (lamport_glob("$ips_backup/ip-*")) {
-    $peer =~ s:^$ips_backup/ip-::;
-    next if $peer eq $host;
-    rsync_cmd($peer, "--max-size=1 --update $peer:$mars/ips/ $ips_backup/", 1);
-  }
-  system("cp -a $mars/ips/* $ips_backup/");
-  my @peers = map { $_ =~ s:^$ips_backup/ip-::; $_ } (lamport_glob("$ips_backup/ip-*"));
-  ldie "Empty peer list\n" unless @peers;
-  foreach my $peer (@peers) {
-    next if $peer eq $host;
-    rsync_cmd($peer, "--max-size=1 --update $ips_backup $peer:$backup_dir/");
-  }
-
-  # Check symmetry
-  lprint "Checking symmetry of resource memberships...\n";
-  my $data_cmd = "ls $mars/resource-*/data-*";
-  my $standard = qx:$data_cmd:;
-  ldie "Cannot get local resource participants.\n" unless $standard;
-  foreach my $peer (@peers) {
-    next if $peer eq $host;
-    my $ssh_cmd = make_ssh_cmd($peer) . " '$data_cmd'";
-    my $compare = qx:$ssh_cmd:;
-    ldie "Asymmetric $mars/resource-*/data-* with peer $peer\n" unless $compare eq $standard;
-  }
-
-  # delete all hosts everywhere
-  lprint "Deleting all peers IPs everywhere...\n";
-  foreach my $peer (@peers) {
-    print "--- peer $peer\n";
-    my $cmd = "rm -rf $mars/ips";
-    ssh_cmd($peer, $cmd, 1);
-  }
-
-  # wait until all peer threads are gone
-  lprint "Waiting...\n";
-  sleep(10);
-  my $cond_cmd = "(( \$(ps ax | grep mars_peer | grep -v grep | wc -l) == 0 ))";
-  for (my $loop = 0; $loop < $timeout; $loop++) {
-    my $running = 0;
-    foreach my $peer (@peers) {
-      my $status = ssh_cmd($peer, $cond_cmd, 1);
-      $running++ if $status;
-    }
-    last if !$running;
-    print "--- $running peers have running peer threads.\n";
-    sleep(1);
-  }
-
-  for (my $loop = 0; $loop < 3; $loop++) {
-    # re-create all groups everywhere
-    lprint "RE-CREATE peer IPs...\n";
-    foreach my $peer (@peers) {
-      print "--- peer $peer\n";
-      my $cmd = "rm -f $mars/todo-global/delete* $mars/actual-*/msg-*connection-*; ";
-      $cmd .= "shopt -s nullglob; ";
-      $cmd .= "for i in $mars/resource-*; do if ! [[ -e \$i/data-$peer ]] && ! [[ -e \$i/replay-$peer ]]; then rm -rf $backup_dir/\${i##*/}; mv \$i $backup_dir/; fi; done; ";
-      $cmd .= "mkdir -p $mars/ips; ";
-      my $sub_list = "{ for dir in $mars/resource-*/data-$peer; do (cd \${dir%/*} && for i in data-*; do echo \$i; done); done; echo x-$peer; }";
-      my $sub_cmd = "echo RESTORE IP \$j; cp -a $ips_backup/ip-\$j $mars/ips/";
-      $cmd .= "for j in \$($sub_list | cut -d- -f2- | sort -u); do $sub_cmd; done";
-      lprint "$cmd\n";
-      ssh_cmd($peer, $cmd, 1);
-    }
-  }
 }
 
 my $old_nr_replicas = 0;
@@ -10935,18 +10630,6 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     where \$host is usually the same as \$(hostname), but you may
     use --host=<hostname> as an _earlier_ argument for overriding
     the default <hostname>.
-  --ssh-port=<port_nr>
-    Override the default ssh port (22) for ssh and rsync.
-    Useful for running {join,merge}-cluster on non-standard ssh ports.
-  --no-ssh
-    Equivalent to --ssh-port=0
-    Disable ssh and rsync completely.
-    Dead peers / interrupted networks / firewalling may lead to (temporary)
-    hangs of ssh probes, which are used by default for backwards compatibility.
-    Hint: ssh_config options like ConnectTimeout may also help.
-    Use this to disable any probes, and no time loss.
-  --ssh-opts=\"<ssh_commandline_options>\"
-    Override the default ssh commandline options. Also used for rsync.
   --macro=<text>
     Handy for testing short macro evaluations at the command line.
 
@@ -11117,16 +10800,10 @@ foreach my $arg (@ARGV) {
     lprint_stderr "Using IP '$ip' from command line for '$peer'.\n";
     $known_ips{$peer} = $ip;
     next;
-  } elsif ($arg =~ m/--no-ssh/) {
-    $ssh_port = 0;
-    next;
-  } elsif ($arg =~ s/--ssh[-_]port\s*=\s*([0-9]+)/$1/) {
-    $ssh_port = $arg;
-    lprint_stderr "Using SSH port '$ssh_port' from command line.\n";
-    next;
-  } elsif ($arg =~ s/--ssh[-_]opts\s*=\s*(.*)/$1/) {
-    $ssh_opts = $arg;
-    lprint_stderr "Using SSH options '$ssh_opts' from command line.\n";
+  } elsif ($arg =~ m/--no-ssh/ ||
+	   $arg =~ m/--ssh[-_]port\s*=\s*([0-9]+)/ ||
+	   $arg =~ m/--ssh[-_]opts\s*=\s*(.*)/) {
+    lwarn "ignoring historic '$arg'\n";
     next;
   } elsif ($arg =~ s/--macro\s*=\s*(.*)/$1/) {
     $macro = $arg;
