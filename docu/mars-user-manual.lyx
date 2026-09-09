@@ -1230,30 +1230,6 @@ zypper
 \begin_layout Itemize
 
 \family typewriter
-ssh
-\end_layout
-
-\begin_layout Itemize
-
-\family typewriter
-ssh-agent
-\family default
- (such that 
-\family typewriter
-ssh root@hostA
-\family default
- will work without password)
-\end_layout
-
-\begin_layout Itemize
-
-\family typewriter
-rsync
-\end_layout
-
-\begin_layout Itemize
-
-\family typewriter
 perl
 \end_layout
 
@@ -3959,6 +3935,61 @@ name "foot:port_problems-1"
 
 \end_inset
 
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Old 
+\family typewriter
+marsadm
+\family default
+ versions before mars0.1stable184 will try to use 
+\family typewriter
+ssh
+\family default
+ and 
+\family typewriter
+rsync
+\family default
+ for 
+\family typewriter
+join-cluster
+\family default
+ and some more operations.
+ When the firewall or the network is blocking the ssh port for security
+ reasons between 
+\emph on
+some
+\emph default
+ of the cluster members and/or in some of the possible directions, these
+ operations will fail.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ If you have some old deployment scripts or are using football functionalities,
+ you will need to adapt them to the right order of 
+\family typewriter
+modprobe
+\family default
+ versus 
+\family typewriter
+{create,join}-cluster
+\family default
+ as desribed above.
+\end_layout
+
+\begin_layout Plain Layout
 Old versions of MARS before mars0.1astable101 needed a working 
 \family typewriter
 ssh
@@ -4142,11 +4173,11 @@ name "foot:port_problems-2"
 
 \end_inset
 
- of MARS, execute on 
+ of MARS, execute 
 \emph on
-both
+only on
 \emph default
- hosts hostA and hostB:
+ hostA, but no longer on hostB:
 \begin_inset Newline newline
 \end_inset
 
@@ -4166,7 +4197,7 @@ marsadm join-cluster hostA
 \end_layout
 
 \begin_layout Enumerate
-When not yet done, do on each of your hosts:
+Now on hostB:
 \begin_inset Newline newline
 \end_inset
 
@@ -11066,7 +11097,7 @@ marsadm
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="19" columns="3">
+<lyxtabular version="3" rows="17" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -12659,212 +12690,6 @@ reference "subsec:Final-Destroy-of"
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\family typewriter
-\size scriptsize
-\begin_inset Box Frameless
-position "t"
-hor_pos "c"
-has_inner_box 1
-inner_pos "t"
-use_parbox 0
-use_makebox 0
-width "20col%"
-special "none"
-height "1in"
-height_special "totalheight"
-thickness "0.4pt"
-separation "3pt"
-shadowsize "4pt"
-framecolor "black"
-backgroundcolor "none"
-status open
-
-\begin_layout Plain Layout
-
-\family typewriter
-\size scriptsize
---ssh-port=$number
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size scriptsize
-no
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size scriptsize
-\begin_inset Box Frameless
-position "t"
-hor_pos "c"
-has_inner_box 1
-inner_pos "t"
-use_parbox 0
-use_makebox 0
-width "60col%"
-special "none"
-height "1in"
-height_special "totalheight"
-thickness "0.4pt"
-separation "3pt"
-shadowsize "4pt"
-framecolor "black"
-backgroundcolor "none"
-status open
-
-\begin_layout Plain Layout
-
-\size scriptsize
-(deprecated) Only useful when the old 
-\family typewriter
-ssh
-\family default
--based or
-\family typewriter
- rsync
-\family default
--based 
-\family typewriter
-{join,merge,split}-cluster
-\family default
- or 
-\family typewriter
-join-resource
-\family default
- commands are used.
- When newer
-\family typewriter
- mars.ko
-\family default
- and 
-\family typewriter
-marsadm
-\family default
- versions are installed throughout the whole cluster, this is not needed
- anymore.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\family typewriter
-\size scriptsize
-\begin_inset Box Frameless
-position "t"
-hor_pos "c"
-has_inner_box 1
-inner_pos "t"
-use_parbox 0
-use_makebox 0
-width "20col%"
-special "none"
-height "1in"
-height_special "totalheight"
-thickness "0.4pt"
-separation "3pt"
-shadowsize "4pt"
-framecolor "black"
-backgroundcolor "none"
-status open
-
-\begin_layout Plain Layout
-
-\family typewriter
-\size scriptsize
---no-ssh
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size scriptsize
-no
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size scriptsize
-\begin_inset Box Frameless
-position "t"
-hor_pos "c"
-has_inner_box 1
-inner_pos "t"
-use_parbox 0
-use_makebox 0
-width "60col%"
-special "none"
-height "1in"
-height_special "totalheight"
-thickness "0.4pt"
-separation "3pt"
-shadowsize "4pt"
-framecolor "black"
-backgroundcolor "none"
-status open
-
-\begin_layout Plain Layout
-
-\size scriptsize
-Avoid any potential timeouts / hangs caused by networks or firewalls, by
- explicitly disabling the old ssh-based communication method, and relying
- on the new MARS communication protocol (by default on port 7777).
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
 <cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
@@ -13654,38 +13479,27 @@ The
 \family typewriter
 mars.ko
 \family default
- kernel module must be loaded
+ kernel module 
+\emph on
+must
+\emph default
+ be loaded at the current primary node, but 
+\emph on
+must not
+\emph default
+ be loaded at the new cluster member
 \begin_inset Foot
 status open
 
 \begin_layout Plain Layout
 
 \size scriptsize
-In ancient MARS versions before mars0.1astable101 the kernel module 
-\emph on
-must not
-\emph default
- be loaded, and a working ssh connection to 
-\family typewriter
-$host
-\family default
- must work as root (without password), and 
-\family typewriter
-rsync
-\family default
- must be installed at all cluster nodes.
- PROVISIONARY: in 
-\emph on
-some
-\emph default
- newer MARS versions >= mars0.1astable101, the old ssh-based method is automatica
-lly used as a fallback when the kernel module is forgotten to load; however
- this provisionary workaround shall disappear in future.
+At ancient MARS versions this was different.
 \end_layout
 
 \end_inset
 
-.
+, and of course the network must work for the mars ports (default 7777..7779).
 \end_layout
 
 \begin_layout Plain Layout
@@ -14296,14 +14110,8 @@ ssh
 \family typewriter
 rsync
 \family default
- are no longer required, provided that 
-\emph on
-both
-\emph default
- clusters have been fully updated.
- Otherwise ssh must be working between all members of both clusters, without
- password (e.g.
- via ssh-agent).
+ are no longer required, and since mars0.1astable185 it is no longer used
+ as a fallback.
 \end_layout
 
 \begin_layout Plain Layout
