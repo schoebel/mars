@@ -7141,7 +7141,13 @@ sub primary_phase1 {
   return 0 if ($old eq $host and $cmd eq "primary");
   my $new = "(none)";
   if (!$force and $cmd eq "primary") {
+    my $retry = 3;
+  retry:
     my $status = try_to_avoid_splitbrain($cmd, $res, $old);
+    if (!$status && $retry-- > 0) {
+      sleep(3);
+      goto retry;
+    }
     return $status if $status;
   }
   return 0 if $old eq $new;
@@ -7160,7 +7166,13 @@ sub primary_phase1b {
   my $status = check_primary_gone($cmd, $res, $old);
   return $status if $status;
   if (!$force and $cmd eq "primary") {
+    my $retry = 3;
+  retry:
     my $status = try_to_avoid_splitbrain($cmd, $res, $old);
+    if (!$status && $retry-- > 0) {
+      sleep(3);
+      goto retry;
+    }
     return $status if $status;
   }
   return 0;
@@ -7181,7 +7193,14 @@ sub primary_phase2b {
   return 0 if $force;
   if (systemd_present(@_)) {
     my $old = _get_designated_primary($res, -1);
-    return try_to_avoid_splitbrain($cmd, $res, $old);
+    my $retry = 3;
+  retry:
+    my $status = try_to_avoid_splitbrain($cmd, $res, $old);
+    if (!$status && $retry-- > 0) {
+      sleep(3);
+      goto retry;
+    }
+    return $status if $status;
   }
   return 0;
 }
