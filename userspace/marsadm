@@ -7163,8 +7163,6 @@ sub primary_phase1b {
   finish_links();
   return 0 if $force;
   my $old = _get_designated_primary($res, -1);
-  my $status = check_primary_gone($cmd, $res, $old);
-  return $status if $status;
   if (!$force and $cmd eq "primary") {
     my $retry = 3;
   retry:
@@ -7175,6 +7173,8 @@ sub primary_phase1b {
     }
     return $status if $status;
   }
+  my $status = check_primary_gone($cmd, $res, $old);
+  return $status if $status;
   return 0;
 }
 
