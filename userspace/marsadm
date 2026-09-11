@@ -4104,9 +4104,8 @@ sub log_purge_res {
     my $nr = $2;
     my $from = $3;
     lprint "checking '$cand'\n";
-    my $vers = get_link($file, 1);
-    $vers =~ m/(log-[0-9]+-[^,:]+)/;
-    my $log = $1;
+    my $log = $file;
+    $log =~ s/version-/log-/;
     lprint "  corresponding logfile is '$log'\n";
     if (_is_visited($nr, $from)) {
       lprint "  ok '$cand'\n";
