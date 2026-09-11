@@ -4205,7 +4205,7 @@ sub try_to_avoid_splitbrain {
     lwarn "ATTENTION: that's no good idea.\n";
     lwarn "ATTENTION: I will continue to do what you want.\n";
     lwarn "ATTENTION: But you are responsible for the consequences.\n";
-    return 0;
+    return 1;
   }
   # now try to prevent producing a _new_ split brain situation....
   my @host_list = lamport_glob("$mars/resource-$res/replay-*");
@@ -4220,7 +4220,7 @@ sub try_to_avoid_splitbrain {
       if ($stat[9] + $window >= mars_time()) {
 	my $msg = _get_text($replay_err);
 	lwarn "cannot guarantee split brain avoidance: $msg\n";
-	return 0;
+	return 1;
       }
     }
     my $emergency_path = "$mars/resource-$res/actual-$host/has-emergency";
