@@ -3670,8 +3670,7 @@ sub get_amount {
       if ($val && $val > $next_val) {
 	$next_val = $val;
       }
-    }
-    if (!$only_files) {
+      # also check corresponding versionlink
       my $version_path = sprintf("%s/version-%09d-%s", $resdir, $pos, $host);
       my $vers_link = get_link($version_path, -1);
       if ($vers_link && $vers_link =~ m;,([0-9]+):;) {
