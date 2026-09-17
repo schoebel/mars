@@ -7145,6 +7145,8 @@ sub primary_phase1 {
   retry:
     my $status = try_to_avoid_splitbrain($cmd, $res, $old);
     if (!$status && $retry-- > 0) {
+      _trigger(3);
+      _reset_resources();
       sleep(3);
       goto retry;
     }
@@ -7168,6 +7170,8 @@ sub primary_phase1b {
   retry:
     my $status = try_to_avoid_splitbrain($cmd, $res, $old);
     if (!$status && $retry-- > 0) {
+      _trigger(3);
+      _reset_resources();
       sleep(3);
       goto retry;
     }
@@ -7197,6 +7201,8 @@ sub primary_phase2b {
   retry:
     my $status = try_to_avoid_splitbrain($cmd, $res, $old);
     if (!$status && $retry-- > 0) {
+      _trigger(3);
+      _reset_resources();
       sleep(3);
       goto retry;
     }
@@ -7217,6 +7223,7 @@ sub primary_phase3 {
 
 sub primary_phase3b {
   finish_links();
+  _trigger(3);
   return 0;
 }
 
@@ -7353,6 +7360,8 @@ sub invalidate_res_phase6 {
     my $primary = _get_designated_primary($res);
     my $status = try_to_avoid_splitbrain($cmd, $res, $primary);
     last if $status;
+    _trigger(3);
+    _reset_resources();
     sleep($retry + 2);
     invalidate_res_phase5(@_);
     _wait_delete();
