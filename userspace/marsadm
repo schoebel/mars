@@ -301,7 +301,7 @@ my $ssh_port = 22;
 my $ssh_opts = "-A -o StrictHostKeyChecking=no -o ConnectTimeout=5";
 my $ssh_probe = "uname -a";
 my $rsync_opts = "-av --exclude='.deleted-*'";
-my $systemd_enabled = 1;
+my $systemd_enabled = 0;
 my $kernel_version = 0;
 my $kernel_features_version = -1;
 my $kernel_strategy_version = -1;
