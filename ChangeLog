@@ -140,6 +140,13 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183o
+	* marsadm: remove historic default for systemd_enabled.
+	  AFAIK, this is not in use anywhere.
+	* marsadm: inproved split brain avoidance.
+	* marsadm: inproved cleanup after split brain.
+	* marsadm: speed up primary handover.
+
 mars0.1astable183n
 	* marsadm: fix unnecessary split brain in a corner case.
 
