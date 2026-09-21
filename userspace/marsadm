@@ -7090,9 +7090,20 @@ sub primary_phase0a {
   return 0;
 }
 
-# only for systemd: wait that primary device is no longer open
+# wait that primary device is no longer open
 sub primary_phase0b {
   my ($cmd, $res) = @_;
+  if (!$force) {
+    my $primary = _get_designated_primary($res, -1);
+    if ($primary && $primary ne $host && $primary ne "(none)") {
+      my $open_count_path = "$mars/resource-$res/actual-$primary/open-count";
+      my $device_in_use = get_link($open_count_path, 1);
+      if ($device_in_use) {
+	return 1;
+      }
+    }
+  }
+  # only for systemd, to disappear
   return 0 unless systemd_present(@_);
   # only relevant for true handover
   my $old = _get_designated_primary($res, -1);
