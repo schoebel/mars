@@ -140,6 +140,12 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183q
+	* marsadm: remove historic systemd interface.
+	  AFAIC no longer in use anywhere.
+	* doc: remove the corresponding sections from
+	  mars-user-manual.pdf
+
 mars0.1astable183p
 	* marsadm: fix racy hang at handover
 	* marsadm: remove historic ssh and rsync method.
