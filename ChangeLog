@@ -140,6 +140,11 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183p
+	* marsadm: fix racy hang at handover
+	* marsadm: remove historic ssh and rsync method.
+	* doc: update description of cluster setup & co.
+
 mars0.1astable183o
 	* marsadm: remove historic default for systemd_enabled.
 	  AFAIK, this is not in use anywhere.
