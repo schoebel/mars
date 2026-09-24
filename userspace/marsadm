@@ -4212,16 +4212,6 @@ sub try_to_avoid_splitbrain {
     my ($min, $max) = get_minmax_versions($res);
     my $vers_glob = sprintf("$mars/resource-$res/version-%09d-*", $max);
     my $ok = 1;
-    my $replay_err_path = "$mars/resource-$res/actual-$host/msg-err-replay-stop";
-    my $replay_err = get_link($replay_err_path, 1);
-    if ($replay_err && $replay_err ne "OK") {
-      my @stat = lstat($replay_err_path);
-      if ($stat[9] + $window >= mars_time()) {
-	my $msg = _get_text($replay_err);
-	lwarn "cannot guarantee split brain avoidance: $msg\n";
-	return 1;
-      }
-    }
     my $emergency_path = "$mars/resource-$res/actual-$host/has-emergency";
     my $emergency = get_link($emergency_path, 1);
     if ($emergency) {
