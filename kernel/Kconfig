@@ -5,7 +5,7 @@
 config MARS
 	tristate "block storage replication MARS"
 	depends on m
-	depends on BLOCK && PROC_SYSCTL && HIGH_RES_TIMERS
+	depends on BLOCK && SYSCTL && PROC_FS && HIGH_RES_TIMERS
 	default n
 	select LZO_COMPRESS
 	select LZO_DECOMPRESS

@@ -245,7 +245,13 @@ int trigger_answer(void)
 	return 0;
 }
 
-int mars_dotrigger(struct ctl_table *table, int write,
+#ifdef MARS_MODERN_KERNEL
+#define MARS_CTL_CONST const
+#else
+#define MARS_CTL_CONST
+#endif
+
+static int mars_dotrigger(MARS_CTL_CONST struct ctl_table *table, int write,
 		   void *buffer, size_t *lenp, loff_t *ppos)
 {
 	int err;
@@ -290,7 +296,7 @@ static DEFINE_MUTEX(lamport_buf_mutex);
 atomic_t lamport_calls = ATOMIC_INIT(0);
 static char lamport_buffer[LAMPORT_BUF_LEN];
 
-int proc_dolamport(struct ctl_table *table, int write,
+static int proc_dolamport(MARS_CTL_CONST struct ctl_table *table, int write,
 		   void *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct lamport_time know;
@@ -327,13 +333,13 @@ int proc_dolamport(struct ctl_table *table, int write,
  out:
 	return err;
 }
-EXPORT_SYMBOL_GPL(proc_dolamport);
+
 
 #else /* USE_NEW_TRIGGER */
 
 static
 int trigger_sysctl_handler(
-	struct ctl_table *table,
+	MARS_CTL_CONST struct ctl_table *table,
 	int write, 
 	void __user *buffer,
 	size_t *length,
@@ -417,7 +423,7 @@ done:
 
 static
 int lamport_sysctl_handler(
-	struct ctl_table *table,
+	MARS_CTL_CONST struct ctl_table *table,
 	int write, 
 	void __user *buffer,
 	size_t *length,
@@ -706,6 +712,7 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("client_info_timeout",  mars_client_info_timeout, 0600),
 	INT_ENTRY("parallel_connections", max_client_channels,    0600),
 	INT_ENTRY("parallel_bulk_feed",   max_client_bulk,        0600),
+#ifndef MARS_MODERN_KERNEL
 	{
 		_CTL_NAME
 		.procname	= "traffic_tuning",
@@ -736,9 +743,11 @@ struct ctl_table mars_table[] = {
 		.mode		= 0500,
 		.child = tcp_tuning_table_MARS_TRAFFIC_SYNC,
 	},
+#endif
 	{}
 };
 
+#ifndef MARS_MODERN_KERNEL
 static
 struct ctl_table mars_root_table[] = {
 	{
@@ -750,8 +759,43 @@ struct ctl_table mars_root_table[] = {
 	{}
 };
 
+#endif
+
 ////////////////// module init stuff /////////////////////////
 
+#ifdef MARS_MODERN_KERNEL
+static struct ctl_table_header *headers[6];
+
+void exit_mars_proc(void)
+{
+	int i;
+
+	for (i = ARRAY_SIZE(headers) - 1; i >= 0; i--) {
+		if (headers[i])
+			unregister_sysctl_table(headers[i]);
+		headers[i] = NULL;
+	}
+}
+
+int __init init_mars_proc(void)
+{
+#define REGISTER_MARS_SYSCTL(index, path, table) do { \
+	headers[index] = register_sysctl_sz(path, table, ARRAY_SIZE(table) - 1); \
+	if (!headers[index]) { \
+		exit_mars_proc(); \
+		return -ENOMEM; \
+	} \
+} while (0)
+	REGISTER_MARS_SYSCTL(0, "mars", mars_table);
+	REGISTER_MARS_SYSCTL(1, "mars/traffic_tuning", traffic_tuning_table);
+	REGISTER_MARS_SYSCTL(2, "mars/io_tuning", io_tuning_table);
+	REGISTER_MARS_SYSCTL(3, "mars/tcp_tuning_0_meta_traffic", tcp_tuning_table_MARS_TRAFFIC_META);
+	REGISTER_MARS_SYSCTL(4, "mars/tcp_tuning_1_replication_traffic", tcp_tuning_table_MARS_TRAFFIC_REPLICATION);
+	REGISTER_MARS_SYSCTL(5, "mars/tcp_tuning_2_sync_traffic", tcp_tuning_table_MARS_TRAFFIC_SYNC);
+#undef REGISTER_MARS_SYSCTL
+	return 0;
+}
+#else
 static struct ctl_table_header *header = NULL;
 
 int __init init_mars_proc(void)
@@ -772,3 +816,5 @@ void exit_mars_proc(void)
 		header = NULL;
 	}
 }
+
+#endif
