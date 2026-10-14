@@ -25,6 +25,13 @@
 #define _MARS_COMPAT
 
 #include <linux/major.h>
+#include <linux/version.h>
+
+/* Linux 7.2+ uses kernel-buffer VFS APIs and bio-based gendisks. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 2, 0)
+#define MARS_MODERN_KERNEL
+#include <linux/sched/clock.h>
+#endif
 
 /* Detect 5c0ba4e0762e6dabd14a5c276652e2defec38de7
  * and f2b91d8d385d2cef3a1e3b3846f2dde4a6720c43
@@ -307,6 +314,60 @@ extern int _compat_unlink(
 #ifndef WRITE_ONCE
 /* quirk */
 #define WRITE_ONCE(dst,src) ACCESS_ONCE(dst) = (src)
+#endif
+
+#ifdef MARS_MODERN_KERNEL
+#define MARS_HAS_ITERATE_DIR
+#define __HAS_NEW_FILLDIR_T
+#define MARS_HAS_KERNEL_READ
+#define MARS_HAS_VFS_READLINK
+#define MARS_HAS_SET_DEV
+#define MARS_HAS_NEW_BIO_OP
+#define MARS_HAS_BVEC_ITER
+#define MARS_HAS_BI_STATUS
+#define MARS_HAS_VOID_RELEASE
+#define MARS_HAS_NEW_CRYPTO
+#undef NEED_BIO_SPLIT
+#define MARS_HAS_OLD_QUEUE_LOCK
+#define BIO_MAX_PAGES BIO_MAX_VECS
+#define mars_file_bdev(file) file_bdev(file)
+#undef MARS_HAS_SHASH_DESC_FLAGS
+int mars_path_stat(const char *name, struct kstat *stat, bool follow);
+int mars_path_readlink(struct dentry *dentry, char *buf, int len);
+#include <linux/fs_struct.h>
+#include <linux/namei.h>
+
+/* Since 7.3, kthreadd's root is nullfs, separate from the userspace root. */
+static inline int mars_kern_path(const char *name, unsigned int flags,
+				 struct path *path)
+{
+#ifdef scoped_with_init_fs
+	scoped_with_init_fs() {
+		return kern_path(name, flags, path);
+	}
+#else
+	return kern_path(name, flags, path);
+#endif
+}
+
+static inline struct file *mars_filp_open(const char *name, int flags, umode_t mode)
+{
+#ifdef scoped_with_init_fs
+	scoped_with_init_fs() {
+		return filp_open(name, flags, mode);
+	}
+#else
+	return filp_open(name, flags, mode);
+#endif
+}
+#define mars_path_lookup(name, path) mars_kern_path(name, 0, path)
+#else
+#define mars_filp_open filp_open
+#define mars_file_bdev(file) ((file)->f_mapping->host->i_bdev)
+#define mars_path_stat(name, stat, follow) \
+	((follow) ? vfs_stat(name, stat) : vfs_lstat(name, stat))
+#define mars_path_readlink(dentry, buf, len) vfs_readlink(dentry, buf, len)
+#define mars_path_lookup(name, path) user_path_at(AT_FDCWD, name, 0, path)
 #endif
 
 #endif /* _MARS_COMPAT */

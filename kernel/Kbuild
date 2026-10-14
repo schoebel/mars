@@ -43,7 +43,7 @@ endif
 
 obj-$(CONFIG_MARS)	+= mars.o
 
-mars-objs :=				\
+mars-objs := compat.o				\
 	lamport.o			\
 	brick_say.o			\
 	brick_mem.o			\
