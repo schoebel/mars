@@ -14,14 +14,14 @@ include Kbuild
 else
 # out-of-tree-build process
 
-MARSSRC := $(shell pwd)
+MARSSRC := $(CURDIR)
 DESTDIR ?= /
 KDIR ?= /lib/modules/`uname -r`/build
 
 .PHONY: greeting install default clean config
 
 default: greeting 
-	$(MAKE) -C $(KDIR) M=$(PWD)
+	$(MAKE) -C $(KDIR) M=$(MARSSRC) modules
 
 greeting:
 	@echo "Building MARS Module again: KDIR=$(KDIR)" ;
@@ -31,11 +31,11 @@ greeting:
 	fi
 
 clean:
-	$(MAKE) -C $(KDIR) M=$(PWD) clean
+	$(MAKE) -C $(KDIR) M=$(MARSSRC) clean
 
 config:
-	$(MAKE) -C $(KDIR) M=$(PWD) config
+	$(MAKE) -C $(KDIR) M=$(MARSSRC) config
 
 install:
-	$(MAKE) -C $(KDIR) M=$(PWD) modules_install
+	$(MAKE) -C $(KDIR) M=$(MARSSRC) modules_install
 endif
