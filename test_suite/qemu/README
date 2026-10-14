@@ -1,0 +1,68 @@
+MARS on Linux 7.2 / 7.3 in QEMU microvm
+======================================
+
+Run from the repository root, without root privileges:
+
+    python3 test_suite/qemu/run.py 7.2.9-2-cachyos
+    python3 test_suite/qemu/run.py 7.3.0-rc6-2-cachyos-rc
+    python3 test_suite/qemu/replicate.py 7.2.9-2-cachyos 7.3.0-rc6-2-cachyos-rc
+    python3 test_suite/qemu/replicate.py 7.3.0-rc6-2-cachyos-rc 7.2.9-2-cachyos
+
+Substitute the exact installed kernel releases to test another build. Each
+kernel needs /lib/modules/<release>/build, vmlinuz, and its module tree.
+The build directory must contain the kernel configuration and Module.symvers.
+Match the kernel's toolchain: the runner selects LLVM=1 for Clang kernels.
+
+Host prerequisites: x86-64 Linux, Python 3, QEMU system x86-64 with microvm,
+KVM access, make, the matching C compiler/binutils or LLVM, Perl and its core
+modules, cpio, gzip, kmod, e2fsprogs, iproute2, util-linux, GNU coreutils,
+bash, grep, sed, awk, findutils and pstree. No downloaded guest distribution,
+host module installation, TAP device, sudo or host block device is used.
+The target kernel needs modules, initramfs/gzip, devtmpfs, procfs, sysfs,
+ext4, virtio-mmio/block/net, IPv4/TCP, sysctl and the MARS crypto dependencies.
+
+The single-node runner also supports --accel tcg when KVM is unavailable
+(increase --timeout for software emulation). Replication uses KVM. Each guest
+has 2 vCPUs and 2 GiB RAM. Each run creates a sparse 32 GiB metadata image
+and a 128 MiB backing disk. Two-node tests create one pair per guest.
+--workdir accepts a new directory; otherwise a temporary directory is used.
+Artifacts are retained at the printed path, including build.log, console.log,
+command.json, mars.ko under source/kernel/, initramfs, and disk images.
+Remove that directory after inspection to reclaim the space.
+
+QEMU directly boots the selected vmlinuz and generated initramfs with the
+microvm machine. ACPI is disabled, the RTC supplies cluster timestamps, and
+isa-debug-exit terminates the test without depending on firmware shutdown.
+The single-node test uses QEMU user networking. The replication test joins
+two virtual NICs over a private localhost socket and bootstraps only their
+cluster UUID/IP records; resource metadata and data travel through MARS TCP.
+
+Single-node coverage:
+  - Build/link, module load, sysctl registration and Lamport clock access.
+  - Cluster/resource creation and exported disk capacity.
+  - Random writes with fsync, direct reads, byte comparison, demotion,
+    detach, unload, and comparison against the backing device.
+  - Reload, promotion, ext4 format/mount, fsynced file write, unmount,
+    detach/unload, and read-only verification on the backing filesystem.
+
+Two-node coverage:
+  - Metadata exchange, resource join and full 128 MiB initial synchronization.
+  - A new 1 MiB pattern written after initial sync, transaction-log shipping
+    and replay, then direct comparison on the secondary backing device.
+
+The runners fail on timeouts, guest failures, kernel warnings/oops/panics or
+missing success markers. The pair is terminated after replication succeeds;
+graceful demotion and unload are covered by the single-node runner.
+--prepare-only on run.py builds the artifacts without starting QEMU.
+
+Validation uses the default MARS configuration on the named CachyOS kernels,
+not an upstream vanilla build. These are functional compatibility tests;
+they do not measure sustained throughput, simulate power loss, or cover
+every debug configuration and legacy kernel.
+
+Verified on 2026-10-14 with QEMU 11.1.2/KVM and Clang 23.1.1:
+
+    7.2.9-2-cachyos                 single-node + ext4: PASS
+    7.3.0-rc6-2-cachyos-rc          single-node + ext4: PASS
+    7.2.9 -> 7.3.0-rc6             initial sync + log replay: PASS
+    7.3.0-rc6 -> 7.2.9             initial sync + log replay: PASS
