@@ -1233,9 +1233,7 @@ static int port_thread(void *data)
 	struct server_cookie *cookie = data;
 	struct mars_socket *my_socket = cookie->server_socket;
 	struct mars_tcp_params *my_params = cookie->server_params;
-#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	char *id = my_id();
-#endif
 	int status = 0;
 
 	INIT_LIST_HEAD(&port_anchor);
