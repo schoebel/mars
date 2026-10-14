@@ -102,7 +102,7 @@ const struct meta mars_dent_meta[] = {
 EXPORT_SYMBOL_GPL(mars_dent_meta);
 
 //      remove_this
-#ifndef MARS_HAS_PREPATCH
+#if !defined(MARS_HAS_PREPATCH) && !defined(MARS_MODERN_KERNEL)
 /////////////////////////////////////////////////////////////////////
 
 /* The _compat_*() functions are needed for the out-of-tree version
@@ -525,14 +525,18 @@ int _length_paranoia(int len, int line)
 bool mars_is_mountpoint(const char *pathname)
 {
 	struct path path = {};
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 	int status;
 	bool res = false;
 
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 
-	status = user_path_at(AT_FDCWD, pathname, 0, &path);
+	status = mars_path_lookup(pathname, &path);
 	if (unlikely(status < 0)) {
 		MARS_WRN("pathname '%s' does not exist, status = %d\n",
 			 pathname, status);
@@ -556,23 +560,31 @@ done_put:
 	path_put(&path);
 
 done_fs:
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 	return res;
 }
 
 int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
 {
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 	int status;
 	
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 	if (use_lstat) {
-		status = vfs_lstat((char*)path, stat);
+		status = mars_path_stat(path, stat, false);
 	} else {
-		status = vfs_stat((char*)path, stat);
+		status = mars_path_stat(path, stat, true);
 	}
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 
 	if (likely(status >= 0)) {
 		set_lamport(&stat->mtime);
@@ -585,12 +597,18 @@ EXPORT_SYMBOL_GPL(mars_stat);
 void mars_sync(void)
 {
 	struct file *f;
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
-	f = filp_open("/mars", O_DIRECTORY | O_RDONLY, 0);
+#endif
+	f = mars_filp_open("/mars", O_DIRECTORY | O_RDONLY, 0);
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 	if (unlikely(IS_ERR(f)))
 		return;
 
@@ -611,17 +629,23 @@ void mars_sync(void)
 
 int mars_mkdir(const char *path)
 {
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 	int status;
 	
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 #ifdef MARS_HAS_PREPATCH
 	status = sys_mkdir(path, 0700);
 #else
 	status = _compat_mkdir(path, 0700);
 #endif
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 
 	return status;
 }
@@ -630,13 +654,19 @@ EXPORT_SYMBOL_GPL(mars_mkdir);
 int mars_rmdir(const char *path)
 {
 #ifdef MARS_HAS_PREPATCH
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 	int status;
 	
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 	status = sys_rmdir(path);
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 
 	return status;
 #else
@@ -647,17 +677,23 @@ EXPORT_SYMBOL_GPL(mars_rmdir);
 
 int mars_unlink(const char *path)
 {
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 	int status;
 	
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 #ifdef MARS_HAS_PREPATCH
 	status = sys_unlink(path);
 #else
 	status = _compat_unlink(path);
 #endif
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 
 	return status;
 }
@@ -668,7 +704,9 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		 bool ordered)
 {
 	char *tmp = backskip_replace(newpath, '/', true, "/.tmp-"); 
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 	struct kstat stat = {};
 	struct lamport_time times[2];
 	int status;
@@ -683,10 +721,12 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		brick_msleep(100);
 #endif
 
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 
-	status = vfs_lstat((char*)newpath, &stat);
+	status = mars_path_stat(newpath, &stat, false);
 
 	/* When ordered, obey the Lamport condition.
 	 */
@@ -754,7 +794,9 @@ int mars_symlink(const char *oldpath, const char *newpath,
 		status = mars_rename(tmp, newpath);
 	}
  done_fs:
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 	brick_string_free(tmp);
 	return status;
 }
@@ -771,15 +813,20 @@ char *mars_readlink(const char *newpath, struct lamport_time *stamp)
 {
 	char *res = NULL;
 	struct path path = {};
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 	struct inode *inode;
+	struct lamport_time mtime;
 	int len;
 	int status;
 
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 
-	status = user_lpath(newpath, &path);
+	status = mars_path_lookup(newpath, &path);
 	if (unlikely(status < 0)) {
 		MARS_DBG("link '%s' does not exist, status = %d\n", newpath, status);
 		goto done_fs;
@@ -821,23 +868,32 @@ char *mars_readlink(const char *newpath, struct lamport_time *stamp)
 	res = brick_string_alloc(len + 2);
 
 #ifdef MARS_HAS_VFS_READLINK
-	status = vfs_readlink(path.dentry, res, len + 1);
+	status = mars_path_readlink(path.dentry, res, len + 1);
 #else
 	status = inode->i_op->readlink(path.dentry, res, len + 1);
 #endif
 	if (unlikely(status < 0)) {
 		MARS_ERR("cannot read link '%s', status = %d\n", newpath, status);
-	} else if (stamp) {
-		set_get_lamport(&inode->i_mtime, NULL, stamp);
 	} else {
-		set_lamport(&inode->i_mtime);
+#ifdef MARS_MODERN_KERNEL
+		mtime = inode_get_mtime(inode);
+#else
+		mtime = inode->i_mtime;
+#endif
+		if (stamp)
+			set_get_lamport(&mtime, NULL, stamp);
+		else
+			set_lamport(&mtime);
+		res[status] = '\0';
 	}
 
 done_put:
 	path_put(&path);
 	
 done_fs:
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 	if (unlikely(status < 0)) {
 		if (unlikely(!res)) {
 			res = brick_string_alloc(1);
@@ -850,17 +906,23 @@ EXPORT_SYMBOL_GPL(mars_readlink);
 
 int mars_rename(const char *oldpath, const char *newpath)
 {
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 	int status;
 	
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 #ifdef MARS_HAS_PREPATCH
 	status = sys_rename(oldpath, newpath);
 #else
 	status = _compat_rename(oldpath, newpath);
 #endif
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 
 	return status;
 }
@@ -869,13 +931,19 @@ EXPORT_SYMBOL_GPL(mars_rename);
 int mars_chmod(const char *path, mode_t mode)
 {
 #ifdef MARS_HAS_PREPATCH
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 	int status;
 	
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 	status = sys_chmod(path, mode);
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 
 	return status;
 #else
@@ -911,17 +979,23 @@ void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining)
 {
 	struct path path = {};
 	struct kstatfs kstatfs = {};
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 	int res;
 
 	*total = *remaining = 0;
 
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 
-	res = user_path_at(AT_FDCWD, fspath, 0, &path);
+	res = mars_path_lookup(fspath, &path);
 
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 
 	if (unlikely(res < 0)) {
 		MARS_ERR("cannot get fspath '%s', err = %d\n\n", fspath, res);
@@ -1456,14 +1530,18 @@ struct mars_cookie {
 static
 int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 {
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 	int status;
 	struct kstat tmp = {};
 
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 
-	status = vfs_lstat(newpath, &tmp);
+	status = mars_path_stat(newpath, &tmp, false);
 	if (status < 0) {
 		MARS_WRN("cannot stat '%s', status = %d\n", newpath, status);
 		goto done;
@@ -1495,7 +1573,7 @@ int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 		}
 		len = _length_paranoia(len, __LINE__);
 
-		status = user_path_at(AT_FDCWD, newpath, 0, &path);
+		status = mars_path_lookup(newpath, &path);
 		if (unlikely(status < 0)) {
 			MARS_WRN("cannot read link '%s'\n", newpath);
 			goto done;
@@ -1519,7 +1597,7 @@ int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 		link = brick_string_alloc(len + 2);
 		MARS_IO("len = %d\n", len);
 #ifdef MARS_HAS_VFS_READLINK
-		status = vfs_readlink(path.dentry, link, len + 1);
+		status = mars_path_readlink(path.dentry, link, len + 1);
 #else
 		status = inode->i_op->readlink(path.dentry, link, len + 1);
 #endif
@@ -1565,7 +1643,9 @@ int get_inode(char *newpath, struct mars_dent *dent, bool get_deleted)
 		MARS_IO("symlink '%s'\n", dent->new_link);
 
  done:
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 	return status;
 }
 
@@ -1635,10 +1715,16 @@ const struct skip_info skips[] = {
 /* Caution: this is called as a callback from iterate_dir() and friends.
  * Don't deadlock by producing any filesystem output within this!
  */
-#ifdef __HAS_NEW_FILLDIR_T
+#ifdef MARS_MODERN_KERNEL
+#define MARS_FILL_CONTINUE true
+static bool mars_filler(struct dir_context *__buf, const char *name, int namlen,
+		       loff_t offset, u64 ino, unsigned int d_type)
+#elif defined(__HAS_NEW_FILLDIR_T)
+#define MARS_FILL_CONTINUE 0
 int mars_filler(struct dir_context *__buf, const char *name, int namlen, loff_t offset,
 		u64 ino, unsigned int d_type)
 #else
+#define MARS_FILL_CONTINUE 0
 static
 int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		u64 ino, unsigned int d_type)
@@ -1665,7 +1751,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	cookie->global->nr_readitem++;
 
 	if (!name || !*name || name[0] == '.') {
-		return 0;
+		return MARS_FILL_CONTINUE;
 	}
 
 	class = cookie->checker(cookie->check_parent,
@@ -1681,7 +1767,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	if (class < 0 &&
 	    (!cookie->some_ordered ||
 	     d_type != DT_LNK))
-		return 0;
+		return MARS_FILL_CONTINUE;
 
 	pathlen = strlen(cookie->path);
 	newpath = brick_string_alloc(pathlen + namlen + 2);
@@ -1719,7 +1805,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	dent->d_use_channel = use_channel;
 	dent->d_depth = cookie->depth;
 
-	return 0;
+	return MARS_FILL_CONTINUE;
 }
 
 static
@@ -1967,7 +2053,9 @@ static int _mars_readdir(struct mars_cookie *cookie)
 {
 	struct file *f;
 	struct address_space *mapping;
+#ifndef MARS_MODERN_KERNEL
         mm_segment_t oldfs;
+#endif
 	loff_t dir_pos, old_dir_pos;
 	int _loop_limit;
 	int i;
@@ -1997,10 +2085,14 @@ static int _mars_readdir(struct mars_cookie *cookie)
 		}
 	}
 
+#ifndef MARS_MODERN_KERNEL
         oldfs = get_fs();
         set_fs(KERNEL_DS);
-        f = filp_open(cookie->path, O_DIRECTORY | O_RDONLY, 0);
+#endif
+        f = mars_filp_open(cookie->path, O_DIRECTORY | O_RDONLY, 0);
+#ifndef MARS_MODERN_KERNEL
         set_fs(oldfs);
+#endif
 	if (unlikely(IS_ERR(f))) {
 		return PTR_ERR(f);
 	}
