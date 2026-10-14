@@ -511,11 +511,21 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	 * maintainer. Let the old code in place for now.
 	 */
 	if (rw & 1) {
+#ifdef MARS_MODERN_KERNEL
+		bio->bi_opf = REQ_OP_WRITE | REQ_SYNC;
+		if (!(mref->ref_flags & MREF_SKIP_SYNC))
+			bio->bi_opf |= REQ_PREFLUSH | REQ_FUA;
+#else
 		bio_set_op_attrs(bio, REQ_OP_WRITE,
-				 mref->ref_skip_sync ? 0 : REQ_SYNC);
+				 mref->ref_flags & MREF_SKIP_SYNC ? 0 : REQ_SYNC);
+#endif
 	} else {
+#ifdef MARS_MODERN_KERNEL
+		bio->bi_opf = REQ_OP_READ;
+#else
 		bio_set_op_attrs(bio, REQ_OP_READ,
-				 mref->ref_skip_sync ? 0 : REQ_META);
+				 mref->ref_flags & MREF_SKIP_SYNC ? 0 : REQ_META);
+#endif
 	}
 #else
 	if (rw & 1) {
