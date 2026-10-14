@@ -333,7 +333,7 @@ int read_aops(struct sio_output *output, struct mref_object *mref)
 	return ret;
 }
 
-static void sync_file(struct sio_output *output)
+static int sync_file(struct sio_output *output)
 {
 	struct file *file = output->mf->mf_filp;
 	int ret;
@@ -345,7 +345,7 @@ static void sync_file(struct sio_output *output)
 	if (unlikely(ret)) {
 		MARS_ERR("syncing pages failed: %d\n", ret);
 	}
-	return;
+	return ret;
 }
 
 static
@@ -394,7 +394,6 @@ static
 void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 {
 	struct sio_output *output = tinfo->output;
-	bool barrier = false;
 	int status;
 
 	_mref_check(mref);
@@ -406,25 +405,29 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 		goto done;
 	}
 
-	if (barrier) {
-		MARS_INF("got barrier request\n");
-		sync_file(output);
-	}
-
 	if (!(mref->ref_flags & MREF_WRITE)) {
 		status = read_aops(output, mref);
 	} else {
 		mf_dirty_append(output->mf, DIRTY_SUBMITTED,
 				mref->ref_pos + mref->ref_len);
 		status = write_aops(output, mref);
+		if (status >= 0 && status != mref->ref_len)
+			status = -EIO;
+		if (status >= 0 && output->brick->o_fdsync) {
+			int sync_status = sync_file(output);
+
+			if (sync_status < 0)
+				status = sync_status;
+		}
 		if (status >= 0) {
-			if (barrier || output->brick->o_fdsync)
-				sync_file(output);
 			mf_dirty_append(output->mf, DIRTY_COMPLETING,
 					mref->ref_pos + mref->ref_len);
 		}
 	}
 
+	/* A short read cannot satisfy the original mref. */
+	if (status >= 0 && status != mref->ref_len)
+		status = -EIO;
 	mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
 
 done:
