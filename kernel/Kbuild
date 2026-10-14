@@ -12,7 +12,7 @@ ifeq ($(abs_objtree),.)
 abs_objtree = $(abs_srctree)
 endif
 
-KBUILD_CFLAGS += -fdelete-null-pointer-checks
+# Keep the kernel's null-pointer and optimization policy.
 
 # remove_this
 # The following is 1&1 specific. Don't use anywhere else.
@@ -70,7 +70,7 @@ mars-objs :=				\
 
 ifdef CONFIG_DEBUG_KERNEL
 
-KBUILD_CFLAGS += -fno-inline-functions -fno-inline-small-functions -fno-inline-functions-called-once
+ccflags-y += $(call cc-option,-fno-inline-functions)
 
 # This is currently not really used.
 # We urge people to maintain it by including it in debug versions
