@@ -2904,7 +2904,9 @@ void touch_systemd_trigger(const char *filename)
 	struct lamport_time now;
 	int len;
 	loff_t dummy_pos = 0;
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 	char str[32];
 
 	get_real_lamport(&now);
@@ -2912,13 +2914,15 @@ void touch_systemd_trigger(const char *filename)
 	len = snprintf(str, sizeof(str),
 		       "%lld.%09ld\n",
 		       (s64)now.tv_sec, now.tv_nsec);
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
-	f = filp_open(filename, flags, prot);
+#endif
+	f = mars_filp_open(filename, flags, prot);
 	if (!f || IS_ERR(f)) {
 		/* remove any .deleted symlink and try again */
 		mars_unlink(filename);
-		f = filp_open(filename, flags, prot);
+		f = mars_filp_open(filename, flags, prot);
 	}
 	if (f && !IS_ERR(f)) {
 #ifdef MARS_HAS_KERNEL_READ
@@ -2928,7 +2932,9 @@ void touch_systemd_trigger(const char *filename)
 #endif
 		filp_close(f, NULL);
 	}
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 }
 
 static
@@ -4253,12 +4259,18 @@ void _create_new_logfile(const char *path)
 	struct file *f;
 	const int flags = O_RDWR | O_CREAT | O_EXCL;
 	const int prot = 0600;
+#ifndef MARS_MODERN_KERNEL
 	mm_segment_t oldfs;
+#endif
 
+#ifndef MARS_MODERN_KERNEL
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
-	f = filp_open(path, flags, prot);
+#endif
+	f = mars_filp_open(path, flags, prot);
+#ifndef MARS_MODERN_KERNEL
 	set_fs(oldfs);
+#endif
 	if (IS_ERR(f)) {
 		int err = PTR_ERR(f);
 		if (err == -EEXIST) {

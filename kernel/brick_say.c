@@ -682,7 +682,7 @@ void try_open_file(struct file **file, char *filename, bool creat)
 	if (creat)
 		flags |= O_CREAT;
 
-	*file = filp_open(filename, flags, prot);
+	*file = mars_filp_open(filename, flags, prot);
 	if (unlikely(IS_ERR(*file))) {
 		*file = NULL;
 	} else if ((mapping = (*file)->f_mapping)) {

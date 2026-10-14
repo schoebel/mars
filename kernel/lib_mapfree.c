@@ -230,7 +230,6 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 		int i;
 		int ra = 1;
 		int prot = 0600;
-		mm_segment_t oldfs;
 
 		mf = brick_zmem_alloc(sizeof(struct mapfree_info));
 		if (unlikely(!mf)) {
@@ -263,10 +262,7 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 		init_rwsem(&mf->mf_mutex);
 		mf->mf_max = -1;
 
-		oldfs = get_fs();
-		set_fs(KERNEL_DS);
-		mf->mf_filp = filp_open(name, flags, prot);
-		set_fs(oldfs);
+		mf->mf_filp = mars_filp_open(name, flags, prot);
 
 		MARS_DBG("file '%s' flags = %d prot = %d filp = %px\n", name, flags, prot, mf->mf_filp);
 
@@ -304,7 +300,10 @@ struct mapfree_info *mapfree_get(const char *name, int flags, int *error)
 		}
 
 		if (S_ISBLK(inode->i_mode)) {
-#ifdef MARS_HAS_BDI_GET
+#ifdef MARS_MODERN_KERNEL
+			/* Readahead is per open file; do not alter the shared disk. */
+			mf->mf_filp->f_ra.ra_pages = ra;
+#elif defined(MARS_HAS_BDI_GET)
 			struct backing_dev_info *bdi =
 			  I_BDEV(inode)->bd_bdi;
 			MARS_INF("changing blkdev readahead from %lu to %d\n",
