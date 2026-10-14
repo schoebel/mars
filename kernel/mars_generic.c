@@ -62,7 +62,7 @@ char *my_id(void)
 		//down_read(&uts_sem); // FIXME: this is currently not EXPORTed from the kernel!
 		u = utsname();
 		if (u) {
-			strncpy(id, u->nodename, sizeof(id));
+			snprintf(id, sizeof(id), "%s", u->nodename);
 			id_len = strlen(id);
 		}
 		//up_read(&uts_sem);

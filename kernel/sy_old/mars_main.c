@@ -1306,7 +1306,7 @@ static int _parse_args(struct mars_dent *dent, char *str, int count)
 				 i, dent->d_args);
 		
 		tmp = brick_string_alloc(len + 1);
-		strncpy(tmp, str, len);
+		memcpy(tmp, str, len);
 		tmp[len] = '\0';
 		brick_string_free(dent->d_argv[i]);
 		dent->d_argv[i] = tmp;
@@ -1870,7 +1870,7 @@ void _recover_versionlink(struct mars_rotate *rot,
 		.inf_log_pos = end_pos,
 		.inf_is_replaying = false,
 	};
-	strncpy(inf.inf_host, host, sizeof(inf.inf_host));
+	snprintf(inf.inf_host, sizeof(inf.inf_host), "%s", host);
 
 	MARS_DBG("sequence = %d end_pos = %lld\n",
 		 sequence, end_pos);
@@ -1894,7 +1894,7 @@ void _make_new_replaylink(struct mars_rotate *rot, char *new_host, int new_seque
 	};
 	int code = MARS_TRIGGER_LOCAL;
 
-	strncpy(inf.inf_host, new_host, sizeof(inf.inf_host));
+	snprintf(inf.inf_host, sizeof(inf.inf_host), "%s", new_host);
 
 	MARS_DBG("new_host = '%s' new_sequence = %d end_pos = %lld\n", new_host, new_sequence, end_pos);
 
@@ -5436,7 +5436,7 @@ void _init_trans_input(struct trans_logger_input *trans_input,
 
 	memset(&trans_input->inf, 0, sizeof(trans_input->inf));
 
-	strncpy(trans_input->inf.inf_host, log_dent->d_rest, sizeof(trans_input->inf.inf_host));
+	snprintf(trans_input->inf.inf_host, sizeof(trans_input->inf.inf_host), "%s", log_dent->d_rest);
 	trans_input->inf.inf_index = input_nr;
 	trans_input->inf.inf_sequence = log_dent->d_serial;
 	trans_input->inf.inf_private = rot;
