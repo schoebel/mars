@@ -14,3 +14,8 @@ kernel/mars_config.h
 *.bak
 *alternate*.conf
 *internal*.conf
+
+# Out-of-tree kernel build output
+Module.symvers
+*.mod
+__pycache__/
