@@ -109,7 +109,7 @@ void msleep_backoff(int *ms);
  * be a security risk
  * (c.f. upstream kernel commit a3ca86aea507904148870946d599e07a340b39bf)
  */
-extern inline
+static inline
 void *__mark_ptr_nonnull(void *_ptr)
 {
 	char *ptr = _ptr;

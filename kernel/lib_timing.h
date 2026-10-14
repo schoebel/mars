@@ -162,7 +162,7 @@ bool banning_is_hit(struct banning *ban)
 	  lamport_time_to_ns(&ban->ban_last_hit);
 }
 
-extern inline
+static inline
 void banning_reset(struct banning *ban)
 {
 	memset(&ban->ban_last_hit, 0, sizeof(ban->ban_last_hit));
