@@ -3302,7 +3302,7 @@ char *_backskip_replace(int line, const char *path, char delim, bool insert, con
 	va_end(args);
 
 	if (insert) {
-		strncpy(res + pos + plus, path + pos + 1, total_len - pos - plus);
+		memcpy(res + pos + plus, path + pos + 1, total_len - pos - plus);
 	}
 	return res;
 }

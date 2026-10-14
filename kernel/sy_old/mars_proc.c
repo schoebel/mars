@@ -239,7 +239,7 @@ int trigger_answer(void)
 			answer = tmp;
 	}
 
-	strncpy(trigger_buffer, answer, sizeof(trigger_buffer));
+	snprintf(trigger_buffer, sizeof(trigger_buffer), "%s", answer);
 
 	brick_string_free(tmp);
 	return 0;

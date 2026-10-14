@@ -176,12 +176,13 @@ extern void _brick_mem_free(void *data, int line);
 
 #define brick_strndup(_orig_,_len_)					\
 	({								\
-		char *_res_ = _brick_string_alloc((_len_) + 1, __LINE__); \
+		int _safe_len_ = strnlen((_orig_), (_len_));		\
+		char *_res_ = _brick_string_alloc((_safe_len_) + 1, __LINE__); \
 		_res_ = brick_mark_nonnull(_res_);			\
 		if (_res_) {						\
-			strncpy(_res_, (_orig_), (_len_));		\
+			memcpy(_res_, (_orig_), _safe_len_);		\
 			/* always null-terminate for safety */		\
-			_res_[_len_] = '\0';				\
+			_res_[_safe_len_] = '\0';			\
 		}							\
 		(char*)brick_mark_nonnull(_res_);			\
 		_res_;							\
@@ -193,7 +194,7 @@ extern void _brick_mem_free(void *data, int line);
 		char *_res_ = _brick_string_alloc((_len_) + 1, __LINE__); \
 		_res_ = brick_mark_nonnull(_res_);			\
 		if (_res_) {						\
-			strncpy(_res_, (_orig_), (_len_) + 1);		\
+			memcpy(_res_, (_orig_), (_len_) + 1);		\
 		}							\
 		(char*)brick_mark_nonnull(_res_);			\
 		_res_;							\
