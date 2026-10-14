@@ -57,11 +57,17 @@
 
 #include <linux/bio.h>
 #include <linux/major.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 2, 0)
 #include <linux/genhd.h>
+#endif
 #include <linux/blkdev.h>
 
 #include "mars.h"
 #include "mars_if.h"
+#ifdef MARS_MODERN_KERNEL
+#undef USE_CONGESTED_FN
+#endif
 
 //      remove_this
 
@@ -102,7 +108,20 @@ static int device_minor = 0;
 
 ///////////////////////// linux operations ////////////////////////
 
-#ifdef MARS_HAS_GENERIC_BLK_ACCOUNTING
+#ifdef MARS_MODERN_KERNEL
+int mars_io_acct;
+
+static void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
+{
+	biow->start_time = mars_io_acct ? bio_start_io_acct(biow->bio) : 0;
+}
+
+static void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
+{
+	if (biow->start_time)
+		bio_end_io_acct(biow->bio, biow->start_time);
+}
+#elif defined(MARS_HAS_GENERIC_BLK_ACCOUNTING)
 
 /* Disbaled by default, for saving overhead */
 int mars_io_acct = 0;
@@ -348,7 +367,7 @@ void _if_unplug(struct if_input *input)
 #endif
 }
 
-#ifndef BLK_MAX_REQUEST_COUNT
+#if !defined(BLK_MAX_REQUEST_COUNT) && !defined(MARS_MODERN_KERNEL)
 #ifdef USE_TIMER
 static
 void if_timer(unsigned long data)
@@ -419,7 +438,9 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	const bool unplug  = false;
 	const bool meta    = _flagged(REQ_META);
 	const bool discard = bio_op(bio) == REQ_OP_DISCARD;
-#ifdef MARS_HAS_BIO_THROTTLED
+#ifdef MARS_MODERN_KERNEL
+	const bool noidle = true;
+#elif defined(MARS_HAS_BIO_THROTTLED)
 	const bool noidle  = !bio_flagged(bio, BIO_THROTTLED);
 #else
 	const bool noidle  = _flagged(REQ_THROTTLED);
@@ -429,7 +450,11 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #error Cannot decode the bio flags
 #endif
 //      end_remove_this
-	const int  prio    = bio_prio(bio);
+#ifdef MARS_MODERN_KERNEL
+	const int prio = IOPRIO_PRIO_CLASS(bio->bi_ioprio);
+#else
+	const int prio = bio_prio(bio);
+#endif
 
 	/* Transform into MARS flags
 	 */
@@ -540,7 +565,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		goto done;
 	}
 
-	biow = brick_mem_alloc(sizeof(struct bio_wrapper));
+	biow = brick_zmem_alloc(sizeof(struct bio_wrapper));
 	CHECK_PTR(biow, err);
 	biow->bio = bio;
 	atomic_set(&biow->bi_comp_cnt, 0);
@@ -867,7 +892,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 #endif
 
-#ifndef BLK_MAX_REQUEST_COUNT
+#if !defined(BLK_MAX_REQUEST_COUNT) && !defined(MARS_MODERN_KERNEL)
 //static
 void if_unplug(struct request_queue *q)
 {
@@ -891,6 +916,7 @@ void if_unplug(struct request_queue *q)
 #endif
 
 //static
+#ifndef MARS_MODERN_KERNEL
 int mars_congested(void *data, int bdi_bits)
 {
 	struct if_input *input = data;
@@ -928,6 +954,7 @@ int mars_congested(void *data, int bdi_bits)
  done:
 	return ret;
 }
+#endif
 
 //      remove_this
 #ifdef MARS_HAS_MERGE_BVEC
@@ -973,10 +1000,14 @@ void if_set_capacity(struct if_input *input, loff_t capacity)
 	CHECK_PTR(input->disk->disk_name, done);
 	MARS_INF("new capacity of '%s': %lld bytes\n", input->disk->disk_name, capacity);
 	input->capacity = capacity;
+#ifdef MARS_MODERN_KERNEL
+	set_capacity_and_notify(input->disk, capacity >> 9);
+#else
 	set_capacity(input->disk, capacity >> 9);
 	if (likely(input->bdev && input->bdev->bd_inode)) {
 		i_size_write(input->bdev->bd_inode, capacity);
 	}
+#endif
 done:;
 }
 
@@ -1037,6 +1068,33 @@ static int if_switch(struct if_brick *brick)
 		}
 
 		status = -ENOMEM;
+#ifdef MARS_MODERN_KERNEL
+		{
+			/* Every completed write is durable; advertise no write cache.
+			 * Discard/write-zeroes are unsupported and remain unadvertised.
+			 */
+			struct queue_limits lim = {
+				.logical_block_size = max(512, brick->info.tf_min_size),
+				.physical_block_size = max(512, brick->info.tf_align),
+				.max_hw_sectors = MARS_MAX_SEGMENT_SIZE >> 9,
+				.max_segments = 1,
+				.max_segment_size = MARS_MAX_SEGMENT_SIZE,
+				.seg_boundary_mask = PAGE_SIZE - 1,
+				.features = BLK_FEAT_SYNCHRONOUS | BLK_FEAT_IO_STAT,
+			};
+
+			disk = blk_alloc_disk(&lim, NUMA_NO_NODE);
+			if (IS_ERR(disk)) {
+				status = PTR_ERR(disk);
+				goto is_down;
+			}
+		}
+		q = disk->queue;
+		q->queuedata = input;
+		input->q = q;
+		disk->minors = 1;
+		disk->flags |= GENHD_FL_NO_PART;
+#else
 		q = blk_alloc_queue(GFP_MARS);
 		if (!q) {
 			MARS_ERR("cannot allocate device request queue\n");
@@ -1051,6 +1109,7 @@ static int if_switch(struct if_brick *brick)
 			goto is_down;
 		}
 
+#endif
 		minor = device_minor++; //TODO: protect against races (e.g. atomic_t)
 		set_disk_ro(disk, true);
 
@@ -1066,6 +1125,7 @@ static int if_switch(struct if_brick *brick)
 		MARS_DBG("created device name %s, capacity=%lld\n", disk->disk_name, capacity);
 		if_set_capacity(input, capacity);
 		
+#ifndef MARS_MODERN_KERNEL
 		blk_queue_make_request(q, if_make_request);
 #ifdef USE_MAX_SECTORS
 #ifdef MAX_SEGMENT_SIZE
@@ -1120,7 +1180,7 @@ static int if_switch(struct if_brick *brick)
 #endif
 		MARS_DBG("blk_queue_bounce_limit()\n");
 		blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
-#ifndef BLK_MAX_REQUEST_COUNT
+#if !defined(BLK_MAX_REQUEST_COUNT) && !defined(MARS_MODERN_KERNEL)
 		MARS_DBG("unplug_fn\n");
 		q->unplug_fn = if_unplug;
 #endif
@@ -1175,10 +1235,24 @@ static int if_switch(struct if_brick *brick)
 #endif
 
 //      end_remove_this
+#else
+		input->bdev = disk->part0;
+#endif
 		q->nr_requests = if_nr_requests;
 		// point of no return
 		MARS_DBG("add_disk()\n");
+#ifdef MARS_MODERN_KERNEL
+		status = add_disk(disk);
+		if (status) {
+			input->bdev = NULL;
+			input->disk = NULL;
+			input->q = NULL;
+			put_disk(disk);
+			goto is_down;
+		}
+#else
 		add_disk(disk);
+#endif
 #if 1
 		set_disk_ro(disk, false);
 #else
@@ -1225,6 +1299,7 @@ static int if_switch(struct if_brick *brick)
 		del_gendisk(disk);
 		/* There might be subtle races */
 		check_io_done(brick, true);
+#ifndef MARS_MODERN_KERNEL
 		if (input->bdev) {
 #if defined(USE_CONGESTED_FN) && defined(MARS_HAS_BDI_GET)
 			struct backing_dev_info *bdi;
@@ -1246,11 +1321,15 @@ static int if_switch(struct if_brick *brick)
 			bdput(input->bdev);
 			input->bdev = NULL;
 		}
+#else
+		input->bdev = NULL;
+#endif
 		MARS_DBG("calling put_disk()\n");
 		put_disk(disk);
 		input->disk = NULL;
 		smp_mb();
 		check_io_done(brick, true);
+#ifndef MARS_MODERN_KERNEL
 		q = input->q;
 		if (q) {
 #if defined(USE_CONGESTED_FN) && !defined(MARS_HAS_BDI_GET)
@@ -1267,6 +1346,9 @@ static int if_switch(struct if_brick *brick)
 			blk_cleanup_queue(q);
 			input->q = NULL;
 		}
+#else
+		input->q = NULL;
+#endif
 		status = 0;
 	is_down:
 		mars_power_led_off((void*)brick, true);
@@ -1279,8 +1361,14 @@ done:
 
 //////////////// interface to the outer world (kernel) ///////////////
 
+#ifdef MARS_MODERN_KERNEL
+static int if_open(struct gendisk *disk, blk_mode_t mode)
+{
+	struct block_device *bdev = disk->part0;
+#else
 static int if_open(struct block_device *bdev, fmode_t mode)
 {
+#endif
 	struct if_input *input;
 	struct if_brick *brick;
 
@@ -1324,7 +1412,11 @@ void
 int
 #endif
 //      end_remove_this
+#ifdef MARS_MODERN_KERNEL
+if_release(struct gendisk *gd)
+#else
 if_release(struct gendisk *gd, fmode_t mode)
+#endif
 {
 	struct if_input *input = gd->private_data;
 	struct if_brick *brick = input->brick;
@@ -1350,7 +1442,24 @@ if_release(struct gendisk *gd, fmode_t mode)
 //      end_remove_this
 }
 
+#ifdef MARS_MODERN_KERNEL
+static void if_submit_bio(struct bio *bio)
+{
+	if (bio_op(bio) != REQ_OP_READ && bio_op(bio) != REQ_OP_WRITE) {
+		bio->bi_status = BLK_STS_NOTSUPP;
+		bio_endio(bio);
+		return;
+	}
+	bio = bio_split_to_limits(bio);
+	if (bio)
+		if_make_request(bdev_get_queue(bio->bi_bdev), bio);
+}
+#endif
+
 static const struct block_device_operations if_blkdev_ops = {
+#ifdef MARS_MODERN_KERNEL
+	.submit_bio = if_submit_bio,
+#endif
 	.owner =   THIS_MODULE,
 	.open =    if_open,
 	.release = if_release,
