@@ -44,7 +44,7 @@
 
 #include "mars_aio.h"
 
-#if !defined(MARS_HAS_PREPATCH_V2) && !defined(MARS_HAS_PREPATCH)
+#if !defined(MARS_MODERN_KERNEL) && !defined(MARS_HAS_PREPATCH_V2) && !defined(MARS_HAS_PREPATCH)
 #warning You are compiling without pre-patch, resulting in BAD IO PERFORMANCE
 #endif
 
