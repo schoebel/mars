@@ -1,5 +1,9 @@
 GPLed software AS IS, sponsored by 1&1 Internet AG (www.1und1.de).
 
+For isolated Linux 7.2/7.3 compatibility checks using QEMU microvm and
+direct kernel boot, see qemu/README. Those tests are independent of the
+older multi-host framework described below.
+
 The test suite is work in progress.
 
 The test suite was developed by Frank Liepold during his stay at 1&1.
