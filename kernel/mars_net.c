@@ -98,7 +98,12 @@ struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX] = {
 static
 void __setsockopt(struct socket *sock, int level, int optname, char *optval, int optsize)
 {
+#ifdef MARS_MODERN_KERNEL
+	int status = do_sock_setsockopt(sock, false, level, optname,
+				       KERNEL_SOCKPTR(optval), optsize);
+#else
 	int status = kernel_setsockopt(sock, level, optname, optval, optsize);
+#endif
 	if (status < 0) {
 		MARS_WRN("cannot set %d socket option %d to value %d, status = %d\n",
 			 level, optname, *(int*)optval, status);
@@ -279,7 +284,7 @@ int mars_create_socket(struct mars_socket *msock,
 
 	mb();
 	if (is_server) {
-		status = kernel_bind(sock, sockaddr, sizeof(*sockaddr));
+		status = kernel_bind(sock, (void *)sockaddr, sizeof(*sockaddr));
 		if (unlikely(status < 0)) {
 			MARS_WRN("#%d bind failed, status = %d\n", msock->s_debug_nr, status);
 			goto done;
@@ -290,7 +295,7 @@ int mars_create_socket(struct mars_socket *msock,
 		}
 	} else {
 		/* according to net/socket.c the correct spelling is O_NONBLOCK */
-		status = kernel_connect(sock, sockaddr, sizeof(*sockaddr), O_NONBLOCK);
+		status = kernel_connect(sock, (void *)sockaddr, sizeof(*sockaddr), O_NONBLOCK);
 		/* Treat non-blocking connects as successful.
 		 * Any potential errors will show up later during traffic.
 		 */
