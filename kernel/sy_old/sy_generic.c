@@ -854,7 +854,7 @@ char *mars_readlink(const char *newpath, struct lamport_time *stamp)
 		goto done_put;
 	}
 	if (!S_ISLNK(inode->i_mode)) {
-		MARS_WRN("'%s' is no symlink\n", newpath);
+		MARS_DBG("'%s' is no symlink\n", newpath);
 		status = -EINVAL;
 		goto done_put;
 	}
