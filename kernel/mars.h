@@ -613,7 +613,7 @@ extern int mars_crash_mode;
 extern int mars_hang_mode;
 extern void _crashme(int mode, bool do_sync);
 #else
-extern inline void _crashme(int mode, bool do_sync) {}
+static inline void _crashme(int mode, bool do_sync) {}
 #endif
 
 /////////////////////////////////////////////////////////////////////////

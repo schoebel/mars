@@ -71,7 +71,7 @@ struct rank_data {
  * value RKI_DUMMY.
  */
 
-extern inline
+static inline
 void ranking_start(struct rank_data rkd[], int rkd_count)
 {
 	int i;
@@ -84,7 +84,7 @@ extern void ranking_compute(struct rank_data *rkd, const struct rank_info rki[],
 
 /* This may be used to (exceptionally) add some extra salt...
  */
-extern inline
+static inline
 void ranking_add(struct rank_data *rkd, int y)
 {
 	rkd->rkd_tmp += y;
@@ -92,13 +92,13 @@ void ranking_add(struct rank_data *rkd, int y)
 
 /* This may be used to (exceptionally) override certain ranking values.
  */
-extern inline
+static inline
 void ranking_override(struct rank_data *rkd, int y)
 {
 	rkd->rkd_tmp = y;
 }
 
-extern inline
+static inline
 void ranking_stop(struct rank_data rkd[], int rkd_count)
 {
 	int i;
@@ -128,7 +128,7 @@ void ranking_stop(struct rank_data rkd[], int rkd_count)
 
 extern int ranking_select(struct rank_data rkd[], int rkd_count);
 
-extern inline
+static inline
 void ranking_select_done(struct rank_data rkd[], int winner, int win_points)
 {
 	if (winner >= 0) {
