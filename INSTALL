@@ -1,3 +1,39 @@
+Linux 7.2 and 7.3
+=================
+
+The default module configuration builds against Linux 7.2/7.3 without the
+historical kernel pre-patches. Use the matching, configured kernel headers
+and the compiler used to build that kernel. For example, for a Clang kernel:
+
+    make -C kernel KDIR=/lib/modules/7.2.9-2-cachyos/build LLVM=1 -j8
+
+For a GCC kernel, omit LLVM=1. The result is kernel/mars.ko. Build separately
+for each kernel release; clean before changing the target kernel:
+
+    make -C kernel KDIR=/lib/modules/7.2.9-2-cachyos/build clean
+    make -C kernel KDIR=/lib/modules/7.3.0-rc6-2-cachyos-rc/build LLVM=1 -j8
+
+Modern kernels use the SIO worker backend for regular files and transaction
+logs, with kernel_read/kernel_write and fsync. The old syscall-based kernel
+AIO backend is disabled on these kernels. Block-device backing storage still
+uses BIO. SIO may have different throughput and latency from the legacy AIO
+backend; performance has not been benchmarked by this compatibility port.
+
+The compatibility layer handles current VFS, socket, sysctl and block APIs,
+including the separate kernel-thread filesystem root introduced in 7.3.
+Use the default MARS configuration; the optional historic file logger
+(CONFIG_MARS_DEBUG_DEVEL_VIA_SAY) is not covered by this port's validation.
+Diagnostic messages are available through the kernel log.
+
+See test_suite/qemu/README for reproducible QEMU microvm tests using direct
+kernel boot. These tests build isolated module copies and use disposable
+virtual disks; they do not install or load MARS on the host.
+
+Legacy kernel installation
+==========================
+
+The following pre-patch instructions apply to the older kernel support path.
+
 You need the kernel sources for at least 2.6.32. Some elder versions
 may work, but we have not tested it.
 
