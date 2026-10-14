@@ -51,7 +51,10 @@
 #include <linux/string.h>
 
 #include <linux/major.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 2, 0)
 #include <linux/genhd.h>
+#endif
 #include <linux/blkdev.h>
 
 #include "strategy.h"
