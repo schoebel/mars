@@ -52,7 +52,7 @@
 #ifndef CONFIG_BLOCK
 #error CONFIG_BLOCK must be set
 #endif
-#ifndef CONFIG_PROC_SYSCTL
+#if !defined(CONFIG_PROC_SYSCTL) && !defined(CONFIG_SYSCTL)
 #error CONFIG_PROC_SYSCTL must be set
 #endif
 #ifndef CONFIG_HIGH_RES_TIMERS
