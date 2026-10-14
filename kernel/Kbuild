@@ -24,7 +24,7 @@ ifneq ($(KBUILD_EXTMOD),)
 # Therefore, it is unsafe. Use at your own risk!
 # It is ONLY used for out-of-tree builds.
 #
-extra-y	+= mars_config.h
+always-y += mars_config.h
 GEN_CONFIG_SCRIPT := $(src)/../scripts/gen_config.pl
 $(obj)/mars_config.h: $(obj)/buildtag.h
 $(obj)/mars_config.h: $(src)/Kconfig $(GEN_CONFIG_SCRIPT)
@@ -96,7 +96,11 @@ endif
 # In addition, the suffix -for-$KERNELRELEASE will be useful
 # for sysadmins having to manage a plethora of kernel versions.
 #
-extra-y	+= buildtag.h
+always-y += buildtag.h
+$(addprefix $(obj)/,$(mars-objs)): $(obj)/buildtag.h
+ifneq ($(KBUILD_EXTMOD),)
+$(addprefix $(obj)/,$(mars-objs)): $(obj)/mars_config.h
+endif
 $(obj)/buildtag.h: $(patsubst $(obj)/buildtag.h,,$(wildcard $(obj)/*.[ch]))
 $(obj)/buildtag.h: $(wildcard $(obj)/*/*.[ch])
 $(obj)/buildtag.h: $(wildcard $(abs_srctree)/*.[chsS])
