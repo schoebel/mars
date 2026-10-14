@@ -664,7 +664,7 @@ int handler_thread(void *data)
 		}
 		case CMD_CONNECT:
 		{
-			struct mars_brick *prev;
+			struct mars_brick *prev = NULL;
 			const char *path = cmd.cmd_str1;
 
 			status = -EINVAL;
