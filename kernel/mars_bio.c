@@ -202,7 +202,11 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 	MARS_IO("sector_offset = %d data = %px pos = %lld rest_len = %d page_offset = %d page_len = %d bvec_count = %d\n", sector_offset, data, pos, rest_len, page_offset, page_len, bvec_count);
 
  retry_bio_alloc:
+#ifdef MARS_MODERN_KERNEL
+	bio = bio_alloc(bdev, bvec_count, 0, GFP_MARS);
+#else
 	bio = bio_alloc(GFP_MARS, bvec_count);
+#endif
 	if (unlikely(!bio)) {
 		msleep_backoff(&ms);
 		goto retry_bio_alloc;
@@ -312,7 +316,7 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 
 	info->tf_align = 512;
 	info->tf_min_size = 512;
-	q = bdev_get_queue(inode->i_bdev);
+	q = bdev_get_queue(mars_file_bdev(brick->mf->mf_filp));
 	if (q) {
 		info->tf_align = queue_physical_block_size(q);
 		info->tf_min_size = queue_logical_block_size(q);
@@ -872,7 +876,7 @@ static int bio_switch(struct bio_brick *brick)
 				status = -EINVAL;
 				goto done;
 			}
-			if (unlikely(!S_ISBLK(inode->i_mode) || !inode->i_bdev)) {
+			if (unlikely(!S_ISBLK(inode->i_mode) || !mars_file_bdev(brick->mf->mf_filp))) {
 				MARS_ERR("sorry, '%s' is not a block device\n", path);
 				status = -ENODEV;
 				goto done;
@@ -880,14 +884,16 @@ static int bio_switch(struct bio_brick *brick)
 
 			mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 
-			q = bdev_get_queue(inode->i_bdev);
+			q = bdev_get_queue(mars_file_bdev(brick->mf->mf_filp));
 			if (unlikely(!q)) {
 				MARS_ERR("internal queue '%s' does not exist\n", path);
 				status = -EINVAL;
 				goto done;
 			}
 
-#ifdef MARS_HAS_BDI_GET
+#ifdef MARS_MODERN_KERNEL
+			brick->mf->mf_filp->f_ra.ra_pages = brick->ra_pages;
+#elif defined(MARS_HAS_BDI_GET)
 			bdi = I_BDEV(inode)->bd_bdi;
 			MARS_INF("'%s' ra_pages OLD=%lu NEW=%d\n", path,
 				 bdi->ra_pages, brick->ra_pages);
@@ -926,7 +932,7 @@ static int bio_switch(struct bio_brick *brick)
 			brick->submit_thread = brick_thread_create(bio_submit_thread, brick, "mars_bio_s%d", index);
 			status = -EBADR;
 			if (likely(brick->submit_thread)) {
-				brick->bdev = inode->i_bdev;
+				brick->bdev = mars_file_bdev(brick->mf->mf_filp);
 				index++;
 				/* wait until the submit thread is actually working */
 				while (!brick->running) {
