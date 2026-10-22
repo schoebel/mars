@@ -7044,6 +7044,12 @@ sub invalidate_res_phase5 {
   $force = 0; # this would be too dangerous
   log_purge_res(@_);
   err_purge_res(@_);
+  finish_links();
+  _wait_delete();
+  if (!detect_splitbrain($res, 0)) {
+    $force = 1;
+    log_purge_res(@_);
+  }
   return 0;
 }
 
