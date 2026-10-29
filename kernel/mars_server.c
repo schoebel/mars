@@ -1240,7 +1240,9 @@ static int port_thread(void *data)
 	struct server_cookie *cookie = data;
 	struct mars_socket *my_socket = cookie->server_socket;
 	struct mars_tcp_params *my_params = cookie->server_params;
+#if !defined(MARS_MODERN_KERNEL) && defined(CONFIG_MARS_DEBUG_DEVEL_VIA_SAY)
 	char *id = my_id();
+#endif
 	int shutdown_count = 0;
 	int status = 0;
 
