@@ -4,7 +4,9 @@
 #include <linux/namei.h>
 #include <linux/mount.h>
 #include <linux/slab.h>
+#ifdef MARS_MODERN_KERNEL
 #include <linux/delayed_call.h>
+#endif
 #include "compat.h"
 
 #ifdef MARS_MODERN_KERNEL
