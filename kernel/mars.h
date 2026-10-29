@@ -81,11 +81,17 @@
 #define _MARS_MSG(_class, _dump, _fmt, _args...)		\
 	brick_say(_class, _dump, "MARS", __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args)
 
-#if defined(MARS_MODERN_KERNEL) && !defined(CONFIG_MARS_DEBUG_DEVEL_VIA_SAY)
+#if defined(MARS_MODERN_KERNEL)
 #define MARS_FAT(_fmt, _args...) pr_crit("mars: %s: " _fmt, __func__, ##_args)
+#if defined(CONFIG_MARS_DEBUG_DEVEL_VIA_SAY)
 #define MARS_ERR(_fmt, _args...) pr_err("mars: %s: " _fmt, __func__, ##_args)
 #define MARS_WRN(_fmt, _args...) pr_warn("mars: %s: " _fmt, __func__, ##_args)
 #define MARS_INF(_fmt, _args...) pr_info_ratelimited("mars: %s: " _fmt, __func__, ##_args)
+#else
+#define MARS_ERR(_fmt, _args...) { /* empty */ }
+#define MARS_WRN(_fmt, _args...) { /* empty */ }
+#define MARS_INF(_fmt, _args...) { /* empty */ }
+#endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
 #else
 #define MARS_FAT(_fmt, _args...) _MARS_MSG(SAY_FATAL, true,  _fmt, ##_args)
 #define MARS_ERR(_fmt, _args...) _MARS_MSG(SAY_ERROR, false, _fmt, ##_args)
@@ -95,15 +101,23 @@
 #endif
 
 #ifdef MARS_DEBUGGING
-#define MARS_DBG(_fmt, _args...) _MARS_MSG(SAY_DEBUG, false, _fmt, ##_args)
+#if defined(MARS_MODERN_KERNEL)
+#define MARS_DBG(_fmt, _args...) pr_debug("mars: %s: " _fmt, __func__, ##_args)
 #else
-#define MARS_DBG(_args...) /**/
+#define MARS_DBG(_fmt, _args...) _MARS_MSG(SAY_DEBUG, false, _fmt, ##_args)
+#endif
+#else
+#define MARS_DBG(_args...) { /* empty */ }
 #endif
 
 #ifdef IO_DEBUGGING
-#define MARS_IO(_fmt, _args...)  _MARS_MSG(SAY_DEBUG, false, _fmt, ##_args)
+#if defined(MARS_MODERN_KERNEL)
+#define MARS_DBG(_fmt, _args...) pr_debug("mars: %s: " _fmt, __func__, ##_args)
 #else
-#define MARS_IO(_args...) /*empty*/
+#define MARS_IO(_fmt, _args...)  _MARS_MSG(SAY_DEBUG, false, _fmt, ##_args)
+#endif
+#else
+#define MARS_IO(_args...) { /* empty */ }
 #endif
 
 #ifdef STAT_DEBUGGING
