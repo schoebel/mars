@@ -266,6 +266,7 @@ int tmp_nr_affected_resources;
 int nr_prosumer_resources;
 int tmp_nr_prosumer_resources;
 
+static
 void update_brick_mem_freelist_max(void)
 {
 #ifdef CONFIG_MARS_MEM_MAX_RESERVE
@@ -2458,6 +2459,7 @@ int start_peer(struct mars_peerinfo *peer)
 static
 void peer_destruct(void *_peer);
 
+static
 bool _push_info(const char *peer_name,
 		const char *peer_ip,
 		const char *src,
@@ -3786,6 +3788,7 @@ bool is_shutdown(void)
 
 // helpers for worker functions
 
+static
 void _activate_peer(struct mars_dent *peer_dent,
 		    const char *peer_name,
 		    const char *peer_ip,
@@ -3829,6 +3832,7 @@ void _activate_peer(struct mars_dent *peer_dent,
 	start_peer(peer);
 }
 
+static
 void activate_peer(const char *peer_name,
 		   const char *peer_ip,
 		   const char *rebase_dir,
