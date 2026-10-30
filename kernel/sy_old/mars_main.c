@@ -598,6 +598,9 @@ void __make_alivelink(const char *name, loff_t val, bool lazy)
 	__make_alivelink(name,val,false)
 
 static
+loff_t compute_cluster_filling(loff_t permille);
+
+static
 int compute_emergency_mode(void)
 {
 	loff_t rest;
@@ -677,8 +680,6 @@ int compute_emergency_mode(void)
 		}
 	}
 
-#define COMPUTE_CLUSTER_FILLING
-#ifdef COMPUTE_CLUSTER_FILLING
 	{
 		loff_t compute_cluster_filling(loff_t permille);
 		loff_t cluster_permille = compute_cluster_filling(permille);
@@ -688,7 +689,6 @@ int compute_emergency_mode(void)
 #endif
 		__make_alivelink("cluster_permille", cluster_permille, true);
 	}
-#endif
 
 	if (unlikely(present < global_free_space_0)) {
 		return -ENOSPC;
@@ -2267,7 +2267,7 @@ struct mars_peerinfo {
 	bool silent;
 };
 
-#ifdef COMPUTE_CLUSTER_FILLING
+static
 loff_t compute_cluster_filling(loff_t permille)
 {
 	struct list_head *tmp;
@@ -2294,7 +2294,6 @@ loff_t compute_cluster_filling(loff_t permille)
 	up_read(&peer_list_lock);
 	return cluster_permille;
 }
-#endif
 
 static
 char *make_peer_dir_list(const char *mypeer)
