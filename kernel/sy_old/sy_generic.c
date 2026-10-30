@@ -952,6 +952,7 @@ int mars_chmod(const char *path, mode_t mode)
 }
 EXPORT_SYMBOL_GPL(mars_chmod);
 
+static
 loff_t _compute_space(struct kstatfs *kstatfs, loff_t raw_val)
 {
 	u64 fsize = kstatfs->f_frsize;
@@ -1217,7 +1218,7 @@ int ordered_symlink(const char *oldpath,
 /* This part is historic.
  * To disappear in the long term.
  */
-#ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
+#if defined(CONFIG_MARS_DEBUG_DEVEL_VIA_SAY) && !defined(MARS_MODERN_KERNEL)
 
 // thread binding
 
@@ -1257,11 +1258,10 @@ void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
 	}
  fatal: ;
 }
-EXPORT_SYMBOL_GPL(bind_to_dent);
 
 #else /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
 
-#define bind_to_dent(_args...)		/*empty*/
+#define bind_to_dent(_args...)	{ /* empty */ }
 
 #endif /* CONFIG_MARS_DEBUG_DEVEL_VIA_SAY */
 
@@ -3631,14 +3631,6 @@ done:
 	return brick;
 }
 EXPORT_SYMBOL_GPL(make_brick_all);
-
-/////////////////////////////////////////////////////////////////////////
-
-// generic symlink updates
-
-void update_client_links(struct client_brick *brick)
-{
-}
 
 /////////////////////////////////////////////////////////////////////////
 
