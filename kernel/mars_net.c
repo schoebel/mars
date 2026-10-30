@@ -1090,7 +1090,9 @@ int _desc_send_item(struct mars_socket *msock, const void *data, const struct ma
 		if (unlikely(status < 0))
 			return status;
 		/* fallthrough */
+		goto no_warn; /* aovid silly compiler warning */
 	default:
+	no_warn:
 		if (likely(len > 0)) {
 			status = mars_send_raw(msock, item, len, cork);
 			if (unlikely(status < 0))
@@ -1180,7 +1182,9 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 		}
 
 		/* fallthrough */
+		goto no_warn; /* aovid silly compiler warning */
 	default:
+	no_warn:
 		if (likely(len > 0)) {
 			status = mars_recv_raw(msock, item, len, len);
 			if (unlikely(status < 0))
