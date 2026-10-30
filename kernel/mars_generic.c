@@ -35,6 +35,7 @@
 
 #include "mars.h"
 #include "mars_client.h"
+#include "sy_old/strategy.h"
 
 //////////////////////////////////////////////////////////////
 
