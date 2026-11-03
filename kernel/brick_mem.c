@@ -615,7 +615,8 @@ int brick_pre_reserve[BRICK_MAX_ORDER+1] = {};
  */
 static spinlock_t freelist_lock[BRICK_MAX_ORDER+1];
 static void *brick_freelist[BRICK_MAX_ORDER+1] = {};
-static atomic_t freelist_count[BRICK_MAX_ORDER+1] = {};
+atomic_t freelist_count[BRICK_MAX_ORDER+1] = {};
+EXPORT_SYMBOL_GPL(freelist_count);
 
 static
 void *_get_free(int order, int cline)

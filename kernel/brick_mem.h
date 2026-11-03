@@ -248,6 +248,7 @@ extern int brick_allow_freelist;
 extern int brick_prefer_freelist;
 
 extern int brick_pre_reserve[BRICK_MAX_ORDER+1];
+extern atomic_t freelist_count[BRICK_MAX_ORDER+1];
 extern int brick_mem_freelist_max[BRICK_MAX_ORDER+1];
 extern int brick_mem_alloc_count[BRICK_MAX_ORDER+1];
 extern int brick_mem_alloc_max[BRICK_MAX_ORDER+1];
