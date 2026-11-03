@@ -139,6 +139,14 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183t
+	* marsadm: fix "invalidate" corner case, leaving over
+	  remmains, reporting a split brain.
+	* marsadm: remove historic systemd interface.
+	  AFAIC no longer in use anywhere.
+	* doc: remove the corresponding sections from
+	  mars-user-manual.pdf
+
 mars0.1astable183s
 	* Adapt to kernel 7.2.x, via a single new option
 	  CONFIG_MARS_MODERN_KERNEL.
@@ -166,7 +174,7 @@ mars0.1astable183q
 	* Minor fix: rare race could lead to hanging rmmod.
 
 mars0.1astable183p
-	* safeguard null-terminattion of internel strings
+	* safeguard null-termination of internel strings
 	  at some corner cases. Found and contributed by
 	  Alessandro Bolletta. Many thanks!
 	* marsadm: fix racy hang at handover
