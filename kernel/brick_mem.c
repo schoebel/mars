@@ -605,7 +605,7 @@ void __brick_block_free(void *data, int order, int cline)
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
 int brick_allow_freelist = 1;
-int brick_prefer_freelist = 1;
+int brick_prefer_freelist = 0;
 
 int brick_pre_reserve[BRICK_MAX_ORDER+1] = {};
 
@@ -934,6 +934,7 @@ void _brick_block_free(void *data, int len, int cline)
 	}
 #endif /*  BRICK_DEBUG_MEM */
 #ifdef CONFIG_MARS_MEM_PREALLOC
+	/* only higher-order pages should be recorded */
 	if (order > 0 && brick_allow_freelist &&
 	    (brick_prefer_freelist ||
 	     atomic_read(&freelist_count[order]) <= brick_mem_freelist_max[order])) {
