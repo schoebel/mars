@@ -719,17 +719,20 @@ int brick_mem_reserve(void)
 		int delta;
 		int i;
 
-		brick_mem_freelist_max[order] += pre_max;
-		brick_pre_reserve[order] = 0;
+		if (pre_max > brick_mem_freelist_max[order])
+			brick_mem_freelist_max[order] = pre_max;
 
-		delta = brick_mem_freelist_max[order] - atomic_read(&freelist_count[order]);
-		if (delta >= 0) {
+		delta = brick_mem_freelist_max[order]
+			- atomic_read(&_alloc_count[order])
+			- atomic_read(&freelist_count[order]);
+		if (delta > 0) {
 			for (i = 0; i < delta; i++) {
 				void *data = __brick_block_alloc(GFP_KERNEL, order, __LINE__);
 
 				_put_free(data, order);
 			}
-		} else {
+		} else if (delta < 0) {
+			/* now this can only happen via /proc */
 			for (i = 0; i < -delta; i++) {
 				void *data = _get_free(order, __LINE__);
 				if (likely(data)) {
@@ -766,8 +769,9 @@ void set_brick_mem_freelist_max(int max, int order)
 
 void *_brick_block_alloc(loff_t pos, int len, int line)
 {
-	void *data;
+	void *data = NULL;
 #ifdef CONFIG_MARS_MEM_PREALLOC
+	int delta;
 	int count;
 #endif
 #ifdef BRICK_DEBUG_MEM
@@ -796,6 +800,7 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	count = atomic_add_return(1, &_alloc_count[order]);
 	brick_mem_alloc_count[order] = count;
+	count += atomic_read(&freelist_count[order]);
 	if (count > brick_mem_alloc_max[order])
 		brick_mem_alloc_max[order] = count;
 #endif
@@ -817,7 +822,10 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 #endif
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
-	data = _get_free(order, line);
+	delta = brick_mem_freelist_max[order] - count;
+	if (delta > 0) {
+		data = _get_free(order, line);
+	}
 	if (!data)
 #endif
 	{

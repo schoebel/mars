@@ -269,19 +269,19 @@ void update_brick_mem_freelist_max(void)
 	int order;
 
 	for (order = 0; order <= BRICK_MAX_ORDER; order++) {
-		int max = 0;
+		int new_max = 0;
 		int old_max = brick_mem_freelist_max[order];
 
 		if (order == MARS_MEMRESERVE_ORDER) {
-			max = nr_affected_resources + nr_prosumer_resources;
-			if (max > expected_resources)
-				expected_resources = max;
-			else if (max < expected_resources)
-				max = expected_resources;
-			max *= MEMRESERVE_FACTOR_5;
+			new_max = nr_affected_resources + nr_prosumer_resources;
+			if (new_max > expected_resources)
+				expected_resources = new_max;
+			else if (new_max < expected_resources)
+				new_max = expected_resources;
+			new_max *= MEMRESERVE_FACTOR_5;
 		}
-		set_brick_mem_freelist_max(max, order);
-		if (max <= old_max)
+		set_brick_mem_freelist_max(new_max, order);
+		if (new_max <= old_max)
 			continue;
 		brick_mem_reserve();
 	}
