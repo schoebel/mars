@@ -649,7 +649,7 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("mem_prefer_freelist",  brick_prefer_freelist,  0600),
 	VEC_INT_ENTRY("mem_freelist_max", brick_mem_freelist_max,  0600, BRICK_MAX_ORDER+1),
 	VEC_INT_ENTRY("mem_alloc_count",  brick_mem_alloc_count,  0400, BRICK_MAX_ORDER+1),
-	VEC_INT_ENTRY("mem_alloc_max",    brick_mem_alloc_count,  0600, BRICK_MAX_ORDER+1),
+	VEC_INT_ENTRY("mem_alloc_max",    brick_mem_alloc_max,    0600, BRICK_MAX_ORDER+1),
 #endif
 	INT_ENTRY("expected_resources",   expected_resources,     0600),
 	INT_ENTRY("nr_affected_resources", nr_affected_resources,  0400),
