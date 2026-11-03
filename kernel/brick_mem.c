@@ -715,21 +715,22 @@ int brick_mem_reserve(void)
 	int status = 0;
 
 	for (order = BRICK_MAX_ORDER; order >= 0; order--) {
-		int max = brick_pre_reserve[order];
+		int pre_max = brick_pre_reserve[order];
+		int delta;
 		int i;
 
-		brick_mem_freelist_max[order] += max;
+		brick_mem_freelist_max[order] += pre_max;
 		brick_pre_reserve[order] = 0;
 
-		max = brick_mem_freelist_max[order] - atomic_read(&freelist_count[order]);
-		if (max >= 0) {
-			for (i = 0; i < max; i++) {
+		delta = brick_mem_freelist_max[order] - atomic_read(&freelist_count[order]);
+		if (delta >= 0) {
+			for (i = 0; i < delta; i++) {
 				void *data = __brick_block_alloc(GFP_KERNEL, order, __LINE__);
 
 				_put_free(data, order);
 			}
 		} else {
-			for (i = 0; i < -max; i++) {
+			for (i = 0; i < -delta; i++) {
 				void *data = _get_free(order, __LINE__);
 				if (likely(data)) {
 					__brick_block_free(data, order, __LINE__);
@@ -749,12 +750,12 @@ int brick_mem_reserve(void)
 EXPORT_SYMBOL_GPL(brick_mem_reserve);
 
 #ifdef CONFIG_MARS_MEM_MAX_RESERVE
-void set_brick_mem_freelist_max(int max, int order)
+void set_brick_mem_freelist_max(int next_max, int order)
 {
 	/* only for higher-order pages */
 	if (order > 0 && order <= BRICK_MAX_ORDER &&
-	    max > brick_mem_freelist_max[order]) {
-		brick_mem_freelist_max[order] = max;
+	    next_max > brick_mem_freelist_max[order]) {
+		brick_mem_freelist_max[order] = next_max;
 	}
 }
 #else

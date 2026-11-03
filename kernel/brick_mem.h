@@ -254,7 +254,7 @@ extern int brick_mem_alloc_count[BRICK_MAX_ORDER+1];
 extern int brick_mem_alloc_max[BRICK_MAX_ORDER+1];
 
 extern int brick_mem_reserve(void);
-extern void set_brick_mem_freelist_max(int max, int order);
+extern void set_brick_mem_freelist_max(int next_max, int order);
 
 #endif
 
