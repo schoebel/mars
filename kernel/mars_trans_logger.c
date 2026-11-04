@@ -2832,6 +2832,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 			exit_logst(logst);
 		}
 	}
+	barrier();
 	brick->terminated = true;
 	mars_trigger();
 }
@@ -3276,9 +3277,11 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	}
 
 	mars_limit_reset(brick->replay_limiter);
-	brick->terminated = true;
 	/* final result rporting */
 	brick->replay_code = replay_code;
+
+	barrier();
+	brick->terminated = true;
 
 	mars_trigger();
 
