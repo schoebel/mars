@@ -449,6 +449,7 @@ int brick_mem_alloc_max[BRICK_MAX_ORDER+1] = {};
 EXPORT_SYMBOL_GPL(brick_mem_alloc_max);
 int brick_mem_freelist_max[BRICK_MAX_ORDER+1] = {};
 EXPORT_SYMBOL_GPL(brick_mem_freelist_max);
+unsigned int reserve_started = 0;
 #endif
 
 #ifdef BRICK_DEBUG_MEM
@@ -719,6 +720,11 @@ int brick_mem_reserve(void)
 		int delta;
 		int i;
 
+		if (!reserve_started) {
+			brick_mem_alloc_max[order] = 0;
+			brick_mem_freelist_max[order] = 0;
+		}
+
 		if (pre_max > brick_mem_freelist_max[order])
 			brick_mem_freelist_max[order] = pre_max;
 
@@ -741,6 +747,7 @@ int brick_mem_reserve(void)
 			}
 		}
 	}
+	reserve_started = 1;
 	return status;
 }
 #else

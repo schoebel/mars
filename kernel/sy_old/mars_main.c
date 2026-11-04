@@ -8249,8 +8249,10 @@ static int __init init_main(void)
 	DO_INIT(mars_proc);
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
-	brick_pre_reserve[MARS_MEMRESERVE_ORDER] = 64;
 	brick_mem_reserve();
+	/* ignore temporary allocations caused by initial benchmarks */
+	memset(brick_mem_alloc_max, 0, sizeof(brick_mem_alloc_max));
+	memset(brick_mem_freelist_max, 0, sizeof(brick_mem_freelist_max));
 #endif
 
 	/* Ensure that the bare minimum is present, even when
