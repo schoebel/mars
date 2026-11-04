@@ -177,6 +177,7 @@ struct log_status {
 	int byte_code;
 	bool got;
 	bool do_free;
+	bool did_write_incr;
 	void *private;
 };
 

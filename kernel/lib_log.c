@@ -59,6 +59,11 @@ void exit_logst(struct log_status *logst)
 		MARS_DBG("putting log_mref\n");
 		GENERIC_INPUT_CALL_VOID(logst->input, mref_put, logst->log_mref);
 		logst->log_mref = NULL;
+		if (logst->did_write_incr) {
+			logst->did_write_incr = false;
+			atomic_dec(&logst->mref_flying);
+			atomic_dec(&global_mref_flying);
+		}
 	}
 }
 EXPORT_SYMBOL_GPL(exit_logst);
@@ -137,8 +142,11 @@ void log_write_endio(struct generic_callback *cb)
 
  done:
 	put_log_cb_info(cb_info);
-	atomic_dec(&logst->mref_flying);
-	atomic_dec(&global_mref_flying);
+	if (logst->did_write_incr) {
+		logst->did_write_incr = false;
+		atomic_dec(&logst->mref_flying);
+		atomic_dec(&global_mref_flying);
+	}
 	if (logst->signal_event && logst->signal_flag)
 		brick_wake_flagged(logst->signal_event,
 				   *(logst->signal_flag));
@@ -240,6 +248,9 @@ void log_flush(struct log_status *logst)
 	logst->count = 0;
 	logst->log_mref = NULL;
 
+	atomic_dec(&logst->mref_flying);
+	atomic_dec(&global_mref_flying);
+
 	put_log_cb_info(cb_info);
 }
 EXPORT_SYMBOL_GPL(log_flush);
@@ -264,6 +275,7 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 	if ((mref && total_len > mref->ref_len - logst->offset)
 	   || !cb_info || cb_info->nr_cb >= MARS_LOG_CB_MAX) {
 		log_flush(logst);
+		barrier();
 	}
 
 	mref = logst->log_mref;
@@ -348,6 +360,11 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 put:
 	GENERIC_INPUT_CALL_VOID(logst->input, mref_put, mref);
 	logst->log_mref = NULL;
+	if (logst->did_write_incr) {
+		logst->did_write_incr = false;
+		atomic_dec(&logst->mref_flying);
+		atomic_dec(&global_mref_flying);
+	}
 	return NULL;
 
 err_free:
@@ -1077,5 +1094,10 @@ int __init init_log_format(void)
 
 void exit_log_format(void)
 {
+	int check =  atomic_read(&global_mref_flying);
+
+	if (check) {
+		pr_err("atomic global_mref_flying=%d\n", check);
+	}
 	MARS_INF("exit_log_format()\n");
 }
