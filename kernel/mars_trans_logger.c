@@ -2824,6 +2824,14 @@ void trans_logger_log(struct trans_logger_brick *brick)
 	if (!atomic_dec_return(&logger_count))
 		mars_limit_reset(&global_writeback.limiter);
 
+	{
+		int i;
+		for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
+			struct trans_logger_input *input = brick->inputs[i];
+			struct log_status *logst = &input->logst;
+			exit_logst(logst);
+		}
+	}
 	brick->terminated = true;
 	mars_trigger();
 }
