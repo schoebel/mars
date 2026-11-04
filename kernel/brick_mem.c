@@ -164,19 +164,13 @@ static atomic_t mem_free[BRICK_DEBUG_MEM] = {};
 static int  mem_len[BRICK_DEBUG_MEM] = {};
 #define PLUS_SIZE (6 * sizeof(int))
 #else
-#define PLUS_SIZE (2 * sizeof(int))
+#define PLUS_SIZE 0
 #endif
 
 static inline
 void *__brick_mem_alloc(int len)
 {
 	void *res;
-	if (len >= PAGE_SIZE) {
-#ifdef BRICK_DEBUG_MEM
-		atomic_inc(&mem_redirect_alloc);
-#endif
-		res = _brick_block_alloc(0, len, 0);
-	} else {
 		int ms = 0;
 
 		for (;;) {
@@ -188,24 +182,16 @@ void *__brick_mem_alloc(int len)
 #ifdef BRICK_DEBUG_MEM
 		atomic_inc(&phys_mem_alloc);
 #endif
-	}
 	return res;
 }
 
 static inline
-void __brick_mem_free(void *data, int len)
+void __brick_mem_free(void *data)
 {
-	if (len >= PAGE_SIZE) {
-		_brick_block_free(data, len, 0);
-#ifdef BRICK_DEBUG_MEM
-		atomic_dec(&mem_redirect_alloc);
-#endif
-	} else {
 		kfree(data);
 #ifdef BRICK_DEBUG_MEM
 		atomic_dec(&phys_mem_alloc);
 #endif
-	}
 }
 
 void *_brick_mem_alloc(int len, int line)
@@ -232,9 +218,6 @@ void *_brick_mem_alloc(int len, int line)
 		INT_ACCESS(res, len + 1 * sizeof(int)) = MAGIC_MEND2;
 		atomic_inc(&mem_count[line]);
 		mem_len[line] = len;
-#else
-		INT_ACCESS(res, 0 * sizeof(int)) = len;
-		res += PLUS_SIZE;
 #endif
 	}
 	return res;
@@ -275,12 +258,9 @@ void _brick_mem_free(void *data, int cline)
 	INT_ACCESS(data, len) = 0xffffffff;
 	atomic_dec(&mem_count[line]);
 	atomic_inc(&mem_free[line]);
-#else
-	void *test = data - PLUS_SIZE;
-	int len   = INT_ACCESS(test, 0 * sizeof(int));
-#endif
 	data = test;
-	__brick_mem_free(data, len + PLUS_SIZE);
+#endif
+	__brick_mem_free(data);
 }
 EXPORT_SYMBOL_GPL(_brick_mem_free);
 
