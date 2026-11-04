@@ -577,6 +577,13 @@ restart:
 			}
 		}
 
+
+#ifdef CONFIG_MARS_MEM_MAX_RESERVE
+		/* safeguard only (should not happen) */
+		while (atomic_read(&logst->mref_read_flying) > 5) {
+			brick_msleep(50);
+		}
+#endif
 		this_len = logst->end_pos - logst->log_pos;
 		if (this_len > logst->chunk_size) {
 			this_len = logst->chunk_size;
