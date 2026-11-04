@@ -54,6 +54,11 @@ void exit_logst(struct log_status *logst)
 		MARS_DBG("putting read_mref\n");
 		GENERIC_INPUT_CALL_VOID(logst->input, mref_put, logst->read_mref);
 		logst->read_mref = NULL;
+		if (logst->did_read_incr) {
+			logst->did_read_incr = false;
+			atomic_dec(&logst->mref_read_flying);
+			atomic_dec(&global_mref_flying);
+		}
 	}
 	if (logst->log_mref) {
 		MARS_DBG("putting log_mref\n");
@@ -565,6 +570,11 @@ restart:
 			logst->read_mref = NULL;
 			logst->log_pos += logst->offset;
 			logst->offset = 0;
+			if (logst->did_read_incr) {
+				logst->did_read_incr = false;
+				atomic_dec(&logst->mref_read_flying);
+				atomic_dec(&global_mref_flying);
+			}
 		}
 
 		this_len = logst->end_pos - logst->log_pos;
@@ -602,6 +612,12 @@ restart:
 		logst->offset = 0;
 		logst->got = false;
 		logst->do_free = false;
+
+		if (!logst->did_read_incr) {
+			logst->did_read_incr = true;
+			atomic_inc(&logst->mref_read_flying);
+			atomic_inc(&global_mref_flying);
+		}
 
 		GENERIC_INPUT_CALL_VOID(logst->input, mref_io, mref);
 
@@ -665,6 +681,11 @@ done_put:
 		logst->read_mref = NULL;
 		logst->log_pos += logst->offset;
 		logst->offset = 0;
+		if (logst->did_read_incr) {
+			logst->did_read_incr = false;
+			atomic_dec(&logst->mref_read_flying);
+			atomic_dec(&global_mref_flying);
+		}
 	}
 	if (status == -EAGAIN && old_offset > 0) {
 		if (*dealloc) {

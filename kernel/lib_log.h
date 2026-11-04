@@ -161,6 +161,7 @@ struct log_status {
 	struct mars_input *input;
 	struct mars_brick *brick;
 	struct mars_info info;
+	atomic_t mref_read_flying;
 	int offset;
 	int validflag_offset;
 	int totallen_offset;
@@ -178,6 +179,7 @@ struct log_status {
 	bool got;
 	bool do_free;
 	bool did_write_incr;
+	bool did_read_incr;
 	void *private;
 };
 
