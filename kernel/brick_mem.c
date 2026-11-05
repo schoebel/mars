@@ -548,6 +548,19 @@ void *__brick_block_alloc(gfp_t gfp, int order, int cline)
 	}
 
 	if (likely(res)) {
+#ifdef CONFIG_MARS_MEM_PREALLOC
+		int count;
+
+		count = atomic_add_return(1, &_alloc_count[order]);
+		brick_mem_alloc_count[order] = count;
+		/* Dynamic increase of limits, in order to reduce
+		 * fragmentation on higher-order pages.
+		 * This comes on cost of higher memory usage.
+		 */
+		if (count > brick_mem_alloc_max[order]) {
+			brick_mem_alloc_max[order] = count;
+		}
+#endif
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
 		_new_block_info(res, PAGE_SIZE << order, cline);
 #endif
@@ -586,6 +599,13 @@ void __brick_block_free(void *data, int order, int cline)
 	__free_pages(virt_to_page((unsigned long)data), order);
 #else
 	vfree(data);
+#endif
+#ifdef CONFIG_MARS_MEM_PREALLOC
+	if (order <= BRICK_MAX_ORDER) {
+		int count = atomic_dec_return(&_alloc_count[order]);
+
+		brick_mem_alloc_count[order] = count;
+	}
 #endif
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
  err:
@@ -735,8 +755,7 @@ int brick_mem_reserve(void)
 			brick_mem_freelist_max[order] = pre_max;
 
 		delta = brick_mem_freelist_max[order]
-			- atomic_read(&_alloc_count[order])
-			- atomic_read(&freelist_count[order]);
+			- atomic_read(&_alloc_count[order]);
 		if (delta > 0) {
 			for (i = 0; i < delta; i++) {
 				void *data = __brick_block_alloc(GFP_KERNEL, order, __LINE__);
@@ -782,10 +801,6 @@ void set_brick_mem_freelist_max(int max, int order)
 void *_brick_block_alloc(loff_t pos, int len, int line)
 {
 	void *data = NULL;
-#ifdef CONFIG_MARS_MEM_PREALLOC
-	int delta;
-	int count;
-#endif
 #ifdef BRICK_DEBUG_MEM
 #ifdef BRICK_DEBUG_ORDER0
 	const int plus0 = PAGE_SIZE;
@@ -809,14 +824,6 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 	might_sleep();
 #endif
 
-#ifdef CONFIG_MARS_MEM_PREALLOC
-	count = atomic_add_return(1, &_alloc_count[order]);
-	brick_mem_alloc_count[order] = count;
-	count += atomic_read(&freelist_count[order]);
-	if (count > brick_mem_alloc_max[order])
-		brick_mem_alloc_max[order] = count;
-#endif
-
 #ifdef BRICK_DEBUG_MEM
 	atomic_inc(&op_count[order]);
 	// statistics
@@ -825,19 +832,7 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 #endif
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
-	/* Dynamic increase of limits, in order to reduce
-	 * fragmentation on higher-order pages.
-	 * This comes on cost of higher memory usage.
-	 */
-	if (count > brick_mem_freelist_max[order])
-		brick_mem_freelist_max[order] = count;
-#endif
-
-#ifdef CONFIG_MARS_MEM_PREALLOC
-	delta = brick_mem_freelist_max[order] - count;
-	if (delta > 0) {
-		data = _get_free(order, line);
-	}
+	data = _get_free(order, line);
 	if (!data)
 #endif
 	{
@@ -1000,10 +995,6 @@ void _brick_block_free(void *data, int len, int cline)
 		__brick_block_free(data, order, cline);
 	}
 	
-#ifdef CONFIG_MARS_MEM_PREALLOC
-	if (order <= BRICK_MAX_ORDER)
-	brick_mem_alloc_count[order] = atomic_dec_return(&_alloc_count[order]);
-#endif
 }
 EXPORT_SYMBOL_GPL(_brick_block_free);
 
