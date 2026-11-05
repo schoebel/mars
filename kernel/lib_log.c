@@ -593,6 +593,15 @@ restart:
 			goto done;
 		}
 
+#ifdef CONFIG_MARS_MEM_PREALLOC
+		/* Although other bricks like aio can allocate bigger chuchs, we
+		 * need ot avoid higher-order pages for highly loaded machines.
+		 * Th smallest size is PAGE_SIZE * 2 because of the logfile headers.
+		 */
+		if (this_len > PAGE_SIZE * 2) {
+			this_len = PAGE_SIZE * 2;
+		}
+#endif
 		mref = mars_alloc_mref(logst->brick);
 		if (unlikely(!mref)) {
 			MARS_ERR("no mref\n");
