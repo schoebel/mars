@@ -422,6 +422,18 @@ int len2order(int len)
 }
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
+
+#define FREEL_MAGIC_1 0x013959a132aedb8d
+#define FREEL_MAGIC_2 0xfd5ff2a15a4e063b
+
+struct freelist_header {
+	__u64	fr_magic1;
+	void	*fr_next;
+	__u32	fr_len;
+	__u32	fr_order;
+	__u64	fr_magic2;
+};
+
 static atomic_t _alloc_count[BRICK_MAX_ORDER+1] = {};
 int brick_mem_alloc_count[BRICK_MAX_ORDER+1] = {};
 EXPORT_SYMBOL_GPL(brick_mem_alloc_count);
@@ -587,6 +599,7 @@ void __brick_block_free(void *data, int order, int cline)
 }
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
+
 int brick_allow_freelist = 1;
 int brick_prefer_freelist = 0;
 
@@ -614,11 +627,15 @@ void *_get_free(int order, int cline)
 	traced_lock(&freelist_lock[order], flags);
 	data = brick_freelist[order];
 	if (likely(data)) {
-		void *next = *(void**)data;
-#ifdef BRICK_DEBUG_MEM // check for corruptions
-		long pattern = *(((long*)data)+1);
-		void *copy = *(((void**)data)+2);
-		if (unlikely(pattern != 0xf0f0f0f0f0f0f0f0 || next != copy)) { // found a corruption
+		struct freelist_header *h_data = data;
+		void *next = h_data->fr_next;
+
+		/* check for corruptions */
+		if (unlikely(
+		     h_data->fr_magic1 != FREEL_MAGIC_1 ||
+		     h_data->fr_len    != 0 ||
+		     h_data->fr_order  != order ||
+		     h_data->fr_magic2 != FREEL_MAGIC_2)) {
 			// prevent further trouble by leaving a memleak
 			brick_freelist[order] = NULL;
 			traced_unlock(&freelist_lock[order], flags);
@@ -626,7 +643,6 @@ void *_get_free(int order, int cline)
 				  cline, data, pattern, next, copy, atomic_read(&freelist_count[order]), order);
 			return NULL;
 		}
-#endif
 		brick_freelist[order] = next;
 		atomic_dec(&freelist_count[order]);
 	}
@@ -653,6 +669,7 @@ void *_get_free(int order, int cline)
 static
 void _put_free(void *data, int order)
 {
+	struct freelist_header *h_data;
 	void *next;
 	unsigned long flags;
 
@@ -666,10 +683,14 @@ void _put_free(void *data, int order)
 
 	traced_lock(&freelist_lock[order], flags);
 	next = brick_freelist[order];
-	*(void**)data = next;
-#ifdef BRICK_DEBUG_MEM // insert redundant copy for checking
-	*(((void**)data)+2) = next;
-#endif
+
+	h_data = data;
+	h_data->fr_magic1 = FREEL_MAGIC_1;
+	h_data->fr_next = next;
+	h_data->fr_len = 0;
+	h_data->fr_order = order;
+	h_data->fr_magic2 = FREEL_MAGIC_2;
+
 	brick_freelist[order] = data;
 	traced_unlock(&freelist_lock[order], flags);
 	atomic_inc(&freelist_count[order]);
