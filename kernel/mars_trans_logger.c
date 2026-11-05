@@ -2971,6 +2971,7 @@ int replay_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len
 			MARS_ERR("cannot get mref, status = %d\n", status);
 			goto done;
 		}
+		barrier();
 		if (unlikely(!mref->ref_data)) {
 			status = -ENOMEM;
 			MARS_ERR("cannot get mref, status = %d\n", status);
