@@ -129,16 +129,27 @@ Changelog for series 0.1a:
 	The _historic_ stable branch mars0.1.y is EOL since a
 	long time, and had been forced to the current master.
 
-	INFO: upstream stable kernels v5.10.x and later will require
-	some new MARS-internal bricks and libraries, currently under
-	preparation.
-	Please stay patient; some old MARS bugs have been already found and
-	fixed during the preparation phase. I am releasing them
-	for the currently supported stable upstream kernels.
+	INFO: now the upstream kernel 7.2.x is suppoerted, thanks
+	to contributions by Alessandro Bolletta.
+
+	Kernel versions truly inbetween 4.19 and 7.2 are NOT
+	supported!
 
 	HINT: the CIP project is your friend. See docs at
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
+
+mars0.1astable183s
+
+	* Adapt to kernel 7.2.x, via a single new option
+	  CONFIG_MARS_MODERN_KERNEL.
+	  Many thanks to Alessandro Bolleta!
+	  NOTICE:
+	  The kernel versions after 4.19.y-cip up to the
+	  7.2 series are NOT supported.
+	  In addition to Alessandro's new QEMU tests, I have
+	  tested only kernel versions 4.{4,19}.y-cip and
+	  7.2.15 using IONOS-internal tests.
 
 mars0.1astable183r
 	* Major fix: the server part could cause a bad
