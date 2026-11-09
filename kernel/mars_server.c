@@ -50,6 +50,8 @@ struct server_cookie {
 	struct mars_socket _server_socket;
 	int port_nr;
 	int thread_nr;
+	bool port_should_stop;
+	bool port_stopping;
 };
 
 static struct server_cookie server_cookie[MARS_TRAFFIC_MAX] = {
@@ -1256,7 +1258,7 @@ static int port_thread(void *data)
 	MARS_INF("-------- port %d thread now working on host '%s' ----------\n",
 		 cookie->port_nr, id);
 
-        while (!brick_thread_should_stop() ||
+        while (!cookie->port_should_stop ||
 	       !list_empty(&server_global->brick_anchor)) {
 		struct server_brick *brick = NULL;
 		const char *ini_path;
@@ -1279,7 +1281,8 @@ static int port_thread(void *data)
 						       NULL, true);
 		MARS_DBG("kill server bricks (when possible) = %d\n", status);
 
-		if (!mars_global || !mars_global->global_power.button) {
+		if (!mars_global || !mars_global->global_power.button ||
+		    cookie->port_should_stop) {
 			if (mars_socket_is_alive(&handler_socket)) {
 				server_shutdown_socket(&handler_socket);
 				mars_put_socket(&handler_socket);
@@ -1385,6 +1388,7 @@ static int port_thread(void *data)
 		}
 		brick_msleep(200);
 	}
+	cookie->port_stopping = true;
 
 	MARS_INF("-------- cleaning up ----------\n");
 
@@ -1408,17 +1412,28 @@ static int port_thread(void *data)
 
 void exit_mars_server(void)
 {
+	int abort_count = 0;
 	int i;
 
 	MARS_INF("exit_server()\n");
 	server_unregister_brick_type();
 
+ restart:
 	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
 		struct mars_socket *server_socket = server_cookie[i].server_socket;
 
 		server_shutdown_socket(server_socket);
+		server_cookie[i].port_should_stop = true;
 	}
-
+	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
+		if (server_cookie[i].port_stopping)
+			continue;
+		brick_msleep(1000);
+		smp_mb();
+		if (abort_count++ <= 50)
+			goto restart;
+		server_thread[i] = NULL;
+	}
 	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
 		if (server_thread[i]) {
 			MARS_INF("stopping server thread %d...\n", i);
