@@ -1242,6 +1242,7 @@ static int port_thread(void *data)
 #ifdef CONFIG_MARS_DEBUG_DEVEL_VIA_SAY
 	char *id = my_id();
 #endif
+	int shutdown_count = 0;
 	int status = 0;
 
 	INIT_LIST_HEAD(&port_anchor);
@@ -1288,6 +1289,15 @@ static int port_thread(void *data)
 				mars_put_socket(&handler_socket);
 			}
 			brick_msleep(200);
+			if (cookie->port_should_stop &&
+			    !list_empty(&server_global->brick_anchor)) {
+				brick_msleep(800);
+				if (shutdown_count++ <= 10)
+					continue;
+				mars_kill_brick_all(server_global,
+						    &server_global->brick_anchor,
+						    false);
+			}
 			continue;
 		}
 
