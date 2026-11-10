@@ -140,6 +140,17 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183q
+	* Improvement for high-loaded servers:
+	  Workaround the Buddy allocation problem, by
+	  - reduction of higher-order allocations
+	  - free-lists are less frequently emptied, thus
+	    similar effects than /proc/sys/vm/drop_caches
+	    should be drastically reduced.
+	  - CONFIG_MARS_MEM_PREALLOC needs to be enabled
+	    for this to work!
+	* Minor fix: rare race could lead to hanging rmmod.
+
 mars0.1astable183p
 	* safeguard null-terminattion of internel strings
 	  at some corner cases. Found and contributed by
