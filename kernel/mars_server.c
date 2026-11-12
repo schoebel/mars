@@ -50,6 +50,7 @@ struct server_cookie {
 	struct mars_socket _server_socket;
 	int port_nr;
 	int thread_nr;
+	__u32 instance_nr;
 	bool port_should_stop;
 	bool port_stopping;
 };
@@ -1334,9 +1335,9 @@ static int port_thread(void *data)
 			continue;
 		}
 
-		ini_path = path_make("mars_h:%d.%d",
+		ini_path = path_make("mars_h:%d.%u",
 				     cookie->port_nr,
-				     ++cookie->thread_nr);
+				     ++cookie->instance_nr);
 		smp_mb();
 		brick = (void*)mars_make_brick(server_global, NULL,
 					       &server_brick_type,
@@ -1404,7 +1405,7 @@ static int port_thread(void *data)
 
 	check_bricks(&port_anchor, true);
 
-	server_thread[cookie->port_nr] = NULL;
+	server_thread[cookie->thread_nr] = NULL;
 	brick_msleep(200);
 
 	mars_kill_brick_all(server_global, &server_global->brick_anchor, false);
