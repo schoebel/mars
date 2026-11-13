@@ -140,6 +140,10 @@ Changelog for series 0.1a:
 	the Linux Foundation and code at
 	https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git
 
+mars0.1astable183r
+	* Major fix: the server part could cause a bad
+	  mem deref.
+
 mars0.1astable183q
 	* Improvement for high-loaded servers:
 	  Workaround the Buddy allocation problem, by
