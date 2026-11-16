@@ -411,8 +411,6 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 		mf_dirty_append(output->mf, DIRTY_SUBMITTED,
 				mref->ref_pos + mref->ref_len);
 		status = write_aops(output, mref);
-		if (status >= 0 && status != mref->ref_len)
-			status = -EIO;
 		if (status >= 0 && output->brick->o_fdsync) {
 			int sync_status = sync_file(output);
 
@@ -426,7 +424,18 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 	}
 
 	/* A short read cannot satisfy the original mref. */
-	if (status >= 0 && status != mref->ref_len)
+	/* Yes, but: shorter {read,write}s than PAGE_SIZE are possible,
+	 * e.g. during the mount() syscalls.
+	 * Transaction logfiles may use non-multiples of 512byte sectors.
+	 * The caller of this brick is responsible for dealing with
+	 * (arbitrary) short IO, usually by submission of more mrefs.
+	 * Thus we only test against illegal responses.
+	 * This patch from Alessandro remains useful for (migrated) filesystems
+	 * not matching certain hardware, e.g. insisting on 4k sector size,
+	 * while the filesystem had been created long ago at some old hardware.
+	 * It is better to refuse such mounts, instead of destroying data.
+	 */
+	if (status > mref->ref_len)
 		status = -EIO;
 	mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
 
